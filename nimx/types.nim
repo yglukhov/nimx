@@ -20,15 +20,17 @@ proc minY*(r: Rect): Coord = r.y
 proc maxY*(r: Rect): Coord = r.y + r.height
 
 
-proc newRect*(x, y, w, h: Coord): Rect =
-    result.origin.x = x
-    result.origin.y = y
-    result.size.width = w
-    result.size.height = h
+proc newPoint*(x, y: Coord): Point =
+    result.x = x
+    result.y = y
 
 proc newSize*(w, h: Coord): Size =
     result.width = w
     result.height = h
+
+proc newRect*(x, y, w, h: Coord): Rect =
+    result.origin = newPoint(x, y)
+    result.size = newSize(w, h)
 
 proc newColor*(r, g, b: ColorComponent, a: ColorComponent = 1.0): Color =
     result.r = r
