@@ -12,5 +12,5 @@ proc newButton*(r: Rect): Button =
 method draw(b: Button) =
     let c = currentContext()
     c.fillColor = newColor(1, 0, 0)
-    c.drawRect(b.bounds)
+    c.drawRoundedRect(b.bounds, 5)
 
