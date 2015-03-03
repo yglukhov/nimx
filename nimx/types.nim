@@ -7,7 +7,6 @@ type Point* = tuple[x, y: Coord]
 type Size* = tuple[width, height: Coord]
 type Rect* = tuple[origin: Point, size: Size]
 type Color* = tuple[r, g, b, a: ColorComponent]
-type Transform3D = distinct array[16, Coord]
 
 proc x*(r: Rect): Coord = r.origin.x
 proc y*(r: Rect): Coord = r.origin.y

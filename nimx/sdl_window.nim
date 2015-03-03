@@ -9,8 +9,8 @@ import matrixes
 import times
 
 type SdlWindow* = ref object of Window
-    impl: PWindow
-    sdlGlContext: PGLContext
+    impl: WindowPtr
+    sdlGlContext: GlContextPtr
     renderingContext: GraphicsContext
     font: FontData
 
@@ -33,26 +33,25 @@ method initCommon(w: SdlWindow, r: view.Rect) =
         log("Could not create window!")
         quit 1
     procCall init(cast[Window](w), r)
-    w.sdlGlContext = w.impl.GL_CreateContext()
+    w.sdlGlContext = w.impl.glCreateContext()
     if w.sdlGlContext == nil:
         log "Could not create context!"
-    echo GL_SetSwapInterval(0)
-    discard GL_MakeCurrent(w.impl, w.sdlGlContext)
+    discard glMakeCurrent(w.impl, w.sdlGlContext)
     w.renderingContext = newGraphicsContext()
     w.font = my_stbtt_initfont()
 
     w.enableAnimation(true)
     allWindows.add(w)
-    discard w.impl.SetData("__nimx_wnd", cast[pointer](w))
+    discard w.impl.setData("__nimx_wnd", cast[pointer](w))
 
 method initFullscreen*(w: SdlWindow) =
-    var displayMode : TDisplayMode
-    discard GetDesktopDisplayMode(0, displayMode)
+    var displayMode : DisplayMode
+    discard getDesktopDisplayMode(0, displayMode)
     let flags = SDL_WINDOW_OPENGL or SDL_WINDOW_FULLSCREEN
-    w.impl = CreateWindow(nil, 0, 0, displayMode.w, displayMode.h, flags)
+    w.impl = createWindow(nil, 0, 0, displayMode.w, displayMode.h, flags)
 
-    discard GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, 0x0004)
-    discard GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2)
+    discard glSetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, 0x0004)
+    discard glSetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2)
 
     var width, height : cint
     w.impl.getSize(width, height)
@@ -62,7 +61,7 @@ method init*(w: SdlWindow, r: view.Rect) =
     when defined(ios):
         w.initFullscreen()
     else:
-        w.impl = CreateWindow(nil, cint(r.x), cint(r.y), cint(r.width), cint(r.height), SDL_WINDOW_OPENGL or SDL_WINDOW_RESIZABLE)
+        w.impl = createWindow(nil, cint(r.x), cint(r.y), cint(r.width), cint(r.height), SDL_WINDOW_OPENGL or SDL_WINDOW_RESIZABLE)
         w.initCommon(newRect(0, 0, r.width, r.height))
 
 proc newFullscreenSdlWindow*(): SdlWindow =
@@ -74,15 +73,15 @@ proc newSdlWindow*(r: view.Rect): SdlWindow =
     result.init(r)
 
 method `title=`*(w: SdlWindow, t: string) =
-    w.impl.SetTitle(t)
+    w.impl.setTitle(t)
 
-method title*(w: SdlWindow): string = $w.impl.GetTitle()
+method title*(w: SdlWindow): string = $w.impl.getTitle()
 
-var lastTime = GetTicks()
+var lastTime = getTicks()
 var lastFrame = 0.0
 
 proc fps(): int =
-    let curTime = GetTicks()
+    let curTime = getTicks()
     let thisFrame = curTime - lastTime
     lastFrame = (lastFrame * 0.9 + thisFrame.float * 0.1)
     result = (1.0 / lastFrame * 1000.0).int
@@ -109,15 +108,15 @@ method drawWindow(w: SdlWindow) =
     c.testPoly()
  
     c.revertTransform(oldTransform)
-    w.impl.GL_SwapWindow() # Swap the front and back frame buffers (double buffering)
+    w.impl.glSwapWindow() # Swap the front and back frame buffers (double buffering)
 
-proc waitOrPollEvent(evt: var TEvent): auto =
+proc waitOrPollEvent(evt: var Event): auto =
     when defined(ios):
-        WaitEvent(evt)
+        waitEvent(evt)
     else:
-        PollEvent(evt)
+        pollEvent(evt)
 
-proc handleSdlEvent(w: SdlWindow, e: TWindowEvent): bool =
+proc handleSdlEvent(w: SdlWindow, e: WindowEventObj): bool =
     case e.event:
         of WindowEvent_Resized:
             w.onResize(newSize(Coord(e.data1), Coord(e.data2)))
@@ -125,11 +124,11 @@ proc handleSdlEvent(w: SdlWindow, e: TWindowEvent): bool =
         else: discard
     return false
 
-type EventHandler = proc (e: ptr TEvent): Bool32
+type EventHandler = proc (e: ptr Event): Bool32
 
 var eventHandler: EventHandler
 
-proc eventFilter(userdata: pointer; event: ptr TEvent): Bool32 {.cdecl.} =
+proc eventFilter(userdata: pointer; event: ptr Event): Bool32 {.cdecl.} =
     var handled = false
     case event.kind:
         of FingerMotion:
@@ -142,11 +141,11 @@ proc eventFilter(userdata: pointer; event: ptr TEvent): Bool32 {.cdecl.} =
             log("Finger up")
             handled = true
         of WindowEvent:
-            let wndEv = cast[PWindowEvent](event)
+            let wndEv = cast[WindowEventPtr](event)
             let sdlWndId = wndEv.windowID
-            let sdlWin = GetWindowFromID(sdlWndId)
+            let sdlWin = getWindowFromID(sdlWndId)
             if sdlWin != nil:
-                let wnd = cast[SdlWindow](sdlWin.GetData("__nimx_wnd"))
+                let wnd = cast[SdlWindow](sdlWin.getData("__nimx_wnd"))
                 if wnd != nil:
                     handled = wnd.handleSdlEvent(wndEv[])
         of AppWillEnterBackground:
@@ -167,7 +166,7 @@ proc eventFilter(userdata: pointer; event: ptr TEvent): Bool32 {.cdecl.} =
 
 proc setEventHandler*(handler: EventHandler) =
     eventHandler = handler
-    SetEventFilter(eventFilter, nil)
+    setEventFilter(eventFilter, nil)
 
 method onResize*(w: SdlWindow, newSize: Size) =
     glViewport(0, 0, GLSizei(newSize.width), GLsizei(newSize.height))
@@ -179,12 +178,12 @@ let MAXFRAMERATE: uint32 = 20 # milli seconds
 var frametime: uint32 
 
 proc limitFramerate() =
-    var now = GetTicks()
+    var now = getTicks()
     if frametime > now:
-        Delay(frametime - now)
+        delay(frametime - now)
     frametime = frametime + MAXFRAMERATE
 
-proc nextEvent*(evt: var TEvent): bool =
+proc nextEvent*(evt: var Event): bool =
     #PumpEvents()
     result = waitOrPollEvent(evt)
 

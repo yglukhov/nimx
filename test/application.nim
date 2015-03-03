@@ -10,7 +10,7 @@ import nimx.button
 
 const isMobile = defined(ios) or defined(android)
 
-template c(a: string) = discard
+template c*(a: string) = discard
 
 type GameWindow = ref object of SdlWindow
 
@@ -62,7 +62,7 @@ method draw(w: GameWindow) =
 
 var runGame = true
 
-proc eventFilter(event: ptr TEvent): Bool32 {.cdecl.} =
+proc eventFilter(event: ptr Event): Bool32 {.cdecl.} =
     case event.kind:
         of FingerMotion:
             log("finger motion")
@@ -77,10 +77,10 @@ proc eventFilter(event: ptr TEvent): Bool32 {.cdecl.} =
         else: discard
     return True32
 
-setEventHandler do(event: ptr TEvent) -> Bool32:
+setEventHandler do(event: ptr Event) -> Bool32:
     return eventFilter(event)
 
-var evt: TEvent
+var evt: Event
 
 # Main loop
 while runGame:
@@ -89,4 +89,4 @@ while runGame:
       runGame = false
       break
  
-discard Quit(evt)
+discard quit(evt)
