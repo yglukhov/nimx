@@ -8,4 +8,6 @@ license = "BSD"
 [Dependencies]
 Requires: "sdl2"
 Requires: "opengl"
+Requires: "https://github.com/yglukhov/ttf"
+#Requires: "file:///Volumes/Work/Projects/ttf"
 

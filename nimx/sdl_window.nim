@@ -6,10 +6,13 @@ import opengl
 import context
 import matrixes
 
+import times
+
 type SdlWindow* = ref object of Window
     impl: PWindow
     sdlGlContext: PGLContext
     renderingContext: GraphicsContext
+    font: FontData
 
 var allWindows : seq[SdlWindow] = @[]
 
@@ -35,6 +38,7 @@ method initCommon(w: SdlWindow, r: view.Rect) =
         log "Could not create context!"
     discard GL_MakeCurrent(w.impl, w.sdlGlContext)
     w.renderingContext = newGraphicsContext()
+    w.font = my_stbtt_initfont()
 
     w.enableAnimation(true)
     allWindows.add(w)
@@ -73,6 +77,17 @@ method `title=`*(w: SdlWindow, t: string) =
 
 method title*(w: SdlWindow): string = $w.impl.GetTitle()
 
+var lastTime = GetTicks()
+var lastFrame = 0.0
+
+proc fps(): int =
+    let curTime = GetTicks()
+    let thisFrame = curTime - lastTime
+    lastFrame = (lastFrame * 0.9 + thisFrame.float * 0.1)
+    result = (1.0 / lastFrame * 1000.0).int
+    lastTime = curTime
+
+
 method drawWindow(w: SdlWindow) =
     glViewport(0, 0, GLsizei(w.frame.width), GLsizei(w.frame.height))
 
@@ -82,10 +97,16 @@ method drawWindow(w: SdlWindow) =
     let oldContext = setCurrentContext(c)
     defer: setCurrentContext(oldContext)
     var transform : Transform3D
-    transform.ortho(0, w.frame.width, 0, w.frame.height, -1, 1)
+    transform.ortho(0, w.frame.width, w.frame.height, 0, -1, 1)
     let oldTransform = c.setScopeTransform(transform)
 
     w.recursiveDrawSubviews()
+
+    var pt = newPoint(300, 300)
+    c.fillColor = newColor(0.5, 0, 0)
+    c.my_stbtt_print(w.font, pt, $fps())
+    c.testPoly()
+ 
     c.revertTransform(oldTransform)
     w.impl.GL_SwapWindow() # Swap the front and back frame buffers (double buffering)
 
@@ -163,12 +184,12 @@ proc limitFramerate() =
     frametime = frametime + MAXFRAMERATE
 
 proc nextEvent*(evt: var TEvent): bool =
-    PumpEvents()
+    #PumpEvents()
     result = waitOrPollEvent(evt)
 
     when not defined(ios):
         if not result:
             for wnd in allWindows:
                 wnd.drawWindow()
-            limitFramerate()
+            #limitFramerate()
 

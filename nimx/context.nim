@@ -3,12 +3,12 @@ import opengl
 import unsigned
 import logging
 import matrixes
+import "../../ttf/ttf"
 
 export matrixes
 
 type ShaderAttribute = enum
     saPosition
-    aaFillColor
 
 
 type Transform3D* = Matrix4
@@ -112,18 +112,97 @@ void main()
 
     gl_FragColor = mix(strokeColor, vec4(0, 0, 0, 0), outerAlpha);
 	gl_FragColor = mix(fillColor, gl_FragColor, innerAlpha);
-    /*
-    vec2 ab = rect.zw / 2.0;
-	vec2 center = rect.xy + ab;
-    vec2 pos = vertCoord - center;
-    float dist = pos.x*pos.x/(ab.x*ab.x) + pos.y*pos.y/(ab.y*ab.y);
-    float delta = fwidth(dist) * 0.8;
-    float alpha = 1.0 - smoothstep(1.0 - delta, 1.0 + delta, dist);
-    gl_FragColor = vec4(fillColor.xyz, fillColor.w * alpha);
-    */
 }
 
 """
+
+const fontVertexShader = """
+attribute vec4 position;
+
+uniform mat4 modelViewProjectionMatrix;
+
+varying vec2 vTexCoord;
+
+void main()
+{
+    vTexCoord = position.zw;
+    gl_Position = modelViewProjectionMatrix * vec4(position.xy, 0, 1);
+}
+"""
+
+const fontFragmentShader = """
+#ifdef GL_ES
+precision mediump float;
+#extension GL_OES_standard_derivatives : enable
+#endif
+
+uniform sampler2D texUnit;
+uniform vec4 fillColor;
+
+varying vec2 vTexCoord;
+
+void main()
+{
+    gl_FragColor = vec4(fillColor.rgb, texture2D(texUnit, vTexCoord).w);
+}
+"""
+
+const maxVertices = 12
+
+const testPolygonVertexShader = """
+attribute vec4 position;
+//attribute int vertexIndex;
+
+#extension GL_EXT_gpu_shader4 : require
+
+uniform mat4 modelViewProjectionMatrix;
+uniform int numberOfVertices;
+
+varying float bariCoords[""" & $maxVertices & """];
+
+void main()
+{
+    for (int i = 0; i < numberOfVertices; ++i)
+    {
+        bariCoords[i] = 0.0;
+    }
+    bariCoords[gl_VertexID] = 1.0;
+
+    gl_Position = modelViewProjectionMatrix * vec4(position.xy, 0, 1);
+}
+"""
+
+const testPolygonFragmentShader = """
+#ifdef GL_ES
+precision mediump float;
+#extension GL_OES_standard_derivatives : enable
+#endif
+
+varying float bariCoords[""" & $maxVertices & """];
+uniform int numberOfVertices;
+
+const float edgeWidth = 0.1;
+
+void main()
+{
+    gl_FragColor = vec4(bariCoords[0], bariCoords[1], bariCoords[2], 1.0);
+    for (int i = 0; i < numberOfVertices - 1; ++i)
+    {
+        if (bariCoords[i] + bariCoords[i + 1] > 1.0 - edgeWidth)
+            gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
+    }
+
+    if (bariCoords[0] + bariCoords[numberOfVertices - 1] > 1.0 - edgeWidth)
+        gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
+
+    for (int i = 0; i < numberOfVertices; ++i)
+    {
+        if (bariCoords[i] > 0.9) gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
+    }
+}
+
+"""
+
 
 proc getShaderInfoLog(s: GLuint): string =
     var infoLen: GLint
@@ -205,6 +284,8 @@ type GraphicsContext* = ref object of RootObj
     shaderProgram: GLuint
     roundedRectShaderProgram: GLuint
     ellipseShaderProgram: GLuint
+    fontShaderProgram: GLuint
+    testPolyShaderProgram: GLuint
 
 var gCurrentContext: GraphicsContext
 
@@ -234,6 +315,8 @@ proc newGraphicsContext*(): GraphicsContext =
     result.shaderProgram = newShaderProgram(vertexShader, fragmentShader)
     result.roundedRectShaderProgram = newShaderProgram(roundedRectVertexShader, roundedRectFragmentShader)
     result.ellipseShaderProgram = newShaderProgram(roundedRectVertexShader, ellipseFragmentShader)
+    result.fontShaderProgram = newShaderProgram(fontVertexShader, fontFragmentShader)
+    result.testPolyShaderProgram = newShaderProgram(testPolygonVertexShader, testPolygonFragmentShader)
     glClearColor(1.0, 0.0, 1.0, 1.0)
 
 
@@ -292,4 +375,104 @@ proc drawEllipseInRect*(c: GraphicsContext, r: Rect) =
     glUniformMatrix4fv(glGetUniformLocation(c.ellipseShaderProgram, "modelViewProjectionMatrix"), 1, false, cast[ptr GLfloat](c.pTransform))
     glUniform4fv(glGetUniformLocation(c.ellipseShaderProgram, "rect"), 1, cast[ptr GLfloat](addr rect))
     c.drawRectAsQuad(r)
+
+type FontData* = object
+    chars: array[96, stbtt_bakedchar]
+    texture: GLuint
+
+proc my_stbtt_initfont*(): FontData =
+    var rawData = readFile("/Library/Fonts/Arial.ttf")
+    const width = 512
+    const height = 512
+    var temp_bitmap : array[width * height, byte]
+    const length = result.chars.len()
+    let res = stbtt_BakeFontBitmap(cstring(rawData), 0, 32.0, addr temp_bitmap, width, height, 32, length, addr result.chars) # no guarantee this fits!
+    glGenTextures(1, addr result.texture)
+    glBindTexture(GL_TEXTURE_2D, result.texture)
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, width, height, 0, GL_ALPHA, GL_UNSIGNED_BYTE, addr temp_bitmap)
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
+
+proc my_stbtt_print*(c: GraphicsContext, font: FontData, pt: var Point, text: string) =
+    # assume orthographic projection with units = screen pixels, origin at top left
+    c.fontShaderProgram.glUseProgram()
+    glActiveTextureARB( GL_TEXTURE0_ARB )
+    glUniform4fv(glGetUniformLocation(c.fontShaderProgram, "fillColor"), 1, cast[ptr GLfloat](addr c.fillColor))
+    
+    glBindTexture(GL_TEXTURE_2D, font.texture)
+    glEnableVertexAttribArray(GLuint(saPosition))
+    glUniformMatrix4fv(glGetUniformLocation(c.fontShaderProgram, "modelViewProjectionMatrix"), 1, false, cast[ptr GLfloat](c.pTransform))
+
+    var x : cfloat = pt.x
+    var y : cfloat = pt.y
+    var chars = font.chars
+    var vertexes: array[4 * 4, Coord]
+    glVertexAttribPointer(GLuint(saPosition), 4, cGL_FLOAT, false, 0, cast[pointer](addr vertexes))
+    var q : stbtt_aligned_quad
+
+    for ch in text:
+        if ch.ord >= 32 and ch.ord < 128:
+            stbtt_GetBakedQuad(chars, 512, 512, ch.ord-32, x, y, q, true) # true=opengl & d3d10+,false=d3d9
+            vertexes = [ q.x0, q.y0, q.s0, q.t0,
+                        q.x1, q.y0, q.s1, q.t0,
+                        q.x1, q.y1, q.s1, q.t1,
+                        q.x0, q.y1, q.s0, q.t1 ]
+            glDrawArrays(cast[GLenum](ptTriangleFan), 0, 4)
+
+#proc drawText(c: GraphicsContext, pt: var Point, test: string) =
+#    c.my_stbtt_print(c.
+
+discard """
+proc beginStencil(c: GraphicsContext) =
+    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE)
+    glDepthMask(GL_FALSE)
+    glStencilFunc(GL_NEVER, 1, 0xFF)
+    glStencilOp(GL_REPLACE, GL_KEEP, GL_KEEP)  # draw 1s on test fail (always)
+ 
+    # draw stencil pattern
+    glStencilMask(0xFF)
+    glClear(GL_STENCIL_BUFFER_BIT)  # needs mask=0xFF
+    
+proc endStencil(c: GraphicsContext) =
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glDepthMask(GL_TRUE);
+    glStencilMask(0x00);
+
+proc enableStencil(c: GraphicsContext) =
+    glEnable(GL_STENCIL_TEST)
+
+proc disableStencil(c: GraphicsContext) =
+    glDisable(GL_STENCIL_TEST)
+
+proc drawGradientInRect(c: GraphicsContext) =
+    discard
+    """
+
+const indexes = [0, 1, 2, 3, 4, 5, 6, 7]
+
+proc drawPoly*(c: GraphicsContext, points: openArray[Coord]) =
+    let shaderProg = c.testPolyShaderProgram
+    shaderProg.glUseProgram()
+    glEnable(GL_BLEND)
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+    glEnableVertexAttribArray(GLuint(saPosition))
+    const componentCount = 2
+    let numberOfVertices = points.len / componentCount
+    glVertexAttribPointer(GLuint(saPosition), GLint(componentCount), cGL_FLOAT, false, 0, cast[pointer](points))
+    #//glUniform4fv(glGetUniformLocation(c.shaderProg, "fillColor"), 1, cast[ptr GLfloat](addr c.fillColor))
+    glUniform1i(glGetUniformLocation(shaderProg, "numberOfVertices"), GLint(numberOfVertices))
+    glUniformMatrix4fv(glGetUniformLocation(shaderProg, "modelViewProjectionMatrix"), 1, false, cast[ptr GLfloat](c.pTransform))
+    #glUniform4fv(glGetUniformLocation(shaderProg, "fillColor"), 1, cast[ptr GLfloat](addr c.fillColor))
+    #glDrawArrays(cast[GLenum](ptTriangleFan), 0, GLsizei(numberOfVertices))
+
+proc testPoly*(c: GraphicsContext) =
+    let points = [
+        Coord(500.0), 400,
+        #600, 400,
+
+        #700, 450,
+
+        600, 500,
+        500, 500
+        ]
+    c.drawPoly(points)
 

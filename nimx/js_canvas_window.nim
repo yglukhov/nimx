@@ -1,7 +1,6 @@
 import window
 import logging
 import view
-#import patched_temp_stuff.opengl
 import context
 import matrixes
 import dom
