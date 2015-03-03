@@ -80,13 +80,13 @@ proc eventFilter(event: ptr TEvent): Bool32 {.cdecl.} =
 setEventHandler do(event: ptr TEvent) -> Bool32:
     return eventFilter(event)
 
+var evt: TEvent
+
 # Main loop
 while runGame:
-    var evt: TEvent
     discard nextEvent(evt)
     if evt.kind == QuitEvent:
       runGame = false
       break
  
-Quit()
-
+discard Quit(evt)

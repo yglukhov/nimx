@@ -80,12 +80,15 @@ proc replaceVarsInFile(file: string, vars: Table[string, string]) =
         content = content.replace("$(" & k & ")", v)
     writeFile(file, content)
 
-proc buildSDLForMacOS(): string =
-    let xcodeProjDir = expandTilde(sdlRoot)/"Xcode/SDL"
-    let libDir = xcodeProjDir/"build/Release"
-    if not fileExists libDir/"libSDL2.a":
-        direShell "xcodebuild", "-project", xcodeProjDir/"SDL.xcodeproj", "-target", "Static\\ Library", "-configuration", "Release", "-sdk", "macosx"&macOSSDKVersion, "SYMROOT=build"
-    libDir
+proc buildSDLForDesktop(): string =
+    when defined(linux):
+        "/usr/lib"
+    else:
+        let xcodeProjDir = expandTilde(sdlRoot)/"Xcode/SDL"
+        let libDir = xcodeProjDir/"build/Release"
+        if not fileExists libDir/"libSDL2.a":
+            direShell "xcodebuild", "-project", xcodeProjDir/"SDL.xcodeproj", "-target", "Static\\ Library", "-configuration", "Release", "-sdk", "macosx"&macOSSDKVersion, "SYMROOT=build"
+        libDir
 
 
 proc buildSDLForIOS(forSimulator: bool = false): string =
@@ -131,10 +134,12 @@ proc runNim(arguments: varargs[string]) =
 
 task defaultTask, "Build and run":
     createSDLIncludeLink "nimcache"
-    runNim "--passC:-Inimcache", "--passC:-isysroot", "--passC:" & macOSSDK, "--passL:-isysroot", "--passL:" & macOSSDK,
+    when defined(macos): runNim "--passC:-Inimcache", "--passC:-isysroot", "--passC:" & macOSSDK, "--passL:-isysroot", "--passL:" & macOSSDK,
         "--passC:-mmacosx-version-min=" & macOSMinVersion, "--passL:-mmacosx-version-min=" & macOSMinVersion,
-        "--passL:-fobjc-link-runtime", "-d:SDL_Static", "--passL:-L"&buildSDLForMacOS(), "--passL:-lSDL2",
+        "--passL:-fobjc-link-runtime", "-d:SDL_Static", "--passL:-L"&buildSDLForDesktop(), "--passL:-lSDL2",
         "--run"
+    else:
+        runNim "--passC:-Inimcache", "-d:SDL_Static", "--passL:-L"&buildSDLForDesktop(), "--passL:-lSDL2", "--run"    
 
 task "ios-sim", "Build and run in iOS simulator":
     createSDLIncludeLink "nimcache"
