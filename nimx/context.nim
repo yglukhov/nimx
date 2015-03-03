@@ -381,7 +381,7 @@ type FontData* = object
     texture: GLuint
 
 proc my_stbtt_initfont*(): FontData =
-    when defined(macos):
+    when defined(macosx):
         var rawData = readFile("/Library/Fonts/Arial.ttf")
     else:
         var rawData = readFile("/usr/share/fonts/truetype/ubuntu-font-family/Ubuntu-R.ttf")
