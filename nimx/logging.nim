@@ -30,5 +30,5 @@ elif defined(android):
         {.emit: """__android_log_print(ANDROID_LOG_INFO, "NIM_APP", a);""".}
     proc log*(a: varargs[string, `$`]) = droid_log_imported(a.join())
 else:
-    proc log*(a: varargs[string, `$`]) = echo a
+    proc log*(a: varargs[string, `$`]) = echo a.join()
 

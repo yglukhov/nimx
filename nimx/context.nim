@@ -3,7 +3,7 @@ import opengl
 import unsigned
 import logging
 import matrixes
-import "../../ttf/ttf"
+import ttf
 
 export matrixes
 
@@ -381,7 +381,11 @@ type FontData* = object
     texture: GLuint
 
 proc my_stbtt_initfont*(): FontData =
-    var rawData = readFile("/Library/Fonts/Arial.ttf")
+    when defined(macos):
+        var rawData = readFile("/Library/Fonts/Arial.ttf")
+    else:
+        var rawData = readFile("/usr/share/fonts/truetype/ubuntu-font-family/Ubuntu-R.ttf")
+        
     const width = 512
     const height = 512
     var temp_bitmap : array[width * height, byte]

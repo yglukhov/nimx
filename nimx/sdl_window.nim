@@ -36,6 +36,7 @@ method initCommon(w: SdlWindow, r: view.Rect) =
     w.sdlGlContext = w.impl.GL_CreateContext()
     if w.sdlGlContext == nil:
         log "Could not create context!"
+    echo GL_SetSwapInterval(0)
     discard GL_MakeCurrent(w.impl, w.sdlGlContext)
     w.renderingContext = newGraphicsContext()
     w.font = my_stbtt_initfont()
@@ -54,7 +55,7 @@ method initFullscreen*(w: SdlWindow) =
     discard GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2)
 
     var width, height : cint
-    w.impl.GetSize(width, height)
+    w.impl.getSize(width, height)
     w.initCommon(newRect(0, 0, Coord(width), Coord(height)))
 
 method init*(w: SdlWindow, r: view.Rect) =
