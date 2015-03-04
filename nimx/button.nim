@@ -2,6 +2,11 @@ import control
 import context
 import types
 import logging
+import event
+
+export control
+
+#type ClickHandler = proc
 
 type Button = ref object of Control
 
@@ -13,4 +18,13 @@ method draw(b: Button) =
     let c = currentContext()
     c.fillColor = newColor(1, 0, 0)
     c.drawRoundedRect(b.bounds, 5)
+
+method onMouseDown(b: Button, e: var Event): bool =
+    echo "DOWN"
+    result = true
+
+method onMouseUp(b: Button, e: var Event): bool =
+    result = true
+    echo "UP"
+    b.sendAction(e)
 

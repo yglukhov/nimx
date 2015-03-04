@@ -26,9 +26,12 @@ proc newSize*(w, h: Coord): Size =
     result.width = w
     result.height = h
 
+proc newRect*(o: Point, s: Size): Rect =
+    result.origin = o
+    result.size = s
+
 proc newRect*(x, y, w, h: Coord): Rect =
-    result.origin = newPoint(x, y)
-    result.size = newSize(w, h)
+    newRect(newPoint(x, y), newSize(w, h))
 
 proc newColor*(r, g, b: ColorComponent, a: ColorComponent = 1.0): Color =
     result.r = r
@@ -36,28 +39,32 @@ proc newColor*(r, g, b: ColorComponent, a: ColorComponent = 1.0): Color =
     result.b = b
     result.a = a
 
-type ButtonState* = enum
-    bsUnknown, bsUp, bsDown
-
 proc minCorner*(r: Rect): Point = r.origin
 proc maxCorner*(r: Rect): Point = newPoint(r.maxX, r.maxY)
 
-proc `>`*(p1: Point, p2: Point): bool =
+proc `>`*(p1, p2: Point): bool =
     # Component-wise comparison
     p1.x > p2.x and p1.y > p2.y
 
-proc `>=`*(p1: Point, p2: Point): bool =
+proc `>=`*(p1, p2: Point): bool =
     # Component-wise comparison
     p1.x >= p2.x and p1.y >= p2.y
 
-proc `<`*(p1: Point, p2: Point): bool =
+proc `<`*(p1, p2: Point): bool =
     # Component-wise comparison
     p1.x < p2.x and p1.y < p2.y
 
-proc `<=`*(p1: Point, p2: Point): bool =
+proc `<=`*(p1, p2: Point): bool =
     # Component-wise comparison
     p1.x <= p2.x and p1.y <= p2.y
 
-proc pointInRect*(p: Point, r: Rect): bool =
+
+proc `+`*(p1, p2: Point): Point =
+    newPoint(p1.x + p2.x, p1.y + p2.y)
+
+proc `-`*(p1, p2: Point): Point =
+    newPoint(p1.x - p2.x, p1.y - p2.y)
+
+proc inRect*(p: Point, r: Rect): bool =
     p >= r.origin and p <= r.maxCorner
 

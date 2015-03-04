@@ -5,6 +5,7 @@ import view
 import opengl
 import context
 import matrixes
+import event
 
 import times
 
@@ -110,7 +111,7 @@ method drawWindow(w: SdlWindow) =
     c.revertTransform(oldTransform)
     w.impl.glSwapWindow() # Swap the front and back frame buffers (double buffering)
 
-proc waitOrPollEvent(evt: var Event): auto =
+proc waitOrPollEvent(evt: var sdl2.Event): auto =
     when defined(ios):
         waitEvent(evt)
     else:
@@ -124,11 +125,21 @@ proc handleSdlEvent(w: SdlWindow, e: WindowEventObj): bool =
         else: discard
     return false
 
-type EventHandler = proc (e: ptr Event): Bool32
+type EventHandler = proc (e: ptr sdl2.Event): Bool32
 
-var eventHandler: EventHandler
+var eventHandler: EventHandler = nil
 
-proc eventFilter(userdata: pointer; event: ptr Event): Bool32 {.cdecl.} =
+proc windowFromSDLEvent[T](event: T): SdlWindow =
+    let sdlWndId = event.windowID
+    let sdlWin = getWindowFromID(sdlWndId)
+    if sdlWin != nil:
+        result = cast[SdlWindow](sdlWin.getData("__nimx_wnd"))
+
+proc positionFromSDLEvent[T](event: T): auto =
+    newPoint(event.x.Coord, event.y.Coord)
+
+
+proc eventFilter(userdata: pointer; event: ptr sdl2.Event): Bool32 {.cdecl.} =
     var handled = false
     case event.kind:
         of FingerMotion:
@@ -142,12 +153,32 @@ proc eventFilter(userdata: pointer; event: ptr Event): Bool32 {.cdecl.} =
             handled = true
         of WindowEvent:
             let wndEv = cast[WindowEventPtr](event)
-            let sdlWndId = wndEv.windowID
-            let sdlWin = getWindowFromID(sdlWndId)
-            if sdlWin != nil:
-                let wnd = cast[SdlWindow](sdlWin.getData("__nimx_wnd"))
-                if wnd != nil:
-                    handled = wnd.handleSdlEvent(wndEv[])
+            let wnd = windowFromSDLEvent(wndEv)
+            if wnd != nil:
+                handled = wnd.handleSdlEvent(wndEv[])
+
+        of MouseButtonDown, MouseButtonUp:
+            let mouseEv = cast[MouseButtonEventPtr](event)
+            let wnd = windowFromSDLEvent(mouseEv)
+            let state = if mouseEv.state == 1: bsDown else: bsUp
+            let button = case mouseEv.button:
+                of 0: kcMouseButtonPrimary
+                of 1: kcMouseButtonMiddle
+                of 2: kcMouseButtonSecondary
+                else: kcUnknown
+            if wnd != nil:
+                let pos = positionFromSDLEvent(mouseEv)
+                var evt = newMouseButtonEvent(pos, button, state)
+                handled = wnd.recursiveHandleMouseEvent(evt)
+        
+        of MouseMotion:
+            let mouseEv = cast[MouseMotionEventPtr](event)
+            let wnd = windowFromSDLEvent(mouseEv)
+            if wnd != nil:
+                let pos = positionFromSDLEvent(mouseEv)
+                var evt = newMouseMoveEvent(pos)
+                handled = wnd.recursiveHandleMouseEvent(evt)
+
         of AppWillEnterBackground:
             log "will enter back"
             for wnd in allWindows:
@@ -162,15 +193,16 @@ proc eventFilter(userdata: pointer; event: ptr Event): Bool32 {.cdecl.} =
     #log "Event: ", $event.kind
     if handled:
         return False32
-    return eventHandler(event)
+    if eventHandler != nil:
+        return eventHandler(event)
+    return True32
 
 proc setEventHandler*(handler: EventHandler) =
     eventHandler = handler
-    setEventFilter(eventFilter, nil)
 
 method onResize*(w: SdlWindow, newSize: Size) =
     glViewport(0, 0, GLSizei(newSize.width), GLsizei(newSize.height))
-    procCall w.Window.setSize(newSize)
+    procCall w.Window.onResize(newSize)
 
 # Framerate limiter
 let MAXFRAMERATE: uint32 = 20 # milli seconds
@@ -182,7 +214,7 @@ proc limitFramerate() =
         delay(frametime - now)
     frametime = frametime + MAXFRAMERATE
 
-proc nextEvent*(evt: var Event): bool =
+proc nextEvent*(evt: var sdl2.Event): bool =
     #PumpEvents()
     result = waitOrPollEvent(evt)
 
@@ -191,4 +223,20 @@ proc nextEvent*(evt: var Event): bool =
             for wnd in allWindows:
                 wnd.drawWindow()
             #limitFramerate()
+
+proc runUntilQuit*() =
+    var isRunning = true
+
+    # Initialize fist dummy event. The kind should be any unused kind.
+    var evt = sdl2.Event(kind: UserEvent1)
+    setEventFilter(eventFilter, nil)
+
+    # Main loop
+    while isRunning:
+        discard nextEvent(evt)
+        if evt.kind == QuitEvent:
+          isRunning = false
+          break
+ 
+    discard quit(evt)
 

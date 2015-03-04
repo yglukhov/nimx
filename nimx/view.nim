@@ -1,14 +1,11 @@
 import typetraits
 import types
 import context
+import event
+import logging
 
 export types
 
-
-type EventKind = enum
-    ekMouseMove, ekMouseAction
-
-type MouseEvent = tuple[position: Point, kind: EventKind, state: ButtonState]
 
 type
     View* = ref TView
@@ -71,24 +68,50 @@ proc recursiveDrawSubviews*(view: View) =
     view.draw()
     view.drawSubviews()
 
-method handleMouseEventRecursive(v: View, e: MouseEvent, translatedCoords: Point): bool =
-    for i in v.subviews:
-        discard
+#method handleMouseEventRecursive(v: View, e: MouseEvent, translatedCoords: Point): bool =
+#    for i in v.subviews:
+#        discard
 
 method resizeSubviews*(v: View, oldSize: Size) =
     discard
 
-method setSize*(v: View, s: Size) =
+method setFrameSize*(v: View, s: Size) =
     let oldSize = v.frame.size
     v.frame.size = s
     v.bounds.size = s
     v.resizeSubviews(oldSize)
 
+method setFrameOrigin*(v: View, o: Point) =
+    v.frame.origin = o
+
 method setFrame*(v: View, r: Rect) =
-    v.frame.origin = r.origin
+    if v.frame.origin != r.origin:
+        v.setFrameOrigin(r.origin)
     if v.frame.size != r.size:
-        v.setSize(r.size)
+        v.setFrameSize(r.size)
 
 method frame*(v: View): Rect = v.frame
 method bounds*(v: View): Rect = v.bounds
+
+method onMouseDown*(v: View, e: var Event): bool = discard
+method onMouseUp*(v: View, e: var Event): bool = discard
+
+
+method handleMouseEvent*(v: View, e: var Event): bool =
+    if e.isButtonDownEvent():
+        result = v.onMouseDown(e)
+    elif e.isButtonUpEvent():
+        result = v.onMouseUp(e)
+
+proc recursiveHandleMouseEvent*(v: View, e: var Event): bool =
+    if e.localPosition.inRect(v.bounds):
+        let localPosition = e.localPosition
+        for s in v.subviews:
+            e.localPosition = localPosition - s.frame.origin
+            result = s.recursiveHandleMouseEvent(e)
+            if result:
+                break
+        if not result:
+            e.localPosition = localPosition
+            result = v.handleMouseEvent(e)
 

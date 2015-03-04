@@ -1,5 +1,5 @@
 import strutils
-import sdl2
+#import sdl2
 import opengl
 import nimx.sdl_window
 import nimx.view
@@ -7,6 +7,7 @@ import nimx.logging
 import nimx.context
 import nimx.matrixes
 import nimx.button
+import nimx.event
 
 const isMobile = defined(ios) or defined(android)
 
@@ -32,6 +33,12 @@ mainWindow.addSubview(v1)
 
 let b1 = newButton(newRect(20, 20, 50, 50))
 v1.addSubview(b1)
+
+b1.onAction do (e: Event):
+    v1.setFrameOrigin(e.position)
+
+#b1.onAction do ():
+#    echo "Hello world!"
 
 
 var rot = 0.0
@@ -59,35 +66,5 @@ method draw(w: GameWindow) =
     c.drawRoundedRect(newRect(0, 0, 100, 200), 40)
     c.revertTransform(oldTransform)
 
+runUntilQuit()
 
-var runGame = true
-
-proc eventFilter(event: ptr Event): Bool32 {.cdecl.} =
-    case event.kind:
-        of FingerMotion:
-            log("finger motion")
-            return False32
-        of FingerDown:
-            log("Finger down")
-            return False32
-        of FingerUp:
-            log("Finger up")
-            return False32
-
-        else: discard
-    return True32
-
-setEventHandler do(event: ptr Event) -> Bool32:
-    return eventFilter(event)
-
-# Initialize fist dummy event. The kind should be any unused kind.
-var evt = Event(kind: UserEvent1)
-
-# Main loop
-while runGame:
-    discard nextEvent(evt)
-    if evt.kind == QuitEvent:
-      runGame = false
-      break
- 
-discard quit(evt)
