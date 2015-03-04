@@ -1,6 +1,3 @@
-import strutils
-#import sdl2
-import opengl
 import nimx.sdl_window
 import nimx.view
 import nimx.logging
@@ -24,9 +21,6 @@ else:
     mainWindow.init(newRect(0, 0, 800, 600))
 
 mainWindow.title = "Test MyGame"
-
-when not defined(ios) and not defined(android):
-    loadExtensions()
 
 let v1 = newView(newRect(20, 20, 100, 100))
 mainWindow.addSubview(v1)

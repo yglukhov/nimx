@@ -6,8 +6,6 @@ import event
 
 export control
 
-#type ClickHandler = proc
-
 type Button = ref object of Control
 
 proc newButton*(r: Rect): Button =
@@ -20,11 +18,9 @@ method draw(b: Button) =
     c.drawRoundedRect(b.bounds, 5)
 
 method onMouseDown(b: Button, e: var Event): bool =
-    echo "DOWN"
     result = true
 
 method onMouseUp(b: Button, e: var Event): bool =
     result = true
-    echo "UP"
     b.sendAction(e)
 

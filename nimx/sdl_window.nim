@@ -88,7 +88,6 @@ proc fps(): int =
     result = (1.0 / lastFrame * 1000.0).int
     lastTime = curTime
 
-
 method drawWindow(w: SdlWindow) =
     glViewport(0, 0, GLsizei(w.frame.width), GLsizei(w.frame.height))
 
@@ -103,9 +102,9 @@ method drawWindow(w: SdlWindow) =
 
     w.recursiveDrawSubviews()
 
-    var pt = newPoint(300, 300)
+    var pt = newPoint(w.frame.width - 130, 25)
     c.fillColor = newColor(0.5, 0, 0)
-    c.my_stbtt_print(w.font, pt, $fps())
+    c.my_stbtt_print(w.font, pt, "FPS: " & $fps())
     c.testPoly()
  
     c.revertTransform(oldTransform)
