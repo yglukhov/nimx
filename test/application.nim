@@ -80,8 +80,8 @@ proc eventFilter(event: ptr Event): Bool32 {.cdecl.} =
 setEventHandler do(event: ptr Event) -> Bool32:
     return eventFilter(event)
 
-
-var evt = sdl2.defaultEvent
+# Initialize fist dummy event. The kind should be any unused kind.
+var evt = Event(kind: UserEvent1)
 
 # Main loop
 while runGame:
