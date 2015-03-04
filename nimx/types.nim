@@ -18,7 +18,6 @@ proc maxX*(r: Rect): Coord = r.x + r.width
 proc minY*(r: Rect): Coord = r.y
 proc maxY*(r: Rect): Coord = r.y + r.height
 
-
 proc newPoint*(x, y: Coord): Point =
     result.x = x
     result.y = y
@@ -39,4 +38,26 @@ proc newColor*(r, g, b: ColorComponent, a: ColorComponent = 1.0): Color =
 
 type ButtonState* = enum
     bsUnknown, bsUp, bsDown
+
+proc minCorner*(r: Rect): Point = r.origin
+proc maxCorner*(r: Rect): Point = newPoint(r.maxX, r.maxY)
+
+proc `>`*(p1: Point, p2: Point): bool =
+    # Component-wise comparison
+    p1.x > p2.x and p1.y > p2.y
+
+proc `>=`*(p1: Point, p2: Point): bool =
+    # Component-wise comparison
+    p1.x >= p2.x and p1.y >= p2.y
+
+proc `<`*(p1: Point, p2: Point): bool =
+    # Component-wise comparison
+    p1.x < p2.x and p1.y < p2.y
+
+proc `<=`*(p1: Point, p2: Point): bool =
+    # Component-wise comparison
+    p1.x <= p2.x and p1.y <= p2.y
+
+proc pointInRect*(p: Point, r: Rect): bool =
+    p >= r.origin and p <= r.maxCorner
 
