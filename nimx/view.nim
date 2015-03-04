@@ -59,7 +59,7 @@ method addSubview*(v: View, s: View) =
 
 proc recursiveDrawSubviews*(view: View)
 
-method draw*(view: View) =
+method draw*(view: View, rect: Rect) =
     let c = currentContext()
     c.fillColor = newGrayColor(0.93)
     c.drawRect(view.bounds)
@@ -74,7 +74,7 @@ proc drawSubviews(view: View) {.inline.} =
         c.revertTransform(oldTransform)
 
 proc recursiveDrawSubviews*(view: View) =
-    view.draw()
+    view.draw(view.bounds)
     view.drawSubviews()
 
 method setFrame*(v: View, r: Rect)

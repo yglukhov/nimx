@@ -19,7 +19,7 @@ method init(b: Button, frame: Rect) =
     procCall b.Control.init(frame)
     b.state = bsUp
 
-method draw(b: Button) =
+method draw(b: Button, r: Rect) =
     let c = currentContext()
     var textColor: Color
     if b.state == bsUp:

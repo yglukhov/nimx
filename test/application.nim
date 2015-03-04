@@ -37,7 +37,7 @@ b1.onAction do ():
 
 var rot = 0.0
 
-method draw(w: GameWindow) =
+method draw(w: GameWindow, r: Rect) =
     let c = currentContext()
     var tmpTransform = c.transform
     tmpTransform.translate(newVector3(w.frame.width/2, w.frame.height/3, 0))
