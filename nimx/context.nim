@@ -3,7 +3,7 @@ import opengl
 import unsigned
 import logging
 import matrixes
-import ttf
+import font
 
 export matrixes
 
@@ -376,27 +376,7 @@ proc drawEllipseInRect*(c: GraphicsContext, r: Rect) =
     glUniform4fv(glGetUniformLocation(c.ellipseShaderProgram, "rect"), 1, cast[ptr GLfloat](addr rect))
     c.drawRectAsQuad(r)
 
-type FontData* = object
-    chars: array[96, stbtt_bakedchar]
-    texture: GLuint
-
-proc my_stbtt_initfont*(): FontData =
-    when defined(macosx):
-        var rawData = readFile("/Library/Fonts/Arial.ttf")
-    else:
-        var rawData = readFile("/usr/share/fonts/truetype/ubuntu-font-family/Ubuntu-R.ttf")
-        
-    const width = 512
-    const height = 512
-    var temp_bitmap : array[width * height, byte]
-    const length = result.chars.len()
-    let res = stbtt_BakeFontBitmap(cstring(rawData), 0, 32.0, addr temp_bitmap, width, height, 32, length, addr result.chars) # no guarantee this fits!
-    glGenTextures(1, addr result.texture)
-    glBindTexture(GL_TEXTURE_2D, result.texture)
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, width, height, 0, GL_ALPHA, GL_UNSIGNED_BYTE, addr temp_bitmap)
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
-
-proc my_stbtt_print*(c: GraphicsContext, font: FontData, pt: var Point, text: string) =
+proc drawText*(c: GraphicsContext, font: Font, pt: var Point, text: string) =
     # assume orthographic projection with units = screen pixels, origin at top left
     c.fontShaderProgram.glUseProgram()
     glActiveTextureARB( GL_TEXTURE0_ARB )
@@ -406,21 +386,12 @@ proc my_stbtt_print*(c: GraphicsContext, font: FontData, pt: var Point, text: st
     glEnableVertexAttribArray(GLuint(saPosition))
     glUniformMatrix4fv(glGetUniformLocation(c.fontShaderProgram, "modelViewProjectionMatrix"), 1, false, cast[ptr GLfloat](c.pTransform))
 
-    var x : cfloat = pt.x
-    var y : cfloat = pt.y
-    var chars = font.chars
     var vertexes: array[4 * 4, Coord]
     glVertexAttribPointer(GLuint(saPosition), 4, cGL_FLOAT, false, 0, cast[pointer](addr vertexes))
-    var q : stbtt_aligned_quad
 
     for ch in text:
-        if ch.ord >= 32 and ch.ord < 128:
-            stbtt_GetBakedQuad(chars, 512, 512, ch.ord-32, x, y, q, true) # true=opengl & d3d10+,false=d3d9
-            vertexes = [ q.x0, q.y0, q.s0, q.t0,
-                        q.x1, q.y0, q.s1, q.t0,
-                        q.x1, q.y1, q.s1, q.t1,
-                        q.x0, q.y1, q.s0, q.t1 ]
-            glDrawArrays(cast[GLenum](ptTriangleFan), 0, 4)
+        font.getQuadDataForChar(ch, vertexes, pt)
+        glDrawArrays(ptTriangleFan.GLenum, 0, 4)
 
 #proc drawText(c: GraphicsContext, pt: var Point, test: string) =
 #    c.my_stbtt_print(c.

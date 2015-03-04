@@ -6,6 +6,7 @@ import opengl
 import context
 import matrixes
 import event
+import font
 
 import times
 
@@ -13,7 +14,6 @@ type SdlWindow* = ref object of Window
     impl: WindowPtr
     sdlGlContext: GlContextPtr
     renderingContext: GraphicsContext
-    font: FontData
 
 var allWindows : seq[SdlWindow] = @[]
 
@@ -39,7 +39,6 @@ method initCommon(w: SdlWindow, r: view.Rect) =
         log "Could not create context!"
     discard glMakeCurrent(w.impl, w.sdlGlContext)
     w.renderingContext = newGraphicsContext()
-    w.font = my_stbtt_initfont()
 
     w.enableAnimation(true)
     allWindows.add(w)
@@ -102,9 +101,9 @@ method drawWindow(w: SdlWindow) =
 
     w.recursiveDrawSubviews()
 
-    var pt = newPoint(w.frame.width - 130, 25)
+    var pt = newPoint(w.frame.width - 80, 25)
     c.fillColor = newColor(0.5, 0, 0)
-    c.my_stbtt_print(w.font, pt, "FPS: " & $fps())
+    c.drawText(systemFont(), pt, "FPS: " & $fps())
     c.testPoly()
  
     c.revertTransform(oldTransform)
