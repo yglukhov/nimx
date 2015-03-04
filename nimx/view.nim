@@ -6,6 +6,13 @@ import logging
 
 export types
 
+type AutoresizingFlag* = enum
+    afFlexibleMinX
+    afFlexibleMaxX
+    afFlexibleMinY
+    afFlexibleMaxY
+    afFlexibleWidth
+    afFlexibleHeight
 
 type
     View* = ref TView
@@ -14,11 +21,13 @@ type
         bounds: Rect
         subviews: seq[View]
         superview: View
+        autoresizingMask*: set[AutoresizingFlag]
 
 method init*(v: View, frame: Rect) =
     v.frame = frame
     v.bounds = newRect(0, 0, frame.width, frame.height)
     v.subviews = @[]
+    v.autoresizingMask = { afFlexibleMaxX, afFlexibleMaxY }
 
 proc newView*(frame: Rect): View =
     result.new()
@@ -68,15 +77,28 @@ proc recursiveDrawSubviews*(view: View) =
     view.draw()
     view.drawSubviews()
 
-#method handleMouseEventRecursive(v: View, e: MouseEvent, translatedCoords: Point): bool =
-#    for i in v.subviews:
-#        discard
+method setFrame*(v: View, r: Rect)
 
 method resizeSubviews*(v: View, oldSize: Size) =
-    discard
+    let sizeDiff = v.frame.size - oldSize
+
+    for s in v.subviews:
+        var newRect = s.frame
+        if s.autoresizingMask.contains afFlexibleMinX:
+            newRect.origin.x += sizeDiff.width
+        elif s.autoresizingMask.contains afFlexibleWidth:
+            newRect.size.width += sizeDiff.width
+
+        if s.autoresizingMask.contains afFlexibleMinY:
+            newRect.origin.y += sizeDiff.height
+        elif s.autoresizingMask.contains afFlexibleHeight:
+            newRect.size.height += sizeDiff.height
+
+        s.setFrame(newRect)
+
 
 method setFrameSize*(v: View, s: Size) =
-    let oldSize = v.frame.size
+    let oldSize = v.bounds.size
     v.frame.size = s
     v.bounds.size = s
     v.resizeSubviews(oldSize)
