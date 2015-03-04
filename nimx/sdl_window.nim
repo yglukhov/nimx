@@ -170,8 +170,7 @@ proc setEventHandler*(handler: EventHandler) =
 
 method onResize*(w: SdlWindow, newSize: Size) =
     glViewport(0, 0, GLSizei(newSize.width), GLsizei(newSize.height))
-    w.frame.size = newSize
-    w.bounds.size = newSize
+    procCall w.Window.setSize(newSize)
 
 # Framerate limiter
 let MAXFRAMERATE: uint32 = 20 # milli seconds

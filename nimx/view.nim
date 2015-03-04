@@ -13,8 +13,8 @@ type MouseEvent = tuple[position: Point, kind: EventKind, state: ButtonState]
 type
     View* = ref TView
     TView = object of RootObj
-        frame*: Rect
-        bounds*: Rect
+        frame: Rect
+        bounds: Rect
         subviews: seq[View]
         superview: View
 
@@ -74,3 +74,21 @@ proc recursiveDrawSubviews*(view: View) =
 method handleMouseEventRecursive(v: View, e: MouseEvent, translatedCoords: Point): bool =
     for i in v.subviews:
         discard
+
+method resizeSubviews*(v: View, oldSize: Size) =
+    discard
+
+method setSize*(v: View, s: Size) =
+    let oldSize = v.frame.size
+    v.frame.size = s
+    v.bounds.size = s
+    v.resizeSubviews(oldSize)
+
+method setFrame*(v: View, r: Rect) =
+    v.frame.origin = r.origin
+    if v.frame.size != r.size:
+        v.setSize(r.size)
+
+method frame*(v: View): Rect = v.frame
+method bounds*(v: View): Rect = v.bounds
+
