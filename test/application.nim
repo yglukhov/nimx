@@ -22,19 +22,17 @@ else:
 
 mainWindow.title = "Test MyGame"
 
-let v1 = newView(newRect(20, 20, 100, 100))
+let v1 = newView(newRect(20, 20, mainWindow.frame.width - 40, 100))
 mainWindow.addSubview(v1)
 
 let b1 = newButton(newRect(20, 20, 50, 50))
 v1.addSubview(b1)
 
-b1.onAction do (e: Event):
-    v1.setFrameOrigin(e.position)
-
 b1.title = "hi"
+v1.autoresizingMask = { afFlexibleWidth, afFlexibleMaxY }
 
-#b1.onAction do ():
-#    echo "Hello world!"
+b1.onAction do ():
+    echo "Hello world!"
 
 
 var rot = 0.0

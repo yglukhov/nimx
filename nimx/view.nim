@@ -61,7 +61,7 @@ proc recursiveDrawSubviews*(view: View)
 
 method draw*(view: View) =
     let c = currentContext()
-    c.fillColor = newColor(0, 0, 1)
+    c.fillColor = newGrayColor(0.93)
     c.drawRect(view.bounds)
 
 proc drawSubviews(view: View) {.inline.} =
