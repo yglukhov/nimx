@@ -54,3 +54,10 @@ proc getQuadDataForChar*(f: Font, ch: char, quad: var array[16, Coord], pt: var 
     else:
         f.getQuadDataForChar('?', quad, pt)
 
+proc sizeOfString*(f: Font, s: string): Size =
+    var pt : Point
+    var quad: array[16, Coord]
+    for ch in s:
+        f.getQuadDataForChar(ch, quad, pt)
+    result = newSize(pt.x, pt.y)
+

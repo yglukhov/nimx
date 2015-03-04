@@ -31,6 +31,8 @@ v1.addSubview(b1)
 b1.onAction do (e: Event):
     v1.setFrameOrigin(e.position)
 
+b1.title = "hi"
+
 #b1.onAction do ():
 #    echo "Hello world!"
 

@@ -68,3 +68,8 @@ proc `-`*(p1, p2: Point): Point =
 proc inRect*(p: Point, r: Rect): bool =
     p >= r.origin and p <= r.maxCorner
 
+proc centerInRect*(s: Size, r: Rect): Point =
+    # Returns origin of rect of size s, centered in rect r.
+    # The result may be outside of rect r, if s is bigger than size of r.
+    result.x += (r.width - s.width) / 2
+    result.y += (r.height - s.height) / 2
