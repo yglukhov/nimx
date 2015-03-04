@@ -35,6 +35,7 @@ let macOSSDK = xCodeApp/"Contents/Developer/Platforms/MacOSX.platform/Developer/
 let iOSSDK = xCodeApp/"Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS" & iOSSDKVersion & ".sdk"
 let iOSSimulatorSDK = xCodeApp/"Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator" & iOSSDKVersion & ".sdk"
 
+let declareSymbols = " --symbol:ios --symbol:android --symbol:macos --symbol:linux "
 
 # Install nimx
 withDir "..":
@@ -134,12 +135,12 @@ proc runNim(arguments: varargs[string]) =
 
 task defaultTask, "Build and run":
     createSDLIncludeLink "nimcache"
-    when defined(macos): runNim "--passC:-Inimcache", "--passC:-isysroot", "--passC:" & macOSSDK, "--passL:-isysroot", "--passL:" & macOSSDK,
+    when defined(macos): runNim declareSymbols&"--passC:-Inimcache", "--passC:-isysroot", "--passC:" & macOSSDK, "--passL:-isysroot", "--passL:" & macOSSDK,
         "--passC:-mmacosx-version-min=" & macOSMinVersion, "--passL:-mmacosx-version-min=" & macOSMinVersion,
         "--passL:-fobjc-link-runtime", "-d:SDL_Static", "--passL:-L"&buildSDLForDesktop(), "--passL:-lSDL2",
         "--run"
     else:
-        runNim "--passC:-Inimcache", "-d:SDL_Static", "--passL:-L"&buildSDLForDesktop(), "--passL:-lSDL2", "--run"    
+        runNim declareSymbols&"--passC:-Inimcache", "-d:SDL_Static", "--passL:-L"&buildSDLForDesktop(), "--passL:-lSDL2", "--run"    
 
 task "ios-sim", "Build and run in iOS simulator":
     createSDLIncludeLink "nimcache"

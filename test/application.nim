@@ -80,7 +80,8 @@ proc eventFilter(event: ptr Event): Bool32 {.cdecl.} =
 setEventHandler do(event: ptr Event) -> Bool32:
     return eventFilter(event)
 
-var evt: Event
+
+var evt = sdl2.defaultEvent
 
 # Main loop
 while runGame:
