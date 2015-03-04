@@ -119,6 +119,7 @@ proc handleSdlEvent(w: SdlWindow, e: WindowEventObj): bool =
     case e.event:
         of WindowEvent_Resized:
             w.onResize(newSize(Coord(e.data1), Coord(e.data2)))
+            w.drawWindow()
             return true
         else: discard
     return false
