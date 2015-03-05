@@ -47,7 +47,7 @@ method initCommon(w: SdlWindow, r: view.Rect) =
 method initFullscreen*(w: SdlWindow) =
     var displayMode : DisplayMode
     discard getDesktopDisplayMode(0, displayMode)
-    let flags = SDL_WINDOW_OPENGL or SDL_WINDOW_FULLSCREEN
+    let flags = SDL_WINDOW_OPENGL or SDL_WINDOW_FULLSCREEN or SDL_WINDOW_RESIZABLE
     w.impl = createWindow(nil, 0, 0, displayMode.w, displayMode.h, flags)
 
     discard glSetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, 0x0004)
@@ -104,7 +104,6 @@ method drawWindow(w: SdlWindow) =
     var pt = newPoint(w.frame.width - 80, 18)
     c.fillColor = newColor(0.5, 0, 0)
     c.drawText(systemFont(), pt, "FPS: " & $fps())
-    c.testPoly()
  
     c.revertTransform(oldTransform)
     w.impl.glSwapWindow() # Swap the front and back frame buffers (double buffering)
