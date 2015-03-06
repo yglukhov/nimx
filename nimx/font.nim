@@ -1,5 +1,7 @@
 import ttf
 import types
+import os
+import logging
 
 # Quick and dirty interface for fonts.
 # TODO:
@@ -31,12 +33,47 @@ proc newFont*(pathToTTFile: string, size: float): Font =
 
 var sysFont : Font
 
+const preferredFonts = when defined(macosx):
+        [
+            "Arial"
+        ]
+    elif defined(android):
+        [
+            "DroidSans"
+        ]
+    else:
+        [
+            "Ubuntu-R"
+        ]
+
+const fontSearchPaths = when defined(macosx):
+        [
+            "/Library/Fonts"
+        ]
+    elif defined(android):
+        [
+            "/system/fonts"
+        ]
+    else:
+        [
+            "/usr/share/fonts/truetype/ubuntu-font-family"
+        ]
+
+proc findFontFileForFace(face: string): string =
+    for sp in fontSearchPaths:
+        let f = sp / face & ".ttf"
+        if fileExists(f):
+            return f
+        log "Tried font '", f, "' with no luck"
+
+
 proc systemFont*(): Font =
     if sysFont == nil:
-        when defined(macosx):
-            sysFont = newFont("/Library/Fonts/Arial.ttf", 16.0)
-        else:
-            sysFont = newFont("/usr/share/fonts/truetype/ubuntu-font-family/Ubuntu-R.ttf", 16.0)
+        for f in preferredFonts:
+            let path = findFontFileForFace(f)
+            if path != nil:
+                sysFont = newFont(path, 16.0)
+                break
     result = sysFont
 
 proc getQuadDataForChar*(f: Font, ch: char, quad: var array[16, Coord], pt: var Point) =
