@@ -42,6 +42,9 @@ proc newColor*(r, g, b: ColorComponent, a: ColorComponent = 1.0): Color =
 proc newGrayColor*(g: ColorComponent, a: ColorComponent = 1.0): Color =
     newColor(g, g, g, a)
 
+proc whiteColor*(): Color = newGrayColor(1)
+proc blackColor*(): Color = newGrayColor(0)
+
 proc minCorner*(r: Rect): Point = r.origin
 proc maxCorner*(r: Rect): Point = newPoint(r.maxX, r.maxY)
 
