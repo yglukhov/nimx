@@ -189,8 +189,9 @@ proc drawEllipseInRect*(c: GraphicsContext, r: Rect) =
 
 proc drawText*(c: GraphicsContext, font: Font, pt: var Point, text: string) =
     # assume orthographic projection with units = screen pixels, origin at top left
+    # TODO: Here follows a quick hack to move font origin to it's upper left corner.
+    pt.y += font.size
     c.fontShaderProgram.glUseProgram()
-    #glActiveTextureARB( GL_TEXTURE0_ARB )
     glUniform4fv(glGetUniformLocation(c.fontShaderProgram, "fillColor"), 1, cast[ptr GLfloat](addr c.fillColor))
     
     glBindTexture(GL_TEXTURE_2D, font.texture)
@@ -203,9 +204,8 @@ proc drawText*(c: GraphicsContext, font: Font, pt: var Point, text: string) =
     for ch in text:
         font.getQuadDataForChar(ch, vertexes, pt)
         glDrawArrays(ptTriangleFan.GLenum, 0, 4)
-
-#proc drawText(c: GraphicsContext, pt: var Point, test: string) =
-#    c.my_stbtt_print(c.
+    # Undo the hack
+    pt.y -= font.size
 
 discard """
 proc beginStencil(c: GraphicsContext) =

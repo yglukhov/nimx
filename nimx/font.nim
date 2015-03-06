@@ -12,6 +12,7 @@ import opengl
 
 type Font* = ref object
     chars*: array[96, stbtt_bakedchar]
+    size*: float
     texture*: GLuint
 
 proc newFont*(pathToTTFile: string, size: float): Font =
@@ -21,6 +22,7 @@ proc newFont*(pathToTTFile: string, size: float): Font =
     const height = 512
     var temp_bitmap : array[width * height, byte]
     const length = result.chars.len()
+    result.size = size
     let res = stbtt_BakeFontBitmap(cstring(rawData), 0, size, addr temp_bitmap, width, height, 32, length, addr result.chars) # no guarantee this fits!
     glGenTextures(1, addr result.texture)
     glBindTexture(GL_TEXTURE_2D, result.texture)
@@ -59,5 +61,5 @@ proc sizeOfString*(f: Font, s: string): Size =
     var quad: array[16, Coord]
     for ch in s:
         f.getQuadDataForChar(ch, quad, pt)
-    result = newSize(pt.x, pt.y)
+    result = newSize(pt.x, f.size)
 
