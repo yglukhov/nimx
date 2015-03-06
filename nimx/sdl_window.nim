@@ -7,6 +7,7 @@ import context
 import matrixes
 import event
 import font
+import unicode
 
 import times
 
@@ -33,7 +34,7 @@ method initCommon(w: SdlWindow, r: view.Rect) =
     if w.impl == nil:
         log("Could not create window!")
         quit 1
-    procCall init(cast[Window](w), r)
+    procCall init(w.Window, r)
     w.sdlGlContext = w.impl.glCreateContext()
     if w.sdlGlContext == nil:
         log "Could not create context!"
@@ -136,6 +137,11 @@ proc windowFromSDLEvent[T](event: T): SdlWindow =
 proc positionFromSDLEvent[T](event: T): auto =
     newPoint(event.x.Coord, event.y.Coord)
 
+proc buttonStateFromSDLState(s: KeyState): ButtonState =
+    if s == KeyPressed:
+        bsDown
+    else:
+        bsUp
 
 proc eventFilter(userdata: pointer; event: ptr sdl2.Event): Bool32 {.cdecl.} =
     var handled = false
@@ -158,7 +164,7 @@ proc eventFilter(userdata: pointer; event: ptr sdl2.Event): Bool32 {.cdecl.} =
         of MouseButtonDown, MouseButtonUp:
             let mouseEv = cast[MouseButtonEventPtr](event)
             let wnd = windowFromSDLEvent(mouseEv)
-            let state = if mouseEv.state == 1: bsDown else: bsUp
+            let state = buttonStateFromSDLState(mouseEv.state.KeyState) #if mouseEv.state == 1: bsDown else: bsUp
             let button = case mouseEv.button:
                 of 0: kcMouseButtonPrimary
                 of 1: kcMouseButtonMiddle
@@ -176,6 +182,25 @@ proc eventFilter(userdata: pointer; event: ptr sdl2.Event): Bool32 {.cdecl.} =
                 let pos = positionFromSDLEvent(mouseEv)
                 var evt = newMouseMoveEvent(pos)
                 handled = wnd.recursiveHandleMouseEvent(evt)
+
+        of KeyDown, KeyUp:
+            let keyEv = cast[KeyboardEventPtr](event)
+            let wnd = windowFromSDLEvent(keyEv)
+            if wnd != nil:
+                var evt = newKeyboardEvent(keyEv.keysym.sym, buttonStateFromSDLState(keyEv.state.KeyState), keyEv.repeat)
+                evt.rune = keyEv.keysym.unicode.Rune
+
+        of TextInput:
+            let textEv = cast[TextInputEventPtr](event)
+            let wnd = windowFromSDLEvent(textEv)
+            if wnd != nil:
+                handled = wnd.onTextInput($cast[cstring](addr textEv.text))
+
+        of TextEditing:
+            echo event.kind
+            let textEv = cast[TextEditingEventPtr](event)
+            echo "text: ", textEv.text
+
 
         of AppWillEnterBackground:
             log "will enter back"
@@ -221,6 +246,12 @@ proc nextEvent*(evt: var sdl2.Event): bool =
             for wnd in allWindows:
                 wnd.drawWindow()
             #limitFramerate()
+
+method startTextInput*(w: SdlWindow) =
+    startTextInput()
+
+method stopTextInput*(w: Window) =
+    stopTextInput()
 
 proc runUntilQuit*() =
     var isRunning = true

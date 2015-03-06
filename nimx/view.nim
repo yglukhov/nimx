@@ -4,6 +4,7 @@ import context
 import event
 import logging
 
+
 export types
 
 type AutoresizingFlag* = enum
@@ -15,13 +16,16 @@ type AutoresizingFlag* = enum
     afFlexibleHeight
 
 type
-    View* = ref TView
-    TView = object of RootObj
+    View* = ref object of RootObj
+        window*: Window
         frame: Rect
         bounds: Rect
         subviews: seq[View]
         superview: View
         autoresizingMask*: set[AutoresizingFlag]
+
+    Window* = ref object of View
+        firstResponder*: View
 
 method init*(v: View, frame: Rect) =
     v.frame = frame
@@ -56,6 +60,7 @@ method addSubview*(v: View, s: View) =
     if s.superview != v:
         s.removeFromSuperview()
         v.subviews.add(s)
+        s.window = v.window
 
 proc recursiveDrawSubviews*(view: View)
 
@@ -117,7 +122,9 @@ method bounds*(v: View): Rect = v.bounds
 
 method onMouseDown*(v: View, e: var Event): bool = discard
 method onMouseUp*(v: View, e: var Event): bool = discard
-
+method onKeyDown*(v: View, e: var Event): bool = discard
+method onKeyUp*(v: View, e: var Event): bool = discard
+method onTextInput*(v: View, s: string): bool = discard
 
 method handleMouseEvent*(v: View, e: var Event): bool =
     if e.isButtonDownEvent():
@@ -136,4 +143,15 @@ proc recursiveHandleMouseEvent*(v: View, e: var Event): bool =
         if not result:
             e.localPosition = localPosition
             result = v.handleMouseEvent(e)
+
+# Responder chain implementation
+method makeFirstResponder*(v: View): bool =
+    # TODO: Validate becoming a first responder
+    if v.window != nil:
+        v.window.firstResponder = v
+        result = true
+
+proc isFirstResponder*(v: View): bool =
+    if v.window != nil:
+        result = v.window.firstResponder == v
 

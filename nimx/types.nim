@@ -22,9 +22,13 @@ proc newPoint*(x, y: Coord): Point =
     result.x = x
     result.y = y
 
+const zeroPoint* = newPoint(0, 0)
+
 proc newSize*(w, h: Coord): Size =
     result.width = w
     result.height = h
+
+const zeroSize* = newSize(0, 0)
 
 proc newRect*(o: Point, s: Size): Rect =
     result.origin = o
@@ -32,6 +36,8 @@ proc newRect*(o: Point, s: Size): Rect =
 
 proc newRect*(x, y, w, h: Coord): Rect =
     newRect(newPoint(x, y), newSize(w, h))
+
+const zeroRect* = newRect(zeroPoint, zeroSize)
 
 proc newColor*(r, g, b: ColorComponent, a: ColorComponent = 1.0): Color =
     result.r = r

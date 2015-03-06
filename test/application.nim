@@ -37,7 +37,6 @@ b1.onAction do ():
 
 let t1 = newTextField(newRect(90, 20, v1.bounds.width - 110, 50))
 v1.addSubview(t1)
-t1.text = "This is a text field"
 t1.autoresizingMask = { afFlexibleWidth, afFlexibleHeight }
 
 
