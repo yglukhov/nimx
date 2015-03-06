@@ -5,6 +5,7 @@ import nimx.context
 import nimx.matrixes
 import nimx.button
 import nimx.event
+import nimx.text_field
 
 const isMobile = defined(ios) or defined(android)
 
@@ -33,6 +34,11 @@ v1.autoresizingMask = { afFlexibleWidth, afFlexibleMaxY }
 
 b1.onAction do ():
     echo "Hello world!"
+
+let t1 = newTextField(newRect(90, 20, v1.bounds.width - 110, 50))
+v1.addSubview(t1)
+t1.text = "This is a text field"
+t1.autoresizingMask = { afFlexibleWidth, afFlexibleHeight }
 
 
 var rot = 0.0
