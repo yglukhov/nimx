@@ -189,6 +189,10 @@ proc eventFilter(userdata: pointer; event: ptr sdl2.Event): Bool32 {.cdecl.} =
             if wnd != nil:
                 var evt = newKeyboardEvent(keyEv.keysym.sym, buttonStateFromSDLState(keyEv.state.KeyState), keyEv.repeat)
                 evt.rune = keyEv.keysym.unicode.Rune
+                if evt.buttonState == bsDown:
+                    handled = wnd.onKeyDown(evt)
+                else:
+                    handled = wnd.onKeyUp(evt)
 
         of TextInput:
             let textEv = cast[TextInputEventPtr](event)

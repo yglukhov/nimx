@@ -16,9 +16,12 @@ type Font* = ref object
     chars*: array[96, stbtt_bakedchar]
     size*: float
     texture*: GLuint
+    isHorizontal*: bool
 
 proc newFont*(pathToTTFile: string, size: float): Font =
     result.new()
+    result.isHorizontal = true # TODO: Support vertical fonts
+
     var rawData = readFile(pathToTTFile)
     const width = 512
     const height = 512
@@ -99,4 +102,15 @@ proc sizeOfString*(f: Font, s: string): Size =
     for ch in s:
         f.getQuadDataForChar(ch, quad, pt)
     result = newSize(pt.x, f.size)
+
+proc closestCursorPositionToPointInString*(f: Font, s: string, p: Point): int =
+    var pt = zeroPoint
+    var closestPoint = zeroPoint
+    var quad: array[16, Coord]
+    for i, ch in s:
+        f.getQuadDataForChar(ch, quad, pt)
+        if (f.isHorizontal and (abs(p.x - pt.x) < abs(p.x - closestPoint.x))) or
+           (not f.isHorizontal and (abs(p.y - pt.y) < abs(p.y - closestPoint.y))):
+            closestPoint = pt
+            result = i + 1
 
