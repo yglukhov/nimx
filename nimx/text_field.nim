@@ -89,7 +89,6 @@ method onKeyDown*(t: TextField, e: var Event): bool =
         result = true
         t.text.uniDelete(cursorPos - 1, cursorPos - 1)
         dec cursorPos
-        echo cursorPos
         t.updateCursorOffset()
         bumpCursorVisibility()
     elif e.keyCode == K_LEFT:
