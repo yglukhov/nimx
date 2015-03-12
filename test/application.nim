@@ -29,15 +29,21 @@ mainWindow.addSubview(v1)
 let b1 = newButton(newRect(20, 20, 50, 50))
 v1.addSubview(b1)
 
-b1.title = "hi"
+b1.title = "button"
 v1.autoresizingMask = { afFlexibleWidth, afFlexibleMaxY }
 
 b1.onAction do ():
     echo "Hello world!"
 
-let t1 = newTextField(newRect(90, 20, v1.bounds.width - 110, 50))
+let t1 = newTextField(newRect(90, 20, v1.bounds.width - 110, 25))
 v1.addSubview(t1)
 t1.autoresizingMask = { afFlexibleWidth, afFlexibleHeight }
+t1.text = "This is a text field"
+
+let t2 = newTextField(newRect(90, 50, v1.bounds.width - 110, 25))
+v1.addSubview(t2)
+t2.autoresizingMask = { afFlexibleWidth, afFlexibleHeight }
+t2.text = "This is another text field"
 
 
 var rot = 0.0
