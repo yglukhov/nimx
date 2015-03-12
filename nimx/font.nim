@@ -2,6 +2,8 @@ import ttf
 import types
 import os
 import logging
+import unicode
+import tables
 
 # Quick and dirty interface for fonts.
 # TODO:
@@ -12,27 +14,39 @@ import logging
 import opengl
 
 
+const charChunkLength = 96
+
+type CharInfo = ref object
+    bakedChars: array[charChunkLength, stbtt_bakedchar]
+    texture: GLuint
+
 type Font* = ref object
-    chars*: array[96, stbtt_bakedchar]
+    chars: Table[int32, CharInfo]
     size*: float
-    texture*: GLuint
     isHorizontal*: bool
+    filePath: string
+
+
+proc bakeChars(f: Font, start: int32) =
+    var rawData = readFile(f.filePath)
+    const width = 512
+    const height = 512
+    var temp_bitmap : array[width * height, byte]
+    var info : CharInfo
+    info.new()
+    let res = stbtt_BakeFontBitmap(cstring(rawData), 0, f.size, addr temp_bitmap, width, height, start * charChunkLength, charChunkLength, addr info.bakedChars) # no guarantee this fits!
+    glGenTextures(1, addr info.texture)
+    glBindTexture(GL_TEXTURE_2D, info.texture)
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, width, height, 0, GL_ALPHA, GL_UNSIGNED_BYTE, addr temp_bitmap)
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
+    f.chars[start] = info
 
 proc newFont*(pathToTTFile: string, size: float): Font =
     result.new()
     result.isHorizontal = true # TODO: Support vertical fonts
-
-    var rawData = readFile(pathToTTFile)
-    const width = 512
-    const height = 512
-    var temp_bitmap : array[width * height, byte]
-    const length = result.chars.len()
+    result.filePath = pathToTTFile
     result.size = size
-    let res = stbtt_BakeFontBitmap(cstring(rawData), 0, size, addr temp_bitmap, width, height, 32, length, addr result.chars) # no guarantee this fits!
-    glGenTextures(1, addr result.texture)
-    glBindTexture(GL_TEXTURE_2D, result.texture)
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, width, height, 0, GL_ALPHA, GL_UNSIGNED_BYTE, addr temp_bitmap)
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
+    result.chars = initTable[int32, CharInfo]()
 
 var sysFont : Font
 
@@ -79,38 +93,60 @@ proc systemFont*(): Font =
                 break
     result = sysFont
 
-proc getQuadDataForChar*(f: Font, ch: char, quad: var array[16, Coord], pt: var Point) =
-    if ch.ord >= 32 and ch.ord < 128:
-        var x, y: cfloat
-        x = pt.x
-        y = pt.y
-        var q : stbtt_aligned_quad
+proc getQuadDataForRune*(f: Font, r: Rune, quad: var array[16, Coord], texture: var GLuint, pt: var Point) =
+    var x, y: cfloat
+    x = pt.x
+    y = pt.y
+    var q : stbtt_aligned_quad
+    let chunkStart = (r.int / charChunkLength.int).int32
+    if not f.chars.hasKey(chunkStart):
+        f.bakeChars(chunkStart)
+    let charIndexInChunk = r.int mod charChunkLength
+    let chunk = f.chars[chunkStart]
 
-        stbtt_GetBakedQuad(f.chars, 512, 512, ch.ord-32, x, y, q, true) # true=opengl & d3d10+,false=d3d9
-        quad = [ q.x0, q.y0, q.s0, q.t0,
-                q.x1, q.y0, q.s1, q.t0,
-                q.x1, q.y1, q.s1, q.t1,
-                q.x0, q.y1, q.s0, q.t1 ]
-        pt.x = x
-        pt.y = y
-    else:
-        f.getQuadDataForChar('?', quad, pt)
+    stbtt_GetBakedQuad(chunk.bakedChars[charIndexInChunk], 512, 512, x, y, q, true) # true=opengl & d3d10+,false=d3d9
+    quad = [ q.x0, q.y0, q.s0, q.t0,
+            q.x1, q.y0, q.s1, q.t0,
+            q.x1, q.y1, q.s1, q.t1,
+            q.x0, q.y1, q.s0, q.t1 ]
+    pt.x = x
+    pt.y = y
+    texture = chunk.texture
 
 proc sizeOfString*(f: Font, s: string): Size =
     var pt : Point
     var quad: array[16, Coord]
-    for ch in s:
-        f.getQuadDataForChar(ch, quad, pt)
+    var tex: GLuint
+    for ch in s.runes:
+        f.getQuadDataForRune(ch, quad, tex, pt)
     result = newSize(pt.x, f.size)
 
-proc closestCursorPositionToPointInString*(f: Font, s: string, p: Point): int =
+proc getClosestCursorPositionToPointInString*(f: Font, s: string, p: Point, position: var int, offset: var Coord) =
     var pt = zeroPoint
     var closestPoint = zeroPoint
     var quad: array[16, Coord]
-    for i, ch in s:
-        f.getQuadDataForChar(ch, quad, pt)
+    var i = 0
+    var tex: GLuint
+    for ch in s.runes:
+        f.getQuadDataForRune(ch, quad, tex, pt)
         if (f.isHorizontal and (abs(p.x - pt.x) < abs(p.x - closestPoint.x))) or
            (not f.isHorizontal and (abs(p.y - pt.y) < abs(p.y - closestPoint.y))):
             closestPoint = pt
-            result = i + 1
+            position = i + 1
+        inc i
+    offset = if f.isHorizontal: closestPoint.x else: closestPoint.y
+
+proc cursorOffsetForPositionInString*(f: Font, s: string, position: int): Coord =
+    var pt = zeroPoint
+    var quad: array[16, Coord]
+    var i = 0
+    var tex: GLuint
+
+    for ch in s.runes:
+        if i == position:
+            break
+        inc i
+
+        f.getQuadDataForRune(ch, quad, tex, pt)
+    result = if f.isHorizontal: pt.x else: pt.y
 

@@ -5,8 +5,8 @@ import types
 import event
 import window
 import times
-
-import strutils
+import unistring
+import unicode
 
 
 type TextField* = ref object of Control
@@ -17,6 +17,8 @@ type TextField* = ref object of Control
 var cursorPos = 0
 var cursorBlinkTime = 0.0
 var cursorVisible = true
+
+var cursorOffset : Coord
 
 const leftMargin = 3.0
 
@@ -51,7 +53,6 @@ method draw*(t: TextField, r: Rect) =
     c.fillColor = whiteColor()
     c.strokeColor = newGrayColor(0.74)
     c.drawRect(t.bounds)
-    var cursorOffset = leftMargin
     let font = systemFont()
 
     var textY = (t.bounds.height - font.size) / 2
@@ -61,12 +62,9 @@ method draw*(t: TextField, r: Rect) =
         var pt = newPoint(leftMargin, textY)
         c.fillColor = blackColor()
         c.drawText(systemFont(), pt, t.text)
-        let cPos = min(t.text.len, cursorPos)
-        if cPos > 0:
-            cursorOffset += font.sizeOfString(t.text[0 .. cPos - 1]).width
 
     if t.isEditing:
-        drawCursorWithRect(newRect(cursorOffset, textY + 3, 2, font.size))
+        drawCursorWithRect(newRect(leftMargin + cursorOffset, textY + 3, 2, font.size))
 
 method onMouseDown*(t: TextField, e: var Event): bool =
     if t.editable:
@@ -74,35 +72,42 @@ method onMouseDown*(t: TextField, e: var Event): bool =
         t.window.startTextInput()
         var pt = e.localPosition
         pt.x += leftMargin
-        cursorPos = if t.text.isNil:
-                0
-            else:
-                systemFont().closestCursorPositionToPointInString(t.text, e.localPosition)
+        if t.text.isNil:
+            cursorPos = 0
+            cursorOffset = 0
+        else:
+            systemFont().getClosestCursorPositionToPointInString(t.text, pt, cursorPos, cursorOffset)
         bumpCursorVisibility()
+
+proc updateCursorOffset(t: TextField) =
+    cursorOffset = systemFont().cursorOffsetForPositionInString(t.text, cursorPos)
 
 import sdl2 except Event
 
 method onKeyDown*(t: TextField, e: var Event): bool =
     if e.keyCode == K_BACKSPACE and cursorPos > 0:
         result = true
-        t.text.delete(cursorPos - 1, cursorPos - 1)
+        t.text.uniDelete(cursorPos - 1, cursorPos - 1)
         dec cursorPos
         echo cursorPos
+        t.updateCursorOffset()
         bumpCursorVisibility()
     elif e.keyCode == K_LEFT:
         dec cursorPos
         if cursorPos < 0: cursorPos = 0
+        t.updateCursorOffset()
         bumpCursorVisibility()
     elif e.keyCode == K_RIGHT:
         inc cursorPos
-        if cursorPos > t.text.len: cursorPos = t.text.len
+        let textLen = t.text.runeLen
+        if cursorPos > textLen: cursorPos = textLen
+        t.updateCursorOffset()
         bumpCursorVisibility()
 
 method onTextInput*(t: TextField, s: string): bool =
     result = true
     if t.text.isNil: t.text = ""
-    let substringStart = t.text[0 .. cursorPos]
-    let substringEnd = t.text[cursorPos + 1 .. t.text.len]
-    t.text = substringStart & s & substringEnd
-    cursorPos += s.len
+    t.text.insert(cursorPos, s)
+    cursorPos += s.runeLen
+    t.updateCursorOffset()
 

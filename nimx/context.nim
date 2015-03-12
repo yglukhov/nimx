@@ -4,6 +4,7 @@ import unsigned
 import logging
 import matrixes
 import font
+import unicode
 
 export matrixes
 
@@ -194,15 +195,20 @@ proc drawText*(c: GraphicsContext, font: Font, pt: var Point, text: string) =
     c.fontShaderProgram.glUseProgram()
     glUniform4fv(glGetUniformLocation(c.fontShaderProgram, "fillColor"), 1, cast[ptr GLfloat](addr c.fillColor))
     
-    glBindTexture(GL_TEXTURE_2D, font.texture)
     glEnableVertexAttribArray(GLuint(saPosition))
     glUniformMatrix4fv(glGetUniformLocation(c.fontShaderProgram, "modelViewProjectionMatrix"), 1, false, cast[ptr GLfloat](c.pTransform))
 
     var vertexes: array[4 * 4, Coord]
     glVertexAttribPointer(GLuint(saPosition), 4, cGL_FLOAT, false, 0, cast[pointer](addr vertexes))
 
-    for ch in text:
-        font.getQuadDataForChar(ch, vertexes, pt)
+    var texture: GLuint = 0
+    var newTexture: GLuint = 0
+
+    for ch in text.runes:
+        font.getQuadDataForRune(ch, vertexes, newTexture, pt)
+        if texture != newTexture:
+            texture = newTexture
+            glBindTexture(GL_TEXTURE_2D, texture)
         glDrawArrays(ptTriangleFan.GLenum, 0, 4)
     # Undo the hack
     pt.y -= font.size
