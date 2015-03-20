@@ -1,7 +1,7 @@
 
 
 type Coord* = float32
-type ColorComponent = float32
+type ColorComponent* = float32
 
 type Point* = tuple[x, y: Coord]
 type Size* = tuple[width, height: Coord]

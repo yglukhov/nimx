@@ -4,6 +4,7 @@ import unsigned
 import logging
 import matrixes
 import font
+import image
 import unicode
 
 export matrixes
@@ -98,6 +99,7 @@ type GraphicsContext* = ref object of RootObj
     ellipseShaderProgram: GLuint
     fontShaderProgram: GLuint
     testPolyShaderProgram: GLuint
+    imageShaderProgram: GLuint
 
 var gCurrentContext: GraphicsContext
 
@@ -129,6 +131,7 @@ proc newGraphicsContext*(): GraphicsContext =
     result.ellipseShaderProgram = newShaderProgram(roundedRectVertexShader, ellipseFragmentShader)
     result.fontShaderProgram = newShaderProgram(fontVertexShader, fontFragmentShader)
     #result.testPolyShaderProgram = newShaderProgram(testPolygonVertexShader, testPolygonFragmentShader)
+    result.imageShaderProgram = newShaderProgram(imageVertexShader, imageFragmentShader)
     glClearColor(1.0, 0.0, 1.0, 1.0)
 
 
@@ -194,7 +197,7 @@ proc drawText*(c: GraphicsContext, font: Font, pt: var Point, text: string) =
     pt.y += font.size
     c.fontShaderProgram.glUseProgram()
     glUniform4fv(glGetUniformLocation(c.fontShaderProgram, "fillColor"), 1, cast[ptr GLfloat](addr c.fillColor))
-    
+
     glEnableVertexAttribArray(GLuint(saPosition))
     glUniformMatrix4fv(glGetUniformLocation(c.fontShaderProgram, "modelViewProjectionMatrix"), 1, false, cast[ptr GLfloat](c.pTransform))
 
@@ -212,6 +215,19 @@ proc drawText*(c: GraphicsContext, font: Font, pt: var Point, text: string) =
         glDrawArrays(ptTriangleFan.GLenum, 0, 4)
     # Undo the hack
     pt.y -= font.size
+
+proc drawImage*(c: GraphicsContext, i: Image, toRect: Rect, fromRect: Rect = zeroRect, alpha: ColorComponent = 1.0) =
+    c.imageShaderProgram.glUseProgram()
+    glBindTexture(GL_TEXTURE_2D, i.texture)
+    var points = [toRect.minX, toRect.minY, 0, 0,
+                toRect.maxX, toRect.minY, i.sizeInTexels.width, 0,
+                toRect.maxX, toRect.maxY, i.sizeInTexels.width, i.sizeInTexels.height,
+                toRect.minX, toRect.maxY, 0, i.sizeInTexels.height]
+    glEnableVertexAttribArray(GLuint(saPosition))
+    glUniformMatrix4fv(glGetUniformLocation(c.imageShaderProgram, "modelViewProjectionMatrix"), 1, false, cast[ptr GLfloat](c.pTransform))
+    glVertexAttribPointer(GLuint(saPosition), 4, cGL_FLOAT, false, 0, cast[pointer](addr points))
+    glDrawArrays(ptTriangleFan.GLenum, 0, 4)
+
 
 discard """
 proc beginStencil(c: GraphicsContext) =
