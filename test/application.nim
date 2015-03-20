@@ -6,6 +6,7 @@ import nimx.matrixes
 import nimx.button
 import nimx.event
 import nimx.text_field
+import nimx.resource
 
 const isMobile = defined(ios) or defined(android)
 
