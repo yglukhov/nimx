@@ -39,13 +39,22 @@ proc openFileDescriptor(asset: AAsset, outStart: ptr BiggestInt, outLength: ptr 
 proc isAllocated(asset: AAsset): BiggestInt {.header: ASSET_MANAGER_HEADER, importc: "AAsset_isAllocated".}
 
 
-proc loadResourceWithDirectPath(path: string): Resource =
+proc walkAPKResources(mgr: AAssetManager, node: string): string =
+    result = ""
+
+
+proc loadResource*(resourceName: string): Resource =
     when defined(android):
         # Android code for resources loading
         result = Resource.new
     elif defined(ios) or defined(macos) or defined(linux) or defined(win32):
         # Generic resource loading from file
         result = Resource.new
+
+        var assetManager: AAssetManager
+        
+        # open root folder
+        assetManager.openDir("") 
 
         let f: File = open(path)
         defer: f.close
@@ -57,12 +66,3 @@ proc loadResourceWithDirectPath(path: string): Resource =
         
         result.size = i.size
         source.readData(result.data, result.size)
-
-
-proc loadResource(name: string): Resource =
-    when defined(linux):
-        # Linux 
-        result = loadResourceWithDirectPath(path)
-    elif defined(android):
-        # Android
-        result = loadResourceWithDirectPath(path)
