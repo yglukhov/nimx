@@ -91,6 +91,9 @@ method onKeyDown*(t: TextField, e: var Event): bool =
         dec cursorPos
         t.updateCursorOffset()
         bumpCursorVisibility()
+    elif e.keyCode == K_DELETE and not t.text.isNil and cursorPos < t.text.runeLen:
+        t.text.uniDelete(cursorPos, cursorPos)
+        bumpCursorVisibility()
     elif e.keyCode == K_LEFT:
         dec cursorPos
         if cursorPos < 0: cursorPos = 0
