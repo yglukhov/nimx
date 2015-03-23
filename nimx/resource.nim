@@ -1,4 +1,5 @@
 import os
+import strutils
 import streams
 
 const 
@@ -12,7 +13,7 @@ const
 type 
     Resource* = ref ResourceObj
     ResourceObj* = object
-        size*: BiggestInt
+        size*: int
         data*: pointer
 
     AAssetManagerObj {.final, header: ASSET_MANAGER_HEADER, importc: "AAssetManager".} = object
@@ -59,7 +60,25 @@ proc findResourceInAPK(mgr: AAssetManager, dir: AAssetDir, node: string): AAsset
                 return mgr.open(currentFileName, 3)  # aaset_node_buffer asset opening mode
 
 
-proc loadResource*(resourceName: string): Resource =
+proc findResourceInFS(resourceName: string): Resource =
+    new(result)
+    for elem in walkDir(getAppDir()):
+        if elem.kind == pcFile:
+            if elem.path.contains(resourceName):
+                let f: File = open(elem.path)
+                defer: f.close()
+
+                let i: FileInfo = getFileInfo(f)
+
+                let source = newFileStream(elem.path, fmRead)
+                defer: source.close()
+                
+                result.size = int(i.size)
+                discard Stream(source).readData(result.data, result.size)
+                return
+
+
+proc loadResourceByName*(resourceName: string): Resource =
     when defined(android):
         # Android code for resources loading
         # Finding assets
@@ -67,26 +86,10 @@ proc loadResource*(resourceName: string): Resource =
         let mgr: AAssetManager = AAssetManager.new
         let root: AAssetDir = AAssetManager.openDir("")
         let ass: AAsset = findResourceInAPK(mgr, root, resourceName)
-
         # Reading the result
         result.size = ass.getLength()
         ass.read(ass, result.data, result.size)
+        ass.close()
     elif defined(ios) or defined(macos) or defined(linux) or defined(win32):
         # Generic resource loading from file
-        result = Resource.new
-
-        var assetManager: AAssetManager
-        
-        # open root folder
-        assetManager.openDir("") 
-
-        let f: File = open(path)
-        defer: f.close
-
-        let i: FileInfo = getFileInfo(f)
-
-        let source = newFileStream(path, fmRead)
-        defer: source.close
-        
-        result.size = i.size
-        source.readData(result.data, result.size)
+        result = findResourceInFS(resourceName)
