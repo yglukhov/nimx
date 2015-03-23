@@ -67,3 +67,5 @@ proc newKeyboardEvent*(keyCode: cint, buttonState: ButtonState, repeat: bool = f
 proc isButtonDownEvent*(e: Event): bool = e.buttonState == bsDown
 proc isButtonUpEvent*(e: Event): bool = e.buttonState == bsUp
 
+proc isMouseMoveEvent*(e: Event): bool = e.buttonState == bsUnknown and e.kind == etMouse
+

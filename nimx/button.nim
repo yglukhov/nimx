@@ -43,12 +43,20 @@ method onMouseDown(b: Button, e: var Event): bool =
     b.state = bsDown
     mainApplication().pushEventFilter do(e: var Event, c: var EventFilterControl) -> bool:
         result = true
-        if e.kind == etMouse and e.isButtonUpEvent():
-            c = efcBreak
-            result = b.onMouseUp(e)
+        if e.kind == etMouse:
+            e.localPosition = b.convertPointFromWindow(e.position)
+            if e.isButtonUpEvent():
+                c = efcBreak
+                result = b.onMouseUp(e)
+            elif e.isMouseMoveEvent():
+                if e.localPosition.inRect(b.bounds):
+                    b.state = bsDown
+                else:
+                    b.state = bsUp
 
 method onMouseUp(b: Button, e: var Event): bool =
     result = true
     b.state = bsUp
-    b.sendAction(e)
+    if e.localPosition.inRect(b.bounds):
+        b.sendAction(e)
 

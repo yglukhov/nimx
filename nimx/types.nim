@@ -77,6 +77,13 @@ proc `+`*(p1, p2: Point): Point =
 proc `-`*(p1, p2: Point): Point =
     newPoint(p1.x - p2.x, p1.y - p2.y)
 
+proc `+=`*(p1: var Point, p2: Point) =
+    p1.x += p2.x
+    p1.y += p2.y
+
+proc `-=`*(p1: var Point, p2: Point) =
+    p1.x -= p2.x
+    p1.y -= p2.y
 
 proc `+`*(s1, s2: Size): Size =
     newSize(s1.width + s2.width, s1.height + s2.height)

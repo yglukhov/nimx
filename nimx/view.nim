@@ -36,14 +36,19 @@ proc newView*(frame: Rect): View =
     result.new()
     result.init(frame)
 
-proc convertCoordinates*(p: Point, fromView, toView: View): Point =
-    if fromView == toView: return p
-    if fromView == nil: # p is screen coordinates
-        discard
-    return p
+proc convertPointToWindow*(v: View, p: Point): Point =
+    var curV = v
+    result = p
+    while curV != v.window and not curV.isNil:
+        result += curV.frame.origin
+        curV = curV.superview
 
-proc convertCoordinates*(r: Rect, fromView, toView: View): Rect =
-    r
+proc convertPointFromWindow*(v: View, p: Point): Point =
+    var curV = v
+    result = p
+    while curV != v.window and not curV.isNil:
+        result -= curV.frame.origin
+        curV = curV.superview
 
 method removeSubview*(v: View, s: View) =
     for i, ss in v.subviews:
@@ -54,12 +59,15 @@ method removeSubview*(v: View, s: View) =
 method removeFromSuperview*(v: View) =
     if v.superview != nil:
         v.superview.removeSubview(v)
+        v.window = nil
+        v.superview = nil
 
 method addSubview*(v: View, s: View) =
     if s.superview != v:
         s.removeFromSuperview()
         v.subviews.add(s)
         s.window = v.window
+        s.superview = v
 
 proc recursiveDrawSubviews*(view: View)
 

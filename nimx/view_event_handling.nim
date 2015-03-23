@@ -27,4 +27,3 @@ proc recursiveHandleMouseEvent*(v: View, e: var Event): bool =
             e.localPosition = localPosition
             result = v.handleMouseEvent(e)
 
-
