@@ -65,7 +65,8 @@ proc loadResource*(resourceName: string): Resource =
         # Finding assets
         result = Resource.new
         let mgr: AAssetManager = AAssetManager.new
-        let ass: AAsset = findResourceInAPK(mgr, "", resourceName)
+        let root: AAssetDir = AAssetManager.openDir("")
+        let ass: AAsset = findResourceInAPK(mgr, root, resourceName)
 
         # Reading the result
         result.size = ass.getLength()
