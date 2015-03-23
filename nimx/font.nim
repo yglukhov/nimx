@@ -34,7 +34,7 @@ proc bakeChars(f: Font, start: int32) =
     var temp_bitmap : array[width * height, byte]
     var info : CharInfo
     info.new()
-    let res = stbtt_BakeFontBitmap(cstring(rawData), 0, f.size, addr temp_bitmap, width, height, start * charChunkLength, charChunkLength, addr info.bakedChars) # no guarantee this fits!
+    discard stbtt_BakeFontBitmap(cstring(rawData), 0, f.size, addr temp_bitmap, width, height, start * charChunkLength, charChunkLength, addr info.bakedChars) # no guarantee this fits!
     glGenTextures(1, addr info.texture)
     glBindTexture(GL_TEXTURE_2D, info.texture)
     glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, width, height, 0, GL_ALPHA, GL_UNSIGNED_BYTE, addr temp_bitmap)

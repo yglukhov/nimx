@@ -255,8 +255,6 @@ proc drawGradientInRect(c: GraphicsContext) =
     discard
     """
 
-const indexes = [0, 1, 2, 3, 4, 5, 6, 7]
-
 proc drawPoly*(c: GraphicsContext, points: openArray[Coord]) =
     let shaderProg = c.testPolyShaderProgram
     shaderProg.glUseProgram()

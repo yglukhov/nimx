@@ -39,7 +39,7 @@ let declareSymbols = " --symbol:ios --symbol:android --symbol:macos --symbol:lin
 
 # Install nimx
 withDir "..":
-    direShell "nimble", "-y", "install"
+    direShell "nimble", "-y", "install", ">/dev/null"
 
 proc infoPlistSetValueForKey(path, value, key: string) =
     direShell "defaults", "write", path, key, value
