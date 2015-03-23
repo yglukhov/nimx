@@ -1,11 +1,13 @@
 import types
 import opengl
+from opengl import GLuint, GLint, GLfloat, GLenum
 import unsigned
 import logging
 import matrixes
 import font
 import image
 import unicode
+import portable_gl
 
 export matrixes
 
@@ -17,80 +19,59 @@ type Transform3D* = Matrix4
 
 include shaders
 
-proc getShaderInfoLog(s: GLuint): string =
-    var infoLen: GLint
-    result = ""
-    glGetShaderiv(s, GL_INFO_LOG_LENGTH, addr infoLen)
-    if infoLen > 0:
-        var infoLog : cstring = cast[cstring](alloc(infoLen + 1))
-        glGetShaderInfoLog(s, infoLen, nil, infoLog)
-        result = $infoLog
-        dealloc(infoLog)
 
-proc getProgramInfoLog(s: GLuint): string =
-    var infoLen: GLint
-    result = ""
-    glGetProgramiv(s, GL_INFO_LOG_LENGTH, addr infoLen)
-    if infoLen > 0:
-        var infoLog : cstring = cast[cstring](alloc(infoLen + 1))
-        glGetProgramInfoLog(s, infoLen, nil, infoLog)
-        result = $infoLog
-        dealloc(infoLog)
+var gl: GL = newGL(nil)
 
 proc loadShader(shaderSrc: string, kind: GLenum): GLuint =
-    result = glCreateShader(kind)
+    result = gl.createShader(kind)
     if result == 0:
         return
 
     # Load the shader source
-    var srcArray = [shaderSrc.cstring]
-    glShaderSource(result, 1, cast[cstringArray](addr srcArray), nil)
+    gl.shaderSource(result, shaderSrc)
     # Compile the shader
-    glCompileShader(result)
+    gl.compileShader(result)
     # Check the compile status
-    var compiled: GLint
-    glGetShaderiv(result, GL_COMPILE_STATUS, addr compiled)
-    let info = getShaderInfoLog(result)
-    if compiled == 0:
+    let compiled = gl.isShaderCompiled(result)
+    let info = gl.shaderInfoLog(result)
+    if not compiled:
         log "Shader compile error: ", info
-        glDeleteShader(result)
+        gl.deleteShader(result)
     elif info.len > 0:
         log "Shader compile log: ", info
 
 proc newShaderProgram(vs, fs: string): GLuint =
-    result = glCreateProgram()
+    result = gl.createProgram()
     if result == 0:
-        log "Could not create program: ", glGetError()
+        log "Could not create program: ", gl.getError()
         return
-    var s = loadShader(vs, GL_VERTEX_SHADER)
+    var s = loadShader(vs, gl.VERTEX_SHADER)
     if s == 0:
-        glDeleteProgram(result)
+        gl.deleteProgram(result)
         return 0
-    glAttachShader(result, s)
-    s = loadShader(fs, GL_FRAGMENT_SHADER)
+    gl.attachShader(result, s)
+    s = loadShader(fs, gl.FRAGMENT_SHADER)
     if s == 0:
-        glDeleteProgram(result)
+        gl.deleteProgram(result)
         return 0
-    glAttachShader(result, s)
-    glLinkProgram(result)
-    var linked : GLint
-    glGetProgramiv(result, GL_LINK_STATUS, addr linked)
-    let info = getProgramInfoLog(result)
-    if linked == 0:
+    gl.attachShader(result, s)
+    gl.linkProgram(result)
+    let linked = gl.isProgramLinked(result)
+    let info = gl.programInfoLog(result)
+    if not linked:
         log "Could not link: ", info
         result = 0
     elif info.len > 0:
         log "Program linked: ", info
-    result.glBindAttribLocation(GLuint(saPosition), "position")
+    gl.bindAttribLocation(result, saPosition.GLuint, "position")
 
-type PrimitiveType* = enum
-    ptTriangles = GL_TRIANGLES
-    ptTriangleStrip = GL_TRIANGLE_STRIP
-    ptTriangleFan = GL_TRIANGLE_FAN
+when defined js:
+    type Transform = Transform3D
+else:
+    type Transform = ptr Transform3D
 
 type GraphicsContext* = ref object of RootObj
-    #transform*: Transform3D
-    pTransform: ptr Transform3D
+    pTransform: Transform
     fillColor*: Color
     strokeColor*: Color
     strokeWidth*: Coord
@@ -105,34 +86,41 @@ var gCurrentContext: GraphicsContext
 
 template setScopeTransform*(c: GraphicsContext, t: var Transform3D): expr =
     let old = c.pTransform
-    c.pTransform = addr t
+    when defined js:
+        c.pTransform = t
+    else:
+        c.pTransform = addr t
     old
 
-template revertTransform*(c: GraphicsContext, t: ptr Transform3D) =
+template revertTransform*(c: GraphicsContext, t: Transform) =
     c.pTransform = t
 
-proc setTransform*(c: GraphicsContext, t: var Transform3D): ptr Transform3D {.discardable.}=
+proc setTransform*(c: GraphicsContext, t: var Transform3D): Transform {.discardable.}=
     result = c.pTransform
-    c.pTransform = addr t
+    when defined js:
+        c.pTransform = t
+    else:
+        c.pTransform = addr t
 
-proc setTransform*(c: GraphicsContext, t: ptr Transform3D): ptr Transform3D {.discardable.} =
+proc setTransform*(c: GraphicsContext, t: Transform): Transform {.discardable.} =
     result = c.pTransform
     c.pTransform = t
 
 template transform*(c: GraphicsContext): expr = c.pTransform[]
 
-proc newGraphicsContext*(): GraphicsContext =
+proc newGraphicsContext*(canvasId: string = nil): GraphicsContext =
     result.new()
-    when not defined(ios) and not defined(android):
+    when not defined(ios) and not defined(android) and not defined(js):
         loadExtensions()
 
+    #result.gl = newGL(canvasId)
     result.shaderProgram = newShaderProgram(vertexShader, fragmentShader)
     result.roundedRectShaderProgram = newShaderProgram(roundedRectVertexShader, roundedRectFragmentShader)
     result.ellipseShaderProgram = newShaderProgram(roundedRectVertexShader, ellipseFragmentShader)
     result.fontShaderProgram = newShaderProgram(fontVertexShader, fontFragmentShader)
     #result.testPolyShaderProgram = newShaderProgram(testPolygonVertexShader, testPolygonFragmentShader)
     result.imageShaderProgram = newShaderProgram(imageVertexShader, imageFragmentShader)
-    glClearColor(1.0, 0.0, 1.0, 1.0)
+    gl.clearColor(1.0, 0.0, 1.0, 1.0)
 
 
 proc setCurrentContext*(c: GraphicsContext): GraphicsContext {.discardable.} =
@@ -141,35 +129,66 @@ proc setCurrentContext*(c: GraphicsContext): GraphicsContext {.discardable.} =
 
 proc currentContext*(): GraphicsContext = gCurrentContext
 
-proc drawVertexes*(c: GraphicsContext, componentCount: int, points: openarray[Coord], pt: PrimitiveType) =
+proc setTransformUniform(c: GraphicsContext, program: GLuint) =
+    when defined js:
+        gl.uniformMatrix(gl.getUniformLocation(program, "modelViewProjectionMatrix"), 1, false, cast[ptr GLfloat](c.pTransform))
+    else:
+        gl.uniformMatrix(gl.getUniformLocation(program, "modelViewProjectionMatrix"), 1, false, c.pTransform[])
+
+proc setFillColorUniform(c: GraphicsContext, program: GLuint) =
+    when defined js:
+        gl.uniform4fv(gl.getUniformLocation(program, "fillColor"), 1,
+            [c.fillColor.r, c.fillColor.g, c.fillColor.b, c.fillColor.a])
+    else:
+        glUniform4fv(gl.getUniformLocation(program, "fillColor"), 1, cast[ptr GLfloat](addr c.fillColor))
+
+proc setRectUniform(prog: GLuint, name: cstring, r: Rect) =
+    when defined js:
+        gl.uniform4fv(gl.getUniformLocation(prog, name), 1, [r.x, r.y, r.width, r.height])
+    else:
+        {.emit: """
+        glUniform4fv(glGetUniformLocation(`prog`, `name`), 1, `r`);
+        """.}
+
+proc setStrokeParamsUniform(c: GraphicsContext, program: GLuint) =
+    when defined js:
+        gl.uniform4fv(gl.getUniformLocation(program, "strokeColor"), 1,
+            [c.strokeColor.r, c.strokeColor.g, c.strokeColor.b, c.strokeColor.a])
+    else:
+        glUniform4fv(gl.getUniformLocation(program, "strokeColor"), 1, cast[ptr GLfloat](addr c.strokeColor))
+    gl.uniform1f(gl.getUniformLocation(program, "strokeWidth"), c.strokeWidth)
+
+
+proc drawVertexes(c: GraphicsContext, componentCount: int, points: openarray[Coord], pt: GLenum) =
     assert(points.len mod componentCount == 0)
-    c.shaderProgram.glUseProgram()
-    glEnableVertexAttribArray(GLuint(saPosition))
-    glVertexAttribPointer(GLuint(saPosition), GLint(componentCount), cGL_FLOAT, false, 0, cast[pointer](points))
-    glUniform4fv(glGetUniformLocation(c.shaderProgram, "fillColor"), 1, cast[ptr GLfloat](addr c.fillColor))
-    glUniformMatrix4fv(glGetUniformLocation(c.shaderProgram, "modelViewProjectionMatrix"), 1, false, cast[ptr GLfloat](c.pTransform))
-    glDrawArrays(cast[GLenum](pt), 0, GLsizei(points.len / componentCount))
+    gl.useProgram(c.shaderProgram)
+    gl.enableVertexAttribArray(saPosition.GLuint)
+    gl.vertexAttribPointer(saPosition.GLuint, componentCount.GLint, false, 0, points)
+    #glVertexAttribPointer(GLuint(saPosition), GLint(componentCount), cGL_FLOAT, false, 0, cast[pointer](points))
+    c.setTransformUniform(c.shaderProgram)
+    c.setFillColorUniform(c.shaderProgram)
+    gl.drawArrays(pt, 0, GLsizei(points.len / componentCount))
 
 proc drawRectAsQuad(c: GraphicsContext, r: Rect) =
-    var points = [r.minX, r.minY,
+    let points = [r.minX, r.minY,
                 r.maxX, r.minY,
                 r.maxX, r.maxY,
                 r.minX, r.maxY]
     let componentCount = 2
-    glEnableVertexAttribArray(GLuint(saPosition))
-    glVertexAttribPointer(GLuint(saPosition), GLint(componentCount), cGL_FLOAT, false, 0, cast[pointer](addr points))
-    glDrawArrays(cast[GLenum](ptTriangleFan), 0, GLsizei(points.len / componentCount))
+    gl.enableVertexAttribArray(saPosition.GLuint)
+    gl.vertexAttribPointer(saPosition.GLuint, componentCount.GLint, false, 0, points)
+    gl.drawArrays(gl.TRIANGLE_FAN, 0, GLsizei(points.len / componentCount))
 
 proc drawRoundedRect*(c: GraphicsContext, r: Rect, radius: Coord) =
     var rect = r
     var rad = radius
-    glEnable(GL_BLEND)
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
-    c.roundedRectShaderProgram.glUseProgram()
-    glUniform4fv(glGetUniformLocation(c.roundedRectShaderProgram, "fillColor"), 1, cast[ptr GLfloat](addr c.fillColor))
-    glUniformMatrix4fv(glGetUniformLocation(c.roundedRectShaderProgram, "modelViewProjectionMatrix"), 1, false, cast[ptr GLfloat](c.pTransform))
-    glUniform4fv(glGetUniformLocation(c.roundedRectShaderProgram, "rect"), 1, cast[ptr GLfloat](addr rect))
-    glUniform1fv(glGetUniformLocation(c.roundedRectShaderProgram, "radius"), 1, addr rad)
+    gl.enable(gl.BLEND)
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+    gl.useProgram(c.roundedRectShaderProgram)
+    c.setFillColorUniform(c.roundedRectShaderProgram)
+    c.setTransformUniform(c.roundedRectShaderProgram)
+    glUniform4fv(gl.getUniformLocation(c.roundedRectShaderProgram, "rect"), 1, cast[ptr GLfloat](addr rect))
+    gl.uniform1f(gl.getUniformLocation(c.roundedRectShaderProgram, "radius"), rad)
     c.drawRectAsQuad(r)
 
 proc drawRect*(c: GraphicsContext, r: Rect) =
@@ -177,32 +196,31 @@ proc drawRect*(c: GraphicsContext, r: Rect) =
                 r.maxX, r.minY,
                 r.maxX, r.maxY,
                 r.minX, r.maxY]
-    c.drawVertexes(2, points, ptTriangleFan)
+    c.drawVertexes(2, points, gl.TRIANGLE_FAN)
 
 proc drawEllipseInRect*(c: GraphicsContext, r: Rect) =
     var rect = r
-    glEnable(GL_BLEND)
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
-    c.ellipseShaderProgram.glUseProgram()
-    glUniform4fv(glGetUniformLocation(c.ellipseShaderProgram, "fillColor"), 1, cast[ptr GLfloat](addr c.fillColor))
-    glUniform4fv(glGetUniformLocation(c.ellipseShaderProgram, "strokeColor"), 1, cast[ptr GLfloat](addr c.strokeColor))
-    glUniform1fv(glGetUniformLocation(c.ellipseShaderProgram, "strokeWidth"), 1, cast[ptr GLfloat](addr c.strokeWidth))
-    glUniformMatrix4fv(glGetUniformLocation(c.ellipseShaderProgram, "modelViewProjectionMatrix"), 1, false, cast[ptr GLfloat](c.pTransform))
-    glUniform4fv(glGetUniformLocation(c.ellipseShaderProgram, "rect"), 1, cast[ptr GLfloat](addr rect))
+    gl.enable(gl.BLEND)
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+    gl.useProgram(c.ellipseShaderProgram)
+    c.setFillColorUniform(c.ellipseShaderProgram)
+    c.setStrokeParamsUniform(c.ellipseShaderProgram)
+    c.setTransformUniform(c.ellipseShaderProgram)
+    glUniform4fv(gl.getUniformLocation(c.ellipseShaderProgram, "rect"), 1, cast[ptr GLfloat](addr rect))
     c.drawRectAsQuad(r)
 
 proc drawText*(c: GraphicsContext, font: Font, pt: var Point, text: string) =
     # assume orthographic projection with units = screen pixels, origin at top left
     # TODO: Here follows a quick hack to move font origin to it's upper left corner.
     pt.y += font.size
-    c.fontShaderProgram.glUseProgram()
-    glUniform4fv(glGetUniformLocation(c.fontShaderProgram, "fillColor"), 1, cast[ptr GLfloat](addr c.fillColor))
+    gl.useProgram(c.fontShaderProgram)
+    c.setFillColorUniform(c.fontShaderProgram)
 
-    glEnableVertexAttribArray(GLuint(saPosition))
-    glUniformMatrix4fv(glGetUniformLocation(c.fontShaderProgram, "modelViewProjectionMatrix"), 1, false, cast[ptr GLfloat](c.pTransform))
+    gl.enableVertexAttribArray(saPosition.GLuint)
+    c.setTransformUniform(c.fontShaderProgram)
 
     var vertexes: array[4 * 4, Coord]
-    glVertexAttribPointer(GLuint(saPosition), 4, cGL_FLOAT, false, 0, cast[pointer](addr vertexes))
+    gl.vertexAttribPointer(saPosition.GLuint, 4, false, 0, vertexes)
 
     var texture: GLuint = 0
     var newTexture: GLuint = 0
@@ -211,22 +229,22 @@ proc drawText*(c: GraphicsContext, font: Font, pt: var Point, text: string) =
         font.getQuadDataForRune(ch, vertexes, newTexture, pt)
         if texture != newTexture:
             texture = newTexture
-            glBindTexture(GL_TEXTURE_2D, texture)
-        glDrawArrays(ptTriangleFan.GLenum, 0, 4)
+            gl.bindTexture(gl.TEXTURE_2D, texture)
+        gl.drawArrays(gl.TRIANGLE_FAN, 0, 4)
     # Undo the hack
     pt.y -= font.size
 
 proc drawImage*(c: GraphicsContext, i: Image, toRect: Rect, fromRect: Rect = zeroRect, alpha: ColorComponent = 1.0) =
     c.imageShaderProgram.glUseProgram()
-    glBindTexture(GL_TEXTURE_2D, i.texture)
-    var points = [toRect.minX, toRect.minY, 0, 0,
+    gl.bindTexture(gl.TEXTURE_2D, i.texture)
+    let points = [toRect.minX, toRect.minY, 0, 0,
                 toRect.maxX, toRect.minY, i.sizeInTexels.width, 0,
                 toRect.maxX, toRect.maxY, i.sizeInTexels.width, i.sizeInTexels.height,
                 toRect.minX, toRect.maxY, 0, i.sizeInTexels.height]
-    glEnableVertexAttribArray(GLuint(saPosition))
-    glUniformMatrix4fv(glGetUniformLocation(c.imageShaderProgram, "modelViewProjectionMatrix"), 1, false, cast[ptr GLfloat](c.pTransform))
-    glVertexAttribPointer(GLuint(saPosition), 4, cGL_FLOAT, false, 0, cast[pointer](addr points))
-    glDrawArrays(ptTriangleFan.GLenum, 0, 4)
+    gl.enableVertexAttribArray(saPosition.GLuint)
+    c.setTransformUniform(c.imageShaderProgram)
+    gl.vertexAttribPointer(saPosition.GLuint, 4, false, 0, points)
+    gl.drawArrays(gl.TRIANGLE_FAN, 0, 4)
 
 
 discard """
@@ -246,10 +264,10 @@ proc endStencil(c: GraphicsContext) =
     glStencilMask(0x00);
 
 proc enableStencil(c: GraphicsContext) =
-    glEnable(GL_STENCIL_TEST)
+    gl.enable(GL_STENCIL_TEST)
 
 proc disableStencil(c: GraphicsContext) =
-    glDisable(GL_STENCIL_TEST)
+    gl.disable(GL_STENCIL_TEST)
 
 proc drawGradientInRect(c: GraphicsContext) =
     discard
@@ -257,18 +275,18 @@ proc drawGradientInRect(c: GraphicsContext) =
 
 proc drawPoly*(c: GraphicsContext, points: openArray[Coord]) =
     let shaderProg = c.testPolyShaderProgram
-    shaderProg.glUseProgram()
-    glEnable(GL_BLEND)
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
-    glEnableVertexAttribArray(GLuint(saPosition))
+    gl.useProgram(shaderProg)
+    gl.enable(gl.BLEND)
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+    gl.enableVertexAttribArray(saPosition.GLuint)
     const componentCount = 2
     let numberOfVertices = points.len / componentCount
-    glVertexAttribPointer(GLuint(saPosition), GLint(componentCount), cGL_FLOAT, false, 0, cast[pointer](points))
-    #//glUniform4fv(glGetUniformLocation(c.shaderProg, "fillColor"), 1, cast[ptr GLfloat](addr c.fillColor))
-    glUniform1i(glGetUniformLocation(shaderProg, "numberOfVertices"), GLint(numberOfVertices))
-    glUniformMatrix4fv(glGetUniformLocation(shaderProg, "modelViewProjectionMatrix"), 1, false, cast[ptr GLfloat](c.pTransform))
-    #glUniform4fv(glGetUniformLocation(shaderProg, "fillColor"), 1, cast[ptr GLfloat](addr c.fillColor))
-    #glDrawArrays(cast[GLenum](ptTriangleFan), 0, GLsizei(numberOfVertices))
+    gl.vertexAttribPointer(saPosition.GLuint, componentCount.GLint, false, 0, points)
+    #c.setFillColorUniform(c.shaderProg)
+    #glUniform1i(gl.getUniformLocation(shaderProg, "numberOfVertices"), GLint(numberOfVertices))
+    c.setTransformUniform(shaderProg)
+    #glUniform4fv(gl.getUniformLocation(shaderProg, "fillColor"), 1, cast[ptr GLfloat](addr c.fillColor))
+    #gl.drawArrays(cast[GLenum](gl.TRIANGLE_FAN), 0, GLsizei(numberOfVertices))
 
 proc testPoly*(c: GraphicsContext) =
     let points = [
