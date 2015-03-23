@@ -4,6 +4,8 @@ import types
 import logging
 import event
 import font
+import app
+import view_event_handling
 
 export control
 
@@ -39,6 +41,11 @@ method draw(b: Button, r: Rect) =
 method onMouseDown(b: Button, e: var Event): bool =
     result = true
     b.state = bsDown
+    mainApplication().pushEventFilter do(e: var Event, c: var EventFilterControl) -> bool:
+        result = true
+        if e.kind == etMouse and e.isButtonUpEvent():
+            c = efcBreak
+            result = b.onMouseUp(e)
 
 method onMouseUp(b: Button, e: var Event): bool =
     result = true
