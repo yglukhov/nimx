@@ -4,6 +4,11 @@ import streams
 const 
     ASSET_MANAGER_HEADER = "<android/asset_manager.h>"
 
+    AASSET_MODE_UNKNOWN {.header: ASSET_MANAGER_HEADER, importc: "AASSET_MODE_UNKNOWN".} = 0
+    AASSET_MODE_RANDOM {.header: ASSET_MANAGER_HEADER, importc: "AASSET_MODE_UNKNOWN".} = 1
+    AASSET_MODE_STREAMING {.header: ASSET_MANAGER_HEADER, importc: "AASSET_MODE_UNKNOWN".} = 2
+    AASSET_MODE_BUFFER {.header: ASSET_MANAGER_HEADER, importc: "AASSET_MODE_UNKNOWN".} = 3
+
 type 
     Resource* = ref ResourceObj
     ResourceObj* = object
@@ -39,14 +44,32 @@ proc openFileDescriptor(asset: AAsset, outStart: ptr BiggestInt, outLength: ptr 
 proc isAllocated(asset: AAsset): BiggestInt {.header: ASSET_MANAGER_HEADER, importc: "AAsset_isAllocated".}
 
 
-proc walkAPKResources(mgr: AAssetManager, node: string): string =
-    result = ""
+proc findResourceInAPK(mgr: AAssetManager, dir: AAssetDir, node: string): AAsset =
+    defer: dir.close()
+    var currentFileName: cstring = dir.getNextFileName()
+    while currentFileName != "":
+        # Try to open dir
+        let nestedDir: AAssetDir = mgr.openDir(currentFileName)
+        # We should go deeper
+        if nestedDir != nil:
+            return findResourceInAPK(mgr, nestedDir, node)
+        # It's a file
+        else:
+            if node == currentFileName:
+                return mgr.open(currentFileName, 3)  # aaset_node_buffer asset opening mode
 
 
 proc loadResource*(resourceName: string): Resource =
     when defined(android):
         # Android code for resources loading
+        # Finding assets
         result = Resource.new
+        let mgr: AAssetManager = AAssetManager.new
+        let ass: AAsset = findResourceInAPK(mgr, "", resourceName)
+
+        # Reading the result
+        result.size = ass.getLength()
+        ass.read(ass, result.data, result.size)
     elif defined(ios) or defined(macos) or defined(linux) or defined(win32):
         # Generic resource loading from file
         result = Resource.new
