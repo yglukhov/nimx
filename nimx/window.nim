@@ -17,6 +17,9 @@ method init*(w: Window, frame: Rect) =
 method onResize*(w: Window, newSize: Size) =
     procCall w.View.setFrameSize(newSize)
 
+method drawWindow*(w: Window) =
+    w.recursiveDrawSubviews()
+
 proc hash(w: Window): THash =
     return cast[THash](cast[pointer](w))
 
@@ -28,10 +31,9 @@ method registerForMouseEventsOutside*(w: Window) =
 method unregisterForMouseEventsOutside*(w: Window) =
     windowsRegisteredForOutsideMouseEventsSet.excl(w)
 
-proc windowsRegisteredForOutsideMouseEvents*(): auto = windowsRegisteredForOutsideMouseEventsSet
+method enableAnimation*(w: Window, flag: bool) = discard
 
-proc canPassEventToFirstResponder(w: Window): bool =
-    w.firstResponder != nil and w.firstResponder != w
+proc windowsRegisteredForOutsideMouseEvents*(): auto = windowsRegisteredForOutsideMouseEventsSet
 
 method startTextInput*(w: Window) = discard
 method stopTextInput*(w: Window) = discard

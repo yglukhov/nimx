@@ -1,5 +1,5 @@
 import window
-import sdl2
+import sdl2 except Event
 import logging
 import view
 import opengl
@@ -9,6 +9,7 @@ import event
 import font
 import unicode
 import view_event_handling
+import app
 
 import times
 
@@ -17,19 +18,19 @@ type SdlWindow* = ref object of Window
     sdlGlContext: GlContextPtr
     renderingContext: GraphicsContext
 
-var allWindows : seq[SdlWindow] = @[]
 
 method drawWindow(w: SdlWindow)
 
 proc animationCallback(p: pointer) {.cdecl.} =
     cast[SdlWindow](p).drawWindow()
 
-proc enableAnimation(w: SdlWindow, flag: bool) =
+method enableAnimation*(w: SdlWindow, flag: bool) =
     when defined(ios):
         if flag:
             discard iPhoneSetAnimationCallback(w.impl, 0, animationCallback, cast[pointer](w))
         else:
             discard iPhoneSetAnimationCallback(w.impl, 0, nil, nil)
+    discard # Seems like a Nim bug. Empty method will result in a link error.
 
 method initCommon(w: SdlWindow, r: view.Rect) =
     if w.impl == nil:
@@ -43,7 +44,7 @@ method initCommon(w: SdlWindow, r: view.Rect) =
     w.renderingContext = newGraphicsContext()
 
     w.enableAnimation(true)
-    allWindows.add(w)
+    mainApplication().addWindow(w)
     discard w.impl.setData("__nimx_wnd", cast[pointer](w))
 
 method initFullscreen*(w: SdlWindow) =
@@ -101,7 +102,7 @@ method drawWindow(w: SdlWindow) =
     transform.ortho(0, w.frame.width, w.frame.height, 0, -1, 1)
     let oldTransform = c.setScopeTransform(transform)
 
-    w.recursiveDrawSubviews()
+    procCall w.Window.drawWindow()
 
     var pt = newPoint(w.frame.width - 80, 2)
     c.fillColor = newColor(0.5, 0, 0)
@@ -115,19 +116,6 @@ proc waitOrPollEvent(evt: var sdl2.Event): auto =
         waitEvent(evt)
     else:
         pollEvent(evt)
-
-proc handleSdlEvent(w: SdlWindow, e: WindowEventObj): bool =
-    case e.event:
-        of WindowEvent_Resized:
-            w.onResize(newSize(Coord(e.data1), Coord(e.data2)))
-            w.drawWindow()
-            return true
-        else: discard
-    return false
-
-type EventHandler = proc (e: ptr sdl2.Event): Bool32
-
-var eventHandler: EventHandler = nil
 
 proc windowFromSDLEvent[T](event: T): SdlWindow =
     let sdlWndId = event.windowID
@@ -144,89 +132,80 @@ proc buttonStateFromSDLState(s: KeyState): ButtonState =
     else:
         bsUp
 
-proc eventFilter(userdata: pointer; event: ptr sdl2.Event): Bool32 {.cdecl.} =
-    var handled = false
+proc eventWithSDLEvent(event: ptr sdl2.Event): Event =
     case event.kind:
         of FingerMotion:
+            discard
             #log("finger motion")
-            handled = true
         of FingerDown:
             log("Finger down")
-            handled = true
         of FingerUp:
             log("Finger up")
-            handled = true
         of WindowEvent:
             let wndEv = cast[WindowEventPtr](event)
             let wnd = windowFromSDLEvent(wndEv)
-            if wnd != nil:
-                handled = wnd.handleSdlEvent(wndEv[])
+            case wndEv.event:
+                of WindowEvent_Resized:
+                    result = newEvent(etWindowResized)
+                    result.window = wnd
+                    result.position.x = wndEv.data1.Coord
+                    result.position.y = wndEv.data2.Coord
+                else:
+                    discard
 
         of MouseButtonDown, MouseButtonUp:
             let mouseEv = cast[MouseButtonEventPtr](event)
             let wnd = windowFromSDLEvent(mouseEv)
-            let state = buttonStateFromSDLState(mouseEv.state.KeyState) #if mouseEv.state == 1: bsDown else: bsUp
+            let state = buttonStateFromSDLState(mouseEv.state.KeyState)
             let button = case mouseEv.button:
                 of 0: kcMouseButtonPrimary
                 of 1: kcMouseButtonMiddle
                 of 2: kcMouseButtonSecondary
                 else: kcUnknown
-            if wnd != nil:
-                let pos = positionFromSDLEvent(mouseEv)
-                var evt = newMouseButtonEvent(pos, button, state)
-                handled = wnd.recursiveHandleMouseEvent(evt)
+            let pos = positionFromSDLEvent(mouseEv)
+            result = newMouseButtonEvent(pos, button, state)
+            result.window = wnd
         
         of MouseMotion:
             let mouseEv = cast[MouseMotionEventPtr](event)
             let wnd = windowFromSDLEvent(mouseEv)
             if wnd != nil:
                 let pos = positionFromSDLEvent(mouseEv)
-                var evt = newMouseMoveEvent(pos)
-                handled = wnd.recursiveHandleMouseEvent(evt)
+                result = newMouseMoveEvent(pos)
+                result.window = wnd
 
         of KeyDown, KeyUp:
             let keyEv = cast[KeyboardEventPtr](event)
             let wnd = windowFromSDLEvent(keyEv)
-            if wnd != nil:
-                var evt = newKeyboardEvent(keyEv.keysym.sym, buttonStateFromSDLState(keyEv.state.KeyState), keyEv.repeat)
-                evt.rune = keyEv.keysym.unicode.Rune
-                if evt.buttonState == bsDown:
-                    handled = wnd.onKeyDown(evt)
-                else:
-                    handled = wnd.onKeyUp(evt)
+            result = newKeyboardEvent(keyEv.keysym.sym, buttonStateFromSDLState(keyEv.state.KeyState), keyEv.repeat)
+            result.rune = keyEv.keysym.unicode.Rune
+            result.window = wnd
 
         of TextInput:
             let textEv = cast[TextInputEventPtr](event)
-            let wnd = windowFromSDLEvent(textEv)
-            if wnd != nil:
-                handled = wnd.onTextInput($cast[cstring](addr textEv.text))
+            result = newEvent(etTextInput)
+            result.window = windowFromSDLEvent(textEv)
+            result.text = $cast[cstring](addr textEv.text)
 
         of TextEditing:
-            echo event.kind
             let textEv = cast[TextEditingEventPtr](event)
-            echo "text: ", textEv.text
-
+            result = newEvent(etTextInput)
+            result.window = windowFromSDLEvent(textEv)
+            result.text = $cast[cstring](addr textEv.text)
 
         of AppWillEnterBackground:
-            log "will enter back"
-            for wnd in allWindows:
-                wnd.enableAnimation(false)
+            result = newEvent(etAppWillEnterBackground)
 
         of AppWillEnterForeground:
-            log "will enter fore"
-            for wnd in allWindows:
-                wnd.enableAnimation(true)
+            result = newEvent(etAppWillEnterForeground)
 
-        else: discard
-    #log "Event: ", $event.kind
-    if handled:
-        return False32
-    if eventHandler != nil:
-        return eventHandler(event)
-    return True32
+        else:
+            discard
 
-proc setEventHandler*(handler: EventHandler) =
-    eventHandler = handler
+proc eventFilter(userdata: pointer; event: ptr sdl2.Event): Bool32 {.cdecl.} =
+    var e = eventWithSDLEvent(event)
+    var handled = mainApplication().handleEvent(e)
+    result = if handled: False32 else: True32
 
 method onResize*(w: SdlWindow, newSize: Size) =
     glViewport(0, 0, GLSizei(newSize.width), GLsizei(newSize.height))
@@ -234,7 +213,7 @@ method onResize*(w: SdlWindow, newSize: Size) =
 
 # Framerate limiter
 let MAXFRAMERATE: uint32 = 20 # milli seconds
-var frametime: uint32 
+var frametime: uint32
 
 proc limitFramerate() =
     var now = getTicks()
@@ -248,8 +227,7 @@ proc nextEvent*(evt: var sdl2.Event): bool =
 
     when not defined(ios):
         if not result:
-            for wnd in allWindows:
-                wnd.drawWindow()
+            mainApplication().drawWindows()
             #limitFramerate()
 
 method startTextInput*(w: SdlWindow) =

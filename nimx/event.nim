@@ -2,10 +2,15 @@ import types
 import unicode
 import window
 
-type EventType = enum
+type EventType* = enum
     etMouse
     etScroll
     etKeyboard
+    etWindowResized
+    etTextInput
+    etTextEditing
+    etAppWillEnterBackground
+    etAppWillEnterForeground
 
 type ButtonState* = enum
     bsUnknown
@@ -26,7 +31,8 @@ type Event* = object
     buttonState*: ButtonState
     rune*: Rune
     repeat*: bool
-    window: Window
+    window*: Window
+    text*: string
 
 proc button*(e: Event): KeyCode = cast[KeyCode](e.fButton)
 proc `button=`*(e: var Event, b: KeyCode) = e.fButton = cast[cint](b)
@@ -34,7 +40,7 @@ proc `button=`*(e: var Event, b: KeyCode) = e.fButton = cast[cint](b)
 proc keyCode*(e: Event): cint = e.fButton
 proc `keyCode=`*(e: var Event, c: cint) = e.fButton = c
 
-proc newEvent(kind: EventType, position: Point, button: KeyCode, buttonState: ButtonState): Event =
+proc newEvent*(kind: EventType, position: Point = zeroPoint, button: KeyCode = kcUnknown, buttonState: ButtonState = bsUnknown): Event =
     result.kind = kind
     result.position = position
     result.localPosition = position
