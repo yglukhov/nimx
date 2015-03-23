@@ -2,7 +2,6 @@
 import view
 import sets
 import hashes
-import event
 
 export view
 
@@ -33,18 +32,6 @@ proc windowsRegisteredForOutsideMouseEvents*(): auto = windowsRegisteredForOutsi
 
 proc canPassEventToFirstResponder(w: Window): bool =
     w.firstResponder != nil and w.firstResponder != w
-
-method onKeyDown*(w: Window, e: var Event): bool =
-    if w.canPassEventToFirstResponder:
-        result = w.firstResponder.onKeyDown(e)
-
-method onKeyUp*(w: Window, e: var Event): bool =
-    if w.canPassEventToFirstResponder:
-        result = w.firstResponder.onKeyUp(e)
-
-method onTextInput*(w: Window, s: string): bool =
-    if w.canPassEventToFirstResponder:
-        result = w.firstResponder.onTextInput(s)
 
 method startTextInput*(w: Window) = discard
 method stopTextInput*(w: Window) = discard

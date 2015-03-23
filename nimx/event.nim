@@ -1,5 +1,6 @@
 import types
 import unicode
+import window
 
 type EventType = enum
     etMouse
@@ -25,6 +26,7 @@ type Event* = object
     buttonState*: ButtonState
     rune*: Rune
     repeat*: bool
+    window: Window
 
 proc button*(e: Event): KeyCode = cast[KeyCode](e.fButton)
 proc `button=`*(e: var Event, b: KeyCode) = e.fButton = cast[cint](b)
