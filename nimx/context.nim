@@ -156,9 +156,11 @@ proc setRectUniform(c: GraphicsContext, prog: GLuint, name: cstring, r: Rect) =
         c.gl.uniform4fv(c.gl.getUniformLocation(prog, name), 1, [r.x, r.y, r.width, r.height])
     else:
         let loc = glGetUniformLocation(prog, name)
+        var p: pointer
         {.emit: """
-        glUniform4fv(`loc`, 1, &`r`);
+        `p` = &`r`;
         """.}
+        glUniform4fv(loc, 1, cast[ptr GLfloat](p));
 
 proc setStrokeParamsUniform(c: GraphicsContext, program: GLuint) =
     when defined js:
