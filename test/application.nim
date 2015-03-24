@@ -6,6 +6,7 @@ import nimx.button
 import nimx.event
 import nimx.text_field
 import nimx.app
+import nimx.resource
 
 
 when defined js:
