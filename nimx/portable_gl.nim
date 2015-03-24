@@ -215,9 +215,11 @@ proc uniformMatrix*(gl: GL, location: GLint, transpose: GLboolean, data: array[1
     when defined js:
         asm "`gl`.uniformMatrix4fv(`location`, `transpose`, `data`);"
     else:
+        var p : pointer
         {.emit: """
-        glUniformMatrix4fv(`location`, 1, `transpose`, `data`);
+        `p` = data;
         """.}
+        glUniformMatrix4fv(location, 1, transpose, cast[ptr GLfloat](p));
 
 proc uniform4fv*(gl: GL, location: GLint, count: GLsizei, data: array[4, GLfloat]) =
     when defined js:
