@@ -4,10 +4,15 @@ import font
 import types
 import event
 import window
-import times
 import unistring
 import unicode
 
+
+when defined js:
+    proc epochTime(): float =
+        0.0
+else:
+    import times
 
 type TextField* = ref object of Control
     text*: string
@@ -82,29 +87,31 @@ method onMouseDown*(t: TextField, e: var Event): bool =
 proc updateCursorOffset(t: TextField) =
     cursorOffset = systemFont().cursorOffsetForPositionInString(t.text, cursorPos)
 
-import sdl2 except Event
+when not defined js:
+    import sdl2 except Event
 
 method onKeyDown*(t: TextField, e: var Event): bool =
-    if e.keyCode == K_BACKSPACE and cursorPos > 0:
-        result = true
-        t.text.uniDelete(cursorPos - 1, cursorPos - 1)
-        dec cursorPos
-        t.updateCursorOffset()
-        bumpCursorVisibility()
-    elif e.keyCode == K_DELETE and not t.text.isNil and cursorPos < t.text.runeLen:
-        t.text.uniDelete(cursorPos, cursorPos)
-        bumpCursorVisibility()
-    elif e.keyCode == K_LEFT:
-        dec cursorPos
-        if cursorPos < 0: cursorPos = 0
-        t.updateCursorOffset()
-        bumpCursorVisibility()
-    elif e.keyCode == K_RIGHT:
-        inc cursorPos
-        let textLen = t.text.runeLen
-        if cursorPos > textLen: cursorPos = textLen
-        t.updateCursorOffset()
-        bumpCursorVisibility()
+    when not defined js:
+        if e.keyCode == K_BACKSPACE and cursorPos > 0:
+            result = true
+            t.text.uniDelete(cursorPos - 1, cursorPos - 1)
+            dec cursorPos
+            t.updateCursorOffset()
+            bumpCursorVisibility()
+        elif e.keyCode == K_DELETE and not t.text.isNil and cursorPos < t.text.runeLen:
+            t.text.uniDelete(cursorPos, cursorPos)
+            bumpCursorVisibility()
+        elif e.keyCode == K_LEFT:
+            dec cursorPos
+            if cursorPos < 0: cursorPos = 0
+            t.updateCursorOffset()
+            bumpCursorVisibility()
+        elif e.keyCode == K_RIGHT:
+            inc cursorPos
+            let textLen = t.text.runeLen
+            if cursorPos > textLen: cursorPos = textLen
+            t.updateCursorOffset()
+            bumpCursorVisibility()
 
 method onTextInput*(t: TextField, s: string): bool =
     result = true

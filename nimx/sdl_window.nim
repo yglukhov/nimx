@@ -34,12 +34,12 @@ method enableAnimation*(w: SdlWindow, flag: bool) =
 
 method initCommon(w: SdlWindow, r: view.Rect) =
     if w.impl == nil:
-        log("Could not create window!")
+        logi "Could not create window!"
         quit 1
     procCall init(w.Window, r)
     w.sdlGlContext = w.impl.glCreateContext()
     if w.sdlGlContext == nil:
-        log "Could not create context!"
+        logi "Could not create context!"
     discard glMakeCurrent(w.impl, w.sdlGlContext)
     w.renderingContext = newGraphicsContext()
 
@@ -136,11 +136,11 @@ proc eventWithSDLEvent(event: ptr sdl2.Event): Event =
     case event.kind:
         of FingerMotion:
             discard
-            #log("finger motion")
+            #logi("finger motion")
         of FingerDown:
-            log("Finger down")
+            logi("Finger down")
         of FingerUp:
-            log("Finger up")
+            logi("Finger up")
         of WindowEvent:
             let wndEv = cast[WindowEventPtr](event)
             let wnd = windowFromSDLEvent(wndEv)
@@ -188,6 +188,7 @@ proc eventWithSDLEvent(event: ptr sdl2.Event): Event =
             result.text = $cast[cstring](addr textEv.text)
 
         of TextEditing:
+            echo "Editing:"
             let textEv = cast[TextEditingEventPtr](event)
             result = newEvent(etTextInput)
             result.window = windowFromSDLEvent(textEv)
@@ -200,6 +201,7 @@ proc eventWithSDLEvent(event: ptr sdl2.Event): Event =
             result = newEvent(etAppWillEnterForeground)
 
         else:
+            #echo "Unknown event: ", event.kind
             discard
 
 proc eventFilter(userdata: pointer; event: ptr sdl2.Event): Bool32 {.cdecl.} =

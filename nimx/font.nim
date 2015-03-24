@@ -1,9 +1,11 @@
-import ttf
 import types
-import os
 import logging
 import unicode
 import tables
+
+when not defined js:
+    import ttf
+    import os
 
 # Quick and dirty interface for fonts.
 # TODO:
@@ -13,6 +15,9 @@ import tables
 
 import opengl
 
+
+when defined js:
+    type stbtt_bakedchar = object
 
 const charChunkLength = 96
 
@@ -28,18 +33,19 @@ type Font* = ref object
 
 
 proc bakeChars(f: Font, start: int32) =
-    var rawData = readFile(f.filePath)
-    const width = 512
-    const height = 512
-    var temp_bitmap : array[width * height, byte]
-    var info : CharInfo
-    info.new()
-    discard stbtt_BakeFontBitmap(cstring(rawData), 0, f.size, addr temp_bitmap, width, height, start * charChunkLength, charChunkLength, addr info.bakedChars) # no guarantee this fits!
-    glGenTextures(1, addr info.texture)
-    glBindTexture(GL_TEXTURE_2D, info.texture)
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, width, height, 0, GL_ALPHA, GL_UNSIGNED_BYTE, addr temp_bitmap)
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
-    f.chars[start] = info
+    when not defined js:
+        var rawData = readFile(f.filePath)
+        const width = 512
+        const height = 512
+        var temp_bitmap : array[width * height, byte]
+        var info : CharInfo
+        info.new()
+        discard stbtt_BakeFontBitmap(cstring(rawData), 0, f.size, addr temp_bitmap, width, height, start * charChunkLength, charChunkLength, addr info.bakedChars) # no guarantee this fits!
+        glGenTextures(1, addr info.texture)
+        glBindTexture(GL_TEXTURE_2D, info.texture)
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, width, height, 0, GL_ALPHA, GL_UNSIGNED_BYTE, addr temp_bitmap)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
+        f.chars[start] = info
 
 proc newFont*(pathToTTFile: string, size: float): Font =
     result.new()
@@ -77,11 +83,14 @@ const fontSearchPaths = when defined(macosx):
         ]
 
 proc findFontFileForFace(face: string): string =
-    for sp in fontSearchPaths:
-        let f = sp / face & ".ttf"
-        if fileExists(f):
-            return f
-        log "Tried font '", f, "' with no luck"
+    when defined js:
+        result = face
+    else:
+        for sp in fontSearchPaths:
+            let f = sp / face & ".ttf"
+            if fileExists(f):
+                return f
+            logi "Tried font '", f, "' with no luck"
 
 
 proc systemFont*(): Font =
@@ -94,24 +103,25 @@ proc systemFont*(): Font =
     result = sysFont
 
 proc getQuadDataForRune*(f: Font, r: Rune, quad: var array[16, Coord], texture: var GLuint, pt: var Point) =
-    var x, y: cfloat
-    x = pt.x
-    y = pt.y
-    var q : stbtt_aligned_quad
-    let chunkStart = (r.int / charChunkLength.int).int32
-    if not f.chars.hasKey(chunkStart):
-        f.bakeChars(chunkStart)
-    let charIndexInChunk = r.int mod charChunkLength
-    let chunk = f.chars[chunkStart]
+    when not defined js:
+        var x, y: cfloat
+        x = pt.x
+        y = pt.y
+        var q : stbtt_aligned_quad
+        let chunkStart = (r.int / charChunkLength.int).int32
+        if not f.chars.hasKey(chunkStart):
+            f.bakeChars(chunkStart)
+        let charIndexInChunk = r.int mod charChunkLength
+        let chunk = f.chars[chunkStart]
 
-    stbtt_GetBakedQuad(chunk.bakedChars[charIndexInChunk], 512, 512, x, y, q, true) # true=opengl & d3d10+,false=d3d9
-    quad = [ q.x0, q.y0, q.s0, q.t0,
-            q.x1, q.y0, q.s1, q.t0,
-            q.x1, q.y1, q.s1, q.t1,
-            q.x0, q.y1, q.s0, q.t1 ]
-    pt.x = x
-    pt.y = y
-    texture = chunk.texture
+        stbtt_GetBakedQuad(chunk.bakedChars[charIndexInChunk], 512, 512, x, y, q, true) # true=opengl & d3d10+,false=d3d9
+        quad = [ q.x0, q.y0, q.s0, q.t0,
+                q.x1, q.y0, q.s1, q.t0,
+                q.x1, q.y1, q.s1, q.t1,
+                q.x0, q.y1, q.s0, q.t1 ]
+        pt.x = x
+        pt.y = y
+        texture = chunk.texture
 
 proc sizeOfString*(f: Font, s: string): Size =
     var pt : Point

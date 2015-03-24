@@ -7,7 +7,7 @@ when defined(JS):
         console.log(`a`);
         """
 
-    proc log*(a: varargs[string, `$`]) =
+    proc logi*(a: varargs[string, `$`]) =
         js_log_imported(a.join())
 elif defined(macosx) or defined(ios):
     {.emit: """
@@ -20,7 +20,7 @@ elif defined(macosx) or defined(ios):
     proc NSLog_imported(a: cstring) =
         {.emit: "NSLog(CFSTR(\"%s\"), a);" .}
 
-    proc log*(a: varargs[string, `$`]) = NSLog_imported(a.join())
+    proc logi*(a: varargs[string, `$`]) = NSLog_imported(a.join())
 elif defined(android):
     {.emit: """
     #include <android/log.h>
@@ -28,7 +28,7 @@ elif defined(android):
 
     proc droid_log_imported(a: cstring) =
         {.emit: """__android_log_print(ANDROID_LOG_INFO, "NIM_APP", a);""".}
-    proc log*(a: varargs[string, `$`]) = droid_log_imported(a.join())
+    proc logi*(a: varargs[string, `$`]) = droid_log_imported(a.join())
 else:
-    proc log*(a: varargs[string, `$`]) = echo a.join()
+    proc logi*(a: varargs[string, `$`]) = echo a.join()
 

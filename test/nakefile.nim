@@ -176,3 +176,7 @@ task "droid-install", "Install to android device.":
     cd makeAndroidBuildDir()
     direShell "ant", "debug", "install"
 
+task "js", "Create Javascript version.":
+    direShell nimExe, "js", "--stackTrace:off", "main"
+    direShell "open", "main.html"
+

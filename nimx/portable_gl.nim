@@ -2,12 +2,36 @@
 import opengl
 # export opengl
 
-type GL* = object
+when defined js:
+    type GL* {.importc.} = object
+        VERTEX_SHADER* : GLenum
+        FRAGMENT_SHADER* : GLenum
+        TEXTURE_2D* : GLenum
+        ONE_MINUS_SRC_ALPHA* : GLenum
+        SRC_ALPHA* : GLenum
+        BLEND* : GLenum
+        TRIANGLE_FAN* : GLenum
+
+    var sharedBuffer: ref RootObj = nil
+
+else:
+    type GL* = object
+    template VERTEX_SHADER*(gl: GL): GLenum = GL_VERTEX_SHADER
+    template FRAGMENT_SHADER*(gl: GL): GLenum = GL_FRAGMENT_SHADER
+    template TEXTURE_2D*(gl: GL): GLenum = GL_TEXTURE_2D
+    template ONE_MINUS_SRC_ALPHA*(gl: GL): GLenum = GL_ONE_MINUS_SRC_ALPHA
+    template SRC_ALPHA*(gl: GL): GLenum = GL_SRC_ALPHA
+    template BLEND*(gl: GL): GLenum = GL_BLEND
+    template TRIANGLE_FAN*(gl: GL): GLenum = GL_TRIANGLE_FAN
 
 proc newGL*(canvasId: cstring): GL =
     when defined js:
         asm """
-            `result` = document.getElementById(`canvasId`);
+            var canvas = document.getElementById(`canvasId`);
+            `result` = canvas.getContext("experimental-webgl");
+            `result`.viewportWidth = canvas.width;
+            `result`.viewportHeight = canvas.height;
+            `result`.getExtension('OES_standard_derivatives');
             """
     else:
         discard
@@ -97,7 +121,7 @@ proc attachShader*(gl: GL, prog, shader: GLuint) =
 
 proc isShaderCompiled*(gl: GL, shader: GLuint): bool =
     when defined js:
-        asm "`result` = `gl`.getShaderParameter(`gl`.COMPILE_STATUS);"
+        asm "`result` = `gl`.getShaderParameter(`shader`, `gl`.COMPILE_STATUS);"
     else:
         var compiled: GLint
         glGetShaderiv(shader, GL_COMPILE_STATUS, addr compiled)
@@ -105,7 +129,7 @@ proc isShaderCompiled*(gl: GL, shader: GLuint): bool =
 
 proc isProgramLinked*(gl: GL, prog: GLuint): bool =
     when defined js:
-        asm "`result` = `gl`.getProgramParameter(`gl`.LINK_STATUS);"
+        asm "`result` = `gl`.getProgramParameter(`prog`, `gl`.LINK_STATUS);"
     else:
         var linked: GLint
         glGetProgramiv(prog, GL_LINK_STATUS, addr linked)
@@ -150,7 +174,16 @@ proc disableVertexAttribArray*(gl: GL, attrib: GLuint) =
 proc vertexAttribPointer*(gl: GL, index: GLuint, size: GLint, normalized: GLboolean,
                         stride: GLsizei, data: openarray[GLfloat]) =
     when defined js:
-        asm "`gl`.vertexAttribPointer(`index`, `size`, `normalized`, `stride`, `data`);"
+        asm """
+            if (`sharedBuffer` == null)
+            {
+                `sharedBuffer` = `gl`.createBuffer();
+            }
+
+            `gl`.bindBuffer(`gl`.ARRAY_BUFFER, `sharedBuffer`);
+            `gl`.bufferData(`gl`.ARRAY_BUFFER, new Float32Array(`data`), `gl`.STATIC_DRAW);
+            `gl`.vertexAttribPointer(`index`, `size`, `gl`.FLOAT, `normalized`, `stride`, 0);
+            """
     else:
         glVertexAttribPointer(index, size, cGL_FLOAT, normalized, stride, cast[pointer](data));
 
@@ -178,12 +211,12 @@ proc getUniformLocation*(gl: GL, prog: GLuint, name: cstring): GLint =
     else:
         result = glGetUniformLocation(prog, name)
 
-proc uniformMatrix*(gl: GL, location: GLint, count: GLsizei, transpose: GLboolean, data: array[16, GLfloat]) =
+proc uniformMatrix*(gl: GL, location: GLint, transpose: GLboolean, data: array[16, GLfloat]) =
     when defined js:
-        asm "`gl`.uniformMatrix4fv(`location`, `count`, `transpose`, `data`);"
+        asm "`gl`.uniformMatrix4fv(`location`, `transpose`, `data`);"
     else:
         {.emit: """
-        glUniformMatrix4fv(`location`, `count`, `transpose`, `data`);
+        glUniformMatrix4fv(`location`, 1, `transpose`, `data`);
         """.}
 
 proc uniform4fv*(gl: GL, location: GLint, count: GLsizei, data: array[4, GLfloat]) =
@@ -209,46 +242,4 @@ proc bindTexture*(gl: GL, target: GLenum, name: GLuint) =
         asm "`gl`.bindTexture(`target`, `name`);"
     else:
         glBindTexture(target, name)
-
-template TRIANGLE_FAN*(gl: GL): GLenum =
-    when defined js:
-        asm "`gl`.TRIANGLE_FAN"
-    else:
-        GL_TRIANGLE_FAN
-
-template BLEND*(gl: GL): GLenum =
-    when defined js:
-        asm "`gl`.BLEND"
-    else:
-        GL_BLEND
-
-template SRC_ALPHA*(gl: GL): GLenum =
-    when defined js:
-        asm "`gl`.SRC_ALPHA"
-    else:
-        GL_SRC_ALPHA
-
-template ONE_MINUS_SRC_ALPHA*(gl: GL): GLenum =
-    when defined js:
-        asm "`gl`.ONE_MINUS_SRC_ALPHA"
-    else:
-        GL_ONE_MINUS_SRC_ALPHA
-
-template TEXTURE_2D*(gl: GL): GLenum =
-    when defined js:
-        asm "`gl`.TEXTURE_2D"
-    else:
-        GL_TEXTURE_2D
-
-template VERTEX_SHADER*(gl: GL): GLenum =
-    when defined js:
-        asm "`gl`.VERTEX_SHADER"
-    else:
-        GL_VERTEX_SHADER
-
-template FRAGMENT_SHADER*(gl: GL): GLenum =
-    when defined js:
-        asm "`gl`.FRAGMENT_SHADER"
-    else:
-        GL_FRAGMENT_SHADER
 
