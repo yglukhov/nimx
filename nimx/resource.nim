@@ -64,21 +64,21 @@ when defined(Android):
 
 when not defined(Android):
     proc findResourceInFS(resourceName: string): Resource =
-        for elem in walkDir(getAppDir()):
-            if elem.kind == pcFile:
-                if elem.path.contains(resourceName):
-                    let f: File = open(elem.path)
-                    defer: f.close()
+        for path in walkDirRec(getAppDir(), {pcFile, pcDir}):
+            if path.contains(resourceName):
+                let f: File = open(path)
+                defer: f.close()
 
-                    let i: FileInfo = getFileInfo(f)
+                let i: FileInfo = getFileInfo(f)
 
-                    let source = newFileStream(elem.path, fmRead)
-                    defer: source.close()
-                    
-                    new(result)
-                    result.size = int(i.size)
-                    discard Stream(source).readData(result.data, result.size)
-                    return
+                let source = newFileStream(path, fmRead)
+                defer: source.close()
+                
+                new(result)
+                result.size = int(i.size)
+                result.data = alloc(result.size)
+                discard Stream(source).readData(result.data, result.size)
+                return
         result = nil
 
 proc loadResourceByName*(resourceName: string): Resource =
@@ -91,6 +91,7 @@ proc loadResourceByName*(resourceName: string): Resource =
         let ass: AAsset = findResourceInAPK(mgr, root, resourceName)
         # Reading the result
         result.size = ass.getLength()
+        result.data = alloc(result.size)
         ass.read(ass, result.data, result.size)
         ass.close()
     elif defined(ios) or defined(macos) or defined(linux) or defined(win32):
@@ -98,7 +99,21 @@ proc loadResourceByName*(resourceName: string): Resource =
         result = findResourceInFS(resourceName)
 
 
+proc freeResource*(res: Resource) {.discardable.} =
+    res.size = 0
+    dealloc(res.data)
+
 when isMainModule:
     # Test for non-existing resource
-    let r: Resource = loadResourceByName("non-existing")
-    assert(r == nil)
+    let r1: Resource = loadResourceByName("non-existing")
+    assert(r1 == nil)
+
+    # Test for existing resource
+    discard execShellCmd("mkdir -p " & getAppDir() & "/resources/nested/")
+    discard execShellCmd("(echo \"asdsadasdsadasdadsad\") > " & getAppDir() & "/resources/nested/somefile.png")
+
+    let r2: Resource = loadResourceByName("somefile.png")
+    assert(r2 != nil)
+    freeResource(r2)
+
+    discard execShellCmd("rm -r " & getAppDir() & "/resources/")
