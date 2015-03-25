@@ -1,5 +1,6 @@
 import nake
 import tables
+import browsers
 
 let appName = "MyGame"
 let bundleId = "com.mycompany.MyGame"
@@ -178,5 +179,5 @@ task "droid-install", "Install to android device.":
 
 task "js", "Create Javascript version.":
     direShell nimExe, "js", "--stackTrace:off", "main"
-    direShell "open", "main.html"
+    openDefaultBrowser "main.html"
 
