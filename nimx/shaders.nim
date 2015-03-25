@@ -39,8 +39,8 @@ void main()
 
 const roundedRectFragmentShader = """
 #ifdef GL_ES
-precision mediump float;
 #extension GL_OES_standard_derivatives : enable
+precision mediump float;
 #endif
 
 uniform vec4 fillColor;
@@ -69,8 +69,8 @@ void main(void)
 
 const ellipseFragmentShader = """
 #ifdef GL_ES
-precision mediump float;
 #extension GL_OES_standard_derivatives : enable
+precision mediump float;
 #endif
 
 uniform vec4 fillColor;
@@ -118,8 +118,8 @@ void main()
 
 const fontFragmentShader = """
 #ifdef GL_ES
-precision mediump float;
 #extension GL_OES_standard_derivatives : enable
+precision mediump float;
 #endif
 
 uniform sampler2D texUnit;
@@ -205,8 +205,8 @@ void main()
 
 const imageFragmentShader = """
 #ifdef GL_ES
-precision mediump float;
 #extension GL_OES_standard_derivatives : enable
+precision mediump float;
 #endif
 
 uniform sampler2D texUnit;
