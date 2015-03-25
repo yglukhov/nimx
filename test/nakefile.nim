@@ -17,13 +17,13 @@ let nimIncludeDir = "~/Projects/Nimrod/lib"
 let macOSSDKVersion = "10.10"
 let macOSMinVersion = "10.6"
 
-let iOSSDKVersion = "8.1"
+let iOSSDKVersion = "8.2"
 let iOSMinVersion = iOSSDKVersion
 
 # Simulator device identifier should be set to run the simulator.
 # Available simulators can be listed with the command:
 # $ xcrun simctl list
-let iOSSimulatorDeviceId = "F5D507BE-429C-4A14-861A-73A2335CAE52"
+let iOSSimulatorDeviceId = "2380E609-2C39-43F0-AB64-B8411DA6D8C6"
 
 let bundleName = appName & ".app"
 
@@ -136,14 +136,21 @@ proc runNim(arguments: varargs[string]) =
 
 task defaultTask, "Build and run":
     createSDLIncludeLink "nimcache"
-    when defined(macos): runNim declareSymbols&"--passC:-Inimcache", "--passC:-isysroot", "--passC:" & macOSSDK, "--passL:-isysroot", "--passL:" & macOSSDK,
-        "--passC:-mmacosx-version-min=" & macOSMinVersion, "--passL:-mmacosx-version-min=" & macOSMinVersion,
-        "--passL:-fobjc-link-runtime", "-d:SDL_Static", "--passL:-L"&buildSDLForDesktop(), "--passL:-lSDL2",
-        "--run"
+    when defined(macos):
+        if not dirExists(macOSSDK):
+            echo "MacOSX SDK not found: ", macOSSDK
+            return
+        runNim declareSymbols&"--passC:-Inimcache", "--passC:-isysroot", "--passC:" & macOSSDK, "--passL:-isysroot", "--passL:" & macOSSDK,
+            "--passC:-mmacosx-version-min=" & macOSMinVersion, "--passL:-mmacosx-version-min=" & macOSMinVersion,
+            "--passL:-fobjc-link-runtime", "-d:SDL_Static", "--passL:-L"&buildSDLForDesktop(), "--passL:-lSDL2",
+            "--run"
     else:
         runNim declareSymbols&"--passC:-Inimcache", "-d:SDL_Static", "--passL:-L"&buildSDLForDesktop(), "--passL:-lSDL2", "--run"    
 
 task "ios-sim", "Build and run in iOS simulator":
+    if not dirExists(iOSSimulatorSDK):
+        echo "iOS Simulator SDK not found: ", iOSSimulatorSDK
+        return
     createSDLIncludeLink "nimcache"
     runNim "--passC:-Inimcache", "--cpu:amd64", "--os:macosx", "-d:ios", "-d:iPhone", "-d:simulator", "-d:SDL_Static",
         "--passC:-isysroot", "--passC:" & iOSSimulatorSDK, "--passL:-isysroot", "--passL:" & iOSSimulatorSDK,
@@ -154,6 +161,10 @@ task "ios-sim", "Build and run in iOS simulator":
     runAppInSimulator()
 
 task "ios", "Build for iOS":
+    if not dirExists(iOSSDK):
+        echo "iOS SDK not found: ", iOSSDK
+        return
+
     createSDLIncludeLink "nimcache"
     runNim "--passC:-Inimcache", "--cpu:arm", "--os:macosx", "-d:ios", "-d:iPhone", "-d:SDL_Static",
         "--passC:-isysroot", "--passC:" & iOSSDK, "--passL:-isysroot", "--passL:" & iOSSDK,
