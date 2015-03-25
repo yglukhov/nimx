@@ -5,26 +5,37 @@ import context
 import matrixes
 import dom
 import app
+import portable_gl
 
 type JSCanvasWindow* = ref object of Window
     renderingContext: GraphicsContext
 
 export window
 
-
-method enableAnimation(w: JSCanvasWindow, flag: bool) =
-    discard
-
-method initWithCanvasId*(w: JSCanvasWindow, id: string) =
-    var width, height: Coord
-    var rawCanvasId = id.cstring
+proc setupWebGL() =
     asm """
-        var canvas = document.getElementById(`rawCanvasId`);
+        window.requestAnimFrame = (function() {
+            return window.requestAnimationFrame ||
+                window.webkitRequestAnimationFrame ||
+                window.mozRequestAnimationFrame ||
+                window.oRequestAnimationFrame ||
+                window.msRequestAnimationFrame ||
+                function(/* function FrameRequestCallback */ callback, /* DOMElement Element */ element) {
+                window.setTimeout(callback, 1000/60);
+        };
+    })();
+    """
+
+setupWebGL()
+
+method initWithCanvasId*(w: JSCanvasWindow, id: cstring) =
+    var width, height: Coord
+    asm """
+        var canvas = document.getElementById(`id`);
         `width` = canvas.width;
         `height` = canvas.height;
         """
     procCall w.Window.init(newRect(0, 0, width, height))
-    logi "Self frame: ", w.frame
     w.renderingContext = newGraphicsContext(id)
 
     w.enableAnimation(true)
@@ -35,23 +46,20 @@ proc newJSCanvasWindow*(canvasId: string): JSCanvasWindow =
     result.initWithCanvasId(canvasId)
 
 method drawWindow*(w: JSCanvasWindow) =
-    #glViewport(0, 0, GLsizei(w.frame.width), GLsizei(w.frame.height))
-
-    #glClear(GL_COLOR_BUFFER_BIT) # Clear color and depth buffers
-
     let c = w.renderingContext
+    c.gl.clear(c.gl.COLOR_BUFFER_BIT)
     let oldContext = setCurrentContext(c)
     defer: setCurrentContext(oldContext)
     var transform : Transform3D
-    transform.ortho(0, w.frame.width, 0, w.frame.height, -1, 1)
-    let oldTransform = c.setScopeTransform(transform)
-
-    procCall w.Window.drawWindow()
-
-    c.revertTransform(oldTransform)
-    #w.impl.GL_SwapWindow() # Swap the front and back frame buffers (double buffering)
+    transform.ortho(0, w.frame.width, w.frame.height, 0, -1, 1)
+    c.withTransform transform:
+        procCall w.Window.drawWindow()
 
 method onResize*(w: JSCanvasWindow, newSize: Size) =
     #glViewport(0, 0, GLSizei(newSize.width), GLsizei(newSize.height))
     procCall w.Window.onResize(newSize)
+
+proc startAnimation*() =
+    mainApplication().drawWindows()
+    asm "requestAnimFrame(`startAnimation`);"
 

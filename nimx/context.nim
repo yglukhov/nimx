@@ -63,13 +63,13 @@ proc newShaderProgram(gl: GL, vs, fs: string): GLuint =
     gl.bindAttribLocation(result, saPosition.GLuint, "position")
 
 when defined js:
-    type Transform = Transform3D
+    type Transform3DRef = ref Transform3D
 else:
-    type Transform = ptr Transform3D
+    type Transform3DRef = ptr Transform3D
 
 type GraphicsContext* = ref object of RootObj
     gl*: GL
-    pTransform: Transform
+    pTransform: Transform3DRef
     fillColor*: Color
     strokeColor*: Color
     strokeWidth*: Coord
@@ -82,41 +82,23 @@ type GraphicsContext* = ref object of RootObj
 
 var gCurrentContext: GraphicsContext
 
-template setScopeTransform*(c: GraphicsContext, t: var Transform3D): expr =
+proc transformToRef(t: Transform3D): Transform3DRef =
+    when defined js:
+        asm "`result` = `t`;"
+    else:
+        {.emit: "`result` = `t`;".}
+
+template withTransform*(c: GraphicsContext, t: Transform3DRef, body: stmt) =
     let old = c.pTransform
-    when defined js:
-        c.pTransform = t
-    else:
-        c.pTransform = addr t
-    old
-
-template revertTransform*(c: GraphicsContext, t: Transform) =
     c.pTransform = t
+    body
+    c.pTransform = old
 
-proc setTransform*(c: GraphicsContext, t: var Transform3D): Transform {.discardable.}=
-    result = c.pTransform
-    when defined js:
-        c.pTransform = t
-    else:
-        c.pTransform = addr t
+template withTransform*(c: GraphicsContext, t: Transform3D, body: stmt) = c.withTransform(transformToRef(t), body)
 
-proc setTransform*(c: GraphicsContext, t: Transform): Transform {.discardable.} =
-    result = c.pTransform
-    c.pTransform = t
+template transform*(c: GraphicsContext): var Transform3D = c.pTransform[]
 
-template transform*(c: GraphicsContext): expr =
-    when defined js:
-        c.pTransform
-    else:
-        c.pTransform[]
-
-template value*(t: Transform): Transform3D =
-    when defined js:
-        t
-    else:
-        t[]
-
-proc newGraphicsContext*(canvasId: string = nil): GraphicsContext =
+proc newGraphicsContext*(canvasId: cstring = nil): GraphicsContext =
     result.new()
     result.gl = newGL(canvasId)
     when not defined(ios) and not defined(android) and not defined(js):
@@ -139,35 +121,30 @@ proc setCurrentContext*(c: GraphicsContext): GraphicsContext {.discardable.} =
 proc currentContext*(): GraphicsContext = gCurrentContext
 
 proc setTransformUniform(c: GraphicsContext, program: GLuint) =
-    when defined js:
-        c.gl.uniformMatrix(c.gl.getUniformLocation(program, "modelViewProjectionMatrix"), false, c.pTransform)
-    else:
-        c.gl.uniformMatrix(c.gl.getUniformLocation(program, "modelViewProjectionMatrix"), false, c.pTransform[])
+    c.gl.uniformMatrix4fv(c.gl.getUniformLocation(program, "modelViewProjectionMatrix"), false, c.transform)
 
 proc setFillColorUniform(c: GraphicsContext, program: GLuint) =
+    let loc = c.gl.getUniformLocation(program, "fillColor")
     when defined js:
-        c.gl.uniform4fv(c.gl.getUniformLocation(program, "fillColor"), 1,
-            [c.fillColor.r, c.fillColor.g, c.fillColor.b, c.fillColor.a])
+        c.gl.uniform4fv(loc, [c.fillColor.r, c.fillColor.g, c.fillColor.b, c.fillColor.a])
     else:
-        glUniform4fv(c.gl.getUniformLocation(program, "fillColor"), 1, cast[ptr GLfloat](addr c.fillColor))
+        glUniform4fv(loc, 1, cast[ptr GLfloat](addr c.fillColor))
 
 proc setRectUniform(c: GraphicsContext, prog: GLuint, name: cstring, r: Rect) =
+    let loc = c.gl.getUniformLocation(prog, name)
     when defined js:
-        c.gl.uniform4fv(c.gl.getUniformLocation(prog, name), 1, [r.x, r.y, r.width, r.height])
+        c.gl.uniform4fv(loc, [r.x, r.y, r.width, r.height])
     else:
-        let loc = glGetUniformLocation(prog, name)
-        var p: pointer
-        {.emit: """
-        `p` = &`r`;
-        """.}
-        glUniform4fv(loc, 1, cast[ptr GLfloat](p));
+        var p: ptr GLfloat
+        {.emit: "`p` = &`r`;".}
+        glUniform4fv(loc, 1, p);
 
 proc setStrokeParamsUniform(c: GraphicsContext, program: GLuint) =
+    let loc = c.gl.getUniformLocation(program, "strokeColor")
     when defined js:
-        c.gl.uniform4fv(c.gl.getUniformLocation(program, "strokeColor"), 1,
-            [c.strokeColor.r, c.strokeColor.g, c.strokeColor.b, c.strokeColor.a])
+        c.gl.uniform4fv(loc, [c.strokeColor.r, c.strokeColor.g, c.strokeColor.b, c.strokeColor.a])
     else:
-        glUniform4fv(c.gl.getUniformLocation(program, "strokeColor"), 1, cast[ptr GLfloat](addr c.strokeColor))
+        glUniform4fv(loc, 1, cast[ptr GLfloat](addr c.strokeColor))
     c.gl.uniform1f(c.gl.getUniformLocation(program, "strokeWidth"), c.strokeWidth)
 
 proc drawVertexes(c: GraphicsContext, componentCount: int, points: openarray[Coord], pt: GLenum) =
@@ -175,7 +152,6 @@ proc drawVertexes(c: GraphicsContext, componentCount: int, points: openarray[Coo
     c.gl.useProgram(c.shaderProgram)
     c.gl.enableVertexAttribArray(saPosition.GLuint)
     c.gl.vertexAttribPointer(saPosition.GLuint, componentCount.GLint, false, 0, points)
-    #glVertexAttribPointer(GLuint(saPosition), GLint(componentCount), cGL_FLOAT, false, 0, cast[pointer](points))
     c.setTransformUniform(c.shaderProgram)
     c.setFillColorUniform(c.shaderProgram)
     c.gl.drawArrays(pt, 0, GLsizei(points.len / componentCount))
@@ -191,15 +167,13 @@ proc drawRectAsQuad(c: GraphicsContext, r: Rect) =
     c.gl.drawArrays(c.gl.TRIANGLE_FAN, 0, GLsizei(points.len / componentCount))
 
 proc drawRoundedRect*(c: GraphicsContext, r: Rect, radius: Coord) =
-    var rad = radius
     c.gl.enable(c.gl.BLEND)
     c.gl.blendFunc(c.gl.SRC_ALPHA, c.gl.ONE_MINUS_SRC_ALPHA)
     c.gl.useProgram(c.roundedRectShaderProgram)
     c.setFillColorUniform(c.roundedRectShaderProgram)
     c.setTransformUniform(c.roundedRectShaderProgram)
     c.setRectUniform(c.roundedRectShaderProgram, "rect", r)
-    #glUniform4fv(c.gl.getUniformLocation(c.roundedRectShaderProgram, "rect"), 1, cast[ptr GLfloat](addr rect))
-    c.gl.uniform1f(c.gl.getUniformLocation(c.roundedRectShaderProgram, "radius"), rad)
+    c.gl.uniform1f(c.gl.getUniformLocation(c.roundedRectShaderProgram, "radius"), radius)
     c.drawRectAsQuad(r)
 
 proc drawRect*(c: GraphicsContext, r: Rect) =

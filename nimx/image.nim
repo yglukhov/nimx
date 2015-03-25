@@ -73,7 +73,7 @@ method size*(i: Image): Size = i.size
 type ImageFileFormat = enum tga, hdr, bmp, png
 
 proc writeToFile(i: Image, path: string, format: ImageFileFormat) =
-    when not defined js:
+    when not defined(js) and not defined(android):
         glBindTexture(GL_TEXTURE_2D, i.texture)
         var w, h: GLint
         glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH, addr w)

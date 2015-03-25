@@ -6,8 +6,8 @@ import nimx.button
 import nimx.event
 import nimx.text_field
 import nimx.app
-import nimx.resource
 
+import os
 
 when defined js:
     import nimx.js_canvas_window
@@ -22,11 +22,7 @@ template c*(a: string) = discard
 
 type GameWindow = ref object of PlatformWindow
 
-logi "hello!"
-
 proc startApplication() =
-    logi "startApplication!"
-    
     var mainWindow : GameWindow
     mainWindow.new()
 
@@ -61,39 +57,37 @@ proc startApplication() =
     t2.autoresizingMask = { afFlexibleWidth, afFlexibleHeight }
     t2.text = "This is another text field"
 
-    when not defined js:
-        runUntilQuit()
-
 var rot = 0.0
 
 method draw(w: GameWindow, r: Rect) =
     let c = currentContext()
+    c.fillColor = newGrayColor(0.5)
     var tmpTransform = c.transform
     tmpTransform.translate(newVector3(w.frame.width/2, w.frame.height/3, 0))
     tmpTransform.rotateZ(rot)
     tmpTransform.translate(newVector3(-50, -50, 0))
-    let oldTransform = c.setScopeTransform(tmpTransform)
-
     rot += 0.03
-    c.fillColor = newColor(0, 1, 1)
-    c.strokeColor = newColor(0, 0, 0, 1)
-    c.strokeWidth = 9.0
-    c.drawEllipseInRect(newRect(0, 0, 100, 200))
+    c.withTransform tmpTransform:
+        c.fillColor = newColor(0, 1, 1)
+        c.strokeColor = newColor(0, 0, 0, 1)
+        c.strokeWidth = 9.0
+        c.drawEllipseInRect(newRect(0, 0, 100, 200))
 
-    tmpTransform = oldTransform.value()
+    tmpTransform = c.transform
 
     tmpTransform.translate(newVector3(w.frame.width/2, w.frame.height/3 * 2, 0))
     tmpTransform.rotateZ(-rot)
     tmpTransform.translate(newVector3(-50, -50, 0))
-    c.fillColor = newColor(0.5, 0.5, 0)
-    c.drawRoundedRect(newRect(0, 0, 100, 200), 40)
-    c.revertTransform(oldTransform)
+    c.withTransform tmpTransform:
+        c.fillColor = newColor(0.5, 0.5, 0)
+        c.drawRoundedRect(newRect(0, 0, 100, 200), 40)
 
 when defined js:
     import dom
-    document.onload = proc (e: ref TEvent) =
+    window.onload = proc (e: ref TEvent) =
         startApplication()
-        mainApplication().drawWindows()
+        startAnimation()
 else:
     startApplication()
+    runUntilQuit()
 

@@ -81,9 +81,8 @@ proc drawSubviews(view: View) {.inline.} =
     for i in view.subviews:
         var tmpTransform = c.transform
         tmpTransform.translate(newVector3(i.frame.x, i.frame.y, 0))
-        let oldTransform = c.setScopeTransform(tmpTransform)
-        i.recursiveDrawSubviews()
-        c.revertTransform(oldTransform)
+        c.withTransform tmpTransform:
+            i.recursiveDrawSubviews()
 
 proc recursiveDrawSubviews*(view: View) =
     view.draw(view.bounds)

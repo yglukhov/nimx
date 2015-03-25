@@ -19,14 +19,11 @@ type SdlWindow* = ref object of Window
     renderingContext: GraphicsContext
 
 
-method drawWindow(w: SdlWindow)
-
-proc animationCallback(p: pointer) {.cdecl.} =
-    cast[SdlWindow](p).drawWindow()
-
 method enableAnimation*(w: SdlWindow, flag: bool) =
     when defined(ios):
         if flag:
+            proc animationCallback(p: pointer) {.cdecl.} =
+                cast[SdlWindow](p).drawWindow()
             discard iPhoneSetAnimationCallback(w.impl, 0, animationCallback, cast[pointer](w))
         else:
             discard iPhoneSetAnimationCallback(w.impl, 0, nil, nil)
@@ -100,15 +97,13 @@ method drawWindow(w: SdlWindow) =
     defer: setCurrentContext(oldContext)
     var transform : Transform3D
     transform.ortho(0, w.frame.width, w.frame.height, 0, -1, 1)
-    let oldTransform = c.setScopeTransform(transform)
+    c.withTransform transform:
+        procCall w.Window.drawWindow()
 
-    procCall w.Window.drawWindow()
-
-    var pt = newPoint(w.frame.width - 80, 2)
-    c.fillColor = newColor(0.5, 0, 0)
-    c.drawText(systemFont(), pt, "FPS: " & $fps())
+        var pt = newPoint(w.frame.width - 80, 2)
+        c.fillColor = newColor(0.5, 0, 0)
+        c.drawText(systemFont(), pt, "FPS: " & $fps())
  
-    c.revertTransform(oldTransform)
     w.impl.glSwapWindow() # Swap the front and back frame buffers (double buffering)
 
 proc waitOrPollEvent(evt: var sdl2.Event): auto =
