@@ -22,7 +22,7 @@ int main(int argc, char** args) {
 
 """.}
 
-when defined(macos) or defined (ios):
+when defined(macosx) or defined (ios):
     macro passToCAndL(s: string): stmt =
         result = newNimNode(nnkStmtList)
         result.add parseStmt("{.passL: \"" & s.strVal & "\".}\n")
