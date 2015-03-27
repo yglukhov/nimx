@@ -163,7 +163,7 @@ proc writeToFile(i: Image, path: string, format: ImageFileFormat) =
             dealloc(data)
             data = newData
 
-        let res = case format:
+        discard case format:
             of tga: stbi_write_tga(path, actualWidth.cint, actualHeight.cint, comp.cint, data)
             of hdr: stbi_write_hdr(path, actualWidth.cint, actualHeight.cint, comp.cint, data)
             of bmp: stbi_write_bmp(path, actualWidth.cint, actualHeight.cint, comp.cint, data)
