@@ -36,8 +36,6 @@ let macOSSDK = xCodeApp/"Contents/Developer/Platforms/MacOSX.platform/Developer/
 let iOSSDK = xCodeApp/"Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS" & iOSSDKVersion & ".sdk"
 let iOSSimulatorSDK = xCodeApp/"Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator" & iOSSDKVersion & ".sdk"
 
-let declareSymbols = " --symbol:ios --symbol:android --symbol:macos --symbol:linux "
-
 # Install nimx
 withDir "..":
     direShell "nimble", "-y", "install", ">/dev/null"
@@ -140,12 +138,12 @@ task defaultTask, "Build and run":
         if not dirExists(macOSSDK):
             echo "MacOSX SDK not found: ", macOSSDK
             return
-        runNim declareSymbols&"--passC:-Inimcache", "--passC:-isysroot", "--passC:" & macOSSDK, "--passL:-isysroot", "--passL:" & macOSSDK,
+        runNim "--passC:-Inimcache", "--passC:-isysroot", "--passC:" & macOSSDK, "--passL:-isysroot", "--passL:" & macOSSDK,
             "--passC:-mmacosx-version-min=" & macOSMinVersion, "--passL:-mmacosx-version-min=" & macOSMinVersion,
             "--passL:-fobjc-link-runtime", "-d:SDL_Static", "--passL:-L"&buildSDLForDesktop(), "--passL:-lSDL2",
             "--run"
     else:
-        runNim declareSymbols&"--passC:-Inimcache", "-d:SDL_Static", "--passL:-L"&buildSDLForDesktop(), "--passL:-lSDL2", "--run"    
+        runNim "--passC:-Inimcache", "-d:SDL_Static", "--passL:-L"&buildSDLForDesktop(), "--passL:-lSDL2", "--run"    
 
 task "ios-sim", "Build and run in iOS simulator":
     if not dirExists(iOSSimulatorSDK):
