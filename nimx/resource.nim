@@ -2,7 +2,7 @@ import os
 import strutils
 import streams
 
-when defined(Android):
+when defined(android):
     const 
         ASSET_MANAGER_HEADER = "<android/asset_manager.h>"
 
@@ -62,24 +62,30 @@ when defined(Android):
                 if node == currentFileName:
                     return mgr.open(currentFileName, 3)  # aaset_node_buffer asset opening mode
 
-when not defined(Android):
-    proc findResourceInFS(resourceName: string): Resource =
-        for path in walkDirRec(getAppDir(), {pcFile, pcDir}):
-            if path.contains(resourceName):
-                let f: File = open(path)
-                defer: f.close()
-
-                let i: FileInfo = getFileInfo(f)
-
-                let source = newFileStream(path, fmRead)
-                defer: source.close()
-                
-                new(result)
-                result.size = int(i.size)
-                result.data = alloc(result.size)
-                discard Stream(source).readData(result.data, result.size)
-                return
+when not defined(android):
+    proc pathForResource(name: string): string =
+        let appDir = getAppDir()
+        result = appDir / name
+        if fileExists(result): return
+        result = appDir /../ "Resources" / name
+        if fileExists(result): return
+        result = appDir / "res" / name
+        if fileExists(result): return
+        result = appDir / "resources" / name
+        if fileExists(result): return
         result = nil
+
+    proc findResourceInFS(resourceName: string): Resource =
+        let path = pathForResource(resourceName)
+        if path != nil:
+            result.new()
+            let f = open(path)
+            defer: f.close()
+
+            let i = getFileInfo(f)
+            result.size = i.size.int
+            result.data = alloc(result.size)
+            discard f.readBuffer(result.data, result.size)
 
 proc loadResourceByName*(resourceName: string): Resource =
     when defined(android):
@@ -94,10 +100,9 @@ proc loadResourceByName*(resourceName: string): Resource =
         result.data = alloc(result.size)
         ass.read(ass, result.data, result.size)
         ass.close()
-    elif defined(ios) or defined(macos) or defined(linux) or defined(win32):
+    else:
         # Generic resource loading from file
         result = findResourceInFS(resourceName)
-
 
 proc freeResource*(res: Resource) {.discardable.} =
     res.size = 0

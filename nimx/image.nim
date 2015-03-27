@@ -2,8 +2,11 @@
 import types
 import opengl
 import math
+import portable_gl
+import unsigned
 
 when not defined js:
+    import resource
     import load_image_impl
     import write_image_impl
 
@@ -12,14 +15,12 @@ type Image* = ref object of RootObj
     size: Size
     sizeInTexels*: Size
 
-template offset(p: pointer, off: int): pointer =
-    cast[pointer](cast[int](p) + off)
+when not defined js:
+    template offset(p: pointer, off: int): pointer =
+        cast[pointer](cast[int](p) + off)
 
-proc imageWithContentsOfFile*(path: string): Image =
-    when not defined js:
+    proc imageWithBitmap*(data: ptr uint8, x, y, comp: int): Image =
         result.new()
-        var x, y, comp: cint
-        var data = stbi_load(path, addr x, addr y, addr comp, 0)
         glGenTextures(1, addr result.texture)
         glBindTexture(GL_TEXTURE_2D, result.texture)
         let format : GLint = case comp:
@@ -30,7 +31,7 @@ proc imageWithContentsOfFile*(path: string): Image =
             else: 0
         result.size = newSize(x.Coord, y.Coord)
         let texWidth = if isPowerOfTwo(x): x.int else: nextPowerOfTwo(x)
-        let texHeight = if isPowerOfTwo(y): x.int else: nextPowerOfTwo(x)
+        let texHeight = if isPowerOfTwo(y): y.int else: nextPowerOfTwo(y)
 
         var pixelData = data
 
@@ -47,17 +48,42 @@ proc imageWithContentsOfFile*(path: string): Image =
             result.sizeInTexels.width = x.Coord / texWidth.Coord
             result.sizeInTexels.height = y.Coord / texHeight.Coord
 
-        glTexImage2D(GL_TEXTURE_2D, 0, comp, texWidth.GLsizei, texHeight.GLsizei, 0, format.GLenum, GL_UNSIGNED_BYTE, cast[pointer] (pixelData))
+        glTexImage2D(GL_TEXTURE_2D, 0, comp.cint, texWidth.GLsizei, texHeight.GLsizei, 0, format.GLenum, GL_UNSIGNED_BYTE, cast[pointer] (pixelData))
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
 
-        stbi_image_free(data)
+        result.size.width = x.Coord
+        result.size.height = y.Coord
         if data != pixelData:
             dealloc(pixelData)
 
-        result.size.width = x.Coord
-        result.size.height = y.Coord
+    proc imageWithContentsOfFile*(path: string): Image =
+        var x, y, comp: cint
+        var data = stbi_load(path, addr x, addr y, addr comp, 0)
+        result = imageWithBitmap(data, x, y, comp)
+        stbi_image_free(data)
+
+    proc imageWithResource*(r: ResourceObj): Image =
+        var x, y, comp: cint
+        var data = stbi_load_from_memory(cast[ptr uint8](r.data), r.size.cint, addr x, addr y, addr comp, 0)
+        result = imageWithBitmap(data, x, y, comp)
+        stbi_image_free(data)
+
+
+proc imageWithResource*(name: string): Image =
+    when defined js:
+        result.new()
+        let nativeName : cstring = "res/" & name
+        asm """
+        `result`.__image = new Image();
+        `result`.__image.crossOrigin = '';
+        `result`.__image.src = `nativeName`;
+        """
+    else:
+        let r = loadResourceByName(name)
+        result = imageWithResource(r[])
+        freeResource(r)
 
 proc draw*(i: Image, drawProc: proc()) =
     # set graphics context
@@ -66,7 +92,47 @@ proc draw*(i: Image, drawProc: proc()) =
         discard
     drawProc()
 
-method texture*(i: Image): GLuint = i.texture
+method getTexture*(i: Image, gl: GL): GLuint =
+    when defined js:
+        if i.texture == 0:
+            var newTexture : GLuint = 0
+            var width, height : Coord
+            var loadingComplete = false
+            asm """
+            `loadingComplete` = `i`.__image.complete;
+            if (`loadingComplete`)
+            {
+                `newTexture` = `gl`.createTexture();
+                `gl`.bindTexture(`gl`.TEXTURE_2D, `newTexture`);
+                `width` = `i`.__image.width;
+                `height` = `i`.__image.height;
+            }
+            """
+            if loadingComplete:
+                let texWidth = if isPowerOfTwo(width.int): width.int else: nextPowerOfTwo(width.int)
+                let texHeight = if isPowerOfTwo(height.int): height.int else: nextPowerOfTwo(height.int)
+                i.size.width = width
+                i.size.height = height
+                i.sizeInTexels.width = width / texWidth.Coord
+                i.sizeInTexels.height = height / texHeight.Coord
+                i.texture = newTexture
+                if texWidth != width.int or texHeight != height.int:
+                    asm """
+                    var canvas = document.createElement('canvas');
+                    canvas.width = `texWidth`;
+                    canvas.height = `texHeight`;
+                    canvas.getContext('2d').drawImage(`i`.__image, 0, 0);
+                    `gl`.texImage2D(`gl`.TEXTURE_2D, 0, `gl`.RGBA, `gl`.RGBA, `gl`.UNSIGNED_BYTE, canvas);
+                    """
+                else:
+                    asm "`gl`.texImage2D(`gl`.TEXTURE_2D, 0, `gl`.RGBA, `gl`.RGBA, `gl`.UNSIGNED_BYTE, `i`.__image);"
+
+                asm """
+                `i`.__image = null;
+                `gl`.texParameteri(`gl`.TEXTURE_2D, `gl`.TEXTURE_MAG_FILTER, `gl`.NEAREST);
+                `gl`.texParameteri(`gl`.TEXTURE_2D, `gl`.TEXTURE_MIN_FILTER, `gl`.NEAREST);
+                """
+    result = i.texture
 
 method size*(i: Image): Size = i.size
 

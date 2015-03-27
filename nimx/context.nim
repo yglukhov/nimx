@@ -219,16 +219,18 @@ proc drawText*(c: GraphicsContext, font: Font, pt: var Point, text: string) =
     pt.y -= font.size
 
 proc drawImage*(c: GraphicsContext, i: Image, toRect: Rect, fromRect: Rect = zeroRect, alpha: ColorComponent = 1.0) =
-    c.imageShaderProgram.glUseProgram()
-    c.gl.bindTexture(c.gl.TEXTURE_2D, i.texture)
-    let points = [toRect.minX, toRect.minY, 0, 0,
-                toRect.maxX, toRect.minY, i.sizeInTexels.width, 0,
-                toRect.maxX, toRect.maxY, i.sizeInTexels.width, i.sizeInTexels.height,
-                toRect.minX, toRect.maxY, 0, i.sizeInTexels.height]
-    c.gl.enableVertexAttribArray(saPosition.GLuint)
-    c.setTransformUniform(c.imageShaderProgram)
-    c.gl.vertexAttribPointer(saPosition.GLuint, 4, false, 0, points)
-    c.gl.drawArrays(c.gl.TRIANGLE_FAN, 0, 4)
+    let t = i.getTexture(c.gl)
+    if t != 0:
+        c.gl.useProgram(c.imageShaderProgram)
+        c.gl.bindTexture(c.gl.TEXTURE_2D, t)
+        let points = [toRect.minX, toRect.minY, 0, 0,
+                    toRect.maxX, toRect.minY, i.sizeInTexels.width, 0,
+                    toRect.maxX, toRect.maxY, i.sizeInTexels.width, i.sizeInTexels.height,
+                    toRect.minX, toRect.maxY, 0, i.sizeInTexels.height]
+        c.gl.enableVertexAttribArray(saPosition.GLuint)
+        c.setTransformUniform(c.imageShaderProgram)
+        c.gl.vertexAttribPointer(saPosition.GLuint, 4, false, 0, points)
+        c.gl.drawArrays(c.gl.TRIANGLE_FAN, 0, 4)
 
 
 discard """

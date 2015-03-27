@@ -6,8 +6,8 @@ import nimx.button
 import nimx.event
 import nimx.text_field
 import nimx.app
+import nimx.image
 
-import os
 
 when defined js:
     import nimx.js_canvas_window
@@ -22,6 +22,9 @@ template c*(a: string) = discard
 
 type GameWindow = ref object of PlatformWindow
 
+var catImage : Image
+
+
 proc startApplication() =
     var mainWindow : GameWindow
     mainWindow.new()
@@ -32,6 +35,8 @@ proc startApplication() =
         mainWindow.initWithCanvasId("mainCanvas")
     else:
         mainWindow.init(newRect(0, 0, 800, 600))
+
+    catImage = imageWithResource("cat.jpg")
 
     mainWindow.title = "Test MyGame"
 
@@ -62,6 +67,10 @@ var rot = 0.0
 method draw(w: GameWindow, r: Rect) =
     let c = currentContext()
     c.fillColor = newGrayColor(0.5)
+    var imageRect = zeroRect
+    imageRect.size = catImage.size
+    imageRect.origin = centerInRect(imageRect.size, w.bounds)
+    c.drawImage(catImage, imageRect)
     var tmpTransform = c.transform
     tmpTransform.translate(newVector3(w.frame.width/2, w.frame.height/3, 0))
     tmpTransform.rotateZ(rot)
