@@ -63,7 +63,6 @@ method draw*(t: TextField, r: Rect) =
     var textY = (t.bounds.height - font.size) / 2
 
     if t.text != nil:
-        var textSize = font.sizeOfString(t.text)
         var pt = newPoint(leftMargin, textY)
         c.fillColor = blackColor()
         c.drawText(systemFont(), pt, t.text)
