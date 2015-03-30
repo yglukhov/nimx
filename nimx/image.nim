@@ -11,8 +11,8 @@ when not defined js:
     import write_image_impl
 
 type Image* = ref object of RootObj
-    texture: GLuint
-    size: Size
+    texture*: GLuint
+    size*: Size
     sizeInTexels*: Size
 
 when not defined js:
@@ -85,37 +85,36 @@ proc imageWithResource*(name: string): Image =
         result = imageWithResource(r[])
         freeResource(r)
 
-proc draw*(i: Image, drawProc: proc()) =
-    # set graphics context
-    defer:
-        # restore context
-        discard
-    drawProc()
+proc imageWithSize*(size: Size): Image =
+    result.new()
+    result.size = size
+    let texWidth = if isPowerOfTwo(size.width.int): size.width.int else: nextPowerOfTwo(size.width.int)
+    let texHeight = if isPowerOfTwo(size.height.int): size.height.int else: nextPowerOfTwo(size.height.int)
+    result.sizeInTexels.width = size.width / texWidth.Coord
+    result.sizeInTexels.height = size.height / texHeight.Coord
 
 method getTexture*(i: Image, gl: GL): GLuint =
     when defined js:
         if i.texture == 0:
-            var newTexture : GLuint = 0
             var width, height : Coord
             var loadingComplete = false
             asm """
             `loadingComplete` = `i`.__image.complete;
             if (`loadingComplete`)
             {
-                `newTexture` = `gl`.createTexture();
-                `gl`.bindTexture(`gl`.TEXTURE_2D, `newTexture`);
                 `width` = `i`.__image.width;
                 `height` = `i`.__image.height;
             }
             """
             if loadingComplete:
+                i.texture = gl.createTexture()
+                gl.bindTexture(gl.TEXTURE_2D, i.texture)
                 let texWidth = if isPowerOfTwo(width.int): width.int else: nextPowerOfTwo(width.int)
                 let texHeight = if isPowerOfTwo(height.int): height.int else: nextPowerOfTwo(height.int)
                 i.size.width = width
                 i.size.height = height
                 i.sizeInTexels.width = width / texWidth.Coord
                 i.sizeInTexels.height = height / texHeight.Coord
-                i.texture = newTexture
                 if texWidth != width.int or texHeight != height.int:
                     asm """
                     var canvas = document.createElement('canvas');

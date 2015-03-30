@@ -7,6 +7,7 @@ import nimx.event
 import nimx.text_field
 import nimx.app
 import nimx.image
+import nimx.render_to_image
 
 
 when defined js:
@@ -24,6 +25,7 @@ type GameWindow = ref object of PlatformWindow
 
 var catImage : Image
 
+var renderedImage : Image
 
 proc startApplication() =
     var mainWindow : GameWindow
@@ -87,9 +89,15 @@ method draw(w: GameWindow, r: Rect) =
     tmpTransform.translate(newVector3(w.frame.width/2, w.frame.height/3 * 2, 0))
     tmpTransform.rotateZ(-rot)
     tmpTransform.translate(newVector3(-50, -50, 0))
+    if renderedImage.isNil:
+        renderedImage = imageWithSize(newSize(100, 200))
+        renderedImage.draw do():
+            let ctx = currentContext()
+            c.fillColor = newColor(0.5, 0.5, 0)
+            ctx.drawRoundedRect(newRect(0, 0, 100, 200), 40)
+
     c.withTransform tmpTransform:
-        c.fillColor = newColor(0.5, 0.5, 0)
-        c.drawRoundedRect(newRect(0, 0, 100, 200), 40)
+        c.drawImage(renderedImage, newRect(0, 0, 100, 200))
 
 when defined js:
     import dom
