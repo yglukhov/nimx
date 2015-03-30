@@ -126,11 +126,8 @@ method getTexture*(i: Image, gl: GL): GLuint =
                 else:
                     asm "`gl`.texImage2D(`gl`.TEXTURE_2D, 0, `gl`.RGBA, `gl`.RGBA, `gl`.UNSIGNED_BYTE, `i`.__image);"
 
-                asm """
-                `i`.__image = null;
-                `gl`.texParameteri(`gl`.TEXTURE_2D, `gl`.TEXTURE_MAG_FILTER, `gl`.NEAREST);
-                `gl`.texParameteri(`gl`.TEXTURE_2D, `gl`.TEXTURE_MIN_FILTER, `gl`.NEAREST);
-                """
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
     result = i.texture
 
 method size*(i: Image): Size = i.size

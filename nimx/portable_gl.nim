@@ -17,7 +17,9 @@ when defined js:
             TRIANGLE_FAN* : GLenum
             COLOR_BUFFER_BIT*: GLbitfield
             TEXTURE_MIN_FILTER* : GLenum
+            TEXTURE_MAG_FILTER* : GLenum
             LINEAR* : GLint
+            NEAREST* : GLint
             FRAMEBUFFER* : GLenum
             RENDERBUFFER* : GLenum
             RGBA* : GLenum
@@ -83,7 +85,9 @@ else:
     template TRIANGLE_FAN*(gl: GL): GLenum = GL_TRIANGLE_FAN
     template COLOR_BUFFER_BIT*(gl: GL): GLbitfield = GL_COLOR_BUFFER_BIT
     template TEXTURE_MIN_FILTER*(gl: GL): GLenum = GL_TEXTURE_MIN_FILTER
+    template TEXTURE_MAG_FILTER*(gl: GL): GLenum = GL_TEXTURE_MAG_FILTER
     template LINEAR*(gl: GL): GLint = GL_LINEAR
+    template NEAREST*(gl: GL): GLint = GL_NEAREST
     template FRAMEBUFFER*(gl: GL): GLenum = GL_FRAMEBUFFER
     template RENDERBUFFER*(gl: GL): GLenum = GL_RENDERBUFFER
     template RGBA*(gl: GL): GLenum = GL_RGBA
