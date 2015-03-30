@@ -49,3 +49,6 @@ proc handleEvent*(a: Application, e: var Event): bool =
 proc drawWindows*(a: Application) =
     for w in a.windows: w.drawWindow()
 
+proc runAnimations*(a: Application) =
+    for w in a.windows: w.runAnimations()
+

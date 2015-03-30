@@ -60,6 +60,7 @@ method onResize*(w: JSCanvasWindow, newSize: Size) =
     procCall w.Window.onResize(newSize)
 
 proc startAnimation*() =
+    mainApplication().runAnimations()
     mainApplication().drawWindows()
     asm "requestAnimFrame(`startAnimation`);"
 

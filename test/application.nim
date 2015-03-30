@@ -8,6 +8,8 @@ import nimx.text_field
 import nimx.app
 import nimx.image
 import nimx.render_to_image
+import nimx.animation
+import math
 
 
 when defined js:
@@ -26,6 +28,7 @@ type GameWindow = ref object of PlatformWindow
 var catImage : Image
 
 var renderedImage : Image
+var rot = 0.0
 
 proc startApplication() =
     var mainWindow : GameWindow
@@ -64,7 +67,11 @@ proc startApplication() =
     t2.autoresizingMask = { afFlexibleWidth, afFlexibleHeight }
     t2.text = "This is another text field"
 
-var rot = 0.0
+    let anim = newAnimation()
+    anim.onAnimate = proc(p: float) =
+        rot = p * PI * 2
+    anim.loopDuration = 4.0
+    mainWindow.addAnimation(anim)
 
 method draw(w: GameWindow, r: Rect) =
     let c = currentContext()
@@ -77,7 +84,6 @@ method draw(w: GameWindow, r: Rect) =
     tmpTransform.translate(newVector3(w.frame.width/2, w.frame.height/3, 0))
     tmpTransform.rotateZ(rot)
     tmpTransform.translate(newVector3(-50, -50, 0))
-    rot += 0.03
     c.withTransform tmpTransform:
         c.fillColor = newColor(0, 1, 1)
         c.strokeColor = newColor(0, 0, 0, 1)

@@ -10,8 +10,9 @@ import font
 import unicode
 import view_event_handling
 import app
-
 import times
+
+export window
 
 type SdlWindow* = ref object of Window
     impl: WindowPtr
@@ -224,6 +225,7 @@ proc nextEvent*(evt: var sdl2.Event): bool =
 
     when not defined(ios):
         if not result:
+            mainApplication().runAnimations()
             mainApplication().drawWindows()
             #limitFramerate()
 

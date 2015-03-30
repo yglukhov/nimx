@@ -6,13 +6,8 @@ import event
 import window
 import unistring
 import unicode
+import times
 
-
-when defined js:
-    proc epochTime(): float =
-        0.0
-else:
-    import times
 
 type TextField* = ref object of Control
     text*: string

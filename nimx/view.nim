@@ -1,7 +1,7 @@
 import typetraits
 import types
 import context
-import logging
+import animation
 
 
 export types
@@ -25,6 +25,7 @@ type
 
     Window* = ref object of View
         firstResponder*: View
+        animations*: seq[Animation]
 
 method init*(v: View, frame: Rect) =
     v.frame = frame
