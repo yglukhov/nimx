@@ -7,7 +7,7 @@ let bundleId = "com.mycompany.MyGame"
 let javaPackageId = "com.mycompany.MyGame"
 
 let androidSdk = "~/android-sdks"
-let androidNdk = "~/android-ndk-r8e"
+let androidNdk = "~/android-ndk-r10d"
 let sdlRoot = "~/Projects/SDL"
 
 # This should point to the Nim include dir, where nimbase.h resides.
@@ -176,6 +176,11 @@ task "droid", "Build for android":
     let buildDir = makeAndroidBuildDir()
     let droidSrcDir = buildDir / "jni/src"
     runNim "--compileOnly",  "--cpu:arm", "--os:linux", "-d:android", "-d:SDL_Static", "--nimcache:" & droidSrcDir
+
+    # Copy resources. TODO: This is a quick mock of how it should work.
+    direShell "mkdir", "-p", buildDir / "assets"
+    direShell "cp", "-vR", "res/*", buildDir / "assets"
+
     cd buildDir
     putEnv "NIM_INCLUDE_DIR", expandTilde(nimIncludeDir)
     direShell androidSdk/"tools/android", "update", "project", "-p", ".", "-t", "android-20"
