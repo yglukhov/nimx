@@ -91,14 +91,14 @@ proc loadResourceByName*(resourceName: string): Resource =
     when defined(android):
         # Android code for resources loading
         # Finding assets
-        result = Resource.new
-        let mgr: AAssetManager = AAssetManager.new
-        let root: AAssetDir = AAssetManager.openDir("")
+        result.new()
+        var mgr: AAssetManager
+        let root: AAssetDir = mgr.openDir("")
         let ass: AAsset = findResourceInAPK(mgr, root, resourceName)
         # Reading the result
-        result.size = ass.getLength()
+        result.size = ass.getLength().int
         result.data = alloc(result.size)
-        ass.read(ass, result.data, result.size)
+        discard ass.read(result.data, result.size)
         ass.close()
     else:
         # Generic resource loading from file
