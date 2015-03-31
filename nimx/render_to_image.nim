@@ -34,9 +34,7 @@ proc draw*(i: Image, drawProc: proc()) =
     gl.viewport(0, 0, i.size.width.GLsizei, i.size.height.GLsizei)
     gl.clear(gl.COLOR_BUFFER_BIT)
 
-    var transform : Transform3D
-    transform.ortho(0, i.size.width, i.size.height, 0, -1, 1)
-    currentContext().withTransform transform:
+    currentContext().withTransform ortho(0, i.size.width, i.size.height, 0, -1, 1):
         drawProc()
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, oldFb)

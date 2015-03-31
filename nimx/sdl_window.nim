@@ -96,9 +96,7 @@ method drawWindow(w: SdlWindow) =
     let c = w.renderingContext
     let oldContext = setCurrentContext(c)
     defer: setCurrentContext(oldContext)
-    var transform : Transform3D
-    transform.ortho(0, w.frame.width, w.frame.height, 0, -1, 1)
-    c.withTransform transform:
+    c.withTransform ortho(0, w.frame.width, w.frame.height, 0, -1, 1):
         procCall w.Window.drawWindow()
 
         var pt = newPoint(w.frame.width - 80, 2)

@@ -592,6 +592,9 @@ proc ortho*(dest: var Matrix4, left, right, bottom, top, near, far: Coord) =
     dest[14] = -(far + near) / fn;
     dest[15] = 1;
 
+proc ortho*(left, right, bottom, top, near, far: Coord): Matrix4 {.noInit.} =
+    result.ortho(left, right, bottom, top, near, far)
+
 proc lookAt*(dest: var Matrix4, eye, center, up: Vector3) =
     let
         eyex = eye[0]

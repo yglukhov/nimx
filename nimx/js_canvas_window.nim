@@ -50,9 +50,7 @@ method drawWindow*(w: JSCanvasWindow) =
     c.gl.clear(c.gl.COLOR_BUFFER_BIT)
     let oldContext = setCurrentContext(c)
     defer: setCurrentContext(oldContext)
-    var transform : Transform3D
-    transform.ortho(0, w.frame.width, w.frame.height, 0, -1, 1)
-    c.withTransform transform:
+    c.withTransform ortho(0, w.frame.width, w.frame.height, 0, -1, 1):
         procCall w.Window.drawWindow()
 
 method onResize*(w: JSCanvasWindow, newSize: Size) =
