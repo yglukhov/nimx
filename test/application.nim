@@ -111,6 +111,10 @@ when defined js:
         startApplication()
         startAnimation()
 else:
-    startApplication()
-    runUntilQuit()
+    try:
+        startApplication()
+        runUntilQuit()
+    except:
+        logi "Exception caught: ", getCurrentExceptionMsg()
+        logi getCurrentException().getStackTrace()
 
