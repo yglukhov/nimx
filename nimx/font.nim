@@ -30,10 +30,14 @@ type Font* = ref object
     size*: float
     isHorizontal*: bool
     filePath: string
+    when defined js:
+        ctx: ref RootObj
 
 
 proc bakeChars(f: Font, start: int32) =
-    when not defined js:
+    when defined js:
+        discard
+    else:
         var rawData = readFile(f.filePath)
         const width = 512
         const height = 512
@@ -47,7 +51,7 @@ proc bakeChars(f: Font, start: int32) =
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
         f.chars[start] = info
 
-proc newFont*(pathToTTFile: string, size: float): Font =
+proc newFontWithFile*(pathToTTFile: string, size: float): Font =
     result.new()
     result.isHorizontal = true # TODO: Support vertical fonts
     result.filePath = pathToTTFile
@@ -82,23 +86,29 @@ const fontSearchPaths = when defined(macosx):
             "/usr/share/fonts/truetype/ubuntu-font-family"
         ]
 
-proc findFontFileForFace(face: string): string =
-    when defined js:
-        result = face
-    else:
+when not defined js:
+    proc findFontFileForFace(face: string): string =
         for sp in fontSearchPaths:
             let f = sp / face & ".ttf"
             if fileExists(f):
                 return f
             logi "Tried font '", f, "' with no luck"
 
+proc newFontWithFace*(face: string, size: float): Font =
+    when defined js:
+        result.new()
+        result.filePath = face
+        result.size = size
+    else:
+        let path = findFontFileForFace(face)
+        if path != nil:
+            result = newFontWithFile(path, size)
 
 proc systemFont*(): Font =
     if sysFont == nil:
         for f in preferredFonts:
-            let path = findFontFileForFace(f)
-            if path != nil:
-                sysFont = newFont(path, 16.0)
+            sysFont = newFontWithFace(f, 16)
+            if sysFont != nil:
                 break
     result = sysFont
 
