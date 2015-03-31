@@ -27,7 +27,7 @@ elif defined(android):
     """.}
 
     proc droid_log_imported(a: cstring) =
-        {.emit: """__android_log_print(ANDROID_LOG_INFO, "NIM_APP", a);""".}
+        {.emit: """__android_log_write(ANDROID_LOG_INFO, "NIM_APP", a);""".}
     proc logi*(a: varargs[string, `$`]) = droid_log_imported(a.join())
 else:
     proc logi*(a: varargs[string, `$`]) = echo a.join()
