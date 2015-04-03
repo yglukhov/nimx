@@ -9,6 +9,7 @@ license = "BSD"
 Requires: "sdl2"
 Requires: "opengl"
 Requires: "nake"
+Requires: "closure_compiler"
 Requires: "https://github.com/yglukhov/ttf"
 #Requires: "file:///Volumes/Work/Projects/ttf"
 

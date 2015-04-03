@@ -1,6 +1,7 @@
 import nake
 import tables
 import browsers
+import closure_compiler
 
 let appName = "MyGame"
 let bundleId = "com.mycompany.MyGame"
@@ -193,5 +194,6 @@ task "droid-install", "Install to android device.":
 
 task "js", "Create Javascript version.":
     direShell nimExe, "js", "--stackTrace:off", "main"
+    closure_compiler.compileFileAndRewrite("nimcache/main.js", ADVANCED_OPTIMIZATIONS)
     openDefaultBrowser "main.html"
 
