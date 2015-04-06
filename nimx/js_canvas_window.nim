@@ -3,7 +3,7 @@ import logging
 import view
 import context
 import matrixes
-import dom
+import dom except Window
 import app
 import portable_gl
 import event
