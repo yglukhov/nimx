@@ -195,8 +195,6 @@ proc drawEllipseInRect*(c: GraphicsContext, r: Rect) =
 
 proc drawText*(c: GraphicsContext, font: Font, pt: var Point, text: string) =
     # assume orthographic projection with units = screen pixels, origin at top left
-    # TODO: Here follows a quick hack to move font origin to it's upper left corner.
-    pt.y += font.size
     c.gl.useProgram(c.fontShaderProgram)
     c.setFillColorUniform(c.fontShaderProgram)
 
@@ -204,7 +202,6 @@ proc drawText*(c: GraphicsContext, font: Font, pt: var Point, text: string) =
     c.setTransformUniform(c.fontShaderProgram)
 
     var vertexes: array[4 * 4, Coord]
-    c.gl.vertexAttribPointer(saPosition.GLuint, 4, false, 0, vertexes)
 
     var texture: GLuint = 0
     var newTexture: GLuint = 0
@@ -214,9 +211,8 @@ proc drawText*(c: GraphicsContext, font: Font, pt: var Point, text: string) =
         if texture != newTexture:
             texture = newTexture
             c.gl.bindTexture(c.gl.TEXTURE_2D, texture)
+        c.gl.vertexAttribPointer(saPosition.GLuint, 4, false, 0, vertexes)
         c.gl.drawArrays(c.gl.TRIANGLE_FAN, 0, 4)
-    # Undo the hack
-    pt.y -= font.size
 
 proc drawImage*(c: GraphicsContext, i: Image, toRect: Rect, fromRect: Rect = zeroRect, alpha: ColorComponent = 1.0) =
     let t = i.getTexture(c.gl)

@@ -15,6 +15,8 @@ type Point = tuple[x, y: int32]
 
 template hasSpace*(a: Point): bool = a.x >= 0
 
+proc width*(p: RectPacker): int32 = p.rect.width
+proc height*(p: RectPacker): int32 = p.rect.height
 
 proc pack*(p: RectPacker, width, height: int32): Point =
     if not p.l.isNil:
@@ -50,4 +52,27 @@ proc pack*(p: RectPacker, width, height: int32): Point =
 
         # insert into first child we created
         result = p.l.pack(width, height)
+
+proc packAndGrow*(p: var RectPacker, width, height: int32): Point =
+    while true:
+        result = p.pack(width, height)
+        if result.hasSpace: break
+        var newP : RectPacker
+        if p.width < p.height:
+            newP = newPacker(p.width * 2, p.height)
+            newP.l = p
+            newP.r.new()
+            newP.r.rect.x = p.width
+            newP.r.rect.width = p.width
+            newP.r.rect.y = 0
+            newP.r.rect.height = p.height
+        else:
+            newP = newPacker(p.width, p.height * 2)
+            newP.l = p
+            newP.r.new()
+            newP.r.rect.x = 0
+            newP.r.rect.width = p.width
+            newP.r.rect.y = p.height
+            newP.r.rect.height = p.height
+        p = newP
 
