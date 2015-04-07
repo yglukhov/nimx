@@ -113,7 +113,7 @@ proc bakeChars(f: Font, start: int32): CharInfo =
         gl.bindTexture(gl.TEXTURE_2D, result.texture)
         let c = f.chars
         asm """
-        `gl`.texImage2D(`gl`.TEXTURE_2D, 0, `gl`.RGBA, `gl`.RGBA, `gl`.UNSIGNED_BYTE, `canvas`);
+        `gl`.texImage2D(`gl`.TEXTURE_2D, 0, `gl`.ALPHA, `gl`.ALPHA, `gl`.UNSIGNED_BYTE, `canvas`);
         """
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
     else:
