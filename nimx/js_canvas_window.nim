@@ -36,7 +36,7 @@ proc buttonCodeFromJSEvent(e: ref TEvent): KeyCode =
         of 3: kcMouseButtonMiddle
         else: kcUnknown
 
-proc eventLocationFromJSEvent(e: ref TEvent, c: ref dom.TNode): Point =
+proc eventLocationFromJSEvent(e: ref TEvent, c: Element): Point =
     var offx, offy: Coord
     asm """
     var r = `c`.getBoundingClientRect();
@@ -46,7 +46,7 @@ proc eventLocationFromJSEvent(e: ref TEvent, c: ref dom.TNode): Point =
     result.x = e.clientX.Coord - offx
     result.y = e.clientY.Coord - offy
 
-proc setupEventHandlersForCanvas(w: JSCanvasWindow, c: ref dom.TNode) =
+proc setupEventHandlersForCanvas(w: JSCanvasWindow, c: Element) =
     let onmousedown = proc (e: ref TEvent) =
         var evt = newMouseDownEvent(eventLocationFromJSEvent(e, c), buttonCodeFromJSEvent(e))
         evt.window = w
