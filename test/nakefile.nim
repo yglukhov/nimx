@@ -1,7 +1,6 @@
 import nake
 import tables
-import browsers
-import closure_compiler
+import jester, asyncdispatch, browsers, closure_compiler # Stuff needed for JS target
 
 let appName = "MyGame"
 let bundleId = "com.mycompany.MyGame"
@@ -195,5 +194,9 @@ task "droid-install", "Install to android device.":
 task "js", "Create Javascript version.":
     direShell nimExe, "js", "--stackTrace:off", "main"
     closure_compiler.compileFileAndRewrite("nimcache/main.js", ADVANCED_OPTIMIZATIONS)
-    openDefaultBrowser "main.html"
+    let settings = newSettings(staticDir = getCurrentDir())
+    routes:
+        get "/": redirect "main.html"
+    openDefaultBrowser "http://localhost:5000"
+    runForever()
 
