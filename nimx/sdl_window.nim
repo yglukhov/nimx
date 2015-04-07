@@ -1,5 +1,5 @@
 import window
-import sdl2 except Event
+import sdl2 except Event, Rect
 import logging
 import view
 import opengl
@@ -210,10 +210,10 @@ proc nextEvent*(evt: var sdl2.Event): bool =
             mainApplication().drawWindows()
             #limitFramerate()
 
-method startTextInput*(w: SdlWindow) =
+method startTextInput*(w: SdlWindow, r: Rect) =
     startTextInput()
 
-method stopTextInput*(w: Window) =
+method stopTextInput*(w: SdlWindow) =
     stopTextInput()
 
 proc runUntilQuit*() =

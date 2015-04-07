@@ -10,6 +10,8 @@ import event
 
 type JSCanvasWindow* = ref object of Window
     renderingContext: GraphicsContext
+    canvas: Element
+
 
 export window
 
@@ -76,6 +78,7 @@ method initWithCanvasId*(w: JSCanvasWindow, id: cstring) =
     `width` = `canvas`.width;
     `height` = `canvas`.height;
     """
+    w.canvas = canvas
     procCall w.Window.init(newRect(0, 0, width, height))
     w.renderingContext = newGraphicsContext(id)
 
@@ -105,3 +108,43 @@ proc startAnimation*() =
     mainApplication().drawWindows()
     asm "window.requestAnimFrame(`startAnimation`);"
 
+proc sendInputEvent(wnd: JSCanvasWindow, evt: ref TEvent) =
+    var s: cstring
+    asm """
+    `s` = window.__nimx_textinput.value;
+    window.__nimx_textinput.value = "";
+    """
+    var e = newEvent(etTextInput)
+    e.window = wnd
+    e.text = $s
+    discard mainApplication().handleEvent(e)
+
+method startTextInput*(wnd: JSCanvasWindow, r: Rect) =
+    let (x, y) = r.origin
+    let (w, h) = r.size
+    let canvas = wnd.canvas
+
+    let oninput = proc(evt: ref TEvent) =
+        wnd.sendInputEvent(evt)
+
+    asm """
+    if (typeof(window.__nimx_textinput) === 'undefined')
+    {
+        var i = window.__nimx_textinput = document.createElement('input');
+        i.type = 'text';
+    }
+    window.__nimx_textinput.oninput = `oninput`;
+    window.__nimx_textinput.style.position = 'absolute';
+    window.__nimx_textinput.style.top = '-9999px';
+    document.body.appendChild(window.__nimx_textinput);
+    setTimeout(function(){ window.__nimx_textinput.focus(); console.log("ok"); }, 1);
+    """
+
+method stopTextInput*(w: JSCanvasWindow) =
+    asm """
+    if (typeof(window.__nimx_textinput) !== 'undefined')
+    {
+        window.__nimx_textinput.oninput = null;
+        window.__nimx_textinput.blur();
+    }
+    """

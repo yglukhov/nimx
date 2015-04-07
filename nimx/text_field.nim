@@ -68,7 +68,7 @@ method draw*(t: TextField, r: Rect) =
 method onMouseDown*(t: TextField, e: var Event): bool =
     if t.editable:
         result = t.makeFirstResponder()
-        t.window.startTextInput()
+        t.window.startTextInput(t.convertRectoToWindow(t.bounds))
         var pt = e.localPosition
         pt.x += leftMargin
         if t.text.isNil:

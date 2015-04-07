@@ -51,6 +51,16 @@ proc convertPointFromWindow*(v: View, p: Point): Point =
         result -= curV.frame.origin
         curV = curV.superview
 
+proc convertRectoToWindow*(v: View, r: Rect): Rect =
+    result.origin = v.convertPointToWindow(r.origin)
+    # TODO: Respect bounds transformations
+    result.size = r.size
+
+proc convertRectFromWindow*(v: View, r: Rect): Rect =
+    result.origin = v.convertPointFromWindow(r.origin)
+    # TODO: Respect bounds transformations
+    result.size = r.size
+
 method removeSubview*(v: View, s: View) =
     for i, ss in v.subviews:
         if ss == s:

@@ -43,7 +43,7 @@ method drawWindow*(w: Window) =
 
 method enableAnimation*(w: Window, flag: bool) = discard
 
-method startTextInput*(w: Window) = discard
+method startTextInput*(w: Window, r: Rect) = discard
 method stopTextInput*(w: Window) = discard
 
 proc runAnimations*(w: Window) =
