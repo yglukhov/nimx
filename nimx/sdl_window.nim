@@ -8,7 +8,6 @@ import event
 import font
 import unicode
 import app
-import times
 
 export window
 
@@ -76,15 +75,6 @@ method `title=`*(w: SdlWindow, t: string) =
 
 method title*(w: SdlWindow): string = $w.impl.getTitle()
 
-var lastTime = getTicks()
-var lastFrame = 0.0
-
-proc fps(): int =
-    let curTime = getTicks()
-    let thisFrame = curTime - lastTime
-    lastFrame = (lastFrame * 0.9 + thisFrame.float * 0.1)
-    result = (1.0 / lastFrame * 1000.0).int
-    lastTime = curTime
 
 method drawWindow(w: SdlWindow) =
     glViewport(0, 0, GLsizei(w.frame.width), GLsizei(w.frame.height))
@@ -96,11 +86,6 @@ method drawWindow(w: SdlWindow) =
     defer: setCurrentContext(oldContext)
     c.withTransform ortho(0, w.frame.width, w.frame.height, 0, -1, 1):
         procCall w.Window.drawWindow()
-
-        var pt = newPoint(w.frame.width - 80, 2)
-        c.fillColor = newColor(0.5, 0, 0)
-        c.drawText(systemFont(), pt, "FPS: " & $fps())
- 
     w.impl.glSwapWindow() # Swap the front and back frame buffers (double buffering)
 
 proc waitOrPollEvent(evt: var sdl2.Event): auto =

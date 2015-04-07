@@ -2,6 +2,8 @@
 import view
 import animation
 import times
+import context
+import font
 
 export view
 
@@ -22,7 +24,21 @@ method title*(w: Window): string = ""
 method onResize*(w: Window, newSize: Size) =
     procCall w.View.setFrameSize(newSize)
 
+proc fps(): int =
+    var lastTime {.global.} = epochTime()
+    var lastFrame {.global.} = 0.0
+    let curTime = epochTime()
+    let thisFrame = curTime - lastTime
+    lastFrame = (lastFrame * 0.9 + thisFrame * 0.1)
+    result = (1.0 / lastFrame).int
+    lastTime = curTime
+
 method drawWindow*(w: Window) =
+    let c = currentContext()
+    var pt = newPoint(w.frame.width - 80, 2)
+    c.fillColor = newColor(0.5, 0, 0)
+    c.drawText(systemFont(), pt, "FPS: " & $fps())
+
     w.recursiveDrawSubviews()
 
 method enableAnimation*(w: Window, flag: bool) = discard
