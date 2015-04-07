@@ -2,7 +2,7 @@
 type Rect = tuple[x, y, width, height: int32]
 
 type RectPacker* = ref object
-    l, r: RectPacker
+    c1, c2: RectPacker
     rect: Rect
     occupied: bool
 
@@ -19,11 +19,11 @@ proc width*(p: RectPacker): int32 = p.rect.width
 proc height*(p: RectPacker): int32 = p.rect.height
 
 proc pack*(p: RectPacker, width, height: int32): Point =
-    if not p.l.isNil:
+    if not p.c1.isNil:
         # We are leaf
-        result = p.l.pack(width, height)
+        result = p.c1.pack(width, height)
         if result.hasSpace: return
-        result = p.r.pack(width, height)
+        result = p.c2.pack(width, height)
     else:
         # If we are occupied, return
         # If we are too small, return
@@ -36,22 +36,22 @@ proc pack*(p: RectPacker, width, height: int32): Point =
             return (p.rect.x, p.rect.y)
 
         # Otherwise, gotta split this node and create some kids
-        p.l.new()
-        p.r.new()
+        p.c1.new()
+        p.c2.new()
 
         # decide which way to split
         let dw = p.rect.width - width
         let dh = p.rect.height - height
 
         if dw > dh:
-            p.l.rect = (p.rect.x, p.rect.y, width, p.rect.height)
-            p.r.rect = (p.rect.x + width, p.rect.y, p.rect.width - width, p.rect.height)
+            p.c1.rect = (p.rect.x, p.rect.y, width, p.rect.height)
+            p.c2.rect = (p.rect.x + width, p.rect.y, p.rect.width - width, p.rect.height)
         else:
-            p.l.rect = (p.rect.x, p.rect.y, p.rect.width, height)
-            p.r.rect = (p.rect.x, p.rect.y + height, p.rect.width, p.rect.height - height)
+            p.c1.rect = (p.rect.x, p.rect.y, p.rect.width, height)
+            p.c2.rect = (p.rect.x, p.rect.y + height, p.rect.width, p.rect.height - height)
 
         # insert into first child we created
-        result = p.l.pack(width, height)
+        result = p.c1.pack(width, height)
 
 proc packAndGrow*(p: var RectPacker, width, height: int32): Point =
     while true:
@@ -60,19 +60,18 @@ proc packAndGrow*(p: var RectPacker, width, height: int32): Point =
         var newP : RectPacker
         if p.width < p.height:
             newP = newPacker(p.width * 2, p.height)
-            newP.l = p
-            newP.r.new()
-            newP.r.rect.x = p.width
-            newP.r.rect.width = p.width
-            newP.r.rect.y = 0
-            newP.r.rect.height = p.height
+            newP.c2.new()
+            newP.c2.rect.x = p.width
+            newP.c2.rect.width = p.width
+            newP.c2.rect.y = 0
+            newP.c2.rect.height = p.height
         else:
             newP = newPacker(p.width, p.height * 2)
-            newP.l = p
-            newP.r.new()
-            newP.r.rect.x = 0
-            newP.r.rect.width = p.width
-            newP.r.rect.y = p.height
-            newP.r.rect.height = p.height
+            newP.c2.new()
+            newP.c2.rect.x = 0
+            newP.c2.rect.width = p.width
+            newP.c2.rect.y = p.height
+            newP.c2.rect.height = p.height
+        newP.c1 = p
         p = newP
 
