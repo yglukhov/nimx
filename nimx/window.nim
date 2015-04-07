@@ -24,9 +24,11 @@ method title*(w: Window): string = ""
 method onResize*(w: Window, newSize: Size) =
     procCall w.View.setFrameSize(newSize)
 
+# Bug 2488. Can not use {.global.} for JS target.
+var lastTime = epochTime()
+var lastFrame = 0.0
+
 proc fps(): int =
-    var lastTime {.global.} = epochTime()
-    var lastFrame {.global.} = 0.0
     let curTime = epochTime()
     let thisFrame = curTime - lastTime
     lastFrame = (lastFrame * 0.9 + thisFrame * 0.1)
