@@ -137,7 +137,7 @@ method startTextInput*(wnd: JSCanvasWindow, r: Rect) =
     window.__nimx_textinput.style.position = 'absolute';
     window.__nimx_textinput.style.top = '-9999px';
     document.body.appendChild(window.__nimx_textinput);
-    setTimeout(function(){ window.__nimx_textinput.focus(); console.log("ok"); }, 1);
+    setTimeout(function(){ window.__nimx_textinput.focus(); }, 1);
     """
 
 method stopTextInput*(w: JSCanvasWindow) =
