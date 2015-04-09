@@ -3,33 +3,44 @@ import logging
 import unicode
 import tables
 import rect_packer
+import unsigned
 
 when defined js:
     import dom
 else:
-    import ttf
+    import "../../ttf/ttf"
     import os
 
 # Quick and dirty interface for fonts.
 # TODO:
 #  - Remove dependency on OpenGL.
-#  - Lazy bucket loading for character ranges
 #  - Distance field textures
 
 import opengl
 import portable_gl
 
-
-when defined js:
-    type stbtt_bakedchar = ref object
-        w, h: uint16
-        uvLeft, uvTop, uvRight, uvBottom: Coord
-
 const charChunkLength = 96
 
+type BackedCharComponent = enum
+    compX = 0
+    compY
+    compAdvance
+    compTexX
+    compTexY
+    compWidth
+    compHeight
+
+const numberOfComponents = ord(high(BackedCharComponent)) + 1
+type BakedCharInfo = array[numberOfComponents * charChunkLength, int16]
+
+template charOff(i: int): int = i * numberOfComponents
+template charOffComp(bc: var BakedCharInfo, charOffset: int, comp: BackedCharComponent): var int16 =
+    bc[charOffset + ord(comp)]
+
 type CharInfo = ref object
-    bakedChars: array[charChunkLength, stbtt_bakedchar]
+    bakedChars: BakedCharInfo
     texture: GLuint
+    texWidth, texHeight: uint16
 
 type Font* = ref object
     when defined js:
@@ -42,8 +53,18 @@ type Font* = ref object
     when defined js:
         canvas: Element
 
+proc prepareTexture(i: var CharInfo): GL =
+    result = sharedGL()
+    i.texture = result.createTexture()
+    result.bindTexture(result.TEXTURE_2D, i.texture)
+    result.texParameteri(result.TEXTURE_2D, result.TEXTURE_MIN_FILTER, result.LINEAR)
+
 proc bakeChars(f: Font, start: int32): CharInfo =
     result.new()
+
+    let startChar = start * charChunkLength
+    let endChar = startChar + charChunkLength
+
     when defined js:
         let fontName : cstring = $f.size & "px " & f.filePath
         let canvas = document.createElement("canvas").Element
@@ -57,36 +78,30 @@ proc bakeChars(f: Font, start: int32): CharInfo =
         # TODO: Because of Nim bug 2476, initial size of packer should be
         # already big enough. Reduce it to 32x32 when fixed.
         var rectPacker = newPacker(512, 512)
-        let startChar = start * charChunkLength
-        let endChar = startChar + charChunkLength
         for i in startChar .. < endChar:
             var w: int32
             let h = f.size.int32 + 2
             asm """
-            var str = String.fromCharCode(`i`);
-            var mt = ctx.measureText(str);
+            var mt = ctx.measureText(String.fromCharCode(`i`));
             `w` = mt.width;
             """
 
             if w > 0:
-                var bc : stbtt_bakedchar
-                bc.new()
-                bc.w = w.uint16
-                bc.h = h.uint16
-                asm "`bc`._str = str;"
-
                 let (x, y) = rectPacker.packAndGrow(w, h)
-                
-                bc.w = w.uint16
-                bc.h = h.uint16
-                bc.uvLeft = x.float32
-                bc.uvTop = y.float32
-                bc.uvRight = (x + w).float32
-                bc.uvBottom = (y + h).float32
-                result.bakedChars[i - startChar] = bc
+
+                let c = charOff(i - startChar)
+                #result.bakedChars.charOffComp(c, compX) = 0
+                #result.bakedChars.charOffComp(c, compY) = 0
+                result.bakedChars.charOffComp(c, compAdvance) = w.int16
+                result.bakedChars.charOffComp(c, compTexX) = x.int16
+                result.bakedChars.charOffComp(c, compTexY) = y.int16
+                result.bakedChars.charOffComp(c, compWidth) = w.int16
+                result.bakedChars.charOffComp(c, compHeight) = h.int16
 
         let texWidth = rectPacker.width
         let texHeight = rectPacker.height
+        result.texWidth = texWidth.uint16
+        result.texHeight = texHeight.uint16
 
         asm """
         `canvas`.width = `texWidth`;
@@ -95,37 +110,71 @@ proc bakeChars(f: Font, start: int32): CharInfo =
         ctx.textBaseline = "top";
         """
 
-        for bc in result.bakedChars:
-            if not bc.isNil:
-                let x = bc.uvLeft
-                let y = bc.uvTop
-                asm """
-                ctx.fillText(`bc`._str, `x`, `y`);
-                `bc`._str = null;
-                """
-                bc.uvLeft /= texWidth.float32
-                bc.uvTop /= texHeight.float32
-                bc.uvRight /= texWidth.float32
-                bc.uvBottom /= texHeight.float32
+        for i in startChar .. < endChar:
+            let c = charOff(i - startChar)
+            if result.bakedChars.charOffComp(c, compAdvance) > 0:
+                let x = result.bakedChars.charOffComp(c, compTexX)
+                let y = result.bakedChars.charOffComp(c, compTexY)
+                asm "ctx.fillText(String.fromCharCode(`i`), `x`, `y`);"
 
-        let gl = sharedGL()
-        result.texture = gl.createTexture()
-        gl.bindTexture(gl.TEXTURE_2D, result.texture)
-        let c = f.chars
+        let gl = result.prepareTexture()
         asm """
         `gl`.texImage2D(`gl`.TEXTURE_2D, 0, `gl`.ALPHA, `gl`.ALPHA, `gl`.UNSIGNED_BYTE, `canvas`);
         """
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
     else:
         var rawData = readFile(f.filePath)
-        const width = 512
-        const height = 512
-        var temp_bitmap : array[width * height, byte]
-        discard stbtt_BakeFontBitmap(cstring(rawData), 0, f.size, addr temp_bitmap, width, height, start * charChunkLength, charChunkLength, addr result.bakedChars) # no guarantee this fits!
-        glGenTextures(1, addr result.texture)
-        glBindTexture(GL_TEXTURE_2D, result.texture)
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, width, height, 0, GL_ALPHA, GL_UNSIGNED_BYTE, addr temp_bitmap)
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
+
+        var fontinfo: stbtt_fontinfo
+        if stbtt_InitFont(fontinfo, cast[font_type](rawData.cstring), 0) == 0:
+            logi "Could not init font"
+            return nil
+
+        let scale = stbtt_ScaleForPixelHeight(fontinfo, f.size)
+        var ascent, descent, lineGap : cint
+        stbtt_GetFontVMetrics(fontinfo, ascent, descent, lineGap)
+        ascent = cint(ascent.cfloat * scale)
+        descent = cint(descent.cfloat * scale)
+        lineGap = cint(lineGap.cfloat * scale)
+
+        var glyphIndexes: array[charChunkLength, cint]
+
+        var rectPacker = newPacker(32, 32)
+        for i in startChar .. < endChar:
+            let g = stbtt_FindGlyphIndex(fontinfo, i) # g > 0 when found
+            glyphIndexes[i - startChar] = g
+            var advance, lsb, x0,y0,x1,y1: cint
+            stbtt_GetGlyphHMetrics(fontinfo, g, advance, lsb)
+            stbtt_GetGlyphBitmapBox(fontinfo, g, scale, -scale, x0, y0, x1, y1)
+            let gw = x1 - x0
+            let gh = y0 - y1 + 2 # Why is this +2 needed????
+            let (x, y) = rectPacker.packAndGrow(gw, gh)
+
+            let c = charOff(i - startChar)
+            result.bakedChars.charOffComp(c, compX) = (lsb.cfloat * scale).int16 + x0.int16
+            result.bakedChars.charOffComp(c, compY) = (ascent - y0).int16
+            result.bakedChars.charOffComp(c, compAdvance) = (scale * advance.cfloat).int16
+            result.bakedChars.charOffComp(c, compTexX) = x.int16
+            result.bakedChars.charOffComp(c, compTexY) = y.int16
+            result.bakedChars.charOffComp(c, compWidth) = gw.int16
+            result.bakedChars.charOffComp(c, compHeight) = gh.int16
+
+        let width = rectPacker.width
+        let height = rectPacker.height
+        result.texWidth = width.uint16
+        result.texHeight = height.uint16
+        var temp_bitmap = newSeq[byte](width * height)
+
+        for i in startChar .. < endChar:
+            let c = charOff(i - startChar)
+            if result.bakedChars.charOffComp(c, compAdvance) > 0:
+                let x = result.bakedChars.charOffComp(c, compTexX).int
+                let y = result.bakedChars.charOffComp(c, compTexY).int
+                let w = result.bakedChars.charOffComp(c, compWidth).cint
+                let h = result.bakedChars.charOffComp(c, compHeight).cint
+                stbtt_MakeGlyphBitmap(fontinfo, addr temp_bitmap[x + y * width.int], w, h, width.cint, scale, scale, glyphIndexes[i - startChar])
+
+        let gl = result.prepareTexture()
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.ALPHA, width, height, 0, gl.ALPHA, gl.UNSIGNED_BYTE, addr temp_bitmap[0])
 
 when not defined js:
     proc newFontWithFile*(pathToTTFile: string, size: float): Font =
@@ -195,9 +244,15 @@ proc systemFont*(): Font =
 
 import math
 
-proc getQuadDataForRune*(f: Font, r: Rune, quad: var array[16, Coord], texture: var GLuint, pt: var Point) =
+when defined js:
+    proc toRef[T](v: T): ref T =
+        asm "`result` = `v`;"
+else:
+    template toRef[T](v: var T): ptr T = addr v
+
+proc chunkAndCharIndexForRune(f: Font, r: Rune): tuple[ch: CharInfo, index: int] =
     let chunkStart = floor(r.int / charChunkLength.int).int32
-    let charIndexInChunk = r.int mod charChunkLength
+    result.index = r.int mod charChunkLength
     when defined js:
         var chunk: CharInfo
         let chars = f.chars
@@ -208,30 +263,34 @@ proc getQuadDataForRune*(f: Font, r: Rune, quad: var array[16, Coord], texture: 
             asm "`chars`[`chunkStart`] = `chunk`;"
         else:
             asm "`chunk` = `chars`[`chunkStart`];"
-        let bc = chunk.bakedChars[charIndexInChunk]
-        quad[0] = pt.x; quad[1] = pt.y; quad[2] = bc.uvLeft; quad[3] = bc.uvTop
-        quad[4] = pt.x + bc.w.Coord; quad[5] = pt.y; quad[6] = bc.uvRight; quad[7] = bc.uvTop
-        quad[8] = pt.x + bc.w.Coord; quad[9] = pt.y + bc.h.Coord; quad[10] = bc.uvRight; quad[11] = bc.uvBottom
-        quad[12] = pt.x; quad[13] = pt.y + bc.h.Coord; quad[14] = bc.uvLeft; quad[15] = bc.uvBottom
-        pt.x += bc.w.Coord
+        result.ch = chunk
     else:
         if not f.chars.hasKey(chunkStart):
             f.chars[chunkStart] = f.bakeChars(chunkStart)
-        let chunk = f.chars[chunkStart]
+        result.ch = f.chars[chunkStart]
 
-        var x, y: cfloat
-        x = pt.x
-        y = pt.y + f.size
+proc getQuadDataForRune*(f: Font, r: Rune, quad: var array[16, Coord], texture: var GLuint, pt: var Point) =
+    let (chunk, charIndexInChunk) = f.chunkAndCharIndexForRune(r)
+    let bc = toRef chunk.bakedChars
+    let c = charOff(charIndexInChunk)
 
-        var q : stbtt_aligned_quad
-        stbtt_GetBakedQuad(chunk.bakedChars[charIndexInChunk], 512, 512, x, y, q, true) # true=opengl & d3d10+,false=d3d9
-        quad = [ q.x0, q.y0, q.s0, q.t0,
-                q.x1, q.y0, q.s1, q.t0,
-                q.x1, q.y1, q.s1, q.t1,
-                q.x0, q.y1, q.s0, q.t1 ]
-        y -= f.size
-        pt.x = x
-        pt.y = y
+    let x0 = pt.x + bc[].charOffComp(c, compX).Coord
+    let x1 = x0 + bc[].charOffComp(c, compWidth).Coord
+    let y0 = pt.y + bc[].charOffComp(c, compY).Coord
+    let y1 = y0 + bc[].charOffComp(c, compHeight).Coord
+
+    var s0 = bc[].charOffComp(c, compTexX).Coord
+    var t0 = bc[].charOffComp(c, compTexY).Coord
+    let s1 = (s0 + bc[].charOffComp(c, compWidth).Coord) / chunk.texWidth.Coord
+    let t1 = (t0 + bc[].charOffComp(c, compHeight).Coord) / chunk.texHeight.Coord
+    s0 /= chunk.texWidth.Coord
+    t0 /= chunk.texHeight.Coord
+
+    quad[0] = x0; quad[1] = y0; quad[2] = s0; quad[3] = t0
+    quad[4] = x1; quad[5] = y0; quad[6] = s1; quad[7] = t0
+    quad[8] = x1; quad[9] = y1; quad[10] = s1; quad[11] = t1
+    quad[12] = x0; quad[13] = y1; quad[14] = s0; quad[15] = t1
+    pt.x += bc[].charOffComp(c, compAdvance).Coord
     texture = chunk.texture
 
 proc sizeOfString*(f: Font, s: string): Size =
