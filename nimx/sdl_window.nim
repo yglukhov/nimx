@@ -8,6 +8,7 @@ import event
 import font
 import unicode
 import app
+import linkage_details
 
 export window
 
