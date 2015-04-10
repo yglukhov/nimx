@@ -61,6 +61,13 @@ proc convertRectFromWindow*(v: View, r: Rect): Rect =
     # TODO: Respect bounds transformations
     result.size = r.size
 
+
+method viewDidChangeSuperview*(v: View) = discard
+method viewDidChangeWindow*(v: View) =
+    for s in v.subviews:
+        s.window = v.window
+        s.viewDidChangeWindow()
+
 method removeSubview*(v: View, s: View) =
     for i, ss in v.subviews:
         if ss == s:
@@ -75,10 +82,14 @@ method removeFromSuperview*(v: View) =
 
 method addSubview*(v: View, s: View) =
     if s.superview != v:
+        let oldWindow = s.window
         s.removeFromSuperview()
         v.subviews.add(s)
-        s.window = v.window
         s.superview = v
+        s.window = v.window
+        s.viewDidChangeSuperview()
+        if s.window != oldWindow:
+            s.viewDidChangeWindow()
 
 proc recursiveDrawSubviews*(view: View)
 
