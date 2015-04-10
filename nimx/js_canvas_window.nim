@@ -120,8 +120,6 @@ proc sendInputEvent(wnd: JSCanvasWindow, evt: ref TEvent) =
     discard mainApplication().handleEvent(e)
 
 method startTextInput*(wnd: JSCanvasWindow, r: Rect) =
-    let (x, y) = r.origin
-    let (w, h) = r.size
     let canvas = wnd.canvas
 
     let oninput = proc(evt: ref TEvent) =
