@@ -219,10 +219,20 @@ proc drawImage*(c: GraphicsContext, i: Image, toRect: Rect, fromRect: Rect = zer
     if t != 0:
         c.gl.useProgram(c.imageShaderProgram)
         c.gl.bindTexture(c.gl.TEXTURE_2D, t)
-        let points = [toRect.minX, toRect.minY, 0, 0,
-                    toRect.maxX, toRect.minY, i.sizeInTexels.width, 0,
-                    toRect.maxX, toRect.maxY, i.sizeInTexels.width, i.sizeInTexels.height,
-                    toRect.minX, toRect.maxY, 0, i.sizeInTexels.height]
+        var s0 : Coord
+        var t0 : Coord
+        var s1 : Coord = i.sizeInTexels.width
+        var t1 : Coord = i.sizeInTexels.height
+        if fromRect != zeroRect:
+            s0 = fromRect.x / i.size.width * i.sizeInTexels.width
+            t0 = fromRect.y / i.size.height * i.sizeInTexels.height
+            s1 = fromRect.maxX / i.size.width * i.sizeInTexels.width
+            t1 = fromRect.maxY / i.size.height * i.sizeInTexels.height
+
+        let points = [toRect.minX, toRect.minY, s0, t0,
+                    toRect.maxX, toRect.minY, s1, t0,
+                    toRect.maxX, toRect.maxY, s1, t1,
+                    toRect.minX, toRect.maxY, s0, t1]
         c.gl.enableVertexAttribArray(saPosition.GLuint)
         c.setTransformUniform(c.imageShaderProgram)
         c.gl.vertexAttribPointer(saPosition.GLuint, 4, false, 0, points)
