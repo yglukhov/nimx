@@ -163,11 +163,31 @@ proc newGL*(canvasId: cstring): GL =
     when defined js:
         asm """
             var canvas = document.getElementById(`canvasId`);
-            `result` = canvas.getContext("experimental-webgl");
-            `result`.viewportWidth = canvas.width;
-            `result`.viewportHeight = canvas.height;
-            `result`.getExtension('OES_standard_derivatives');
-            `globalGL` = `result`;
+            try
+            {
+                `result` = canvas.getContext("webgl");
+            }
+            catch(err) {}
+            if (`result` === null)
+            {
+                try
+                {
+                    `result` = canvas.getContext("experimental-webgl");
+                }
+                catch(err) {}
+            }
+
+            if (`result` !== null)
+            {
+                `result`.viewportWidth = canvas.width;
+                `result`.viewportHeight = canvas.height;
+                `result`.getExtension('OES_standard_derivatives');
+                `globalGL` = `result`;
+            }
+            else
+            {
+                alert("Your browser does not support WebGL. Please, use a modern browser.");
+            }
             """
 
 proc sharedGL*(): GL = globalGL
