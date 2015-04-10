@@ -50,8 +50,13 @@ method stopTextInput*(w: Window) = discard
 
 proc runAnimations*(w: Window) =
     let t = epochTime()
-    for a in w.animations:
-        a.tick(t)
+    var i = 0
+    while i < w.animations.len:
+        w.animations[i].tick(t)
+        if w.animations[i].finished:
+            w.animations.del(i)
+        else:
+            inc i
 
 proc addAnimation*(w: Window, a: Animation) =
     w.animations.add(a)

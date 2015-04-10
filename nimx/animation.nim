@@ -14,6 +14,7 @@ type Animation* = ref object of RootObj
     numberOfLoops*: int
     timeFunction*: proc(progress: float): float
     onAnimate*: proc(progress: float)
+    finished*: bool
 
 proc newAnimation*(): Animation =
     result.new()
@@ -31,4 +32,6 @@ method tick*(a: Animation, curTime: float) =
             a.timeFunction(loopProgress)
     if not a.onAnimate.isNil:
         a.onAnimate(filteredProgress)
+    if a.numberOfLoops > 0 and duration >= a.numberOfLoops.float * a.loopDuration:
+        a.finished = true
 
