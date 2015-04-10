@@ -1,4 +1,5 @@
 import math
+import macros
 
 type LoopPattern* = enum
     lpStartToEndToStart
@@ -6,7 +7,8 @@ type LoopPattern* = enum
     lpEndToStart
     lpEndToStartToEnd
 
-type TimingFunction = proc(progress: float): float
+type TimingFunction = proc(time: float): float
+type AnimationFunction = proc(progress: float)
 
 type Animation* = ref object of RootObj
     startTime*: float
@@ -14,7 +16,7 @@ type Animation* = ref object of RootObj
     pattern*: LoopPattern
     numberOfLoops*: int
     timingFunction*: TimingFunction
-    onAnimate*: proc(progress: float)
+    onAnimate*: AnimationFunction
     finished*: bool
     completionHandler: proc()
 
@@ -26,18 +28,18 @@ proc newAnimation*(): Animation =
 
 method tick*(a: Animation, curTime: float) =
     let duration = curTime - a.startTime
-    let timeInLoop = duration mod a.loopDuration
-    let loopProgress = timeInLoop / a.loopDuration
-    let filteredProgress = if a.timingFunction.isNil:
-            loopProgress # linear function
-        else:
-            a.timingFunction(loopProgress)
-    if not a.onAnimate.isNil:
-        a.onAnimate(filteredProgress)
+    var loopProgress = 1.0
     if a.numberOfLoops > 0 and duration >= a.numberOfLoops.float * a.loopDuration:
         a.finished = true
-        if not a.completionHandler.isNil:
-            a.completionHandler()
+    else:
+        let timeInLoop = duration mod a.loopDuration
+        loopProgress = timeInLoop / a.loopDuration
+        if not a.timingFunction.isNil:
+            loopProgress = a.timingFunction(loopProgress)
+    if not a.onAnimate.isNil:
+        a.onAnimate(loopProgress)
+    if a.finished and not a.completionHandler.isNil:
+        a.completionHandler()
 
 proc onComplete*(a: Animation, p: proc()) =
     a.completionHandler = p
@@ -67,4 +69,24 @@ proc bezierTimingFunction*(x1, y1, x2, y2: float): TimingFunction =
             aGuessT -= currentX / currentSlope
 
         return calcBezier(aGuessT, y1, y2)
+
+template interpolate*[T](fromValue, toValue: T, p: float): T = fromValue + (toValue - fromValue) * p
+
+template nimx_setInterpolationAnimation*(a: Animation, ident: expr, fromVal, toVal: expr, body: stmt): stmt {.immediate.} =
+    let fv = fromVal
+    let tv = toVal
+    a.onAnimate = proc(p: float) =
+        let `ident` {.inject.} = interpolate(fv, tv, p)
+        body
+
+macro animate*(a: Animation, what: expr, how: stmt): stmt {.immediate.} =
+    let ident = what[1]
+    let fromVal = what[2][1]
+    let toVal = what[2][2]
+    result = newCall("nimx_setInterpolationAnimation", a, ident, fromVal, toVal, how)
+
+# Value interpolation
+proc animateValue*[T](fromValue, toValue: T, cb: proc(value: T)): AnimationFunction =
+    result = proc(progress: float) =
+        cb((toValue - fromValue) * progress)
 
