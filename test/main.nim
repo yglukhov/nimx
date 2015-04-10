@@ -70,9 +70,10 @@ proc startApplication() =
     t2.text = "This is another text field"
 
     let anim = newAnimation()
+    anim.timingFunction = bezierTimingFunction(0.53,-0.53,0.38,1.52)
     anim.onAnimate = proc(p: float) =
         rot = p * PI * 2
-    anim.loopDuration = 4.0
+    anim.loopDuration = 1.0
     mainWindow.addAnimation(anim)
 
 method draw(w: GameWindow, r: Rect) =
