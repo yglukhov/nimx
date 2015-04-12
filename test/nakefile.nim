@@ -28,7 +28,7 @@ let iOSSimulatorDeviceId = "2380E609-2C39-43F0-AB64-B8411DA6D8C6"
 let bundleName = appName & ".app"
 
 let parallelBuild = "--parallelBuild:1"
-let nimVerbose = "--verbosity:0"
+let nimVerbose = "--verbosity:3"
 
 let xCodeApp = "/Applications/Xcode.app"
 
@@ -143,7 +143,7 @@ task defaultTask, "Build and run":
             "--passL:-fobjc-link-runtime", "-d:SDL_Static", "--passL:-L"&buildSDLForDesktop(), "--passL:-lSDL2",
             "--run"
     else:
-        runNim "--passC:-Inimcache", "-d:SDL_Static", "--passL:-L"&buildSDLForDesktop(), "--passL:-lSDL2", "--run"    
+        runNim "--run", "--passL:-L/usr/local/lib", "--passL:-Wl,-rpath,/usr/local/lib", "--passL:-lSDL2", "--passL:-lpthread"
 
 task "ios-sim", "Build and run in iOS simulator":
     if not dirExists(iOSSimulatorSDK):

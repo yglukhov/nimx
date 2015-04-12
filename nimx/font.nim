@@ -8,7 +8,7 @@ import unsigned
 when defined js:
     import dom
 else:
-    import "../../ttf/ttf"
+    import ttf
     import os
 
 # Quick and dirty interface for fonts.
