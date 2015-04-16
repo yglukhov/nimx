@@ -29,6 +29,8 @@ when defined js:
             DEPTH_ATTACHMENT* : GLenum
             DEPTH_COMPONENT16* : GLenum
             FRAMEBUFFER_BINDING* : GLenum
+            NEVER*, LESS*, LEQUAL*, GREATER*, GEQUAL*, EQUAL*, NOTEQUAL*, ALWAYS*: GLenum
+            KEEP*, ZERO*, REPLACE*, INCR*, INCR_WRAP*, DECR*, DECR_WRAP*, INVERT*: GLenum
 
             compileShader*: proc(shader: GLuint)
             deleteShader*: proc(shader: GLuint)
@@ -72,6 +74,12 @@ when defined js:
             renderbufferStorage*: proc(target, internalformat: GLenum, width, height: GLsizei)
             framebufferRenderbuffer*: proc(target, attachment, renderbuffertarget: GLenum, renderbuffer: GLuint)
 
+            stencilFunc*: proc(fun: GLenum, refe: GLint, mask: GLuint)
+            stencilOp*: proc(fail, zfail, zpass: GLenum)
+            colorMask*: proc(r, g, b, a: bool)
+            depthMask*: proc(d: bool)
+            stencilMask*: proc(m: GLuint)
+
             getError*: proc(): GLenum
 
 
@@ -98,6 +106,24 @@ else:
     template DEPTH_ATTACHMENT*(gl: GL): GLenum = GL_DEPTH_ATTACHMENT
     template DEPTH_COMPONENT16*(gl: GL): GLenum = GL_DEPTH_COMPONENT16
     template FRAMEBUFFER_BINDING*(gl: GL): GLenum = GL_FRAMEBUFFER_BINDING
+
+    template NEVER*(gl: GL): GLenum = GL_NEVER
+    template LESS*(gl: GL): GLenum = GL_LESS
+    template LEQUAL*(gl: GL): GLenum = GL_LEQUAL
+    template GREATER*(gl: GL): GLenum = GL_GREATER
+    template GEQUAL*(gl: GL): GLenum = GL_GEQUAL
+    template EQUAL*(gl: GL): GLenum = GL_EQUAL
+    template NOTEQUAL*(gl: GL): GLenum = GL_NOTEQUAL
+    template ALWAYS*(gl: GL): GLenum = GL_ALWAYS
+
+    template KEEP*(gl: GL): GLenum = GL_KEEP
+    template ZERO*(gl: GL): GLenum = GL_ZERO
+    template REPLACE*(gl: GL): GLenum = GL_REPLACE
+    template INCR*(gl: GL): GLenum = GL_INCR
+    template INCR_WRAP*(gl: GL): GLenum = GL_INCR_WRAP
+    template DECR*(gl: GL): GLenum = GL_DECR
+    template DECR_WRAP*(gl: GL): GLenum = GL_DECR_WRAP
+    template INVERT*(gl: GL): GLenum = GL_INVERT
 
     template compileShader*(gl: GL, shader: GLuint) = glCompileShader(shader)
     template deleteShader*(gl: GL, shader: GLuint) = glDeleteShader(shader)
@@ -152,6 +178,12 @@ else:
     template renderbufferStorage*(gl: GL, target, internalformat: GLenum, width, height: GLsizei) = glRenderbufferStorage(target, internalformat, width, height)
     template framebufferRenderbuffer*(gl: GL, target, attachment, renderbuffertarget: GLenum, renderbuffer: GLuint) =
         glFramebufferRenderbuffer(target, attachment, renderbuffertarget, renderbuffer)
+
+    template stencilFunc*(gl: GL, fun: GLenum, refe: GLint, mask: GLuint) = glStencilFunc(fun, refe, mask)
+    template stencilOp*(gl: GL, fail, zfail, zpass: GLenum) = glStencilOp(fail, zfail, zpass)
+    template colorMask*(gl: GL, r, g, b, a: bool) = glColorMask(r, g, b, a)
+    template depthMask*(gl: GL, d: bool) = glDepthMask(d)
+    template stencilMask*(gl: GL, m: GLuint) = glStencilMask(m)
 
     template getError*(gl: GL): GLenum = glGetError()
 
