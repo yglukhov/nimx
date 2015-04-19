@@ -23,18 +23,18 @@ let iOSMinVersion = iOSSDKVersion
 # Simulator device identifier should be set to run the simulator.
 # Available simulators can be listed with the command:
 # $ xcrun simctl list
-let iOSSimulatorDeviceId = "2380E609-2C39-43F0-AB64-B8411DA6D8C6"
+let iOSSimulatorDeviceId = "A71A4C09-B9AF-43D2-9B32-D1DE5771FBB4"
 
 let bundleName = appName & ".app"
 
-let parallelBuild = "--parallelBuild:1"
-let nimVerbose = "--verbosity:3"
+let parallelBuild = "--parallelBuild:0"
+let nimVerbose = "--verbosity:0"
 
 let xCodeApp = "/Applications/Xcode.app"
 
 let macOSSDK = xCodeApp/"Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX" & macOSSDKVersion & ".sdk"
 let iOSSDK = xCodeApp/"Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS" & iOSSDKVersion & ".sdk"
-let iOSSimulatorSDK = xCodeApp/"Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator" & iOSSDKVersion & ".sdk"
+let iOSSimulatorSDK = xCodeApp/"Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator.sdk"
 
 # Install nimx
 withDir "..":
