@@ -65,6 +65,7 @@ proc bakeChars(f: Font, start: int32): CharInfo =
     let startChar = start * charChunkLength
     let endChar = startChar + charChunkLength
 
+    var rectPacker = newPacker(32, 32)
     when defined js:
         let fontName : cstring = $f.size & "px " & f.filePath
         let canvas = document.createElement("canvas").Element
@@ -75,9 +76,6 @@ proc bakeChars(f: Font, start: int32): CharInfo =
         """
         f.canvas = canvas
 
-        # TODO: Because of Nim bug 2476, initial size of packer should be
-        # already big enough. Reduce it to 32x32 when fixed.
-        var rectPacker = newPacker(512, 512)
         for i in startChar .. < endChar:
             var w: int32
             let h = f.size.int32 + 2
@@ -138,7 +136,6 @@ proc bakeChars(f: Font, start: int32): CharInfo =
 
         var glyphIndexes: array[charChunkLength, cint]
 
-        var rectPacker = newPacker(32, 32)
         for i in startChar .. < endChar:
             let g = stbtt_FindGlyphIndex(fontinfo, i) # g > 0 when found
             glyphIndexes[i - startChar] = g
@@ -186,7 +183,7 @@ when not defined js:
 
 var sysFont : Font
 
-const preferredFonts = when defined(macosx):
+const preferredFonts = when defined(macosx) or defined(js):
         [
             "Arial"
         ]
