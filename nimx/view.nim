@@ -14,6 +14,10 @@ type AutoresizingFlag* = enum
     afFlexibleWidth
     afFlexibleHeight
 
+type ClipType* = enum
+    ctNone
+    ctDefaultClip
+
 type
     View* = ref object of RootObj
         window*: Window
@@ -91,6 +95,8 @@ method addSubview*(v: View, s: View) =
         if s.window != oldWindow:
             s.viewDidChangeWindow()
 
+method clipType*(v: View): ClipType = ctNone
+
 proc recursiveDrawSubviews*(view: View)
 
 method draw*(view: View, rect: Rect) =
@@ -100,11 +106,22 @@ method draw*(view: View, rect: Rect) =
 
 proc drawSubviews(view: View) {.inline.} =
     let c = currentContext()
+
     for i in view.subviews:
         var tmpTransform = c.transform
-        tmpTransform.translate(newVector3(i.frame.x, i.frame.y, 0))
+        if i.bounds.size == i.frame.size:
+            # Common case: bounds scale is 1.0
+            # Simplify calculation
+            tmpTransform.translate(newVector3(i.frame.x - i.bounds.x, i.frame.y - i.bounds.y))
+        else:
+            assert(false, "Not implemented")
+
         c.withTransform tmpTransform:
-            i.recursiveDrawSubviews()
+            if i.clipType() == ctDefaultClip:
+                c.withClippingRect i.bounds:
+                    i.recursiveDrawSubviews()
+            else:
+                i.recursiveDrawSubviews()
 
 proc recursiveDrawSubviews*(view: View) =
     view.draw(view.bounds)
@@ -145,8 +162,14 @@ method setFrame*(v: View, r: Rect) =
     if v.frame.size != r.size:
         v.setFrameSize(r.size)
 
+method setBounds*(v: View, r: Rect) =
+    v.bounds = r
+
 method frame*(v: View): Rect = v.frame
 method bounds*(v: View): Rect = v.bounds
+
+method desiredSize*(v: View): Size = v.frame.size
+method subviewDidChangeDesiredSize*(v: View, s: View) = discard
 
 # Responder chain implementation
 method makeFirstResponder*(v: View): bool =

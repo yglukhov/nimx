@@ -238,33 +238,6 @@ proc drawImage*(c: GraphicsContext, i: Image, toRect: Rect, fromRect: Rect = zer
         c.gl.vertexAttribPointer(saPosition.GLuint, 4, false, 0, points)
         c.gl.drawArrays(c.gl.TRIANGLE_FAN, 0, 4)
 
-
-discard """
-proc beginStencil(c: GraphicsContext) =
-    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE)
-    glDepthMask(GL_FALSE)
-    glStencilFunc(GL_NEVER, 1, 0xFF)
-    glStencilOp(GL_REPLACE, GL_KEEP, GL_KEEP)  # draw 1s on test fail (always)
- 
-    # draw stencil pattern
-    glStencilMask(0xFF)
-    glClear(GL_STENCIL_BUFFER_BIT)  # needs mask=0xFF
-    
-proc endStencil(c: GraphicsContext) =
-    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-    glDepthMask(GL_TRUE);
-    glStencilMask(0x00);
-
-proc enableStencil(c: GraphicsContext) =
-    gl.enable(GL_STENCIL_TEST)
-
-proc disableStencil(c: GraphicsContext) =
-    gl.disable(GL_STENCIL_TEST)
-
-proc drawGradientInRect(c: GraphicsContext) =
-    discard
-    """
-
 proc drawPoly*(c: GraphicsContext, points: openArray[Coord]) =
     let shaderProg = c.testPolyShaderProgram
     c.gl.useProgram(shaderProg)
@@ -291,4 +264,37 @@ proc testPoly*(c: GraphicsContext) =
         500, 500
         ]
     c.drawPoly(points)
+
+# TODO: This should probaly be a property of current context!
+var clippingDepth: GLint = 0
+
+# Clipping
+proc applyClippingRect*(c: GraphicsContext, r: Rect, on: bool) =
+    c.gl.enable(c.gl.STENCIL_TEST)
+    c.gl.colorMask(false, false, false, false)
+    c.gl.depthMask(false)
+    c.gl.stencilMask(0xFF)
+    if on:
+        inc clippingDepth
+        c.gl.stencilOp(c.gl.INCR, c.gl.KEEP, c.gl.KEEP)
+    else:
+        dec clippingDepth
+        c.gl.stencilOp(c.gl.DECR, c.gl.KEEP, c.gl.KEEP)
+
+    c.gl.stencilFunc(c.gl.NEVER, 1, 0xFF)
+    c.drawRect(r)
+
+    c.gl.colorMask(true, true, true, true)
+    c.gl.depthMask(true)
+    c.gl.stencilMask(0x00)
+
+    c.gl.stencilOp(c.gl.KEEP, c.gl.KEEP, c.gl.KEEP)
+    c.gl.stencilFunc(c.gl.EQUAL, clippingDepth, 0xFF)
+    if clippingDepth == 0:
+        c.gl.disable(c.gl.STENCIL_TEST)
+
+template withClippingRect*(c: GraphicsContext, r: Rect, body: stmt) =
+    c.applyClippingRect(r, true)
+    body
+    c.applyClippingRect(r, false)
 

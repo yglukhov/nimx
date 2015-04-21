@@ -9,8 +9,24 @@ import font
 import unicode
 import app
 import linkage_details
+import portable_gl
 
 export window
+
+var sdlInitialized = false
+
+proc initSDLIfNeeded() =
+    if not sdlInitialized:
+        sdl2.init(INIT_VIDEO)
+        sdlInitialized = true
+        let r = glSetAttribute(SDL_GL_STENCIL_SIZE, 8)
+        if r != 0:
+            logi "Error: could not set stencil size: ", r
+
+        when defined(ios) or defined(android):
+            discard glSetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, 0x0004)
+            discard glSetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2)
+
 
 type SdlWindow* = ref object of Window
     impl: WindowPtr
@@ -22,7 +38,9 @@ method enableAnimation*(w: SdlWindow, flag: bool) =
     when defined(ios):
         if flag:
             proc animationCallback(p: pointer) {.cdecl.} =
-                cast[SdlWindow](p).drawWindow()
+                let w = cast[SdlWindow](p)
+                w.runAnimations()
+                w.drawWindow()
             discard iPhoneSetAnimationCallback(w.impl, 0, animationCallback, cast[pointer](w))
         else:
             discard iPhoneSetAnimationCallback(w.impl, 0, nil, nil)
@@ -44,13 +62,11 @@ method initCommon(w: SdlWindow, r: view.Rect) =
     discard w.impl.setData("__nimx_wnd", cast[pointer](w))
 
 method initFullscreen*(w: SdlWindow) =
+    initSDLIfNeeded()
     var displayMode : DisplayMode
     discard getDesktopDisplayMode(0, displayMode)
     let flags = SDL_WINDOW_OPENGL or SDL_WINDOW_FULLSCREEN or SDL_WINDOW_RESIZABLE
     w.impl = createWindow(nil, 0, 0, displayMode.w, displayMode.h, flags)
-
-    discard glSetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, 0x0004)
-    discard glSetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2)
 
     var width, height : cint
     w.impl.getSize(width, height)
@@ -60,6 +76,7 @@ method init*(w: SdlWindow, r: view.Rect) =
     when defined(ios):
         w.initFullscreen()
     else:
+        initSDLIfNeeded()
         w.impl = createWindow(nil, cint(r.x), cint(r.y), cint(r.width), cint(r.height), SDL_WINDOW_OPENGL or SDL_WINDOW_RESIZABLE)
         w.initCommon(newRect(0, 0, r.width, r.height))
 
@@ -78,12 +95,13 @@ method title*(w: SdlWindow): string = $w.impl.getTitle()
 
 
 method drawWindow(w: SdlWindow) =
-    glViewport(0, 0, GLsizei(w.frame.width), GLsizei(w.frame.height))
-
-    glClear(GL_COLOR_BUFFER_BIT) # Clear color and depth buffers
-
     let c = w.renderingContext
+    c.gl.viewport(0, 0, w.frame.width.GLsizei, w.frame.height.GLsizei)
+    c.gl.stencilMask(0xFF) # Android requires setting stencil mask to clear
+    c.gl.clear(c.gl.COLOR_BUFFER_BIT or c.gl.STENCIL_BUFFER_BIT)
+    c.gl.stencilMask(0x00)
     let oldContext = setCurrentContext(c)
+
     defer: setCurrentContext(oldContext)
     c.withTransform ortho(0, w.frame.width, w.frame.height, 0, -1, 1):
         procCall w.Window.drawWindow()
@@ -104,7 +122,7 @@ proc windowFromSDLEvent[T](event: T): SdlWindow =
 proc positionFromSDLEvent[T](event: T): auto =
     newPoint(event.x.Coord, event.y.Coord)
 
-proc buttonStateFromSDLState(s: KeyState): ButtonState =
+template buttonStateFromSDLState(s: KeyState): ButtonState =
     if s == KeyPressed:
         bsDown
     else:

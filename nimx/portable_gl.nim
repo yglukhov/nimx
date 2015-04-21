@@ -15,7 +15,8 @@ when defined js:
             SRC_ALPHA* : GLenum
             BLEND* : GLenum
             TRIANGLE_FAN* : GLenum
-            COLOR_BUFFER_BIT*: GLbitfield
+            COLOR_BUFFER_BIT*: int
+            STENCIL_BUFFER_BIT*: int
             TEXTURE_MIN_FILTER* : GLenum
             TEXTURE_MAG_FILTER* : GLenum
             LINEAR* : GLint
@@ -27,8 +28,13 @@ when defined js:
             UNSIGNED_BYTE* : GLenum
             COLOR_ATTACHMENT0* : GLenum
             DEPTH_ATTACHMENT* : GLenum
+            DEPTH_STENCIL_ATTACHMENT* : GLenum
             DEPTH_COMPONENT16* : GLenum
+            DEPTH_STENCIL* : GLenum
+            DEPTH24_STENCIL8* : GLenum
             FRAMEBUFFER_BINDING* : GLenum
+            RENDERBUFFER_BINDING* : GLenum
+            STENCIL_TEST* : GLenum
             NEVER*, LESS*, LEQUAL*, GREATER*, GEQUAL*, EQUAL*, NOTEQUAL*, ALWAYS*: GLenum
             KEEP*, ZERO*, REPLACE*, INCR*, INCR_WRAP*, DECR*, DECR_WRAP*, INVERT*: GLenum
 
@@ -56,7 +62,7 @@ when defined js:
             enable*: proc(flag: GLenum)
             disable*: proc(flag: GLenum)
             viewport*: proc(x, y: GLint, width, height: GLsizei)
-            clear*: proc(mask: GLbitfield)
+            clear*: proc(mask: int)
             bindTexture*: proc(target: GLenum, name: GLuint)
             bindFramebuffer*: proc(target: GLenum, name: GLuint)
             bindRenderbuffer*: proc(target: GLenum, name: GLuint)
@@ -66,6 +72,7 @@ when defined js:
             uniformMatrix4fv*: proc(location: GLint, transpose: GLboolean, data: array[16, GLfloat])
 
             clearColor*: proc(r, g, b, a: GLfloat)
+            clearStencil*: proc(s: GLint)
             blendFunc*: proc(sfactor, dfactor: GLenum)
             texParameteri*: proc(target, pname: GLenum, param: GLint)
 
@@ -93,6 +100,7 @@ else:
     template BLEND*(gl: GL): GLenum = GL_BLEND
     template TRIANGLE_FAN*(gl: GL): GLenum = GL_TRIANGLE_FAN
     template COLOR_BUFFER_BIT*(gl: GL): GLbitfield = GL_COLOR_BUFFER_BIT
+    template STENCIL_BUFFER_BIT*(gl: GL): GLbitfield = GL_STENCIL_BUFFER_BIT
     template TEXTURE_MIN_FILTER*(gl: GL): GLenum = GL_TEXTURE_MIN_FILTER
     template TEXTURE_MAG_FILTER*(gl: GL): GLenum = GL_TEXTURE_MAG_FILTER
     template LINEAR*(gl: GL): GLint = GL_LINEAR
@@ -104,8 +112,13 @@ else:
     template UNSIGNED_BYTE*(gl: GL): GLenum = GL_UNSIGNED_BYTE
     template COLOR_ATTACHMENT0*(gl: GL): GLenum = GL_COLOR_ATTACHMENT0
     template DEPTH_ATTACHMENT*(gl: GL): GLenum = GL_DEPTH_ATTACHMENT
+    template DEPTH_STENCIL_ATTACHMENT*(gl: GL): GLenum = GL_DEPTH_ATTACHMENT
     template DEPTH_COMPONENT16*(gl: GL): GLenum = GL_DEPTH_COMPONENT16
+    template DEPTH_STENCIL*(gl: GL): GLenum = GL_DEPTH_STENCIL
+    template DEPTH24_STENCIL8*(gl: GL): GLenum = GL_DEPTH24_STENCIL8
     template FRAMEBUFFER_BINDING*(gl: GL): GLenum = GL_FRAMEBUFFER_BINDING
+    template RENDERBUFFER_BINDING*(gl: GL): GLenum = GL_RENDERBUFFER_BINDING
+    template STENCIL_TEST*(gl: GL): GLenum = GL_STENCIL_TEST
 
     template NEVER*(gl: GL): GLenum = GL_NEVER
     template LESS*(gl: GL): GLenum = GL_LESS
@@ -168,6 +181,8 @@ else:
         glUniformMatrix4fv(location, 1, transpose, p)
 
     template clearColor*(gl: GL, r, g, b, a: GLfloat) = glClearColor(r, g, b, a)
+    template clearStencil*(gl: GL, s: GLint) = glClearStencil(s)
+
     template blendFunc*(gl: GL, sfactor, dfactor: GLenum) = glBlendFunc(sfactor, dfactor)
     template texParameteri*(gl: GL, target, pname: GLenum, param: GLint) = glTexParameteri(target, pname, param)
 
@@ -197,14 +212,14 @@ proc newGL*(canvasId: cstring): GL =
             var canvas = document.getElementById(`canvasId`);
             try
             {
-                `result` = canvas.getContext("webgl");
+                `result` = canvas.getContext("webgl", {stencil:true});
             }
             catch(err) {}
             if (`result` === null)
             {
                 try
                 {
-                    `result` = canvas.getContext("experimental-webgl");
+                    `result` = canvas.getContext("experimental-webgl", {stencil:true});
                 }
                 catch(err) {}
             }
