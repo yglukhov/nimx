@@ -241,6 +241,8 @@ proc systemFont*(): Font =
             if sysFont != nil:
                 break
     result = sysFont
+    if result == nil:
+        logi "WARNING: Could not create system font"
 
 import math
 
