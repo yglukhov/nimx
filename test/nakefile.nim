@@ -17,7 +17,7 @@ let nimIncludeDir = "~/Projects/Nimrod/lib"
 let macOSSDKVersion = "10.10"
 let macOSMinVersion = "10.6"
 
-let iOSSDKVersion = "8.2"
+let iOSSDKVersion = "8.3"
 let iOSMinVersion = iOSSDKVersion
 
 # Simulator device identifier should be set to run the simulator.
@@ -34,7 +34,7 @@ let xCodeApp = "/Applications/Xcode.app"
 
 let macOSSDK = xCodeApp/"Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX" & macOSSDKVersion & ".sdk"
 let iOSSDK = xCodeApp/"Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS" & iOSSDKVersion & ".sdk"
-let iOSSimulatorSDK = xCodeApp/"Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator.sdk"
+let iOSSimulatorSDK = xCodeApp/"Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator" & iOSSDKVersion & ".sdk"
 
 # Install nimx
 withDir "..":
@@ -172,7 +172,7 @@ task "ios", "Build for iOS":
     echo "TODO: Codesign!"
     makeBundle()
 
-task "droid", "Build for android":
+task "droid", "Build for android and install on the connected device":
     let buildDir = makeAndroidBuildDir()
     let droidSrcDir = buildDir / "jni/src"
     runNim "--compileOnly",  "--cpu:arm", "--os:linux", "-d:android", "-d:SDL_Static", "--nimcache:" & droidSrcDir
@@ -185,10 +185,6 @@ task "droid", "Build for android":
     putEnv "NIM_INCLUDE_DIR", expandTilde(nimIncludeDir)
     direShell androidSdk/"tools/android", "update", "project", "-p", ".", "-t", "android-20"
     direShell androidNdk/"ndk-build"
-    direShell "ant", "debug"
-
-task "droid-install", "Install to android device.":
-    cd makeAndroidBuildDir()
     direShell "ant", "debug", "install"
 
 task "js", "Create Javascript version.":
