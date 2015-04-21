@@ -3,8 +3,6 @@ import opengl
 # export opengl
 
 when defined js:
-    var sharedBuffer : ref RootObj = nil
-
     type
         GL* = ref GLObj
         GLObj {.importc.} = object
@@ -229,13 +227,13 @@ proc newGL*(canvasId: cstring): GL =
                 `result`.viewportWidth = canvas.width;
                 `result`.viewportHeight = canvas.height;
                 `result`.getExtension('OES_standard_derivatives');
-                `globalGL` = `result`;
             }
             else
             {
                 alert("Your browser does not support WebGL. Please, use a modern browser.");
             }
             """
+        globalGL = result
 
 proc sharedGL*(): GL = globalGL
 
@@ -298,12 +296,12 @@ proc vertexAttribPointer*(gl: GL, index: GLuint, size: GLint, normalized: GLbool
                         stride: GLsizei, data: openarray[GLfloat]) =
     when defined js:
         asm """
-            if (`sharedBuffer` == null)
+            if (typeof(`vertexAttribPointer`.__nimxSharedBuffer) == "undefined")
             {
-                `sharedBuffer` = `gl`.createBuffer();
+                `vertexAttribPointer`.__nimxSharedBuffer = `gl`.createBuffer();
             }
 
-            `gl`.bindBuffer(`gl`.ARRAY_BUFFER, `sharedBuffer`);
+            `gl`.bindBuffer(`gl`.ARRAY_BUFFER, `vertexAttribPointer`.__nimxSharedBuffer);
             `gl`.bufferData(`gl`.ARRAY_BUFFER, new Float32Array(`data`), `gl`.DYNAMIC_DRAW);
             `gl`.vertexAttribPointer(`index`, `size`, `gl`.FLOAT, `normalized`, `stride`, 0);
             """
