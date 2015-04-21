@@ -20,7 +20,7 @@ method onTextInput*(w: Window, s: string): bool =
 
 method handleEvent*(w: Window, e: var Event): bool =
     case e.kind:
-        of etMouse:
+        of etMouse, etScroll:
             result = w.recursiveHandleMouseEvent(e)
         of etKeyboard:
             if e.buttonState == bsDown:

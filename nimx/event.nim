@@ -27,6 +27,7 @@ type Event* = object
     kind*: EventType
     position*: Point
     localPosition*: Point
+    offset*: Point
     fButton: cint # SDL Keycode for keyboard events and KeyCode for mouse events
     buttonState*: ButtonState
     rune*: Rune

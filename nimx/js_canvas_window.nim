@@ -64,11 +64,24 @@ proc setupEventHandlersForCanvas(w: JSCanvasWindow, c: Element) =
         evt.window = w
         discard mainApplication().handleEvent(evt)
 
+    let onscroll = proc (e: ref TEvent): bool =
+        var evt = newEvent(etScroll, eventLocationFromJSEvent(e, c))
+        var x, y: Coord
+        asm """
+        `x` = `e`.deltaX;
+        `y` = `e`.deltaY;
+        """
+        evt.offset.x = x
+        evt.offset.y = y
+        evt.window = w
+        result = not mainApplication().handleEvent(evt)
+
     # TODO: Remove this hack, when handlers definition in dom.nim fixed.
     asm """
     `c`.onmousedown = `onmousedown`;
     `c`.onmouseup = `onmouseup`;
     `c`.onmousemove = `onmousemove`;
+    `c`.onwheel = `onscroll`;
     """
 
 method initWithCanvasId*(w: JSCanvasWindow, id: cstring) =

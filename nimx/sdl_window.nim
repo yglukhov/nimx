@@ -170,6 +170,18 @@ proc eventWithSDLEvent(event: ptr sdl2.Event): Event =
                 result = newMouseMoveEvent(pos)
                 result.window = wnd
 
+        of MouseWheel:
+            let mouseEv = cast[MouseWheelEventPtr](event)
+            let wnd = windowFromSDLEvent(mouseEv)
+            if wnd != nil:
+                var x, y: cint
+                getMouseState(x, y)
+                let pos = newPoint(x.Coord, y.Coord)
+                result = newEvent(etScroll, pos)
+                result.window = wnd
+                result.offset.x = mouseEv.x.Coord
+                result.offset.y = mouseEv.y.Coord
+
         of KeyDown, KeyUp:
             let keyEv = cast[KeyboardEventPtr](event)
             let wnd = windowFromSDLEvent(keyEv)

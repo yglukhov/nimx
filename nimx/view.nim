@@ -146,12 +146,22 @@ method resizeSubviews*(v: View, oldSize: Size) =
 
         s.setFrame(newRect)
 
+method setBoundsSize*(v: View, s: Size) =
+    let oldSize = v.bounds.size
+    v.bounds.size = s
+    v.resizeSubviews(oldSize)
+
+method setBoundsOrigin*(v: View, o: Point) =
+    v.bounds.origin = o
+
+proc setBounds*(v: View, b: Rect) =
+    v.setBoundsOrigin(b.origin)
+    v.setBoundsSize(b.size)
 
 method setFrameSize*(v: View, s: Size) =
     let oldSize = v.bounds.size
     v.frame.size = s
-    v.bounds.size = s
-    v.resizeSubviews(oldSize)
+    v.setBoundsSize(s)
 
 method setFrameOrigin*(v: View, o: Point) =
     v.frame.origin = o
@@ -161,9 +171,6 @@ method setFrame*(v: View, r: Rect) =
         v.setFrameOrigin(r.origin)
     if v.frame.size != r.size:
         v.setFrameSize(r.size)
-
-method setBounds*(v: View, r: Rect) =
-    v.bounds = r
 
 method frame*(v: View): Rect = v.frame
 method bounds*(v: View): Rect = v.bounds

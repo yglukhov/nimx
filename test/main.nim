@@ -11,6 +11,7 @@ import nimx.app
 import nimx.image
 import nimx.render_to_image
 import nimx.animation
+import nimx.scroll_view
 import math
 
 
@@ -68,6 +69,12 @@ proc startApplication() =
     v1.addSubview(t2)
     t2.autoresizingMask = { afFlexibleWidth, afFlexibleHeight }
     t2.text = "This is another text field"
+
+
+    let tableView = newButton(newRect(20, 140, 100, mainWindow.bounds.height - 160))
+    tableView.title = "table view"
+    let scrollView = newScrollView(tableView)
+    mainWindow.addSubview(scrollView)
 
     let anim = newAnimation()
     anim.timingFunction = bezierTimingFunction(0.53,-0.53,0.38,1.52)
