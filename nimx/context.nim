@@ -118,7 +118,7 @@ proc setCurrentContext*(c: GraphicsContext): GraphicsContext {.discardable.} =
     result = gCurrentContext
     gCurrentContext = c
 
-proc currentContext*(): GraphicsContext = gCurrentContext
+template currentContext*(): GraphicsContext = gCurrentContext
 
 proc setTransformUniform(c: GraphicsContext, program: GLuint) =
     c.gl.uniformMatrix4fv(c.gl.getUniformLocation(program, "modelViewProjectionMatrix"), false, c.transform)
