@@ -12,6 +12,7 @@ import nimx.image
 import nimx.render_to_image
 import nimx.animation
 import nimx.scroll_view
+import nimx.table_view
 import math
 
 
@@ -71,10 +72,16 @@ proc startApplication() =
     t2.text = "This is another text field"
 
 
-    let tableView = newButton(newRect(20, 140, 100, mainWindow.bounds.height - 160))
-    tableView.title = "table view"
-    let scrollView = newScrollView(tableView)
-    mainWindow.addSubview(scrollView)
+    let tableView = newTableView(newRect(20, 140, 100, mainWindow.bounds.height - 160))
+    mainWindow.addSubview(newScrollView(tableView))
+
+    let tableCellContent = newTextField(newRect(0, 0, 100, 20))
+    let tableCell = newTableViewCell(tableCellContent)
+
+    tableView.numberOfRows = proc: int = 10
+    tableView.cellForRow = proc (row: int): TableViewCell =
+        result = tableCell
+        tableCellContent.text = "Row: " & $row
 
     let anim = newAnimation()
     anim.timingFunction = bezierTimingFunction(0.53,-0.53,0.38,1.52)

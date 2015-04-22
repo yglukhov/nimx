@@ -24,7 +24,7 @@ type
         frame: Rect
         bounds: Rect
         subviews*: seq[View]
-        superview: View
+        superview*: View
         autoresizingMask*: set[AutoresizingFlag]
 
     Window* = ref object of View
@@ -99,31 +99,36 @@ method clipType*(v: View): ClipType = ctNone
 
 proc recursiveDrawSubviews*(view: View)
 
+proc drawWithinSuperview*(v: View) =
+    # Assume current coordinate system is superview
+    let c = currentContext()
+    var tmpTransform = c.transform
+    if v.bounds.size == v.frame.size:
+        # Common case: bounds scale is 1.0
+        # Simplify calculation
+        tmpTransform.translate(newVector3(v.frame.x - v.bounds.x, v.frame.y - v.bounds.y))
+    else:
+        assert(false, "Not implemented")
+
+    c.withTransform tmpTransform:
+        if v.clipType() == ctDefaultClip:
+            c.withClippingRect v.bounds:
+                v.recursiveDrawSubviews()
+        else:
+            v.recursiveDrawSubviews()
+
 method draw*(view: View, rect: Rect) =
     let c = currentContext()
     c.fillColor = newGrayColor(0.93)
     c.drawRect(view.bounds)
 
 proc drawSubviews(view: View) {.inline.} =
-    let c = currentContext()
-
+    # Assume current coordinate system is view
     for i in view.subviews:
-        var tmpTransform = c.transform
-        if i.bounds.size == i.frame.size:
-            # Common case: bounds scale is 1.0
-            # Simplify calculation
-            tmpTransform.translate(newVector3(i.frame.x - i.bounds.x, i.frame.y - i.bounds.y))
-        else:
-            assert(false, "Not implemented")
-
-        c.withTransform tmpTransform:
-            if i.clipType() == ctDefaultClip:
-                c.withClippingRect i.bounds:
-                    i.recursiveDrawSubviews()
-            else:
-                i.recursiveDrawSubviews()
+        i.drawWithinSuperview()
 
 proc recursiveDrawSubviews*(view: View) =
+    # Assume current coordinate system is view
     view.draw(view.bounds)
     view.drawSubviews()
 
@@ -175,8 +180,7 @@ method setFrame*(v: View, r: Rect) =
 method frame*(v: View): Rect = v.frame
 method bounds*(v: View): Rect = v.bounds
 
-method desiredSize*(v: View): Size = v.frame.size
-method subviewDidChangeDesiredSize*(v: View, s: View) = discard
+method subviewDidChangeDesiredSize*(v: View, sub: View, desiredSize: Size) = discard
 
 # Responder chain implementation
 method makeFirstResponder*(v: View): bool =
