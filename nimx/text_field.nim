@@ -26,6 +26,10 @@ proc newTextField*(r: Rect): TextField =
     result.new()
     result.init(r)
 
+proc newLabel*(r: Rect): TextField =
+    result = newTextField(r)
+    result.editable = false
+
 method init*(t: TextField, r: Rect) =
     procCall t.Control.init(r)
     t.editable = true
@@ -50,9 +54,11 @@ proc bumpCursorVisibility() =
 
 method draw*(t: TextField, r: Rect) =
     let c = currentContext()
-    c.fillColor = whiteColor()
-    c.strokeColor = newGrayColor(0.74)
-    c.drawRect(t.bounds)
+    if t.editable:
+        c.fillColor = whiteColor()
+        c.strokeColor = newGrayColor(0.74)
+        c.drawRect(t.bounds)
+
     let font = systemFont()
 
     var textY = (t.bounds.height - font.size) / 2

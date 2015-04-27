@@ -50,6 +50,7 @@ proc startApplication() =
     mainWindow.title = "Test MyGame"
 
     let v1 = newView(newRect(20, 20, mainWindow.frame.width - 40, 100))
+    v1.backgroundColor = newGrayColor(0.89)
     mainWindow.addSubview(v1)
 
     let b1 = newButton(newRect(20, 20, 50, 50))
@@ -75,13 +76,15 @@ proc startApplication() =
     let tableView = newTableView(newRect(20, 140, 100, mainWindow.bounds.height - 160))
     mainWindow.addSubview(newScrollView(tableView))
 
-    let tableCellContent = newTextField(newRect(0, 0, 100, 20))
+    let tableCellContent = newLabel(newRect(0, 0, 100, 20))
     let tableCell = newTableViewCell(tableCellContent)
 
-    tableView.numberOfRows = proc: int = 10
+    tableView.numberOfRows = proc: int = 20
     tableView.cellForRow = proc (row: int): TableViewCell =
         result = tableCell
         tableCellContent.text = "Row: " & $row
+
+    tableView.reloadData()
 
     let anim = newAnimation()
     anim.timingFunction = bezierTimingFunction(0.53,-0.53,0.38,1.52)

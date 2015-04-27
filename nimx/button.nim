@@ -20,16 +20,17 @@ proc newButton*(r: Rect): Button =
 method init(b: Button, frame: Rect) =
     procCall b.Control.init(frame)
     b.state = bsUp
+    b.backgroundColor = whiteColor()
 
 method draw(b: Button, r: Rect) =
     let c = currentContext()
     var textColor: Color
     if b.state == bsUp:
-        c.fillColor = newColor(1, 1, 1)
-        textColor = newColor(0, 0, 0)
+        c.fillColor = b.backgroundColor
+        textColor = blackColor()
     else:
         c.fillColor = newColor(0.25, 0.5, 0.95)
-        textColor = newColor(1, 1, 1)
+        textColor = whiteColor()
 
     c.drawRoundedRect(b.bounds, 5)
     if b.title != nil:

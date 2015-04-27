@@ -26,6 +26,7 @@ type
         subviews*: seq[View]
         superview*: View
         autoresizingMask*: set[AutoresizingFlag]
+        backgroundColor*: Color
 
     Window* = ref object of View
         firstResponder*: View
@@ -119,7 +120,8 @@ proc drawWithinSuperview*(v: View) =
 
 method draw*(view: View, rect: Rect) =
     let c = currentContext()
-    c.fillColor = newGrayColor(0.93)
+    #c.fillColor = newGrayColor(0.93)
+    c.fillColor = view.backgroundColor
     c.drawRect(view.bounds)
 
 proc drawSubviews(view: View) {.inline.} =

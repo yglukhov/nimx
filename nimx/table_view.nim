@@ -1,9 +1,11 @@
-
 import view
 export view
 
 import view_event_handling
 import event
+import context
+
+import logging
 
 type TableViewCell* = ref object of View
 
@@ -25,6 +27,7 @@ type TableView* = ref object of View
     heightOfRow*: proc (row: int): Coord
 
     defaultRowHeight*: Coord
+    activeRow: int
 
 proc newTableView*(r: Rect): TableView =
     result.new()
@@ -33,7 +36,8 @@ proc newTableView*(r: Rect): TableView =
 method init*(v: TableView, r: Rect) =
     procCall v.View.init(r)
     v.defaultRowHeight = 30
-
+    v.activeRow = -1
+    v.backgroundColor = newGrayColor(0.89)
 
 proc heightOfRowUsingDelegate(v: TableView, row: int): Coord {.inline.} =
     result = v.heightOfRow(row)
@@ -60,13 +64,19 @@ proc reloadData*(v: TableView) =
     if not v.superview.isNil:
         v.superview.subviewDidChangeDesiredSize(v, desiredSize)
 
+#proc performActionInContextOfRow
+
+
 method draw*(v: TableView, r: Rect) =
+    procCall v.View.draw(r)
+
     let rowsCount = v.numberOfRows()
     var curY : Coord = 0
     var cellOrigin = zeroPoint
     var cellSize = newSize(v.bounds.width, 0)
 
     var cells = newSeq[TableViewCell]()
+    let c = currentContext()
 
     for i in 0 .. < rowsCount:
         let cell = v.cellForRow(i)
@@ -80,6 +90,10 @@ method draw*(v: TableView, r: Rect) =
         cell.setFrameOrigin(cellOrigin)
         cell.setFrameSize(cellSize)
         cellOrigin.y += cellHeight
+        if i mod 2 == 0:
+            c.fillColor = newGrayColor(0.85)
+            c.drawRect(cell.frame)
+
         cell.drawWithinSuperview()
 
     for c in cells:
@@ -92,24 +106,20 @@ proc rowAtPoint(v: TableView, p: Point): int =
         if result >= rowsCount: result = -1
     else:
         var height : Coord
+        result = -1
         for i in 0 .. < rowsCount:
             height += v.heightOfRowUsingDelegate(i)
             if p.y < height:
                 return i
-    return -1
 
-discard """
 method handleMouseEvent*(v: TableView, e: var Event): bool =
     let row = v.rowAtPoint(e.localPosition)
+    let localPosition = e.localPosition
     if row >= 0:
         let cell = v.cellForRow(row)
-    
-
-    if e.isButtonDownEvent():
-        result = v.onMouseDown(e)
-    elif e.isButtonUpEvent():
-        result = v.onMouseUp(e)
-    elif e.kind == etScroll:
-        result = v.onScroll(e)
-"""
+        e.localPosition = localPosition - cell.frame.origin + cell.bounds.origin
+        result = cell.recursiveHandleMouseEvent(e)
+    if not result:
+        e.localPosition = localPosition
+        result = procCall v.View.handleMouseEvent(e)
 
