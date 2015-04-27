@@ -50,6 +50,7 @@ proc newGrayColor*(g: ColorComponent, a: ColorComponent = 1.0): Color =
 
 proc whiteColor*(): Color = newGrayColor(1)
 proc blackColor*(): Color = newGrayColor(0)
+proc clearColor*(): Color = newGrayColor(0, 0)
 
 proc minCorner*(r: Rect): Point = r.origin
 proc maxCorner*(r: Rect): Point = newPoint(r.maxX, r.maxY)
