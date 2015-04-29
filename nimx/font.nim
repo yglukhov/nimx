@@ -144,10 +144,10 @@ proc bakeChars(f: Font, start: int32): CharInfo =
             stbtt_GetGlyphBitmapBox(fontinfo, g, scale, -scale, x0, y0, x1, y1)
             let gw = x1 - x0
             let gh = y0 - y1 + 2 # Why is this +2 needed????
-            let (x, y) = rectPacker.packAndGrow(gw, gh)
+            let (x, y) = rectPacker.packAndGrow(gw, gh + 1)
 
             let c = charOff(i - startChar)
-            result.bakedChars.charOffComp(c, compX) = (lsb.cfloat * scale).int16 + x0.int16
+            result.bakedChars.charOffComp(c, compX) = x0.int16
             result.bakedChars.charOffComp(c, compY) = (ascent - y0).int16
             result.bakedChars.charOffComp(c, compAdvance) = (scale * advance.cfloat).int16
             result.bakedChars.charOffComp(c, compTexX) = x.int16
@@ -328,4 +328,3 @@ proc cursorOffsetForPositionInString*(f: Font, s: string, position: int): Coord 
 
         f.getQuadDataForRune(ch, quad, tex, pt)
     result = if f.isHorizontal: pt.x else: pt.y
-
