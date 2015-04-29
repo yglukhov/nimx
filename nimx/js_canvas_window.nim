@@ -6,6 +6,7 @@ import matrixes
 import dom except Window
 import app
 import portable_gl
+import opengl
 import event
 
 type JSCanvasWindow* = ref object of Window
@@ -76,33 +77,97 @@ proc setupEventHandlersForCanvas(w: JSCanvasWindow, c: Element) =
         evt.window = w
         result = not mainApplication().handleEvent(evt)
 
+    let onresize = proc (e: ref TEvent): bool =
+        var sizeChanged = false
+        var newWidth, newHeight : Coord
+        asm """
+        var r = `c`.getBoundingClientRect();
+        if (r.width !== `c`.width)
+        {
+            `newWidth` = r.width;
+            `c`.width = r.width;
+            `sizeChanged` = true;
+        }
+        if (r.height !== `c`.height)
+        {
+            `newHeight` = r.height
+            `c`.height = r.height;
+            `sizeChanged` = true;
+        }
+        """
+        if sizeChanged:
+            var evt = newEvent(etWindowResized)
+            evt.window = w
+            evt.position.x = newWidth
+            evt.position.y = newHeight
+            discard mainApplication().handleEvent(evt)
+
     # TODO: Remove this hack, when handlers definition in dom.nim fixed.
     asm """
     `c`.onmousedown = `onmousedown`;
     `c`.onmouseup = `onmouseup`;
     `c`.onmousemove = `onmousemove`;
     `c`.onwheel = `onscroll`;
+    window.onresize = `onresize`;
     """
 
-method initWithCanvasId*(w: JSCanvasWindow, id: cstring) =
+method initWithCanvas*(w: JSCanvasWindow, canvas: Element) =
     var width, height: Coord
-    var canvas = document.getElementById(id)
     asm """
     `width` = `canvas`.width;
     `height` = `canvas`.height;
     """
+    width = 800
+    height = 600
     w.canvas = canvas
     procCall w.Window.init(newRect(0, 0, width, height))
-    w.renderingContext = newGraphicsContext(id)
+    w.renderingContext = newGraphicsContext(canvas)
 
     w.setupEventHandlersForCanvas(canvas)
 
     w.enableAnimation(true)
     mainApplication().addWindow(w)
 
+method initWithCanvasId*(w: JSCanvasWindow, id: cstring) =
+    w.initWithCanvas(document.getElementById(id))
+
+method initByFillingBrowserWindow*(w: JSCanvasWindow) =
+    # This is glitchy sometimes
+    let canvas = document.createElement("canvas")
+    canvas.style.width = "100%"
+    canvas.style.height = "100%"
+    document.body.appendChild(canvas)
+
+    asm """
+    var r = `canvas`.getBoundingClientRect();
+    `canvas`.width = r.width;
+    `canvas`.height = r.height;
+    """
+
+    w.initWithCanvas(canvas)
+
 proc newJSCanvasWindow*(canvasId: string): JSCanvasWindow =
     result.new()
     result.initWithCanvasId(canvasId)
+
+proc newJSCanvasWindow*(r: Rect): JSCanvasWindow =
+    result.new()
+    result.init(r)
+
+proc newJSWindowByFillingBrowserWindow*(): JSCanvasWindow =
+    result.new()
+    result.initByFillingBrowserWindow()
+
+method init*(w: JSCanvasWindow, r: Rect) =
+    let canvas = document.createElement("canvas")
+    let width = r.width
+    let height = r.height
+    asm """
+    `canvas`.width = `width`;
+    `canvas`.height = `height`;
+    """
+    document.body.appendChild(canvas)
+    w.initWithCanvas(canvas)
 
 method drawWindow*(w: JSCanvasWindow) =
     let c = w.renderingContext
@@ -113,7 +178,7 @@ method drawWindow*(w: JSCanvasWindow) =
         procCall w.Window.drawWindow()
 
 method onResize*(w: JSCanvasWindow, newSize: Size) =
-    #glViewport(0, 0, GLSizei(newSize.width), GLsizei(newSize.height))
+    w.renderingContext.gl.viewport(0, 0, GLSizei(newSize.width), GLsizei(newSize.height))
     procCall w.Window.onResize(newSize)
 
 proc startAnimation*() =

@@ -204,28 +204,27 @@ else:
 # TODO: This is a quick and dirty hack for render to texture.
 var globalGL: GL
 
-proc newGL*(canvasId: cstring): GL =
+proc newGL*(canvas: ref RootObj): GL =
     when defined js:
         asm """
-            var canvas = document.getElementById(`canvasId`);
             try
             {
-                `result` = canvas.getContext("webgl", {stencil:true});
+                `result` = `canvas`.getContext("webgl", {stencil:true});
             }
             catch(err) {}
             if (`result` === null)
             {
                 try
                 {
-                    `result` = canvas.getContext("experimental-webgl", {stencil:true});
+                    `result` = `canvas`.getContext("experimental-webgl", {stencil:true});
                 }
                 catch(err) {}
             }
 
             if (`result` !== null)
             {
-                `result`.viewportWidth = canvas.width;
-                `result`.viewportHeight = canvas.height;
+                `result`.viewportWidth = `canvas`.width;
+                `result`.viewportHeight = `canvas`.height;
                 `result`.getExtension('OES_standard_derivatives');
             }
             else

@@ -40,8 +40,6 @@ proc startApplication() =
 
     when isMobile:
         mainWindow.initFullscreen()
-    elif defined js:
-        mainWindow.initWithCanvasId("mainCanvas")
     else:
         mainWindow.init(newRect(0, 0, 800, 600))
 

@@ -98,13 +98,12 @@ template withTransform*(c: GraphicsContext, t: Transform3D, body: stmt) = c.with
 
 template transform*(c: GraphicsContext): var Transform3D = c.pTransform[]
 
-proc newGraphicsContext*(canvasId: cstring = nil): GraphicsContext =
+proc newGraphicsContext*(canvas: ref RootObj = nil): GraphicsContext =
     result.new()
-    result.gl = newGL(canvasId)
+    result.gl = newGL(canvas)
     when not defined(ios) and not defined(android) and not defined(js):
         loadExtensions()
 
-    #result.gl = newGL(canvasId)
     result.shaderProgram = result.gl.newShaderProgram(vertexShader, fragmentShader)
     result.roundedRectShaderProgram = result.gl.newShaderProgram(roundedRectVertexShader, roundedRectFragmentShader)
     result.ellipseShaderProgram = result.gl.newShaderProgram(roundedRectVertexShader, ellipseFragmentShader)
