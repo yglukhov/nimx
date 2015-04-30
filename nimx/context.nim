@@ -224,6 +224,9 @@ proc drawImage*(c: GraphicsContext, i: Image, toRect: Rect, fromRect: Rect = zer
     if t != 0:
         c.gl.useProgram(c.imageShaderProgram)
         c.gl.bindTexture(c.gl.TEXTURE_2D, t)
+        c.gl.enable(c.gl.BLEND)
+        c.gl.blendFunc(c.gl.SRC_ALPHA, c.gl.ONE_MINUS_SRC_ALPHA)
+
         var s0 : Coord
         var t0 : Coord
         var s1 : Coord = i.sizeInTexels.width

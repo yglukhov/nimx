@@ -95,7 +95,9 @@ proc imageWithSize*(size: Size): Image =
 
 proc isLoaded*(i: Image): bool =
     when defined js:
-        asm "`result` = `i`.__image.complete;"
+        result = i.texture != 0
+        if not result:
+            asm "`result` = `i`.__image.complete;"
     else:
         result = true
 

@@ -14,6 +14,9 @@ proc draw*(i: Image, drawProc: proc()) =
     let oldFb = gl.getParami(gl.FRAMEBUFFER_BINDING).GLuint
     let oldViewport = gl.getViewport()
 
+    var oldClearColor : array[4, GLfloat]
+    gl.getClearColor(oldClearColor)
+
     let framebuffer = gl.createFramebuffer()
     gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer)
 
@@ -36,6 +39,7 @@ proc draw*(i: Image, drawProc: proc()) =
     gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_STENCIL_ATTACHMENT, gl.RENDERBUFFER, depthBuffer)
     gl.viewport(0, 0, i.size.width.GLsizei, i.size.height.GLsizei)
     gl.stencilMask(0xFF) # Android requires setting stencil mask to clear
+    gl.clearColor(0, 0, 0, 0)
     gl.clear(gl.COLOR_BUFFER_BIT or gl.STENCIL_BUFFER_BIT)
     gl.stencilMask(0x00) # Android requires setting stencil mask to clear
 
@@ -44,6 +48,8 @@ proc draw*(i: Image, drawProc: proc()) =
     # The coordinate system is flipped vertically. The following ortho is a hack. Why??
     currentContext().withTransform ortho(0, i.size.width, 0, i.size.height, -1, 1):
         drawProc()
+
+    gl.clearColor(oldClearColor[0], oldClearColor[1], oldClearColor[2], oldClearColor[3])
 
     gl.viewport(oldViewport[0], oldViewport[1], oldViewport[2], oldViewport[3])
     gl.bindRenderbuffer(gl.RENDERBUFFER, oldRb)

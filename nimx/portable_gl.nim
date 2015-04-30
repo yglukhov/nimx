@@ -10,7 +10,9 @@ when defined js:
             FRAGMENT_SHADER* : GLenum
             TEXTURE_2D* : GLenum
             ONE_MINUS_SRC_ALPHA* : GLenum
+            ONE_MINUS_DST_ALPHA* : GLenum
             SRC_ALPHA* : GLenum
+            DST_ALPHA* : GLenum
             BLEND* : GLenum
             TRIANGLE_FAN* : GLenum
             COLOR_BUFFER_BIT*: int
@@ -94,7 +96,9 @@ else:
     template FRAGMENT_SHADER*(gl: GL): GLenum = GL_FRAGMENT_SHADER
     template TEXTURE_2D*(gl: GL): GLenum = GL_TEXTURE_2D
     template ONE_MINUS_SRC_ALPHA*(gl: GL): GLenum = GL_ONE_MINUS_SRC_ALPHA
+    template ONE_MINUS_DST_ALPHA*(gl: GL): GLenum = GL_ONE_MINUS_DST_ALPHA
     template SRC_ALPHA*(gl: GL): GLenum = GL_SRC_ALPHA
+    template DST_ALPHA*(gl: GL): GLenum = GL_DST_ALPHA
     template BLEND*(gl: GL): GLenum = GL_BLEND
     template TRIANGLE_FAN*(gl: GL): GLenum = GL_TRIANGLE_FAN
     template COLOR_BUFFER_BIT*(gl: GL): GLbitfield = GL_COLOR_BUFFER_BIT
@@ -318,4 +322,16 @@ proc getViewport*(gl: GL): array[4, GLint] =
         asm "`result` = `gl`.getParameter(`gl`.VIEWPORT);"
     else:
         glGetIntegerv(GL_VIEWPORT, addr result[0])
+
+proc getClearColor*(gl: GL, colorComponents: var array[4, GLfloat]) =
+    when defined js:
+        asm """
+        var color = `gl`.getParameter(`gl`.COLOR_CLEAR_VALUE);
+        `colorComponents`[0] = color[0];
+        `colorComponents`[1] = color[1];
+        `colorComponents`[2] = color[2];
+        `colorComponents`[3] = color[3];
+        """
+    else:
+        glGetFloatv(GL_COLOR_CLEAR_VALUE, cast[ptr GLfloat](addr colorComponents))
 
