@@ -13,6 +13,7 @@ import nimx.render_to_image
 import nimx.animation
 import nimx.scroll_view
 import nimx.table_view
+import nimx.font
 import math
 
 
@@ -88,7 +89,7 @@ proc startApplication() =
     anim.timingFunction = bezierTimingFunction(0.53,-0.53,0.38,1.52)
     anim.onAnimate = proc(p: float) =
         rot = p * PI * 2
-    anim.loopDuration = 1.0
+    anim.loopDuration = 2.0
     mainWindow.addAnimation(anim)
 
 method draw(w: GameWindow, r: Rect) =
@@ -119,6 +120,9 @@ method draw(w: GameWindow, r: Rect) =
             let ctx = currentContext()
             c.fillColor = newColor(0.5, 0.5, 0)
             ctx.drawRoundedRect(newRect(0, 0, 100, 200), 40)
+            ctx.fillColor = blackColor()
+            ctx.drawText(systemFont(), newPoint(5, 5), "prerendered")
+            ctx.drawText(systemFont(), newPoint(5, 23), "image")
 
     c.withTransform tmpTransform:
         c.drawImage(renderedImage, newRect(0, 0, 100, 200))
