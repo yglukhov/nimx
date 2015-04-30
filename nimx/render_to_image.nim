@@ -40,7 +40,9 @@ proc draw*(i: Image, drawProc: proc()) =
     gl.stencilMask(0x00) # Android requires setting stencil mask to clear
 
     gl.disable(gl.STENCIL_TEST)
-    currentContext().withTransform ortho(0, i.size.width, i.size.height, 0, -1, 1):
+
+    # The coordinate system is flipped vertically. The following ortho is a hack. Why??
+    currentContext().withTransform ortho(0, i.size.width, 0, i.size.height, -1, 1):
         drawProc()
 
     gl.viewport(oldViewport[0], oldViewport[1], oldViewport[2], oldViewport[3])
