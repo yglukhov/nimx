@@ -3,6 +3,7 @@ import unicode
 import window
 
 type EventType* = enum
+    etUnknown
     etMouse
     etScroll
     etKeyboard

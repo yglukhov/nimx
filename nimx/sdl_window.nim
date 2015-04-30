@@ -134,9 +134,11 @@ proc eventWithSDLEvent(event: ptr sdl2.Event): Event =
             discard
             #logi("finger motion")
         of FingerDown:
-            logi("Finger down")
+            #logi("Finger down")
+            discard
         of FingerUp:
-            logi("Finger up")
+            #logi("Finger up")
+            discard
         of WindowEvent:
             let wndEv = cast[WindowEventPtr](event)
             let wnd = windowFromSDLEvent(wndEv)
