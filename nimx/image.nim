@@ -93,6 +93,12 @@ proc imageWithSize*(size: Size): Image =
     result.sizeInTexels.width = size.width / texWidth.Coord
     result.sizeInTexels.height = size.height / texHeight.Coord
 
+proc isLoaded*(i: Image): bool =
+    when defined js:
+        asm "`result` = `i`.__image.complete;"
+    else:
+        result = true
+
 method getTexture*(i: Image, gl: GL): GLuint =
     when defined js:
         if i.texture == 0:
