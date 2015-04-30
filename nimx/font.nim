@@ -231,12 +231,17 @@ proc newFontWithFace*(face: string, size: float): Font =
         if path != nil:
             result = newFontWithFile(path, size)
 
+proc systemFontSize*(): float = 16
+
+proc systemFontOfSize*(size: float): Font =
+    for f in preferredFonts:
+        result = newFontWithFace(f, size)
+        if result != nil:
+            break
+
 proc systemFont*(): Font =
     if sysFont == nil:
-        for f in preferredFonts:
-            sysFont = newFontWithFace(f, 16)
-            if sysFont != nil:
-                break
+        sysFont = systemFontOfSize(systemFontSize())
     result = sysFont
     if result == nil:
         logi "WARNING: Could not create system font"
