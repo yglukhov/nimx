@@ -199,6 +199,8 @@ proc drawText*(c: GraphicsContext, font: Font, pt: var Point, text: string) =
 
     c.gl.enableVertexAttribArray(saPosition.GLuint)
     c.setTransformUniform(c.fontShaderProgram)
+    c.gl.enable(c.gl.BLEND)
+    c.gl.blendFunc(c.gl.SRC_ALPHA, c.gl.ONE_MINUS_SRC_ALPHA)
 
     var vertexes: array[4 * 4, Coord]
 
@@ -212,6 +214,10 @@ proc drawText*(c: GraphicsContext, font: Font, pt: var Point, text: string) =
             c.gl.bindTexture(c.gl.TEXTURE_2D, texture)
         c.gl.vertexAttribPointer(saPosition.GLuint, 4, false, 0, vertexes)
         c.gl.drawArrays(c.gl.TRIANGLE_FAN, 0, 4)
+
+proc drawText*(c: GraphicsContext, font: Font, pt: Point, text: string) =
+    var p = pt
+    c.drawText(font, p, text)
 
 proc drawImage*(c: GraphicsContext, i: Image, toRect: Rect, fromRect: Rect = zeroRect, alpha: ColorComponent = 1.0) =
     let t = i.getTexture(c.gl)
