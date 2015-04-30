@@ -245,6 +245,16 @@ proc multiply*(mat: Matrix4, vec: Vector4, dest: var Vector4) =
     dest[2] = mat[2] * x + mat[6] * y + mat[10] * z + mat[14] * w;
     dest[3] = mat[3] * x + mat[7] * y + mat[11] * z + mat[15] * w;
 
+proc `*`*(mat, mat2: Matrix4): Matrix4 =
+    mat.multiply(mat2, result)
+
+proc `*`*(mat: Matrix4, vec: Vector3): Vector3 =
+    mat.multiply(vec, result)
+
+proc `*`*(mat: Matrix4, vec: Vector4): Vector4 =
+    mat.multiply(vec, result)
+
+
 proc translate*(mat: Matrix4, vec: Vector3, dest: var Matrix4) =
     let
         (x, y, z) = (vec[0], vec[1], vec[2])
