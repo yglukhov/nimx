@@ -206,7 +206,8 @@ const fontSearchPaths = when defined(macosx):
         ]
     else:
         [
-            "/usr/share/fonts/truetype/ubuntu-font-family"
+            "/usr/share/fonts/truetype/ubuntu-font-family",
+            "/usr/share/fonts/TTF"
         ]
 
 when not defined js:
