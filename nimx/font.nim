@@ -183,7 +183,7 @@ when not defined js:
 
 var sysFont : Font
 
-const preferredFonts = when defined(macosx) or defined(js):
+const preferredFonts = when defined(macosx) or defined(js) or defined(windows):
         [
             "Arial"
         ]
@@ -203,6 +203,10 @@ const fontSearchPaths = when defined(macosx):
     elif defined(android):
         [
             "/system/fonts"
+        ]
+    elif defined(windows):
+        [
+            r"\Windows\Fonts"
         ]
     else:
         [
