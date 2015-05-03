@@ -39,7 +39,7 @@ let iOSSimulatorSDK = xCodeApp/"Contents/Developer/Platforms/iPhoneSimulator.pla
 when defined(Windows):
     const silenceStdout = "2>nul"
 else:
-    const silenceStdout = ">/dev/nul"
+    const silenceStdout = ">/dev/null"
 
 # Install nimx
 withDir "..":
