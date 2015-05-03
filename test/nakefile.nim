@@ -36,9 +36,14 @@ let macOSSDK = xCodeApp/"Contents/Developer/Platforms/MacOSX.platform/Developer/
 let iOSSDK = xCodeApp/"Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS" & iOSSDKVersion & ".sdk"
 let iOSSimulatorSDK = xCodeApp/"Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator" & iOSSDKVersion & ".sdk"
 
+when defined(Windows):
+    const silenceStdout = "2>nul"
+else:
+    const silenceStdout = ">/dev/nul"
+
 # Install nimx
 withDir "..":
-    direShell "nimble", "-y", "install", ">/dev/null"
+    direShell "nimble", "-y", "install", silenceStdout
 
 proc infoPlistSetValueForKey(path, value, key: string) =
     direShell "defaults", "write", path, key, value
@@ -144,6 +149,13 @@ task defaultTask, "Build and run":
             "--run"
     else:
         runNim "--run", "--passL:-L/usr/local/lib", "--passL:-Wl,-rpath,/usr/local/lib", "--passL:-lSDL2", "--passL:-lpthread"
+
+task "windows", "Build for Windows":
+    # dynamic link sdl2
+    direShell nimExe, "c", 
+        "-d:noAutoGLerrorCheck", "-d:release",
+        "--opt:speed",
+        "main"
 
 task "ios-sim", "Build and run in iOS simulator":
     if not dirExists(iOSSimulatorSDK):
