@@ -1,6 +1,7 @@
 import macros
 
-{.emit: """
+when not defined(windows):
+    {.emit: """
 #include <SDL2/SDL_main.h>
 
 extern int cmdCount;

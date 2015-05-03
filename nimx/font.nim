@@ -183,7 +183,7 @@ when not defined js:
 
 var sysFont : Font
 
-const preferredFonts = when defined(macosx) or defined(js):
+const preferredFonts = when defined(macosx) or defined(js) or defined(windows):
         [
             "Arial"
         ]
@@ -204,9 +204,14 @@ const fontSearchPaths = when defined(macosx):
         [
             "/system/fonts"
         ]
+    elif defined(windows):
+        [
+            r"\Windows\Fonts"
+        ]
     else:
         [
-            "/usr/share/fonts/truetype/ubuntu-font-family"
+            "/usr/share/fonts/truetype/ubuntu-font-family",
+            "/usr/share/fonts/TTF"
         ]
 
 when not defined js:
