@@ -156,9 +156,9 @@ proc eventWithSDLEvent(event: ptr sdl2.Event): Event =
             let wnd = windowFromSDLEvent(mouseEv)
             let state = buttonStateFromSDLState(mouseEv.state.KeyState)
             let button = case mouseEv.button:
-                of 0: kcMouseButtonPrimary
-                of 1: kcMouseButtonMiddle
-                of 2: kcMouseButtonSecondary
+                of sdl2.BUTTON_LEFT: kcMouseButtonPrimary
+                of sdl2.BUTTON_MIDDLE: kcMouseButtonMiddle
+                of sdl2.BUTTON_RIGHT: kcMouseButtonSecondary
                 else: kcUnknown
             let pos = positionFromSDLEvent(mouseEv)
             result = newMouseButtonEvent(pos, button, state)
