@@ -13,6 +13,19 @@ proc newVector3*(x, y, z: Coord = 0): Vector3 =
     result[1] = y
     result[2] = z
 
+proc length*(v: Vector3): Coord = sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2])
+
+proc normalize*(v: var Vector3) =
+    let leng = v.length()
+    if leng != 0:
+        v[0] /= leng
+        v[1] /= leng
+        v[2] /= leng
+
+proc x*(v: Vector3): Coord = v[0]
+proc y*(v: Vector3): Coord = v[1]
+proc z*(v: Vector3): Coord = v[2]
+
 proc loadIdentity*(dest: var Matrix4) =
     dest[0] = 1
     dest[1] = 0

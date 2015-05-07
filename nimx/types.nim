@@ -37,6 +37,13 @@ proc newRect*(o: Point, s: Size): Rect =
 proc newRect*(x, y, w, h: Coord): Rect =
     newRect(newPoint(x, y), newSize(w, h))
 
+proc newRectWithPoints*(p1, p2: Point): Rect =
+    let minX = min(p1.x, p2.x)
+    let minY = min(p1.y, p2.y)
+    let maxX = max(p1.x, p2.x)
+    let maxY = max(p1.y, p2.y)
+    result = newRect(minX, minY, maxX - minX, maxY - minY)
+
 const zeroRect* = newRect(zeroPoint, zeroSize)
 
 proc newColor*(r, g, b: ColorComponent, a: ColorComponent = 1.0): Color =
