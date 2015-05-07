@@ -79,6 +79,10 @@ method removeSubview*(v: View, s: View) =
             v.subviews.del(i)
             break
 
+method removeAllSubviews*(v: View) =
+    for i in low(v.subviews)..high(v.subviews):
+        v.subviews.del(i)
+
 method removeFromSuperview*(v: View) =
     if v.superview != nil:
         v.superview.removeSubview(v)
