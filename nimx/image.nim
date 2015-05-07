@@ -42,7 +42,7 @@ when not defined js:
             let texRowWidth = texWidth * comp
             let newData = alloc(texRowWidth * texHeight)
             let rowWidth = x * comp
-            for row in 0 .. y:
+            for row in 0 .. <y:
                 copyMem(offset(newData, row * texRowWidth), offset(data, row * rowWidth), rowWidth)
             pixelData = cast[ptr uint8](newData)
             result.sizeInTexels.width = x.Coord / texWidth.Coord
@@ -180,4 +180,3 @@ proc writeToBMPFile*(i: Image, path: string) = i.writeToFile(path, bmp)
 proc writeToPNGFile*(i: Image, path: string) = i.writeToFile(path, png)
 proc writeToTGAFile*(i: Image, path: string) = i.writeToFile(path, tga)
 #proc writeToHDRFile*(i: Image, path: string) = i.writeToFile(path, hdr) # Crashes...
-
