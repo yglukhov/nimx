@@ -39,9 +39,14 @@ method draw(b: Button, r: Rect) =
         var pt = centerInRect(font.sizeOfString(b.title), b.bounds)
         c.drawText(font, pt, b.title)
 
+proc setState*(b: Button, s: ButtonState) =
+    if b.state != s:
+        b.state = s
+        b.setNeedsDisplay()
+
 method onMouseDown(b: Button, e: var Event): bool =
     result = true
-    b.state = bsDown
+    b.setState(bsDown)
     mainApplication().pushEventFilter do(e: var Event, c: var EventFilterControl) -> bool:
         result = true
         if e.kind == etMouse:
@@ -51,13 +56,13 @@ method onMouseDown(b: Button, e: var Event): bool =
                 result = b.onMouseUp(e)
             elif e.isMouseMoveEvent():
                 if e.localPosition.inRect(b.bounds):
-                    b.state = bsDown
+                    b.setState(bsDown)
                 else:
-                    b.state = bsUp
+                    b.setState(bsUp)
 
 method onMouseUp(b: Button, e: var Event): bool =
     result = true
-    b.state = bsUp
+    b.setState(bsUp)
     if e.localPosition.inRect(b.bounds):
         b.sendAction(e)
 

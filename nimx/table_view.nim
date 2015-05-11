@@ -78,6 +78,8 @@ method draw*(v: TableView, r: Rect) =
     var cells = newSeq[TableViewCell]()
     let c = currentContext()
 
+    let needsDisplay = v.window.needsDisplay
+
     for i in 0 .. < rowsCount:
         let cell = v.cellForRow(i)
         let cellHeight = v.requiredHeightForRow(i)
@@ -98,6 +100,7 @@ method draw*(v: TableView, r: Rect) =
 
     for c in cells:
         c.removeFromSuperview()
+    v.window.needsDisplay = needsDisplay
 
 proc rowAtPoint(v: TableView, p: Point): int =
     let rowsCount = v.numberOfRows()

@@ -16,6 +16,7 @@ method init*(w: Window, frame: Rect) =
     procCall w.View.init(frame)
     w.window = w
     w.animations = @[]
+    w.needsDisplay = true
 
 method `title=`*(w: Window, t: string) = discard
 method title*(w: Window): string = ""
@@ -36,6 +37,7 @@ proc fps(): int =
     lastTime = curTime
 
 method drawWindow*(w: Window) =
+    w.needsDisplay = false
     let c = currentContext()
     var pt = newPoint(w.frame.width - 80, 2)
     c.fillColor = newColor(0.5, 0, 0)
@@ -51,14 +53,19 @@ method stopTextInput*(w: Window) = discard
 proc runAnimations*(w: Window) =
     let t = epochTime()
     var i = 0
+    w.needsDisplay = w.needsDisplay or w.animations.len > 0
     while i < w.animations.len:
         w.animations[i].tick(t)
         if w.animations[i].finished:
             w.animations.del(i)
+            if w.animations.len == 0:
+                w.enableAnimation(false)
         else:
             inc i
 
 proc addAnimation*(w: Window, a: Animation) =
+    if w.animations.len == 0:
+        w.enableAnimation(true)
     w.animations.add(a)
     a.startTime = epochTime()
 

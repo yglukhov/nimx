@@ -31,6 +31,7 @@ type
     Window* = ref object of View
         firstResponder*: View
         animations*: seq[Animation]
+        needsDisplay*: bool
 
 method init*(v: View, frame: Rect) =
     v.frame = frame
@@ -73,10 +74,15 @@ method viewDidChangeWindow*(v: View) =
         s.window = v.window
         s.viewDidChangeWindow()
 
+template setNeedsDisplay*(v: View) =
+    if v.window != nil:
+        v.window.needsDisplay = true
+
 method removeSubview*(v: View, s: View) =
     for i, ss in v.subviews:
         if ss == s:
             v.subviews.del(i)
+            v.setNeedsDisplay()
             break
 
 method removeFromSuperview*(v: View) =
@@ -95,6 +101,7 @@ method addSubview*(v: View, s: View) =
         s.viewDidChangeSuperview()
         if s.window != oldWindow:
             s.viewDidChangeWindow()
+        v.setNeedsDisplay()
 
 method clipType*(v: View): ClipType = ctNone
 
@@ -156,10 +163,12 @@ method resizeSubviews*(v: View, oldSize: Size) =
 method setBoundsSize*(v: View, s: Size) =
     let oldSize = v.bounds.size
     v.bounds.size = s
+    v.setNeedsDisplay()
     v.resizeSubviews(oldSize)
 
 method setBoundsOrigin*(v: View, o: Point) =
     v.bounds.origin = o
+    v.setNeedsDisplay()
 
 proc setBounds*(v: View, b: Rect) =
     v.setBoundsOrigin(b.origin)

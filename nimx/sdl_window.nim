@@ -33,18 +33,21 @@ type SdlWindow* = ref object of Window
     sdlGlContext: GlContextPtr
     renderingContext: GraphicsContext
 
+var animationEnabled = 0
 
 method enableAnimation*(w: SdlWindow, flag: bool) =
-    when defined(ios):
-        if flag:
+    if flag:
+        inc animationEnabled
+        when defined(ios):
             proc animationCallback(p: pointer) {.cdecl.} =
                 let w = cast[SdlWindow](p)
                 w.runAnimations()
                 w.drawWindow()
             discard iPhoneSetAnimationCallback(w.impl, 0, animationCallback, cast[pointer](w))
-        else:
+    else:
+        dec animationEnabled
+        when defined(ios):
             discard iPhoneSetAnimationCallback(w.impl, 0, nil, nil)
-    discard # Seems like a Nim bug. Empty method will result in a link error.
 
 method initCommon(w: SdlWindow, r: view.Rect) =
     if w.impl == nil:
@@ -57,7 +60,7 @@ method initCommon(w: SdlWindow, r: view.Rect) =
     discard glMakeCurrent(w.impl, w.sdlGlContext)
     w.renderingContext = newGraphicsContext()
 
-    w.enableAnimation(true)
+    #w.enableAnimation(true)
     mainApplication().addWindow(w)
     discard w.impl.setData("__nimx_wnd", cast[pointer](w))
 
@@ -106,12 +109,6 @@ method drawWindow(w: SdlWindow) =
     c.withTransform ortho(0, w.frame.width, w.frame.height, 0, -1, 1):
         procCall w.Window.drawWindow()
     w.impl.glSwapWindow() # Swap the front and back frame buffers (double buffering)
-
-proc waitOrPollEvent(evt: var sdl2.Event): auto =
-    when defined(ios):
-        waitEvent(evt)
-    else:
-        pollEvent(evt)
 
 proc windowFromSDLEvent[T](event: T): SdlWindow =
     let sdlWndId = event.windowID
@@ -216,8 +213,8 @@ proc eventWithSDLEvent(event: ptr sdl2.Event): Event =
 
 proc eventFilter(userdata: pointer; event: ptr sdl2.Event): Bool32 {.cdecl.} =
     var e = eventWithSDLEvent(event)
-    var handled = mainApplication().handleEvent(e)
-    result = if handled: False32 else: True32
+    discard mainApplication().handleEvent(e)
+    result = True32
 
 method onResize*(w: SdlWindow, newSize: Size) =
     glViewport(0, 0, GLSizei(newSize.width), GLsizei(newSize.height))
@@ -233,15 +230,25 @@ proc limitFramerate() =
         delay(frametime - now)
     frametime = frametime + MAXFRAMERATE
 
-proc nextEvent*(evt: var sdl2.Event): bool =
-    #PumpEvents()
-    result = waitOrPollEvent(evt)
-
-    when not defined(ios):
-        if not result:
+proc animateAndDraw() =
+    when not defined ios:
+        mainApplication().runAnimations()
+        mainApplication().drawWindows()
+    else:
+        if animationEnabled == 0:
             mainApplication().runAnimations()
             mainApplication().drawWindows()
-            #limitFramerate()
+
+proc nextEvent(evt: var sdl2.Event): bool =
+    when defined(ios):
+        result = waitEvent(evt)
+    else:
+        if animationEnabled > 0:
+            result = pollEvent(evt)
+        else:
+            result = waitEvent(evt)
+
+    animateAndDraw()
 
 method startTextInput*(w: SdlWindow, r: Rect) =
     startTextInput()
@@ -250,18 +257,16 @@ method stopTextInput*(w: SdlWindow) =
     stopTextInput()
 
 proc runUntilQuit*() =
-    var isRunning = true
-
     # Initialize fist dummy event. The kind should be any unused kind.
     var evt = sdl2.Event(kind: UserEvent1)
     setEventFilter(eventFilter, nil)
+    animateAndDraw()
 
     # Main loop
-    while isRunning:
+    while true:
         discard nextEvent(evt)
         if evt.kind == QuitEvent:
-          isRunning = false
-          break
+            break
  
     discard quit(evt)
 
