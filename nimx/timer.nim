@@ -10,20 +10,21 @@ else:
 
 
 proc clear*(t: Timer) =
-    when defined(js):
-        asm """
-        if (`t`.__nimx_periodic) {
-            clearInterval(`t`);
-        }
-        else {
-            clearTimeout(`t`);
-        }
-        """
-    else:
-        if t.timer != 0:
-            discard removeTimer(t.timer)
-            GC_unref(t)
-            t.timer = 0
+    if not t.isNil:
+        when defined(js):
+            asm """
+            if (`t`.__nimx_periodic) {
+                clearInterval(`t`);
+            }
+            else {
+                clearTimeout(`t`);
+            }
+            """
+        else:
+            if t.timer != 0:
+                discard removeTimer(t.timer)
+                GC_unref(t)
+                t.timer = 0
 
 when not defined(js):
     proc timeoutCallback(data: pointer) {.cdecl.} =
