@@ -13,9 +13,8 @@ import portable_gl
 
 export window
 
-var sdlInitialized = false
-
 proc initSDLIfNeeded() =
+    var sdlInitialized {.global.} = false
     if not sdlInitialized:
         sdl2.init(INIT_VIDEO)
         sdlInitialized = true
@@ -212,8 +211,9 @@ proc eventWithSDLEvent(event: ptr sdl2.Event): Event =
             discard
 
 proc eventFilter(userdata: pointer; event: ptr sdl2.Event): Bool32 {.cdecl.} =
-    var e = eventWithSDLEvent(event)
-    discard mainApplication().handleEvent(e)
+    if event.kind != UserEvent5: # Callback events should be passed to main thread.
+        var e = eventWithSDLEvent(event)
+        discard mainApplication().handleEvent(e)
     result = True32
 
 method onResize*(w: SdlWindow, newSize: Size) =
@@ -239,6 +239,13 @@ proc animateAndDraw() =
             mainApplication().runAnimations()
             mainApplication().drawWindows()
 
+proc handleCallbackEvent(evt: UserEventPtr) =
+    let p = cast[proc (data: pointer) {.cdecl.}](evt.data1)
+    if p.isNil:
+        logi "WARNING: UserEvent5 with nil proc"
+    else:
+        p(evt.data2)
+
 proc nextEvent(evt: var sdl2.Event): bool =
     when defined(ios):
         result = waitEvent(evt)
@@ -247,6 +254,9 @@ proc nextEvent(evt: var sdl2.Event): bool =
             result = pollEvent(evt)
         else:
             result = waitEvent(evt)
+
+    if result == True32 and evt.kind == UserEvent5:
+        handleCallbackEvent(cast[UserEventPtr](addr evt))
 
     animateAndDraw()
 
