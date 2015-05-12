@@ -29,24 +29,25 @@ proc clear*(t: Timer) =
 when not defined(js):
     proc timeoutCallback(data: pointer) {.cdecl.} =
         let t = cast[Timer](data)
-        t.callback()
-        if not t.isPeriodic:
-            # The timer was already removed in the thread
-            GC_unref(t)
+        # Referring to t may be unsafe here
+        if t.timer != 0:
+            t.callback()
+            if not t.isPeriodic:
+                discard removeTimer(t.timer)
+                t.timer = 0
+                GC_unref(t)
 
-    proc timeoutThreadCallback(interval: uint32, data: pointer): uint32 {.cdecl.} =
+    # Nim is hostile when it's callbacks are called from an "unknown" thread.
+    # The following function can not use nim's stack trace and GC.
+    {.push stack_trace:off.}
+    proc timeoutThreadCallback(interval: uint32, data: pointer): uint32 {.cdecl, thread.} =
         var evt: UserEventObj
         evt.kind = UserEvent5
         evt.data1 = timeoutCallback
         evt.data2 = data
-        # TODO: Refering to t may be unsafe here!
-        let t = cast[Timer](data)
-        if t.isPeriodic:
-            result = interval
-        else:
-            discard removeTimer(t.timer)
-            t.timer = 0
         discard pushEvent(cast[ptr Event](addr evt))
+        result = interval
+    {.pop.}
 
 proc newTimer*(interval: float, repeat: bool, callback: proc()): Timer =
     when defined(js):

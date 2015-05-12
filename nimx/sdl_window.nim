@@ -210,11 +210,15 @@ proc eventWithSDLEvent(event: ptr sdl2.Event): Event =
             #echo "Unknown event: ", event.kind
             discard
 
+# The following function may be called on a foreign thread.
+{.push stack_trace: off.}
 proc eventFilter(userdata: pointer; event: ptr sdl2.Event): Bool32 {.cdecl.} =
     if event.kind != UserEvent5: # Callback events should be passed to main thread.
+        # This branch should never execute on a foreign thread!!!
         var e = eventWithSDLEvent(event)
         discard mainApplication().handleEvent(e)
     result = True32
+{.pop.}
 
 method onResize*(w: SdlWindow, newSize: Size) =
     glViewport(0, 0, GLSizei(newSize.width), GLsizei(newSize.height))
