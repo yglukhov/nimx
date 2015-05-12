@@ -1,6 +1,6 @@
 
 when defined(js):
-    type Timer = distinct int
+    type Timer* {.importc.} = ref object
 else:
     import sdl2
     type Timer* = ref object
