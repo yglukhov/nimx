@@ -6,7 +6,7 @@ import event
 import window
 import unistring
 import unicode
-import times
+import timer
 
 
 type TextField* = ref object of Control
@@ -15,8 +15,8 @@ type TextField* = ref object of Control
     selectable*: bool
 
 var cursorPos = 0
-var cursorBlinkTime = 0.0
 var cursorVisible = true
+var cursorUpdateTimer : Timer
 
 var cursorOffset : Coord
 
@@ -39,18 +39,21 @@ proc isEditing*(t: TextField): bool =
     t.editable and t.isFirstResponder
 
 proc drawCursorWithRect(r: Rect) =
-    let curTime = epochTime()
-    if curTime - cursorBlinkTime > 0.5:
-        cursorBlinkTime = curTime
-        cursorVisible = not cursorVisible
     if cursorVisible:
         let c = currentContext()
         c.fillColor = blackColor()
         c.drawRect(r)
 
-proc bumpCursorVisibility() =
+proc bumpCursorVisibility(t: TextField) =
     cursorVisible = true
-    cursorBlinkTime = epochTime()
+    cursorUpdateTimer.clear()
+    t.setNeedsDisplay()
+
+    let p = proc() =
+        cursorVisible = not cursorVisible
+        t.setNeedsDisplay()
+
+    cursorUpdateTimer = setInterval(0.5, p)
 
 method draw*(t: TextField, r: Rect) =
     let c = currentContext()
@@ -74,7 +77,6 @@ method draw*(t: TextField, r: Rect) =
 method onMouseDown*(t: TextField, e: var Event): bool =
     if t.editable:
         result = t.makeFirstResponder()
-        t.window.startTextInput(t.convertRectoToWindow(t.bounds))
         var pt = e.localPosition
         pt.x += leftMargin
         if t.text.isNil:
@@ -82,7 +84,6 @@ method onMouseDown*(t: TextField, e: var Event): bool =
             cursorOffset = 0
         else:
             systemFont().getClosestCursorPositionToPointInString(t.text, pt, cursorPos, cursorOffset)
-        bumpCursorVisibility()
 
 proc updateCursorOffset(t: TextField) =
     cursorOffset = systemFont().cursorOffsetForPositionInString(t.text, cursorPos)
@@ -97,21 +98,21 @@ method onKeyDown*(t: TextField, e: var Event): bool =
             t.text.uniDelete(cursorPos - 1, cursorPos - 1)
             dec cursorPos
             t.updateCursorOffset()
-            bumpCursorVisibility()
+            t.bumpCursorVisibility()
         elif e.keyCode == K_DELETE and not t.text.isNil and cursorPos < t.text.runeLen:
             t.text.uniDelete(cursorPos, cursorPos)
-            bumpCursorVisibility()
+            t.bumpCursorVisibility()
         elif e.keyCode == K_LEFT:
             dec cursorPos
             if cursorPos < 0: cursorPos = 0
             t.updateCursorOffset()
-            bumpCursorVisibility()
+            t.bumpCursorVisibility()
         elif e.keyCode == K_RIGHT:
             inc cursorPos
             let textLen = t.text.runeLen
             if cursorPos > textLen: cursorPos = textLen
             t.updateCursorOffset()
-            bumpCursorVisibility()
+            t.bumpCursorVisibility()
 
 method onTextInput*(t: TextField, s: string): bool =
     result = true
@@ -119,4 +120,16 @@ method onTextInput*(t: TextField, s: string): bool =
     t.text.insert(cursorPos, s)
     cursorPos += s.runeLen
     t.updateCursorOffset()
+    t.bumpCursorVisibility()
+
+method viewShouldResignFirstResponder*(v: TextField, newFirstResponder: View): bool =
+    result = true
+    cursorUpdateTimer.clear()
+    cursorVisible = false
+
+method viewDidBecomeFirstResponder*(t: TextField) =
+    t.window.startTextInput(t.convertRectoToWindow(t.bounds))
+    cursorPos = if t.text.isNil: 0 else: t.text.len
+    t.updateCursorOffset()
+    t.bumpCursorVisibility()
 
