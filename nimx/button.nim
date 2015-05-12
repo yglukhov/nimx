@@ -32,6 +32,7 @@ method draw(b: Button, r: Rect) =
         c.fillColor = newColor(0.25, 0.5, 0.95)
         textColor = whiteColor()
 
+    c.strokeWidth = 0
     c.drawRoundedRect(b.bounds, 5)
     if b.title != nil:
         c.fillColor = textColor

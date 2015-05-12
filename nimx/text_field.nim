@@ -60,7 +60,8 @@ method draw*(t: TextField, r: Rect) =
     if t.editable:
         c.fillColor = whiteColor()
         c.strokeColor = newGrayColor(0.74)
-        c.drawRect(t.bounds)
+        c.strokeWidth = 1.0
+        c.drawRoundedRect(t.bounds, 0)
 
     let font = systemFont()
 
@@ -72,6 +73,11 @@ method draw*(t: TextField, r: Rect) =
         c.drawText(systemFont(), pt, t.text)
 
     if t.isEditing:
+        c.fillColor = clearColor()
+        c.strokeColor = newColor(0.59, 0.76, 0.95, 0.9)
+        c.strokeWidth = 3
+        c.drawRoundedRect(t.bounds.inset(-1, -1), 0)
+
         drawCursorWithRect(newRect(leftMargin + cursorOffset, textY + 3, 2, font.size))
 
 method onMouseDown*(t: TextField, e: var Event): bool =

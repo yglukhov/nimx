@@ -119,6 +119,7 @@ method draw(w: GameWindow, r: Rect) =
         renderedImage.draw do():
             let ctx = currentContext()
             c.fillColor = newColor(0.5, 0.5, 0)
+            c.strokeWidth = 0
             ctx.drawRoundedRect(newRect(0, 0, 100, 200), 40)
             ctx.fillColor = blackColor()
             ctx.drawText(systemFont(), newPoint(5, 5), "prerendered")

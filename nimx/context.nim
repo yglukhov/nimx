@@ -141,9 +141,15 @@ proc setRectUniform(c: GraphicsContext, prog: GLuint, name: cstring, r: Rect) =
 proc setStrokeParamsUniform(c: GraphicsContext, program: GLuint) =
     let loc = c.gl.getUniformLocation(program, "strokeColor")
     when defined js:
-        c.gl.uniform4fv(loc, [c.strokeColor.r, c.strokeColor.g, c.strokeColor.b, c.strokeColor.a])
+        if c.strokeWidth == 0:
+            c.gl.uniform4fv(loc, [c.fillColor.r, c.fillColor.g, c.fillColor.b, c.fillColor.a])
+        else:
+            c.gl.uniform4fv(loc, [c.strokeColor.r, c.strokeColor.g, c.strokeColor.b, c.strokeColor.a])
     else:
-        glUniform4fv(loc, 1, cast[ptr GLfloat](addr c.strokeColor))
+        if c.strokeWidth == 0:
+            glUniform4fv(loc, 1, cast[ptr GLfloat](addr c.fillColor))
+        else:
+            glUniform4fv(loc, 1, cast[ptr GLfloat](addr c.strokeColor))
     c.gl.uniform1f(c.gl.getUniformLocation(program, "strokeWidth"), c.strokeWidth)
 
 proc drawVertexes(c: GraphicsContext, componentCount: int, points: openarray[Coord], pt: GLenum) =
@@ -172,6 +178,7 @@ proc drawRoundedRect*(c: GraphicsContext, r: Rect, radius: Coord) =
     c.setFillColorUniform(c.roundedRectShaderProgram)
     c.setTransformUniform(c.roundedRectShaderProgram)
     c.setRectUniform(c.roundedRectShaderProgram, "rect", r)
+    c.setStrokeParamsUniform(c.roundedRectShaderProgram)
     c.gl.uniform1f(c.gl.getUniformLocation(c.roundedRectShaderProgram, "radius"), radius)
     c.drawRectAsQuad(r)
 

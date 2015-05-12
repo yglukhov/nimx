@@ -44,8 +44,10 @@ precision mediump float;
 #endif
 
 uniform vec4 fillColor;
+uniform vec4 strokeColor;
 uniform float radius;
 uniform vec4 rect;
+uniform float strokeWidth;
 
 varying vec2 vertCoord;
 
@@ -60,10 +62,18 @@ void main(void)
     vec2 halfRes = rect.zw * 0.5;
 
     // compute box
-    float b = udRoundBox(vertCoord.xy - rect.xy - halfRes + 0.0, halfRes - fwidth(vertCoord.xy) * 1.0, radius );
-	float margin = fwidth(b);
-    float alpha = 1.0 - smoothstep(0.0, margin,b);
-    gl_FragColor = vec4(fillColor.xyz, fillColor.w * alpha);
+    float outerDist = udRoundBox(vertCoord.xy - rect.xy - halfRes + 0.0, halfRes - fwidth(vertCoord.xy) * 1.0, radius );
+    halfRes -= strokeWidth;
+    vec2 xy = rect.xy + strokeWidth;
+    float innerRadius = max(0.0, radius - strokeWidth);
+    float innerDist = udRoundBox(vertCoord.xy - xy - halfRes + 0.0, halfRes - fwidth(vertCoord.xy) * 1.0, innerRadius );
+
+    float outerDelta = fwidth(outerDist) * 0.8;
+    float innerDelta = fwidth(innerDist) * 0.8;
+    float innerAlpha = smoothstep(1.0 - innerDelta, 1.0 + innerDelta, innerDist);
+    float outerAlpha = smoothstep(1.0 - outerDelta, 1.0 + outerDelta, outerDist);
+    gl_FragColor = mix(strokeColor, vec4(strokeColor.rgb, 0), outerAlpha);
+    gl_FragColor = mix(fillColor, gl_FragColor, innerAlpha);
 }
 """
 
@@ -96,8 +106,8 @@ void main()
     float innerAlpha = smoothstep(1.0 - innerDelta, 1.0 + innerDelta, innerDist);
     float outerAlpha = smoothstep(1.0 - outerDelta, 1.0 + outerDelta, outerDist);
 
-    gl_FragColor = mix(strokeColor, vec4(0, 0, 0, 0), outerAlpha);
-	gl_FragColor = mix(fillColor, gl_FragColor, innerAlpha);
+    gl_FragColor = mix(strokeColor, vec4(strokeColor.rgb, 0), outerAlpha);
+    gl_FragColor = mix(fillColor, gl_FragColor, innerAlpha);
 }
 
 """
