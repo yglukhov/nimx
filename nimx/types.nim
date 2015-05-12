@@ -46,6 +46,8 @@ proc newRectWithPoints*(p1, p2: Point): Rect =
 
 const zeroRect* = newRect(zeroPoint, zeroSize)
 
+proc inset*(r: Rect, dx, dy: Coord): Rect = newRect(r.x + dx, r.y + dy, r.width - dx * 2, r.height - dy * 2)
+
 proc newColor*(r, g, b: ColorComponent, a: ColorComponent = 1.0): Color =
     result.r = r
     result.g = g
