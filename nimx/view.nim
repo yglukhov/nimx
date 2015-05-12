@@ -193,12 +193,20 @@ method bounds*(v: View): Rect = v.bounds
 
 method subviewDidChangeDesiredSize*(v: View, sub: View, desiredSize: Size) = discard
 
+method viewShouldResignFirstResponder*(v, newFirstResponder: View): bool = true
+method viewDidBecomeFirstResponder*(v: View) = discard
+
 # Responder chain implementation
 method makeFirstResponder*(v: View): bool =
-    # TODO: Validate becoming a first responder
-    if v.window != nil:
-        v.window.firstResponder = v
-        result = true
+    let w = v.window
+    if not w.isNil:
+        var shouldChange = true
+        if not w.firstResponder.isNil:
+            shouldChange = w.firstResponder.viewShouldResignFirstResponder(v)
+        if shouldChange:
+            w.firstResponder = v
+            v.viewDidBecomeFirstResponder()
+            result = true
 
 proc isFirstResponder*(v: View): bool =
     if v.window != nil:
