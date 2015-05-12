@@ -141,6 +141,13 @@ proc recursiveDrawSubviews*(view: View) =
     view.draw(view.bounds)
     view.drawSubviews()
 
+proc drawFocusRing*(v: View) =
+    let c = currentContext()
+    c.fillColor = clearColor()
+    c.strokeColor = newColor(0.59, 0.76, 0.95, 0.9)
+    c.strokeWidth = 3
+    c.drawRoundedRect(v.bounds.inset(-1, -1), 2)
+
 method setFrame*(v: View, r: Rect)
 
 method resizeSubviews*(v: View, oldSize: Size) =
