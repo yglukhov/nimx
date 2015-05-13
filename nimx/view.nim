@@ -219,3 +219,10 @@ proc isFirstResponder*(v: View): bool =
     if v.window != nil:
         result = v.window.firstResponder == v
 
+proc isDescendantOf*(subView, superview: View): bool =
+    var vi = subView
+    while not vi.isNil:
+        if vi == superview:
+            return true
+        vi = vi.superview
+

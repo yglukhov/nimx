@@ -73,15 +73,17 @@ proc startApplication() =
 
 
     let tableView = newTableView(newRect(20, 140, 100, mainWindow.bounds.height - 160))
+    tableView.autoresizingMask = { afFlexibleMaxX, afFlexibleHeight }
     mainWindow.addSubview(newScrollView(tableView))
 
     let tableCellContent = newLabel(newRect(0, 0, 100, 20))
     let tableCell = newTableViewCell(tableCellContent)
 
     tableView.numberOfRows = proc: int = 20
-    tableView.cellForRow = proc (row: int): TableViewCell =
-        result = tableCell
-        tableCellContent.text = "Row: " & $row
+    tableView.createCell = proc (): TableViewCell =
+        result = newTableViewCell(newTextField(newRect(0, 0, 100, 20)))
+    tableView.configureCell = proc (c: TableViewCell) =
+        TextField(c.subviews[0]).text = "Row: " & $c.row
 
     tableView.reloadData()
 
