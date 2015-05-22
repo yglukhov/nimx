@@ -49,7 +49,7 @@ proc startApplication() =
     mainWindow.title = "Test MyGame"
 
     let v1 = newView(newRect(20, 20, mainWindow.frame.width - 40, 100))
-    v1.backgroundColor = newGrayColor(0.89)
+    v1.backgroundColor = newGrayColor(0.92)
     mainWindow.addSubview(v1)
 
     let b1 = newButton(newRect(20, 20, 50, 50))
@@ -60,6 +60,14 @@ proc startApplication() =
 
     b1.onAction do ():
         echo "Hello world!"
+
+    let checkbox = newCheckbox(newRect(130, 130, 50, 16))
+    checkbox.title = "Checkbox"
+    mainWindow.addSubview(checkbox)
+
+    let radiobox = newRadiobox(newRect(130, 150, 50, 16))
+    radiobox.title = "Radiobox"
+    mainWindow.addSubview(radiobox)
 
     let t1 = newTextField(newRect(90, 20, v1.bounds.width - 110, 25))
     v1.addSubview(t1)
@@ -75,9 +83,6 @@ proc startApplication() =
     let tableView = newTableView(newRect(20, 140, 100, mainWindow.bounds.height - 160))
     tableView.autoresizingMask = { afFlexibleMaxX, afFlexibleHeight }
     mainWindow.addSubview(newScrollView(tableView))
-
-    let tableCellContent = newLabel(newRect(0, 0, 100, 20))
-    let tableCell = newTableViewCell(tableCellContent)
 
     tableView.numberOfRows = proc: int = 20
     tableView.createCell = proc (): TableViewCell =
