@@ -1,5 +1,5 @@
 import types
-import logging
+import system_logger
 import unicode
 import tables
 import rect_packer

@@ -2,7 +2,7 @@ import types
 import opengl
 from opengl import GLuint, GLint, GLfloat, GLenum
 import unsigned
-import logging
+import system_logger
 import matrixes
 import font
 import image
@@ -312,4 +312,3 @@ template withClippingRect*(c: GraphicsContext, r: Rect, body: stmt) =
     c.applyClippingRect(r, true)
     body
     c.applyClippingRect(r, false)
-

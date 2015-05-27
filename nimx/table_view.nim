@@ -6,7 +6,7 @@ import event
 import context
 import clip_view
 
-import logging
+import system_logger
 import app
 
 import intsets

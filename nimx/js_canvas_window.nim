@@ -1,5 +1,5 @@
 import window
-import logging
+import system_logger
 import view
 import context
 import matrixes

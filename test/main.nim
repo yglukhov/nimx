@@ -1,7 +1,7 @@
 #!/usr/local/bin/nim c -r --noMain
 
 import nimx.view
-import nimx.logging
+import nimx.system_logger
 import nimx.context
 import nimx.matrixes
 import nimx.button

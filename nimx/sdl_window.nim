@@ -1,6 +1,6 @@
 import window
 import sdl2 except Event, Rect
-import logging
+import system_logger
 import view
 import opengl
 import context
@@ -159,7 +159,7 @@ proc eventWithSDLEvent(event: ptr sdl2.Event): Event =
             let pos = positionFromSDLEvent(mouseEv)
             result = newMouseButtonEvent(pos, button, state)
             result.window = wnd
-        
+
         of MouseMotion:
             let mouseEv = cast[MouseMotionEventPtr](event)
             let wnd = windowFromSDLEvent(mouseEv)
@@ -281,6 +281,5 @@ proc runUntilQuit*() =
         discard nextEvent(evt)
         if evt.kind == QuitEvent:
             break
- 
-    discard quit(evt)
 
+    discard quit(evt)

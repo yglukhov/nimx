@@ -5,7 +5,7 @@ export view
 import clip_view
 
 import event
-import logging
+import system_logger
 
 type ScrollView* = ref object of View
     clipView: ClipView
@@ -66,4 +66,3 @@ method subviewDidChangeDesiredSize*(v: ScrollView, sub: View, desiredSize: Size)
 
     v.clipView.setBoundsOrigin(boundsOrigin)
     v.contentView().setFrameSize(size)
-

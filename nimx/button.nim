@@ -1,7 +1,7 @@
 import control
 import context
 import types
-import logging
+import system_logger
 import event
 import font
 import app
@@ -62,7 +62,7 @@ proc drawTitle(b: Button, xOffset: Coord) =
 
 proc drawRegularStyle(b: Button, r: Rect) {.inline.} =
     let c = currentContext()
-    
+
     if b.state == bsUp:
         c.fillColor = b.backgroundColor
         c.strokeColor = newGrayColor(0.78)
@@ -155,4 +155,3 @@ method onMouseUp(b: Button, e: var Event): bool =
         if b.behavior == bbToggle:
             b.value = toggleValue(b.value)
         b.sendAction(e)
-
