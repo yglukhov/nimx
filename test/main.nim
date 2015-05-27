@@ -15,6 +15,8 @@ import nimx.scroll_view
 import nimx.table_view
 import nimx.font
 import math
+import sequtils
+import intsets
 
 
 when defined js:
@@ -86,9 +88,13 @@ proc startApplication() =
 
     tableView.numberOfRows = proc: int = 20
     tableView.createCell = proc (): TableViewCell =
-        result = newTableViewCell(newTextField(newRect(0, 0, 100, 20)))
+        result = newTableViewCell(newLabel(newRect(0, 0, 100, 20)))
     tableView.configureCell = proc (c: TableViewCell) =
         TextField(c.subviews[0]).text = "Row: " & $c.row
+    tableView.onSelectionChange = proc() =
+        let selectedRows = toSeq(items(tableView.selectedRows))
+        if selectedRows.len > 0:
+            echo "Row selected: ", selectedRows[0]
 
     tableView.reloadData()
 
@@ -147,5 +153,3 @@ else:
     except:
         logi "Exception caught: ", getCurrentExceptionMsg()
         logi getCurrentException().getStackTrace()
-
-

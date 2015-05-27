@@ -7,6 +7,14 @@ import context
 import clip_view
 
 import logging
+import app
+
+import intsets
+
+type SelectionMode = enum
+    smNone
+    smSingleSelection
+    smMultipleSelection
 
 type TableViewCell* = ref object of View
     row*: int
@@ -31,9 +39,12 @@ type TableView* = ref object of View
     createCell*: proc(): TableViewCell
     configureCell*: proc (cell: TableViewCell)
     heightOfRow*: proc (row: int): Coord
+    onSelectionChange*: proc()
 
     defaultRowHeight*: Coord
     visibleRect: Rect
+    selectionMode*: SelectionMode
+    selectedRows*: IntSet
 
 proc newTableView*(r: Rect): TableView =
     result.new()
@@ -43,6 +54,8 @@ method init*(v: TableView, r: Rect) =
     procCall v.View.init(r)
     v.defaultRowHeight = 30
     v.backgroundColor = newGrayColor(0.89)
+    v.selectionMode = smSingleSelection
+    v.selectedRows = initIntSet()
 
 proc heightOfRowUsingDelegate(v: TableView, row: int): Coord {.inline.} =
     result = v.heightOfRow(row)
@@ -185,3 +198,29 @@ method draw*(v: TableView, r: Rect) =
     if not v.window.isNil:
         v.window.needsDisplay = needsDisplay
 
+method onMouseDown(b: TableView, e: var Event): bool =
+    if b.selectionMode == smSingleSelection:
+        var rows : array[1, int]
+        b.getRowsAtHeights([e.localPosition.y], rows)
+        if rows[0] != -1:
+            mainApplication().pushEventFilter do(e: var Event, c: var EventFilterControl) -> bool:
+                result = true
+                if e.isButtonUpEvent():
+                    b.selectedRows = initIntSet()
+                    b.selectedRows.incl(rows[0])
+                    if not b.onSelectionChange.isNil:
+                        b.onSelectionChange()
+                    c = efcBreak
+                elif e.isMouseMoveEvent():
+                    c = efcBreak
+
+proc isRowSelected(t: TableView, row: int): bool = t.selectedRows.contains(row)
+
+method draw(c: TableViewCell, r: Rect) =
+    let tb = TableView c.superview
+    if not tb.isNil:
+        if tb.isRowSelected(c.row):
+            let ctx = currentContext()
+            ctx.fillColor = newColor(0, 0, 1)
+            ctx.drawRect(c.bounds)
+    procCall c.View.draw(r)
