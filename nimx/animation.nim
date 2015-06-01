@@ -41,6 +41,9 @@ method tick*(a: Animation, curTime: float) =
     if a.finished and not a.completionHandler.isNil:
         a.completionHandler()
 
+proc cancel*(a: Animation) =
+    a.finished = true
+
 proc onComplete*(a: Animation, p: proc()) =
     a.completionHandler = p
 
@@ -89,4 +92,3 @@ macro animate*(a: Animation, what: expr, how: stmt): stmt {.immediate.} =
 proc animateValue*[T](fromValue, toValue: T, cb: proc(value: T)): AnimationFunction =
     result = proc(progress: float) =
         cb((toValue - fromValue) * progress)
-

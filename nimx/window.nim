@@ -68,4 +68,4 @@ proc addAnimation*(w: Window, a: Animation) =
         w.enableAnimation(true)
     w.animations.add(a)
     a.startTime = epochTime()
-
+    a.finished = false

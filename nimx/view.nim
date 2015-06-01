@@ -39,6 +39,10 @@ method init*(v: View, frame: Rect) =
     v.subviews = @[]
     v.autoresizingMask = { afFlexibleMaxX, afFlexibleMaxY }
 
+proc new*[V](v: typedesc[V], frame: Rect): V =
+    result.new()
+    result.init(frame)
+
 proc newView*(frame: Rect): View =
     result.new()
     result.init(frame)
@@ -67,40 +71,48 @@ proc convertRectFromWindow*(v: View, r: Rect): Rect =
     # TODO: Respect bounds transformations
     result.size = r.size
 
-
-method viewDidChangeSuperview*(v: View) = discard
-method viewDidChangeWindow*(v: View) =
+method viewWillMoveToSuperview*(v: View, s: View) = discard
+method viewWillMoveToWindow*(v: View, w: Window) =
     for s in v.subviews:
         s.window = v.window
-        s.viewDidChangeWindow()
+        s.viewWillMoveToWindow(w)
+
+proc moveToWindow(v: View, w: Window) =
+    v.window = w
+    for s in v.subviews:
+        s.moveToWindow(w)
 
 template setNeedsDisplay*(v: View) =
     if v.window != nil:
         v.window.needsDisplay = true
 
-method removeSubview*(v: View, s: View) =
+proc removeSubview(v: View, s: View) =
     for i, ss in v.subviews:
         if ss == s:
             v.subviews.del(i)
             v.setNeedsDisplay()
             break
 
-method removeFromSuperview*(v: View) =
+proc removeFromSuperview(v: View, callHandlers: bool) =
     if v.superview != nil:
+        if callHandlers:
+            if v.window != nil: v.viewWillMoveToWindow(nil)
+            v.viewWillMoveToSuperview(nil)
         v.superview.removeSubview(v)
-        v.window = nil
+        v.moveToWindow(nil)
         v.superview = nil
+
+method removeFromSuperview*(v: View) =
+    v.removeFromSuperview(true)
 
 method addSubview*(v: View, s: View) =
     if s.superview != v:
-        let oldWindow = s.window
-        s.removeFromSuperview()
+        if v.window != s.window: s.viewWillMoveToWindow(v.window)
+        s.viewWillMoveToSuperview(v)
+        s.removeFromSuperview(false)
         v.subviews.add(s)
         s.superview = v
-        s.window = v.window
-        s.viewDidChangeSuperview()
-        if s.window != oldWindow:
-            s.viewDidChangeWindow()
+        s.moveToWindow(v.window)
         v.setNeedsDisplay()
 
 method clipType*(v: View): ClipType = ctNone
@@ -225,4 +237,3 @@ proc isDescendantOf*(subView, superview: View): bool =
         if vi == superview:
             return true
         vi = vi.superview
-

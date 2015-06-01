@@ -198,6 +198,13 @@ method draw*(v: TableView, r: Rect) =
     if not v.window.isNil:
         v.window.needsDisplay = needsDisplay
 
+proc isRowSelected*(t: TableView, row: int): bool = t.selectedRows.contains(row)
+proc selectRow*(t: TableView, row: int) =
+    t.selectedRows = initIntSet()
+    t.selectedRows.incl(row)
+    if not t.onSelectionChange.isNil:
+        t.onSelectionChange()
+
 method onMouseDown(b: TableView, e: var Event): bool =
     if b.selectionMode == smSingleSelection:
         var rows : array[1, int]
@@ -206,15 +213,10 @@ method onMouseDown(b: TableView, e: var Event): bool =
             mainApplication().pushEventFilter do(e: var Event, c: var EventFilterControl) -> bool:
                 result = true
                 if e.isButtonUpEvent():
-                    b.selectedRows = initIntSet()
-                    b.selectedRows.incl(rows[0])
-                    if not b.onSelectionChange.isNil:
-                        b.onSelectionChange()
+                    b.selectRow(rows[0])
                     c = efcBreak
                 elif e.isMouseMoveEvent():
                     c = efcBreak
-
-proc isRowSelected(t: TableView, row: int): bool = t.selectedRows.contains(row)
 
 method draw(c: TableViewCell, r: Rect) =
     let tb = TableView c.superview
