@@ -267,6 +267,19 @@ proc colorToAttrArray(c: Color, a: var seq[GLfloat]) =
     a.add(c.b)
     a.add(c.a)
 
+proc drawGradientVertexes(c: GraphicsContext, vertexes, colors: openarray[GLfloat]) =
+    const componentCount = 2
+    c.gl.useProgram(c.gradientShaderProgram)
+
+    c.gl.enableVertexAttribArray(saPosition.GLuint)
+    c.gl.enableVertexAttribArray(saColor.GLuint)
+    c.gl.vertexAttribPointer(saPosition.GLuint, componentCount.GLint, false, 0, vertexes)
+    c.gl.vertexAttribPointer(saColor.GLuint, 4, false, 0, colors)
+
+    c.setTransformUniform(c.gradientShaderProgram)
+    c.gl.drawArrays(c.gl.TRIANGLE_STRIP, 0, GLsizei(vertexes.len / componentCount))
+
+
 proc drawHorizontalGradientInRect*(c: GraphicsContext, g: Gradient, r: Rect) =
     var vertices = newSeq[Coord]()
     var colors = newSeq[GLfloat]()
@@ -294,17 +307,36 @@ proc drawHorizontalGradientInRect*(c: GraphicsContext, g: Gradient, r: Rect) =
     vertices.add(r.maxX)
     vertices.add(r.maxY)
     colorToAttrArray(g.endColor, colors)
+    c.drawGradientVertexes(vertices, colors)
 
-    const componentCount = 2
-    c.gl.useProgram(c.gradientShaderProgram)
+proc drawVerticalGradientInRect*(c: GraphicsContext, g: Gradient, r: Rect) =
+    var vertices = newSeq[Coord]()
+    var colors = newSeq[GLfloat]()
+    vertices.add(r.minX)
+    vertices.add(r.minY)
+    colorToAttrArray(g.startColor, colors)
 
-    c.gl.enableVertexAttribArray(saPosition.GLuint)
-    c.gl.enableVertexAttribArray(saColor.GLuint)
-    c.gl.vertexAttribPointer(saPosition.GLuint, componentCount.GLint, false, 0, vertices)
-    c.gl.vertexAttribPointer(saColor.GLuint, 4, false, 0, colors)
+    vertices.add(r.maxX)
+    vertices.add(r.minY)
+    colorToAttrArray(g.startColor, colors)
 
-    c.setTransformUniform(c.gradientShaderProgram)
-    c.gl.drawArrays(c.gl.TRIANGLE_STRIP, 0, GLsizei(vertices.len / componentCount))
+    for cs in g.colorStops:
+        let yLoc = r.minY + r.height * cs.location
+        vertices.add(r.minX)
+        vertices.add(yLoc)
+        colorToAttrArray(cs.color, colors)
+        vertices.add(r.maxX)
+        vertices.add(yLoc)
+        colorToAttrArray(cs.color, colors)
+
+    vertices.add(r.minX)
+    vertices.add(r.maxY)
+    colorToAttrArray(g.endColor, colors)
+
+    vertices.add(r.maxX)
+    vertices.add(r.maxY)
+    colorToAttrArray(g.endColor, colors)
+    c.drawGradientVertexes(vertices, colors)
 
 proc drawPoly*(c: GraphicsContext, points: openArray[Coord]) =
     let shaderProg = c.testPolyShaderProgram
