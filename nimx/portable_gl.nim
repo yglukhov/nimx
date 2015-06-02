@@ -62,6 +62,7 @@ when defined js:
             useProgram*: proc(prog: GLuint)
             enable*: proc(flag: GLenum)
             disable*: proc(flag: GLenum)
+            isEnabled*: proc(flag: GLenum): bool
             viewport*: proc(x, y: GLint, width, height: GLsizei)
             clear*: proc(mask: int)
             bindTexture*: proc(target: GLenum, name: GLuint)
@@ -172,6 +173,7 @@ else:
     template useProgram*(gl: GL, prog: GLuint) = glUseProgram(prog)
     template enable*(gl: GL, flag: GLenum) = glEnable(flag)
     template disable*(gl: GL, flag: GLenum) = glDisable(flag)
+    template isEnabled*(gl: GL, flag: GLenum): bool = glIsEnabled(flag)
     template viewport*(gl: GL, x, y: GLint, width, height: GLsizei) = glViewport(x, y, width, height)
     template clear*(gl: GL, mask: GLbitfield) = glClear(mask)
     template bindTexture*(gl: GL, target: GLenum, name: GLuint) = glBindTexture(target, name)
@@ -328,6 +330,18 @@ proc getParami*(gl: GL, pname: GLenum): GLint =
         asm "`result` = `gl`.getParameter(`pname`);"
     else:
         glGetIntegerv(pname, addr result)
+
+proc getParamf*(gl: GL, pname: GLenum): GLfloat =
+    when defined js:
+        asm "`result` = `gl`.getParameter(`pname`);"
+    else:
+        glGetFloatv(pname, addr result)
+
+proc getParamb*(gl: GL, pname: GLenum): GLboolean =
+    when defined js:
+        asm "`result` = `gl`.getParameter(`pname`);"
+    else:
+        glGetBooleanv(pname, addr result)
 
 proc getViewport*(gl: GL): array[4, GLint] =
     when defined js:
