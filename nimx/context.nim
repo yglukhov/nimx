@@ -8,12 +8,13 @@ import font
 import image
 import unicode
 import portable_gl
+import gradient
 
 export matrixes
 
 type ShaderAttribute = enum
     saPosition
-
+    saColor
 
 type Transform3D* = Matrix4
 
@@ -52,6 +53,12 @@ proc newShaderProgram(gl: GL, vs, fs: string): GLuint =
         gl.deleteProgram(result)
         return 0
     gl.attachShader(result, s)
+
+    gl.bindAttribLocation(result, saPosition.GLuint, "position")
+
+    # TODO: This will emit a warning on link phase, when shader has no color attribute
+    gl.bindAttribLocation(result, saColor.GLuint, "color")
+
     gl.linkProgram(result)
     let linked = gl.isProgramLinked(result)
     let info = gl.programInfoLog(result)
@@ -60,7 +67,6 @@ proc newShaderProgram(gl: GL, vs, fs: string): GLuint =
         result = 0
     elif info.len > 0:
         logi "Program linked: ", info
-    gl.bindAttribLocation(result, saPosition.GLuint, "position")
 
 when defined js:
     type Transform3DRef = ref Transform3D
@@ -79,6 +85,7 @@ type GraphicsContext* = ref object of RootObj
     fontShaderProgram: GLuint
     testPolyShaderProgram: GLuint
     imageShaderProgram: GLuint
+    gradientShaderProgram: GLuint
 
 var gCurrentContext: GraphicsContext
 
@@ -110,6 +117,7 @@ proc newGraphicsContext*(canvas: ref RootObj = nil): GraphicsContext =
     result.fontShaderProgram = result.gl.newShaderProgram(fontVertexShader, fontFragmentShader)
     #result.testPolyShaderProgram = result.gl.newShaderProgram(testPolygonVertexShader, testPolygonFragmentShader)
     result.imageShaderProgram = result.gl.newShaderProgram(imageVertexShader, imageFragmentShader)
+    result.gradientShaderProgram = result.gl.newShaderProgram(gradientVertexShader, gradientFragmentShader)
     result.gl.clearColor(0.93, 0.93, 0.93, 1.0)
 
 
@@ -252,6 +260,51 @@ proc drawImage*(c: GraphicsContext, i: Image, toRect: Rect, fromRect: Rect = zer
         c.setTransformUniform(c.imageShaderProgram)
         c.gl.vertexAttribPointer(saPosition.GLuint, 4, false, 0, points)
         c.gl.drawArrays(c.gl.TRIANGLE_FAN, 0, 4)
+
+proc colorToAttrArray(c: Color, a: var seq[GLfloat]) =
+    a.add(c.r)
+    a.add(c.g)
+    a.add(c.b)
+    a.add(c.a)
+
+proc drawHorizontalGradientInRect*(c: GraphicsContext, g: Gradient, r: Rect) =
+    var vertices = newSeq[Coord]()
+    var colors = newSeq[GLfloat]()
+    vertices.add(r.minX)
+    vertices.add(r.minY)
+    colorToAttrArray(g.startColor, colors)
+
+    vertices.add(r.minX)
+    vertices.add(r.maxY)
+    colorToAttrArray(g.startColor, colors)
+
+    for cs in g.colorStops:
+        let xLoc = r.minX + r.width * cs.location
+        vertices.add(xLoc)
+        vertices.add(r.minY)
+        colorToAttrArray(cs.color, colors)
+        vertices.add(xLoc)
+        vertices.add(r.maxY)
+        colorToAttrArray(cs.color, colors)
+
+    vertices.add(r.maxX)
+    vertices.add(r.minY)
+    colorToAttrArray(g.endColor, colors)
+
+    vertices.add(r.maxX)
+    vertices.add(r.maxY)
+    colorToAttrArray(g.endColor, colors)
+
+    const componentCount = 2
+    c.gl.useProgram(c.gradientShaderProgram)
+
+    c.gl.enableVertexAttribArray(saPosition.GLuint)
+    c.gl.enableVertexAttribArray(saColor.GLuint)
+    c.gl.vertexAttribPointer(saPosition.GLuint, componentCount.GLint, false, 0, vertices)
+    c.gl.vertexAttribPointer(saColor.GLuint, 4, false, 0, colors)
+
+    c.setTransformUniform(c.gradientShaderProgram)
+    c.gl.drawArrays(c.gl.TRIANGLE_STRIP, 0, GLsizei(vertices.len / componentCount))
 
 proc drawPoly*(c: GraphicsContext, points: openArray[Coord]) =
     let shaderProg = c.testPolyShaderProgram

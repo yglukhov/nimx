@@ -143,6 +143,35 @@ void main()
 }
 """
 
+const gradientVertexShader = """
+attribute vec2 position;
+attribute vec4 color;
+
+uniform mat4 modelViewProjectionMatrix;
+
+varying vec4 vColor;
+
+void main()
+{
+    vColor = color;
+    //vColor = vec4(0, 0.2, 0, 1);
+    gl_Position = modelViewProjectionMatrix * vec4(position, 0, 1);
+}
+"""
+
+const gradientFragmentShader = """
+#ifdef GL_ES
+precision mediump float;
+#endif
+
+varying vec4 vColor;
+
+void main()
+{
+    gl_FragColor = vColor;
+}
+"""
+
 const maxVertices = 12
 
 const testPolygonVertexShader = """
@@ -227,4 +256,3 @@ void main()
     gl_FragColor = texture2D(texUnit, vTexCoord);
 }
 """
-
