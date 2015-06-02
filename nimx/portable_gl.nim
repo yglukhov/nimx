@@ -15,6 +15,7 @@ when defined js:
             DST_ALPHA* : GLenum
             BLEND* : GLenum
             TRIANGLE_FAN* : GLenum
+            TRIANGLE_STRIP* : GLenum
             COLOR_BUFFER_BIT*: int
             STENCIL_BUFFER_BIT*: int
             TEXTURE_MIN_FILTER* : GLenum
@@ -101,6 +102,7 @@ else:
     template DST_ALPHA*(gl: GL): GLenum = GL_DST_ALPHA
     template BLEND*(gl: GL): GLenum = GL_BLEND
     template TRIANGLE_FAN*(gl: GL): GLenum = GL_TRIANGLE_FAN
+    template TRIANGLE_STRIP*(gl: GL): GLenum = GL_TRIANGLE_STRIP
     template COLOR_BUFFER_BIT*(gl: GL): GLbitfield = GL_COLOR_BUFFER_BIT
     template STENCIL_BUFFER_BIT*(gl: GL): GLbitfield = GL_STENCIL_BUFFER_BIT
     template TEXTURE_MIN_FILTER*(gl: GL): GLenum = GL_TEXTURE_MIN_FILTER
@@ -299,12 +301,22 @@ proc vertexAttribPointer*(gl: GL, index: GLuint, size: GLint, normalized: GLbool
                         stride: GLsizei, data: openarray[GLfloat]) =
     when defined js:
         asm """
-            if (typeof(`vertexAttribPointer`.__nimxSharedBuffer) == "undefined")
+            var buf = null;
+            if (typeof(`vertexAttribPointer`.__nimxSharedBuffers) == "undefined")
             {
-                `vertexAttribPointer`.__nimxSharedBuffer = `gl`.createBuffer();
+                `vertexAttribPointer`.__nimxSharedBuffers = {};
+            }
+            if (typeof(`vertexAttribPointer`.__nimxSharedBuffers[`index`]) == "undefined")
+            {
+                buf = `gl`.createBuffer();
+                `vertexAttribPointer`.__nimxSharedBuffers[`index`] = buf;
+            }
+            else
+            {
+                buf = `vertexAttribPointer`.__nimxSharedBuffers[`index`];
             }
 
-            `gl`.bindBuffer(`gl`.ARRAY_BUFFER, `vertexAttribPointer`.__nimxSharedBuffer);
+            `gl`.bindBuffer(`gl`.ARRAY_BUFFER, buf);
             `gl`.bufferData(`gl`.ARRAY_BUFFER, new Float32Array(`data`), `gl`.DYNAMIC_DRAW);
             `gl`.vertexAttribPointer(`index`, `size`, `gl`.FLOAT, `normalized`, `stride`, 0);
             """
@@ -334,4 +346,3 @@ proc getClearColor*(gl: GL, colorComponents: var array[4, GLfloat]) =
         """
     else:
         glGetFloatv(GL_COLOR_CLEAR_VALUE, cast[ptr GLfloat](addr colorComponents))
-
