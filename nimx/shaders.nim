@@ -1,27 +1,161 @@
 
-const vertexShader = """
-attribute vec4 position;
+import tables
+import hashes
 
-uniform mat4 modelViewProjectionMatrix;
+type ShaderAttribute2 = enum
+    aPosition
+    aColor
 
-void main()
-{
-    gl_Position = modelViewProjectionMatrix * position;
-}
-"""
+proc hash*(x: ShaderAttribute2): THash {.inline.} = ord(x)
 
-const fragmentShader = """
+type NameType = tuple[name, typ: string]
+type AttrType = tuple[name: ShaderAttribute2, typ: string]
+
+type EffectImpl = object
+    fillDistance: string
+    strokeDistance: string
+    fillColor: string
+    strokeColor: string
+    clipDistance: string
+    vertexPosition: string
+    fillVaryings: string
+    attributes: seq[AttrType]
+    varyings: seq[NameType]
+    vertexShaderUniforms: seq[NameType]
+    fragmentShaderUniforms: seq[NameType]
+
+const MVPTransformation2D = EffectImpl(
+    vertexPosition: "return modelViewProjectionMatrix * vec4(aPosition.xy, 0, 1);",
+
+    vertexShaderUniforms: @{
+        "modelViewProjectionMatrix": "mat4"
+    },
+
+    attributes: @{
+        aPosition: "vec4"
+    }
+)
+
+const SolidColorFill = EffectImpl(
+    fragmentShaderUniforms: @{
+        "fillColor": "vec4"
+    },
+
+    fillColor: """
+        return fillColor;
+    """
+)
+
+proc perVertexAttributeInterpolationEffect(attr: ShaderAttribute2, typ: string): EffectImpl =
+    result.attributes = @{attr : typ}
+    let varyingName = "v" & ($attr)[1 .. ^1]
+    result.fillVaryings = varyingName & "=" & $attr & ";"
+    result.varyings = @{ varyingName : typ }
+
+const PerVertexColorFill = EffectImpl(
+    fillColor: """
+        return vColor;
+        """
+    )
+
+type ShaderCode = object
+    vertexShaderCode, fragmentShaderCode: string
+    attributes: seq[ShaderAttribute2]
+
+proc makeShaderCodeWithEffects(effects: varargs[EffectImpl]): ShaderCode =
+    result.attributes = @[]
+    result.vertexShaderCode = ""
+    result.fragmentShaderCode = """
 #ifdef GL_ES
+#extension GL_OES_standard_derivatives : enable
 precision mediump float;
 #endif
-
-uniform vec4 fillColor;
-
-void main()
-{
-	gl_FragColor = fillColor;
-}
 """
+    var attrTable = initTable[ShaderAttribute2, string]()
+
+    for e in effects:
+        for nt in e.attributes:
+            if attrTable.hasKey(nt.name):
+                assert(attrTable[nt.name] == nt.typ, "Attribute " & $nt.name &
+                    " already defined with type " & attrTable[nt.name] &
+                    ". New type: " & nt.typ)
+            else:
+                attrTable[nt.name] = nt.typ
+                result.attributes.add(nt.name)
+                result.vertexShaderCode &= "attribute " & nt.typ & " " & $nt.name & ";\n"
+
+    var symTable = initTable[string, string]()
+    for e in effects:
+        for nt in e.vertexShaderUniforms:
+            assert(not symTable.hasKey(nt.name), "Uniform " & nt.name &
+                " already defined with type " & symTable[nt.name] &
+                ". New type: " & nt.typ)
+            symTable[nt.name] = nt.typ
+            result.vertexShaderCode &= "uniform " & nt.typ & " " & nt.name & ";\n"
+
+    for e in effects:
+        for nt in e.fragmentShaderUniforms:
+            assert(not symTable.hasKey(nt.name), "Uniform " & nt.name &
+                " already defined with type " & symTable[nt.name] &
+                ". New type: " & nt.typ)
+            symTable[nt.name] = nt.typ
+            result.fragmentShaderCode &= "uniform " & nt.typ & " " & nt.name & ";\n"
+
+    symTable = initTable[string, string]()
+    for e in effects:
+        for nt in e.varyings:
+            assert(not symTable.hasKey(nt.name), "Varying " & nt.name &
+                " already defined with type " & symTable[nt.name] &
+                ". New type: " & nt.typ)
+            symTable[nt.name] = nt.typ
+            result.vertexShaderCode &= "varying " & nt.typ & " " & nt.name & ";\n"
+            result.fragmentShaderCode &= "varying " & nt.typ & " " & nt.name & ";\n"
+
+    var vertexPositionDefined = false
+    var fillDistanceDefined = false
+    var strokeDistanceDefined = false
+    var fillColorDefined = false
+    var strokeColorDefined = false
+    for e in effects:
+        if not e.vertexPosition.isNil:
+            assert(not vertexPositionDefined)
+            vertexPositionDefined = true
+            result.vertexShaderCode &= "vec4 vertexPosition(){" & e.vertexPosition & "}\n"
+        if not e.fillDistance.isNil:
+            assert(not fillDistanceDefined)
+            fillDistanceDefined = true
+            result.fragmentShaderCode &= "float fillDistance(){" & e.fillDistance & "}\n"
+        if not e.strokeDistance.isNil:
+            assert(not strokeDistanceDefined)
+            strokeDistanceDefined = true
+            result.fragmentShaderCode &= "float strokeDistance(){" & e.strokeDistance & "}\n"
+        if not e.fillColor.isNil:
+            assert(not fillColorDefined)
+            fillColorDefined = true
+            result.fragmentShaderCode &= "vec4 _fc(){" & e.fillColor & "}\n"
+        if not e.strokeColor.isNil:
+            assert(not strokeColorDefined)
+            strokeColorDefined = true
+            result.fragmentShaderCode &= "vec4 strokeColor(){" & e.strokeColor & "}\n"
+
+    assert(vertexPositionDefined)
+    assert(fillColorDefined or strokeColorDefined)
+
+    result.vertexShaderCode &= "void main(){gl_Position=vertexPosition();"
+    result.fragmentShaderCode &= "void main() {\n"
+
+    for e in effects:
+        if not e.fillVaryings.isNil:
+            result.vertexShaderCode &= e.fillVaryings & "\n"
+
+    if fillDistanceDefined:
+        discard
+    else:
+        if fillColorDefined:
+            result.fragmentShaderCode &= "gl_FragColor=_fc();"
+
+    result.vertexShaderCode &= "}"
+    result.fragmentShaderCode &= "}"
 
 const roundedRectVertexShader = """
 attribute vec4 position;
@@ -140,35 +274,6 @@ varying vec2 vTexCoord;
 void main()
 {
     gl_FragColor = vec4(fillColor.rgb, texture2D(texUnit, vTexCoord).w);
-}
-"""
-
-const gradientVertexShader = """
-attribute vec2 position;
-attribute vec4 color;
-
-uniform mat4 modelViewProjectionMatrix;
-
-varying vec4 vColor;
-
-void main()
-{
-    vColor = color;
-    //vColor = vec4(0, 0.2, 0, 1);
-    gl_Position = modelViewProjectionMatrix * vec4(position, 0, 1);
-}
-"""
-
-const gradientFragmentShader = """
-#ifdef GL_ES
-precision mediump float;
-#endif
-
-varying vec4 vColor;
-
-void main()
-{
-    gl_FragColor = vColor;
 }
 """
 
