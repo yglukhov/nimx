@@ -1,6 +1,9 @@
 
 import opengl
 # export opengl
+import unsigned
+
+export GLuint, GLint, GLfloat, GLenum, GLsizei, GLushort
 
 when defined js:
     type
@@ -14,8 +17,7 @@ when defined js:
             SRC_ALPHA* : GLenum
             DST_ALPHA* : GLenum
             BLEND* : GLenum
-            TRIANGLE_FAN* : GLenum
-            TRIANGLE_STRIP* : GLenum
+            TRIANGLES*, TRIANGLE_FAN*, TRIANGLE_STRIP* : GLenum
             COLOR_BUFFER_BIT*: int
             STENCIL_BUFFER_BIT*: int
             TEXTURE_MIN_FILTER* : GLenum
@@ -24,6 +26,8 @@ when defined js:
             NEAREST* : GLint
             FRAMEBUFFER* : GLenum
             RENDERBUFFER* : GLenum
+            ARRAY_BUFFER* : GLenum
+            ELEMENT_ARRAY_BUFFER* : GLenum
             RGBA* : GLenum
             ALPHA* : GLenum
             UNSIGNED_BYTE* : GLenum
@@ -39,6 +43,11 @@ when defined js:
             NEVER*, LESS*, LEQUAL*, GREATER*, GEQUAL*, EQUAL*, NOTEQUAL*, ALWAYS*: GLenum
             KEEP*, ZERO*, REPLACE*, INCR*, INCR_WRAP*, DECR*, DECR_WRAP*, INVERT*: GLenum
 
+            STREAM_DRAW*, STREAM_READ*, STREAM_COPY*, STATIC_DRAW*, STATIC_READ*,
+                STATIC_COPY*, DYNAMIC_DRAW*, DYNAMIC_READ*, DYNAMIC_COPY* : GLenum
+
+            FLOAT*, UNSIGNED_SHORT* : GLenum
+
             compileShader*: proc(shader: GLuint)
             deleteShader*: proc(shader: GLuint)
             deleteProgram*: proc(prog: GLuint)
@@ -46,11 +55,13 @@ when defined js:
 
             linkProgram*: proc(prog: GLuint)
             drawArrays*: proc (mode: GLenum, first: GLint, count: GLsizei)
+            drawElements*: proc (mode: GLenum, count: GLsizei, typ: GLenum, alwaysZeroOffset: int = 0)
             createShader*: proc (shaderType: GLenum): GLuint
             createProgram*: proc (): GLuint
             createTexture*: proc(): GLuint
             createFramebuffer*: proc(): GLuint
             createRenderbuffer*: proc(): GLuint
+            createBuffer*: proc(): GLuint
 
             deleteFramebuffer*: proc(name: GLuint)
             deleteRenderbuffer*: proc(name: GLuint)
@@ -68,6 +79,7 @@ when defined js:
             bindTexture*: proc(target: GLenum, name: GLuint)
             bindFramebuffer*: proc(target: GLenum, name: GLuint)
             bindRenderbuffer*: proc(target: GLenum, name: GLuint)
+            bindBuffer*: proc(target: GLenum, name: GLuint)
 
             uniform4fv*: proc(location: GLint, data: array[4, GLfloat])
             uniform1f*: proc(location: GLint, data: GLfloat)
@@ -91,7 +103,6 @@ when defined js:
 
             getError*: proc(): GLenum
 
-
 else:
     type GL* = ref object
     template VERTEX_SHADER*(gl: GL): GLenum = GL_VERTEX_SHADER
@@ -102,6 +113,7 @@ else:
     template SRC_ALPHA*(gl: GL): GLenum = GL_SRC_ALPHA
     template DST_ALPHA*(gl: GL): GLenum = GL_DST_ALPHA
     template BLEND*(gl: GL): GLenum = GL_BLEND
+    template TRIANGLES*(gl: GL): GLenum = GL_TRIANGLES
     template TRIANGLE_FAN*(gl: GL): GLenum = GL_TRIANGLE_FAN
     template TRIANGLE_STRIP*(gl: GL): GLenum = GL_TRIANGLE_STRIP
     template COLOR_BUFFER_BIT*(gl: GL): GLbitfield = GL_COLOR_BUFFER_BIT
@@ -112,6 +124,8 @@ else:
     template NEAREST*(gl: GL): GLint = GL_NEAREST
     template FRAMEBUFFER*(gl: GL): GLenum = GL_FRAMEBUFFER
     template RENDERBUFFER*(gl: GL): GLenum = GL_RENDERBUFFER
+    template ARRAY_BUFFER*(gl: GL): GLenum = GL_ARRAY_BUFFER
+    template ELEMENT_ARRAY_BUFFER*(gl: GL): GLenum = GL_ELEMENT_ARRAY_BUFFER
     template RGBA*(gl: GL): expr = GL_RGBA
     template ALPHA*(gl: GL): expr = GL_ALPHA
     template UNSIGNED_BYTE*(gl: GL): GLenum = GL_UNSIGNED_BYTE
@@ -143,6 +157,19 @@ else:
     template DECR_WRAP*(gl: GL): GLenum = GL_DECR_WRAP
     template INVERT*(gl: GL): GLenum = GL_INVERT
 
+    template STREAM_DRAW*(gl: GL): GLenum = GL_STREAM_DRAW
+    template STREAM_READ*(gl: GL): GLenum = GL_STREAM_READ
+    template STREAM_COPY*(gl: GL): GLenum = GL_STREAM_COPY
+    template STATIC_DRAW*(gl: GL): GLenum = GL_STATIC_DRAW
+    template STATIC_READ*(gl: GL): GLenum = GL_STATIC_READ
+    template STATIC_COPY*(gl: GL): GLenum = GL_STATIC_COPY
+    template DYNAMIC_DRAW*(gl: GL): GLenum = GL_DYNAMIC_DRAW
+    template DYNAMIC_READ*(gl: GL): GLenum = GL_DYNAMIC_READ
+    template DYNAMIC_COPY*(gl: GL): GLenum = GL_DYNAMIC_COPY
+
+    template FLOAT*(gl: GL): GLenum = cGL_FLOAT
+    template UNSIGNED_SHORT*(gl: GL): GLenum = GL_UNSIGNED_SHORT
+
     template compileShader*(gl: GL, shader: GLuint) = glCompileShader(shader)
     template deleteShader*(gl: GL, shader: GLuint) = glDeleteShader(shader)
     template deleteProgram*(gl: GL, prog: GLuint) = glDeleteProgram(prog)
@@ -152,11 +179,13 @@ else:
     template linkProgram*(gl: GL, prog: GLuint) = glLinkProgram(prog)
 
     template drawArrays*(gl: GL, mode: GLenum, first: GLint, count: GLsizei) = glDrawArrays(mode, first, count)
+    template drawElements*(gl: GL, mode: GLenum, count: GLsizei, typ: GLenum) = glDrawElements(mode, count, typ, nil)
     template createShader*(gl: GL, shaderType: GLenum): GLuint = glCreateShader(shaderType)
     template createProgram*(gl: GL): GLuint = glCreateProgram()
     proc createTexture*(gl: GL): GLuint = glGenTextures(1, addr result)
     proc createFramebuffer*(gl: GL): GLuint {.inline.} = glGenFramebuffers(1, addr result)
     proc createRenderbuffer*(gl: GL): GLuint {.inline.} = glGenRenderbuffers(1, addr result)
+    proc createBuffer*(gl: GL): GLuint {.inline.} = glGenBuffers(1, addr result)
 
     proc deleteFramebuffer*(gl: GL, name: GLuint) {.inline.} =
         var n = name
@@ -179,6 +208,7 @@ else:
     template bindTexture*(gl: GL, target: GLenum, name: GLuint) = glBindTexture(target, name)
     template bindFramebuffer*(gl: GL, target: GLenum, name: GLuint) = glBindFramebuffer(target, name)
     template bindRenderbuffer*(gl: GL, target: GLenum, name: GLuint) = glBindRenderbuffer(target, name)
+    template bindBuffer*(gl: GL, target: GLenum, name: GLuint) = glBindBuffer(target, name)
 
     template uniform1f*(gl: GL, location: GLint, data: GLfloat) = glUniform1f(location, data)
     proc uniformMatrix4fv*(gl: GL, location: GLint, transpose: GLboolean, data: array[16, GLfloat]) {.inline.} =
@@ -283,7 +313,7 @@ proc shaderSource*(gl: GL, s: GLuint, src: cstring) =
         var srcArray = [src]
         glShaderSource(s, 1, cast[cstringArray](addr srcArray), nil)
 
-proc isShaderCompiled*(gl: GL, shader: GLuint): bool =
+proc isShaderCompiled*(gl: GL, shader: GLuint): bool {.inline.} =
     when defined js:
         asm "`result` = `gl`.getShaderParameter(`shader`, `gl`.COMPILE_STATUS);"
     else:
@@ -291,7 +321,7 @@ proc isShaderCompiled*(gl: GL, shader: GLuint): bool =
         glGetShaderiv(shader, GL_COMPILE_STATUS, addr compiled)
         result = if compiled == GL_TRUE: true else: false
 
-proc isProgramLinked*(gl: GL, prog: GLuint): bool =
+proc isProgramLinked*(gl: GL, prog: GLuint): bool {.inline.} =
     when defined js:
         asm "`result` = `gl`.getProgramParameter(`prog`, `gl`.LINK_STATUS);"
     else:
@@ -299,29 +329,48 @@ proc isProgramLinked*(gl: GL, prog: GLuint): bool =
         glGetProgramiv(prog, GL_LINK_STATUS, addr linked)
         result = if linked == GL_TRUE: true else: false
 
+proc bufferData*(gl: GL, target: GLenum, data: openarray[GLfloat], usage: GLenum) {.inline.} =
+    when defined(js):
+        asm "`gl`.bufferData(`target`, new Float32Array(`data`), `usage`);"
+    else:
+        glBufferData(target, GLsizei(data.len * sizeof(GLfloat)), cast[pointer](data), usage);
+
+proc bufferData*(gl: GL, target: GLenum, data: openarray[GLushort], usage: GLenum) {.inline.} =
+    when defined(js):
+        asm "`gl`.bufferData(`target`, new Uint16Array(`data`), `usage`);"
+    else:
+        glBufferData(target, GLsizei(data.len * sizeof(GLushort)), cast[pointer](data), usage);
+
+proc vertexAttribPointer*(gl: GL, index: GLuint, size: GLint, typ: GLenum, normalized: GLboolean,
+                        stride: GLsizei, offset: int) {.inline.} =
+    when defined(js):
+        asm "`gl`.vertexAttribPointer(`index`, `size`, `typ`, `normalized`, `stride`, `offset`);"
+    else:
+        glVertexAttribPointer(index, size, typ, normalized, stride, cast[pointer](offset))
+
 proc vertexAttribPointer*(gl: GL, index: GLuint, size: GLint, normalized: GLboolean,
                         stride: GLsizei, data: openarray[GLfloat]) =
     when defined js:
         asm """
-            var buf = null;
-            if (typeof(`vertexAttribPointer`.__nimxSharedBuffers) == "undefined")
-            {
-                `vertexAttribPointer`.__nimxSharedBuffers = {};
-            }
-            if (typeof(`vertexAttribPointer`.__nimxSharedBuffers[`index`]) == "undefined")
-            {
-                buf = `gl`.createBuffer();
-                `vertexAttribPointer`.__nimxSharedBuffers[`index`] = buf;
-            }
-            else
-            {
-                buf = `vertexAttribPointer`.__nimxSharedBuffers[`index`];
-            }
+        var buf = null;
+        if (typeof(`vertexAttribPointer`.__nimxSharedBuffers) == "undefined")
+        {
+            `vertexAttribPointer`.__nimxSharedBuffers = {};
+        }
+        if (typeof(`vertexAttribPointer`.__nimxSharedBuffers[`index`]) == "undefined")
+        {
+            buf = `gl`.createBuffer();
+            `vertexAttribPointer`.__nimxSharedBuffers[`index`] = buf;
+        }
+        else
+        {
+            buf = `vertexAttribPointer`.__nimxSharedBuffers[`index`];
+        }
 
-            `gl`.bindBuffer(`gl`.ARRAY_BUFFER, buf);
-            `gl`.bufferData(`gl`.ARRAY_BUFFER, new Float32Array(`data`), `gl`.DYNAMIC_DRAW);
-            `gl`.vertexAttribPointer(`index`, `size`, `gl`.FLOAT, `normalized`, `stride`, 0);
-            """
+        `gl`.bindBuffer(`gl`.ARRAY_BUFFER, buf);
+        `gl`.bufferData(`gl`.ARRAY_BUFFER, new Float32Array(`data`), `gl`.DYNAMIC_DRAW);
+        """
+        gl.vertexAttribPointer(index, size, gl.FLOAT, normalized, stride, 0)
     else:
         glVertexAttribPointer(index, size, cGL_FLOAT, normalized, stride, cast[pointer](data));
 
