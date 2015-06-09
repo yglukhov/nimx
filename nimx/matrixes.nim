@@ -26,6 +26,16 @@ proc x*(v: Vector3): Coord = v[0]
 proc y*(v: Vector3): Coord = v[1]
 proc z*(v: Vector3): Coord = v[2]
 
+proc `*`*(v: Vector3, scalar: Coord): Vector3 =
+    result[0] = v[0] * scalar
+    result[1] = v[1] * scalar
+    result[2] = v[2] * scalar
+
+proc `+`*(v1, v2: Vector3): Vector3 =
+    result[0] = v1[0] + v2[0]
+    result[1] = v1[1] + v2[1]
+    result[2] = v1[2] + v2[2]
+
 proc loadIdentity*(dest: var Matrix4) =
     dest[0] = 1
     dest[1] = 0
@@ -62,7 +72,7 @@ proc transpose*(mat: var Matrix4) =
     mat[12] = a03
     mat[13] = a13
     mat[14] = a23
-    
+
 
 proc transposed*(mat: Matrix4): Matrix4 =
     result[0] = mat[0]
@@ -634,7 +644,7 @@ proc lookAt*(dest: var Matrix4, eye, center, up: Vector3) =
         dest.loadIdentity()
         return
 
-    var 
+    var
         z0 = eyex - centerx
         z1 = eyey - centery
         z2 = eyez - centerz
@@ -730,8 +740,7 @@ mat4_t mat4_fromRotationTranslation(quat_t quat, vec3_t vec, mat4_t dest) {
     dest[13] = vec[1];
     dest[14] = vec[2];
     dest[15] = 1;
-    
+
     return dest;
 }
 """
-
