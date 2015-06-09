@@ -33,6 +33,51 @@ when not defined(android):
             result.data = alloc(result.size)
             discard f.readBuffer(result.data, result.size)
 
+when not defined(js):
+    import streams
+    type
+        RWOpsStream = ref RWOpsStreamObj
+        RWOpsStreamObj = object of StreamObj
+            ops: RWopsPtr
+
+    proc rwClose(s: Stream) {.nimcall.} =
+        if RWOpsStream(s).ops != nil:
+            discard close(RWOpsStream(s).ops)
+            RWOpsStream(s).ops = nil
+    proc rwAtEnd(s: Stream): bool {.nimcall.} =
+        let ops = s.RWOpsStream.ops
+        result = ops.size(ops) == tell(ops)
+    proc rwSetPosition(s: Stream, pos: int) {.nimcall.} =
+        let ops = s.RWOpsStream.ops
+        discard ops.seek(ops, pos.int64, 0)
+    proc rwGetPosition(s: Stream): int {.nimcall.} = s.RWOpsStream.ops.tell().int
+
+    proc rwReadData(s: Stream, buffer: pointer, bufLen: int): int {.nimcall.} =
+        let res = read(s.RWOpsStream.ops, buffer, bufLen.csize, 1)
+        result = res
+        echo "R: ", result
+
+    proc rwWriteData(s: Stream, buffer: pointer, bufLen: int) {.nimcall.} =
+        if write(s.RWOpsStream.ops, buffer, 1, bufLen) != bufLen:
+            raise newException(IOError, "cannot write to stream")
+
+    proc newStreamWithRWops*(ops: RWopsPtr): RWOpsStream =
+        if ops.isNil: return
+        result.new()
+        result.ops = ops
+        result.closeImpl = cast[type(result.closeImpl)](rwClose)
+        result.atEndImpl = cast[type(result.atEndImpl)](rwAtEnd)
+        result.setPositionImpl = cast[type(result.setPositionImpl)](rwSetPosition)
+        result.getPositionImpl = cast[type(result.getPositionImpl)](rwGetPosition)
+        result.readDataImpl = cast[type(result.readDataImpl)](rwReadData)
+        result.writeDataImpl = cast[type(result.writeDataImpl)](rwWriteData)
+
+    proc streamForResourceWithName*(name: string): Stream =
+        when defined(android):
+            result = newStreamWithRWops(rwFromFile(name, "rb"))
+        else:
+            result = newFileStream(pathForResource(name), fmRead)
+
 proc loadResourceByName*(resourceName: string): Resource =
     when defined(android):
         let rw = rwFromFile(resourceName, "rb")
