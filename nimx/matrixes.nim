@@ -36,6 +36,11 @@ proc `+`*(v1, v2: Vector3): Vector3 =
     result[1] = v1[1] + v2[1]
     result[2] = v1[2] + v2[2]
 
+proc `-`*(v: Vector3): Vector3 =
+    result[0] = -v[0]
+    result[1] = -v[1]
+    result[2] = -v[2]
+
 proc loadIdentity*(dest: var Matrix4) =
     dest[0] = 1
     dest[1] = 0
