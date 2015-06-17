@@ -46,7 +46,7 @@ when not defined(js):
             RWOpsStream(s).ops = nil
     proc rwAtEnd(s: Stream): bool {.nimcall.} =
         let ops = s.RWOpsStream.ops
-        result = ops.size(ops) == tell(ops)
+        result = ops.size(ops) == ops.seek(ops, 0, 1)
     proc rwSetPosition(s: Stream, pos: int) {.nimcall.} =
         let ops = s.RWOpsStream.ops
         discard ops.seek(ops, pos.int64, 0)
