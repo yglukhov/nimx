@@ -50,7 +50,9 @@ when not defined(js):
     proc rwSetPosition(s: Stream, pos: int) {.nimcall.} =
         let ops = s.RWOpsStream.ops
         discard ops.seek(ops, pos.int64, 0)
-    proc rwGetPosition(s: Stream): int {.nimcall.} = s.RWOpsStream.ops.tell().int
+    proc rwGetPosition(s: Stream): int {.nimcall.} =
+        let ops = s.RWOpsStream.ops
+        result = ops.seek(ops, 0, 1).int
 
     proc rwReadData(s: Stream, buffer: pointer, bufLen: int): int {.nimcall.} =
         let res = read(s.RWOpsStream.ops, buffer, bufLen.csize, 1)
