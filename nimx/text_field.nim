@@ -42,6 +42,7 @@ proc drawCursorWithRect(r: Rect) =
     if cursorVisible:
         let c = currentContext()
         c.fillColor = blackColor()
+        c.strokeWidth = 0
         c.drawRect(r)
 
 proc bumpCursorVisibility(t: TextField) =
@@ -61,7 +62,7 @@ method draw*(t: TextField, r: Rect) =
         c.fillColor = whiteColor()
         c.strokeColor = newGrayColor(0.74)
         c.strokeWidth = 1.0
-        c.drawRoundedRect(t.bounds, 0)
+        c.drawRect(t.bounds)
 
     let font = systemFont()
 
@@ -134,4 +135,3 @@ method viewDidBecomeFirstResponder*(t: TextField) =
     cursorPos = if t.text.isNil: 0 else: t.text.len
     t.updateCursorOffset()
     t.bumpCursorVisibility()
-

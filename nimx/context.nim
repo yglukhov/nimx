@@ -8,7 +8,6 @@ import font
 import image
 import unicode
 import portable_gl
-import gradient
 
 export matrixes
 
@@ -18,7 +17,6 @@ type ShaderAttribute = enum
 
 type Transform3D* = Matrix4
 
-include shaders
 
 proc loadShader(gl: GL, shaderSrc: string, kind: GLenum): GLuint =
     result = gl.createShader(kind)
@@ -38,7 +36,8 @@ proc loadShader(gl: GL, shaderSrc: string, kind: GLenum): GLuint =
     elif info.len > 0:
         logi "Shader compile log: ", info
 
-proc newShaderProgram(gl: GL, vs, fs: string): GLuint = # Deprecated. kinda.
+proc newShaderProgram*(gl: GL, vs, fs: string,
+        attributes: openarray[tuple[index: GLuint, name: string]]): GLuint =
     result = gl.createProgram()
     if result == 0:
         logi "Could not create program: ", gl.getError().int
@@ -54,7 +53,8 @@ proc newShaderProgram(gl: GL, vs, fs: string): GLuint = # Deprecated. kinda.
         return 0
     gl.attachShader(result, s)
 
-    gl.bindAttribLocation(result, saPosition.GLuint, "position")
+    for a in attributes:
+        gl.bindAttribLocation(result, a.index, a.name)
 
     gl.linkProgram(result)
     let linked = gl.isProgramLinked(result)
@@ -65,33 +65,10 @@ proc newShaderProgram(gl: GL, vs, fs: string): GLuint = # Deprecated. kinda.
     elif info.len > 0:
         logi "Program linked: ", info
 
-proc newShaderProgram(gl: GL, sc: ShaderCode): GLuint =
-    result = gl.createProgram()
-    if result == 0:
-        logi "Could not create program: ", gl.getError().int
-        return
-    var s = gl.loadShader(sc.vertexShaderCode, gl.VERTEX_SHADER)
-    if s == 0:
-        gl.deleteProgram(result)
-        return 0
-    gl.attachShader(result, s)
-    s = gl.loadShader(sc.fragmentShaderCode, gl.FRAGMENT_SHADER)
-    if s == 0:
-        gl.deleteProgram(result)
-        return 0
-    gl.attachShader(result, s)
+proc newShaderProgram(gl: GL, vs, fs: string): GLuint {.inline.} = # Deprecated. kinda.
+    gl.newShaderProgram(vs, fs, [(saPosition.GLuint, "position")])
 
-    for a in sc.attributes:
-        gl.bindAttribLocation(result, a.GLuint, $a)
-
-    gl.linkProgram(result)
-    let linked = gl.isProgramLinked(result)
-    let info = gl.programInfoLog(result)
-    if not linked:
-        logi "Could not link: ", info
-        result = 0
-    elif info.len > 0:
-        logi "Program linked: ", info
+include shaders
 
 when defined js:
     type Transform3DRef = ref Transform3D
@@ -104,13 +81,9 @@ type GraphicsContext* = ref object of RootObj
     fillColor*: Color
     strokeColor*: Color
     strokeWidth*: Coord
-    shaderProgram: GLuint
-    roundedRectShaderProgram: GLuint
-    ellipseShaderProgram: GLuint
     fontShaderProgram: GLuint
     testPolyShaderProgram: GLuint
     imageShaderProgram: GLuint
-    gradientShaderProgram: GLuint
     debugClipColor: Color
 
 var gCurrentContext: GraphicsContext
@@ -137,23 +110,10 @@ proc newGraphicsContext*(canvas: ref RootObj = nil): GraphicsContext =
     when not defined(ios) and not defined(android) and not defined(js):
         loadExtensions()
 
-    result.shaderProgram = result.gl.newShaderProgram(
-        makeShaderCodeWithEffects(
-            SolidColorFill,
-            MVPTransformation2D))
-
-    result.roundedRectShaderProgram = result.gl.newShaderProgram(roundedRectVertexShader, roundedRectFragmentShader)
-    result.ellipseShaderProgram = result.gl.newShaderProgram(roundedRectVertexShader, ellipseFragmentShader)
     result.fontShaderProgram = result.gl.newShaderProgram(fontVertexShader, fontFragmentShader)
     #result.testPolyShaderProgram = result.gl.newShaderProgram(testPolygonVertexShader, testPolygonFragmentShader)
     result.imageShaderProgram = result.gl.newShaderProgram(imageVertexShader, imageFragmentShader)
-    result.gradientShaderProgram = result.gl.newShaderProgram(
-        makeShaderCodeWithEffects(
-            PerVertexColorFill,
-            perVertexAttributeInterpolationEffect(aColor, "vec4"),
-            MVPTransformation2D))
     result.gl.clearColor(0.93, 0.93, 0.93, 1.0)
-
 
 proc setCurrentContext*(c: GraphicsContext): GraphicsContext {.discardable.} =
     result = gCurrentContext
@@ -164,17 +124,19 @@ template currentContext*(): GraphicsContext = gCurrentContext
 proc setTransformUniform(c: GraphicsContext, program: GLuint) =
     c.gl.uniformMatrix4fv(c.gl.getUniformLocation(program, "modelViewProjectionMatrix"), false, c.transform)
 
-proc setColorUniform(c: GraphicsContext, program: GLuint, name: cstring, color: var Color) =
+proc setColorUniform*(c: GraphicsContext, program: GLuint, name: cstring, color: Color) =
     let loc = c.gl.getUniformLocation(program, name)
     when defined js:
         c.gl.uniform4fv(loc, [color.r, color.g, color.b, color.a])
     else:
-        glUniform4fv(loc, 1, cast[ptr GLfloat](addr color))
+        var p: ptr GLfloat
+        {.emit: "`p` = &`color`;".}
+        glUniform4fv(loc, 1, p);
 
 template setFillColorUniform(c: GraphicsContext, program: GLuint) =
     c.setColorUniform(program, "fillColor", c.fillColor)
 
-proc setRectUniform(c: GraphicsContext, prog: GLuint, name: cstring, r: Rect) =
+proc setRectUniform*(c: GraphicsContext, prog: GLuint, name: cstring, r: Rect) =
     let loc = c.gl.getUniformLocation(prog, name)
     when defined js:
         c.gl.uniform4fv(loc, [r.x, r.y, r.width, r.height])
@@ -190,52 +152,60 @@ proc setStrokeParamsUniform(c: GraphicsContext, program: GLuint) =
         c.setColorUniform(program, "strokeColor", c.strokeColor)
     c.gl.uniform1f(c.gl.getUniformLocation(program, "strokeWidth"), c.strokeWidth)
 
-proc drawVertexes(c: GraphicsContext, componentCount: int, points: openarray[Coord], pt: GLenum) =
-    assert(points.len mod componentCount == 0)
-    c.gl.useProgram(c.shaderProgram)
-    c.gl.enableVertexAttribArray(saPosition.GLuint)
-    c.gl.vertexAttribPointer(saPosition.GLuint, componentCount.GLint, false, 0, points)
-    c.setTransformUniform(c.shaderProgram)
-    c.setFillColorUniform(c.shaderProgram)
-    c.gl.drawArrays(pt, 0, GLsizei(points.len / componentCount))
+import composition
 
-proc drawRectAsQuad(c: GraphicsContext, r: Rect) =
-    let points = [r.minX, r.minY,
-                r.maxX, r.minY,
-                r.maxX, r.maxY,
-                r.minX, r.maxY]
-    let componentCount = 2
-    c.gl.enableVertexAttribArray(saPosition.GLuint)
-    c.gl.vertexAttribPointer(saPosition.GLuint, componentCount.GLint, false, 0, points)
-    c.gl.drawArrays(c.gl.TRIANGLE_FAN, 0, GLsizei(points.len / componentCount))
+var roundedRectComposition = newComposition """
+uniform vec4 uFillColor;
+uniform vec4 uStrokeColor;
+uniform float uStrokeWidth;
+uniform float uRadius;
+
+void compose() {
+    drawShape(sdRoundedRect(bounds, uRadius), uStrokeColor);
+    drawShape(sdRoundedRect(insetRect(bounds, uStrokeWidth), uRadius - uStrokeWidth), uFillColor);
+}
+"""
 
 proc drawRoundedRect*(c: GraphicsContext, r: Rect, radius: Coord) =
-    c.gl.enable(c.gl.BLEND)
-    c.gl.blendFunc(c.gl.SRC_ALPHA, c.gl.ONE_MINUS_SRC_ALPHA)
-    c.gl.useProgram(c.roundedRectShaderProgram)
-    c.setFillColorUniform(c.roundedRectShaderProgram)
-    c.setTransformUniform(c.roundedRectShaderProgram)
-    c.setRectUniform(c.roundedRectShaderProgram, "rect", r)
-    c.setStrokeParamsUniform(c.roundedRectShaderProgram)
-    c.gl.uniform1f(c.gl.getUniformLocation(c.roundedRectShaderProgram, "radius"), radius)
-    c.drawRectAsQuad(r)
+    roundedRectComposition.draw r:
+        setUniform("uFillColor", c.fillColor)
+        setUniform("uStrokeColor", if c.strokeWidth == 0: c.fillColor else: c.strokeColor)
+        setUniform("uStrokeWidth", c.strokeWidth)
+        setUniform("uRadius", radius)
+
+var rectComposition = newComposition """
+uniform vec4 uFillColor;
+uniform vec4 uStrokeColor;
+uniform float uStrokeWidth;
+
+void compose() {
+    drawShape(sdRect(bounds), uStrokeColor);
+    drawShape(sdRect(insetRect(bounds, uStrokeWidth)), uFillColor);
+}
+"""
 
 proc drawRect*(c: GraphicsContext, r: Rect) =
-    let points = [r.minX, r.minY,
-                r.maxX, r.minY,
-                r.maxX, r.maxY,
-                r.minX, r.maxY]
-    c.drawVertexes(2, points, c.gl.TRIANGLE_FAN)
+    rectComposition.draw r:
+        setUniform("uFillColor", c.fillColor)
+        setUniform("uStrokeColor", if c.strokeWidth == 0: c.fillColor else: c.strokeColor)
+        setUniform("uStrokeWidth", c.strokeWidth)
+
+var ellipseComposition = newComposition """
+uniform vec4 uFillColor;
+uniform vec4 uStrokeColor;
+uniform float uStrokeWidth;
+
+void compose() {
+    drawShape(sdEllipseInRect(bounds), uStrokeColor);
+    drawShape(sdEllipseInRect(insetRect(bounds, uStrokeWidth)), uFillColor);
+}
+"""
 
 proc drawEllipseInRect*(c: GraphicsContext, r: Rect) =
-    c.gl.enable(c.gl.BLEND)
-    c.gl.blendFunc(c.gl.SRC_ALPHA, c.gl.ONE_MINUS_SRC_ALPHA)
-    c.gl.useProgram(c.ellipseShaderProgram)
-    c.setFillColorUniform(c.ellipseShaderProgram)
-    c.setStrokeParamsUniform(c.ellipseShaderProgram)
-    c.setTransformUniform(c.ellipseShaderProgram)
-    c.setRectUniform(c.ellipseShaderProgram, "rect", r)
-    c.drawRectAsQuad(r)
+    ellipseComposition.draw r:
+        setUniform("uFillColor", c.fillColor)
+        setUniform("uStrokeColor", if c.strokeWidth == 0: c.fillColor else: c.strokeColor)
+        setUniform("uStrokeWidth", c.strokeWidth)
 
 proc drawText*(c: GraphicsContext, font: Font, pt: var Point, text: string) =
     # assume orthographic projection with units = screen pixels, origin at top left
@@ -290,83 +260,6 @@ proc drawImage*(c: GraphicsContext, i: Image, toRect: Rect, fromRect: Rect = zer
         c.setTransformUniform(c.imageShaderProgram)
         c.gl.vertexAttribPointer(saPosition.GLuint, 4, false, 0, points)
         c.gl.drawArrays(c.gl.TRIANGLE_FAN, 0, 4)
-
-proc colorToAttrArray(c: Color, a: var seq[GLfloat]) =
-    a.add(c.r)
-    a.add(c.g)
-    a.add(c.b)
-    a.add(c.a)
-
-proc drawGradientVertexes(c: GraphicsContext, vertexes, colors: openarray[GLfloat]) =
-    const componentCount = 2
-    c.gl.useProgram(c.gradientShaderProgram)
-
-    c.gl.enableVertexAttribArray(aPosition.GLuint)
-    c.gl.enableVertexAttribArray(aColor.GLuint)
-    c.gl.vertexAttribPointer(aPosition.GLuint, componentCount.GLint, false, 0, vertexes)
-    c.gl.vertexAttribPointer(aColor.GLuint, 4, false, 0, colors)
-
-    c.setTransformUniform(c.gradientShaderProgram)
-    c.gl.drawArrays(c.gl.TRIANGLE_STRIP, 0, GLsizei(vertexes.len / componentCount))
-
-
-proc drawHorizontalGradientInRect*(c: GraphicsContext, g: Gradient, r: Rect) =
-    var vertices = newSeq[Coord]()
-    var colors = newSeq[GLfloat]()
-    vertices.add(r.minX)
-    vertices.add(r.minY)
-    colorToAttrArray(g.startColor, colors)
-
-    vertices.add(r.minX)
-    vertices.add(r.maxY)
-    colorToAttrArray(g.startColor, colors)
-
-    for cs in g.colorStops:
-        let xLoc = r.minX + r.width * cs.location
-        vertices.add(xLoc)
-        vertices.add(r.minY)
-        colorToAttrArray(cs.color, colors)
-        vertices.add(xLoc)
-        vertices.add(r.maxY)
-        colorToAttrArray(cs.color, colors)
-
-    vertices.add(r.maxX)
-    vertices.add(r.minY)
-    colorToAttrArray(g.endColor, colors)
-
-    vertices.add(r.maxX)
-    vertices.add(r.maxY)
-    colorToAttrArray(g.endColor, colors)
-    c.drawGradientVertexes(vertices, colors)
-
-proc drawVerticalGradientInRect*(c: GraphicsContext, g: Gradient, r: Rect) =
-    var vertices = newSeq[Coord]()
-    var colors = newSeq[GLfloat]()
-    vertices.add(r.minX)
-    vertices.add(r.minY)
-    colorToAttrArray(g.startColor, colors)
-
-    vertices.add(r.maxX)
-    vertices.add(r.minY)
-    colorToAttrArray(g.startColor, colors)
-
-    for cs in g.colorStops:
-        let yLoc = r.minY + r.height * cs.location
-        vertices.add(r.minX)
-        vertices.add(yLoc)
-        colorToAttrArray(cs.color, colors)
-        vertices.add(r.maxX)
-        vertices.add(yLoc)
-        colorToAttrArray(cs.color, colors)
-
-    vertices.add(r.minX)
-    vertices.add(r.maxY)
-    colorToAttrArray(g.endColor, colors)
-
-    vertices.add(r.maxX)
-    vertices.add(r.maxY)
-    colorToAttrArray(g.endColor, colors)
-    c.drawGradientVertexes(vertices, colors)
 
 proc drawPoly*(c: GraphicsContext, points: openArray[Coord]) =
     let shaderProg = c.testPolyShaderProgram

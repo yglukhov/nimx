@@ -1,0 +1,231 @@
+import context
+import types
+import portable_gl
+import unsigned
+
+export portable_gl
+export context
+
+const commonFragmentFunctions = """
+float sdRect(vec2 p, vec4 rect) {
+    vec2 b = rect.zw / 2.0;
+    p -= rect.xy + b;
+    vec2 d = abs(p) - b;
+    return min(max(d.x, d.y), 0.0) + length(max(d, 0.0));
+}
+
+float sdRect(vec4 rect) {
+    return sdRect(vPos, rect);
+}
+
+float sdCircle(vec2 pos, vec2 center, float radius) {
+    return distance(pos, center) - radius;
+}
+
+float sdCircle(vec2 center, float radius) {
+    return sdCircle(vPos, center, radius);
+}
+
+float sdAnd(float d1, float d2) {
+    return max(d1, d2);
+}
+
+float sdOr(float d1, float d2) {
+    return min(d1, d2);
+}
+
+float sdOr(float d1, float d2, float d3) {
+    return sdOr(sdOr(d1, d2), d3);
+}
+
+float sdOr(float d1, float d2, float d3, float d4) {
+    return sdOr(sdOr(d1, d2, d3), d4);
+}
+
+float sdOr(float d1, float d2, float d3, float d4, float d5) {
+    return sdOr(sdOr(d1, d2, d3, d4), d5);
+}
+
+float sdOr(float d1, float d2, float d3, float d4, float d5, float d6) {
+    return sdOr(sdOr(d1, d2, d3, d4, d5), d6);
+}
+
+float sdSub(float d1, float d2) {
+    return max(d1, -d2);
+}
+
+float sdRoundedRect(vec2 pos, vec4 rect, float radius) {
+    vec4 hRect = vec4(rect.x + radius, rect.y, rect.z - radius * 2.0, rect.w);
+    vec4 vRect = vec4(rect.x, rect.y + radius, rect.z, rect.w - radius * 2.0);
+    return sdOr(
+        sdRect(pos, hRect), sdRect(pos, vRect),
+        sdCircle(pos, rect.xy + radius, radius),
+        sdCircle(pos, vec2(rect.x + radius, rect.y + rect.w - radius), radius),
+        sdCircle(pos, rect.xy + rect.zw - radius, radius),
+        sdCircle(pos, vec2(rect.x + rect.z - radius, rect.y + radius), radius));
+}
+
+float sdRoundedRect(vec4 rect, float radius) {
+    return sdRoundedRect(vPos, rect, radius);
+}
+
+float sdEllipseInRect(vec2 pos, vec4 rect) {
+    vec2 ab = rect.zw / 2.0;
+    vec2 center = rect.xy + ab;
+    vec2 p = pos - center;
+    float res = dot(p * p, 1.0 / (ab * ab)) - 1.0;
+    res *= min(ab.x, ab.y);
+    return res;
+}
+
+float sdEllipseInRect(vec4 rect) {
+    return sdEllipseInRect(vPos, rect);
+}
+
+vec4 insetRect(vec4 rect, float by) {
+    return vec4(rect.xy + by, rect.zw - by * 2.0);
+}
+
+float sdStrokeRect(vec2 pos, vec4 rect, float width) {
+    return sdSub(sdRect(pos, rect),
+                 sdRect(pos, insetRect(rect, width)));
+}
+
+float sdStrokeRect(vec4 rect, float width) {
+    return sdStrokeRect(vPos, rect, width);
+}
+
+float sdStrokeRoundedRect(vec2 pos, vec4 rect, float radius, float width) {
+    return sdSub(sdRoundedRect(pos, rect, radius),
+                 sdRoundedRect(pos, insetRect(rect, width), radius - width));
+}
+
+float sdStrokeRoundedRect(vec4 rect, float radius, float width) {
+    return sdStrokeRoundedRect(vPos, rect, radius, width);
+}
+
+vec4 gradient(float pos, vec4 startColor, vec4 endColor) {
+    return mix(startColor, endColor, pos);
+}
+
+vec4 gradient(float pos, vec4 startColor, float sN, vec4 cN, vec4 endColor) {
+    return mix(gradient(pos / sN, startColor, cN),
+        endColor, smoothstep(sN, 1.0, pos));
+}
+
+vec4 gradient(float pos, vec4 startColor, float s1, vec4 c1, float sN, vec4 cN, vec4 endColor) {
+    return mix(gradient(pos / sN, startColor, s1 / sN, c1, cN),
+        endColor, smoothstep(sN, 1.0, pos));
+}
+
+vec4 gradient(float pos, vec4 startColor, float s1, vec4 c1, float s2, vec4 c2, float sN, vec4 cN, vec4 endColor) {
+    return mix(gradient(pos / sN, startColor, s1 / sN, c1, s2 / sN, c2, cN),
+        endColor, smoothstep(sN, 1.0, pos));
+}
+
+float fillAlpha(float dist) {
+    float d = fwidth(dist);
+    return 1.0 - smoothstep(-d, d, dist);
+//    return 1.0 - step(0.0, dist); // No antialiasing
+}
+
+vec4 composeDistanceFuncDebug(float dist) {
+    vec4 result = vec4(smoothstep(-30.0, -10.0, dist), 0, 0, 1.0);
+    if (dist > 0.0) {
+        result = vec4(0.5, 0.5, 1.0 - smoothstep(0.0, 30.0, dist), 1.0);
+    }
+    if (dist > -5.0 && dist <= 0.0) result = vec4(0.0, 1, 0, 1);
+    return result;
+}
+
+void drawShape(float dist, vec4 color) {
+    gl_FragColor = mix(gl_FragColor, color, fillAlpha(dist));
+}
+
+vec4 newGrayColor(float v, float a) {
+    return vec4(v, v, v, a);
+}
+
+vec4 newGrayColor(float v) {
+    return newGrayColor(v, 1.0);
+}
+
+"""
+
+const vertexShaderCode = """
+attribute vec2 aPosition;
+uniform mat4 uModelViewProjectionMatrix;
+varying vec2 vPos;
+
+void main()
+{
+    vPos = aPosition;
+    gl_Position = uModelViewProjectionMatrix * vec4(aPosition, 0.0, 1.0);
+}
+"""
+
+type Composition* = object
+    program: GLuint
+    definition: string
+
+const posAttr : GLuint = 0
+
+proc newComposition*(definition: string): Composition =
+    result.definition = definition
+
+proc compileComposition*(gl: GL, comp: var Composition) =
+    var fragmentShaderCode = """
+#ifdef GL_ES
+#extension GL_OES_standard_derivatives : enable
+precision mediump float;
+#endif
+varying vec2 vPos;
+uniform vec4 bounds;
+"""
+    fragmentShaderCode &= commonFragmentFunctions
+    fragmentShaderCode &= comp.definition
+
+    fragmentShaderCode &= """
+void main() { gl_FragColor = vec4(0.0); compose(); }
+"""
+    comp.definition = nil
+    comp.program = gl.newShaderProgram(vertexShaderCode, fragmentShaderCode, [(posAttr, "aPosition")])
+
+template draw*(comp: var Composition, r: Rect, code:stmt): stmt {.immediate.} =
+    let ctx = currentContext()
+    let gl = ctx.gl
+    if comp.program == 0:
+        gl.compileComposition(comp)
+    gl.useProgram(comp.program)
+    var vertexex : array[8, GLfloat]
+    let points = [r.minX, r.minY,
+                r.maxX, r.minY,
+                r.maxX, r.maxY,
+                r.minX, r.maxY]
+    let componentCount : GLint= 2
+    gl.enableVertexAttribArray(posAttr)
+    gl.vertexAttribPointer(posAttr, componentCount, false, 0, points)
+    gl.uniformMatrix4fv(gl.getUniformLocation(comp.program, "uModelViewProjectionMatrix"), false, ctx.transform)
+
+    # Do we need it here?
+    #gl.enable(c.gl.BLEND)
+    #gl.blendFunc(c.gl.SRC_ALPHA, c.gl.ONE_MINUS_SRC_ALPHA)
+
+    template setUniform(name: string, v: Rect) {.hint[XDeclaredButNotUsed]: off.} =
+        ctx.setRectUniform(comp.program, name, v)
+
+    template setUniform(name: string, v: Color) {.hint[XDeclaredButNotUsed]: off.}  =
+        ctx.setColorUniform(comp.program, name, v)
+
+    template setUniform(name: string, v: GLfloat) {.hint[XDeclaredButNotUsed]: off.}  =
+        gl.uniform1f(gl.getUniformLocation(comp.program, name), v)
+
+    setUniform("bounds", r)
+
+    block:
+        code
+    gl.drawArrays(gl.TRIANGLE_FAN, 0, GLsizei(points.len / componentCount))
+
+template draw*(comp: var Composition, r: Rect): stmt =
+    comp.draw r:
+        discard

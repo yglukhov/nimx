@@ -141,6 +141,7 @@ method draw*(view: View, rect: Rect) =
     let c = currentContext()
     #c.fillColor = newGrayColor(0.93)
     c.fillColor = view.backgroundColor
+    c.strokeWidth = 0
     c.drawRect(view.bounds)
 
 proc drawSubviews(view: View) {.inline.} =

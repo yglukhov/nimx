@@ -6,6 +6,7 @@ import event
 import font
 import app
 import view_event_handling
+import composition
 
 export control
 
@@ -60,20 +61,32 @@ proc drawTitle(b: Button, xOffset: Coord) =
         if pt.x < xOffset: pt.x = xOffset
         c.drawText(font, pt, b.title)
 
+var regularButtonComposition = newComposition """
+uniform vec4 uStrokeColor;
+uniform vec4 uFillColorStart;
+uniform vec4 uFillColorEnd;
+float radius = 5.0;
+
+void compose() {
+    vec4 fc = gradient(smoothstep(bounds.y, bounds.y + bounds.w, vPos.y),
+        uFillColorStart,
+        uFillColorEnd);
+    drawShape(sdRoundedRect(bounds, radius), uStrokeColor);
+    drawShape(sdRoundedRect(insetRect(bounds, 1.0), radius - 1.0), fc);
+}
+"""
+
 proc drawRegularStyle(b: Button, r: Rect) {.inline.} =
-    let c = currentContext()
-
-    if b.state == bsUp:
-        c.fillColor = b.backgroundColor
-        c.strokeColor = newGrayColor(0.78)
-    else:
-        c.fillColor = selectionColor
-        c.strokeColor = newColor(0.18, 0.50, 0.98)
-
-    c.strokeWidth = 1
-    c.drawRoundedRect(b.bounds, 5)
+    regularButtonComposition.draw r:
+        if b.state == bsUp:
+            setUniform("uStrokeColor", newGrayColor(0.78))
+            setUniform("uFillColorStart", b.backgroundColor)
+            setUniform("uFillColorEnd", b.backgroundColor)
+        else:
+            setUniform("uStrokeColor", newColor(0.18, 0.50, 0.98))
+            setUniform("uFillColorStart", newColor(0.31, 0.60, 0.98))
+            setUniform("uFillColorEnd", newColor(0.09, 0.42, 0.88))
     b.drawTitle(0)
-
 
 proc drawCheckboxStyle(b: Button, r: Rect) =
     let bezelRect = newRect(0, 0, b.bounds.height, b.bounds.height)
