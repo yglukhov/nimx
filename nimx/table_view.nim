@@ -6,6 +6,9 @@ import event
 import context
 import clip_view
 
+import table_view_cell
+export table_view_cell
+
 import system_logger
 import app
 
@@ -16,23 +19,6 @@ type SelectionMode = enum
     smSingleSelection
     smMultipleSelection
 
-type TableViewCell* = ref object of View
-    row*: int
-
-proc newTableViewCell*(r: Rect): TableViewCell =
-    result.new()
-    result.init(r)
-
-proc newTableViewCell*(s: Size): TableViewCell =
-    newTableViewCell(newRect(zeroPoint, s))
-
-proc newTableViewCell*(v: View): TableViewCell =
-    result = newTableViewCell(v.frame.size)
-    v.autoresizingMask = { afFlexibleWidth, afFlexibleHeight }
-    result.addSubview(v)
-
-method isCell(c: View): TableViewCell = nil
-method isCell(c: TableViewCell): TableViewCell = c
 
 type TableView* = ref object of View
     numberOfRows*: proc (): int
@@ -158,7 +144,7 @@ proc updateCellsInVisibleRect(v: TableView) =
 
         # 1. Collect cells that are not within visible rect to reusable cells
         for sv in v.subviews:
-            let cell = sv.isCell()
+            let cell = sv.isTableViewCell()
             if not cell.isNil:
                 if (cell.row < minVisibleRow or cell.row > maxVisibleRow):
                     # If cell contains first responder it should remain intact
