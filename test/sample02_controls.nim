@@ -1,6 +1,7 @@
 import sample_registry
 
 import nimx.view
+import nimx.segmented_control
 import nimx.button
 import nimx.text_field
 
@@ -23,6 +24,16 @@ method init(v: ControlsSampleView, r: Rect) =
         textField.text &= "Click! "
         textField.setNeedsDisplay()
     v.addSubview(button)
+
+    let sc = SegmentedControl.new(newRect(120, 40, v.bounds.width - 130, 20))
+    sc.segments = @["This", "is", "a", "segmented", "control"]
+    sc.autoresizingMask = { afFlexibleWidth, afFlexibleMaxY }
+    sc.onAction do():
+        if textField.text.isNil: textField.text = ""
+        textField.text &= "Seg " & $sc.selectedSegment & "! "
+        textField.setNeedsDisplay()
+
+    v.addSubview(sc)
 
     let checkbox = newCheckbox(newRect(10, 70, 50, 16))
     checkbox.title = "Checkbox"
