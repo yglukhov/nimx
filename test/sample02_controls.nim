@@ -4,6 +4,7 @@ import nimx.view
 import nimx.segmented_control
 import nimx.button
 import nimx.text_field
+import nimx.slider
 
 type ControlsSampleView = ref object of View
 
@@ -38,6 +39,13 @@ method init(v: ControlsSampleView, r: Rect) =
     let checkbox = newCheckbox(newRect(10, 70, 50, 16))
     checkbox.title = "Checkbox"
     v.addSubview(checkbox)
+
+    let slider = Slider.new(newRect(120, 70, v.bounds.width - 130, 16))
+    slider.autoresizingMask = { afFlexibleWidth, afFlexibleMaxY }
+    slider.onAction do():
+        textField.text = "Slider value: " & $slider.position & " "
+        textField.setNeedsDisplay()
+    v.addSubview(slider)
 
     let radiobox = newRadiobox(newRect(10, 90, 50, 16))
     radiobox.title = "Radiobox"
