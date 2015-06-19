@@ -7,7 +7,7 @@ import window
 import unistring
 import unicode
 import timer
-
+import table_view_cell
 
 type TextField* = ref object of Control
     text*: string
@@ -70,7 +70,11 @@ method draw*(t: TextField, r: Rect) =
 
     if t.text != nil:
         var pt = newPoint(leftMargin, textY)
-        c.fillColor = blackColor()
+        let cell = t.enclosingTableViewCell()
+        if not cell.isNil and cell.selected:
+            c.fillColor = whiteColor()
+        else:
+            c.fillColor = blackColor()
         c.drawText(systemFont(), pt, t.text)
 
     if t.isEditing:

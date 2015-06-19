@@ -3,6 +3,7 @@ export view
 
 type TableViewCell* = ref object of View
     row*: int
+    selected*: bool
 
 proc newTableViewCell*(r: Rect): TableViewCell =
     result.new()
@@ -23,5 +24,5 @@ proc enclosingTableViewCell*(v: View): TableViewCell =
     var iv = v
     while not iv.isNil:
         let cell = iv.isTableViewCell()
-        if not cell.isNil:
-            return cell
+        if not cell.isNil: return cell
+        iv = iv.superview

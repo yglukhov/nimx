@@ -117,6 +117,7 @@ proc dequeueReusableCell(v: TableView, cells: var seq[TableViewCell], row: int, 
 
     result.setFrame(newRect(0, top, v.bounds.width, v.requiredHeightForRow(row)))
     result.row = row
+    result.selected = v.selectedRows.contains(row)
     v.configureCell(result)
     if needToAdd:
         v.addSubview(result)
@@ -185,9 +186,17 @@ method draw*(v: TableView, r: Rect) =
         v.window.needsDisplay = needsDisplay
 
 proc isRowSelected*(t: TableView, row: int): bool = t.selectedRows.contains(row)
+
+proc updateSelectedCells*(t: TableView) {.inline.} =
+    for s in t.subviews:
+        let c = s.isTableViewCell()
+        if not c.isNil:
+            c.selected = t.isRowSelected(c.row)
+
 proc selectRow*(t: TableView, row: int) =
     t.selectedRows = initIntSet()
     t.selectedRows.incl(row)
+    t.updateSelectedCells()
     if not t.onSelectionChange.isNil:
         t.onSelectionChange()
 
