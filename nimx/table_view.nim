@@ -212,12 +212,3 @@ method onMouseDown(b: TableView, e: var Event): bool =
                     c = efcBreak
                 elif e.isMouseMoveEvent():
                     c = efcBreak
-
-method draw(c: TableViewCell, r: Rect) =
-    let tb = TableView c.superview
-    if not tb.isNil:
-        if tb.isRowSelected(c.row):
-            let ctx = currentContext()
-            ctx.fillColor = newColor(0, 0, 1)
-            ctx.drawRect(c.bounds)
-    procCall c.View.draw(r)

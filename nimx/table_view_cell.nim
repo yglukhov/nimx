@@ -1,5 +1,6 @@
 import view
 export view
+import context
 
 type TableViewCell* = ref object of View
     row*: int
@@ -26,3 +27,11 @@ proc enclosingTableViewCell*(v: View): TableViewCell =
         let cell = iv.isTableViewCell()
         if not cell.isNil: return cell
         iv = iv.superview
+
+method draw(c: TableViewCell, r: Rect) =
+    if c.selected:
+        let ctx = currentContext()
+        ctx.fillColor = newColor(0, 0, 1)
+        ctx.strokeWidth = 0
+        ctx.drawRect(c.bounds)
+    procCall c.View.draw(r)
