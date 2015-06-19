@@ -5,6 +5,7 @@ import nimx.segmented_control
 import nimx.button
 import nimx.text_field
 import nimx.slider
+import nimx.popup_button
 
 type ControlsSampleView = ref object of View
 
@@ -50,5 +51,9 @@ method init(v: ControlsSampleView, r: Rect) =
     let radiobox = newRadiobox(newRect(10, 90, 50, 16))
     radiobox.title = "Radiobox"
     v.addSubview(radiobox)
+
+    let pb = PopupButton.new(newRect(120, 90, 120, 20))
+    pb.items = @["Popup button", "Item 1", "Item 2"]
+    v.addSubview(pb)
 
 registerSample "Controls", ControlsSampleView.new(newRect(0, 0, 100, 100))
