@@ -52,6 +52,7 @@ when defined js:
             deleteShader*: proc(shader: GLuint)
             deleteProgram*: proc(prog: GLuint)
             attachShader*: proc(prog, shader: GLuint)
+            detachShader*: proc(prog, shader: GLuint)
 
             linkProgram*: proc(prog: GLuint)
             drawArrays*: proc (mode: GLenum, first: GLint, count: GLsizei)
@@ -174,6 +175,7 @@ else:
     template deleteShader*(gl: GL, shader: GLuint) = glDeleteShader(shader)
     template deleteProgram*(gl: GL, prog: GLuint) = glDeleteProgram(prog)
     template attachShader*(gl: GL, prog, shader: GLuint) = glAttachShader(prog, shader)
+    template detachShader*(gl: GL, prog, shader: GLuint) = glDetachShader(prog, shader)
 
 
     template linkProgram*(gl: GL, prog: GLuint) = glLinkProgram(prog)

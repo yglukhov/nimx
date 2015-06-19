@@ -42,21 +42,24 @@ proc newShaderProgram*(gl: GL, vs, fs: string,
     if result == 0:
         logi "Could not create program: ", gl.getError().int
         return
-    var s = gl.loadShader(vs, gl.VERTEX_SHADER)
-    if s == 0:
+    let vShader = gl.loadShader(vs, gl.VERTEX_SHADER)
+    if vShader == 0:
         gl.deleteProgram(result)
         return 0
-    gl.attachShader(result, s)
-    s = gl.loadShader(fs, gl.FRAGMENT_SHADER)
-    if s == 0:
+    gl.attachShader(result, vShader)
+    let fShader = gl.loadShader(fs, gl.FRAGMENT_SHADER)
+    if fShader == 0:
         gl.deleteProgram(result)
         return 0
-    gl.attachShader(result, s)
+    gl.attachShader(result, fShader)
 
     for a in attributes:
         gl.bindAttribLocation(result, a.index, a.name)
 
     gl.linkProgram(result)
+    gl.deleteShader(vShader)
+    gl.deleteShader(fShader)
+
     let linked = gl.isProgramLinked(result)
     let info = gl.programInfoLog(result)
     if not linked:
