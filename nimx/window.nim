@@ -40,7 +40,7 @@ method drawWindow*(w: Window) =
     w.needsDisplay = false
     let c = currentContext()
     var pt = newPoint(w.frame.width - 80, 2)
-    c.fillColor = newColor(0.5, 0, 0)
+    c.fillColor = blackColor()
     c.drawText(systemFont(), pt, "FPS: " & $fps())
 
     w.recursiveDrawSubviews()
