@@ -1,7 +1,7 @@
 
 import view
 import event
-
+export event
 
 method onMouseDown*(v: View, e: var Event): bool = discard
 method onMouseUp*(v: View, e: var Event): bool = discard
@@ -29,4 +29,3 @@ proc recursiveHandleMouseEvent*(v: View, e: var Event): bool =
         if not result:
             e.localPosition = localPosition
             result = v.handleMouseEvent(e)
-
