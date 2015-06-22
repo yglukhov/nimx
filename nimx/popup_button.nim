@@ -51,6 +51,8 @@ void compose() {
         uFillColorStart,
         uFillColorEnd);
     drawShape(sdAnd(fill, sdRect(buttonRect)), buttonColor);
+
+    drawShape(sdRegularPolygon(vec2(buttonRect.x + buttonRect.z / 2.0, buttonRect.y + buttonRect.w / 2.0 - 1.0), 4.0, 3, PI/2.0), vec4(1.0));
 }
 """
 
@@ -71,4 +73,4 @@ method onMouseDown(b: PopupButton, e: var Event): bool =
     var menu : Menu
     menu.new()
     menu.items = b.mItems
-    menu.popupAtPoint(b, e.localPosition)
+    menu.popupAtPoint(b, newPoint(0, -b.mSelectedItem.Coord * 20.0))
