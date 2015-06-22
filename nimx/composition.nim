@@ -7,6 +7,9 @@ export portable_gl
 export context
 
 const commonFragmentFunctions = """
+#define PI 3.14159265359
+#define TWO_PI 6.28318530718
+
 float sdRect(vec2 p, vec4 rect) {
     vec2 b = rect.zw / 2.0;
     p -= rect.xy + b;
@@ -80,6 +83,32 @@ float sdEllipseInRect(vec2 pos, vec4 rect) {
 
 float sdEllipseInRect(vec4 rect) {
     return sdEllipseInRect(vPos, rect);
+}
+
+float sdRegularPolygon(vec2 st, vec2 center, float radius, int n, float angle) {
+    st -= center;
+    float innerAngle = float(n - 2) * PI / float(n);
+    float pointAngle = atan(st.y, st.x) - angle;
+
+    float s = floor(pointAngle / (PI - innerAngle));
+    float iiAngle = PI - innerAngle;
+    float startAngle = angle + iiAngle * s;
+    float endAngle = startAngle + iiAngle;
+
+    vec2 p1 = vec2(cos(startAngle), sin(startAngle));
+    vec2 p2 = vec2(cos(endAngle), sin(endAngle));
+
+    vec2 d = p2 - p1;
+
+    return ((d.y * st.x - d.x * st.y) + (p2.x * p1.y - p2.y * p1.x)*radius) / distance(p1, p2);
+}
+
+float sdRegularPolygon(vec2 center, float radius, int n) {
+    return sdRegularPolygon(vPos, center, radius, n, 0.0);
+}
+
+float sdRegularPolygon(vec2 center, float radius, int n, float angle) {
+    return sdRegularPolygon(vPos, center, radius, n, angle);
 }
 
 vec4 insetRect(vec4 rect, float by) {
