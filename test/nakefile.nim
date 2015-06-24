@@ -41,9 +41,9 @@ when defined(Windows):
 else:
     const silenceStdout = ">/dev/null"
 
-# Install nimx
-withDir "..":
-    direShell "nimble", "-y", "install", silenceStdout
+if dirExists("../.git"): # Install nimx
+    withDir "..":
+        direShell "nimble", "-y", "install", silenceStdout
 
 proc infoPlistSetValueForKey(path, value, key: string) =
     direShell "defaults", "write", path, key, value
@@ -152,7 +152,7 @@ task defaultTask, "Build and run":
 
 task "windows", "Build for Windows":
     # dynamic link sdl2
-    direShell nimExe, "c", 
+    direShell nimExe, "c",
         "-d:noAutoGLerrorCheck", "-d:release",
         "--opt:speed",
         "main"
@@ -207,4 +207,3 @@ task "js", "Create Javascript version.":
         get "/": redirect "main.html"
     openDefaultBrowser "http://localhost:5000"
     runForever()
-
