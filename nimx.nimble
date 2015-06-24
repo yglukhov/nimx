@@ -11,8 +11,6 @@ Requires: "opengl"
 Requires: "nake"
 Requires: "closure_compiler"
 
-# Jester is required to run a web server from the nakefile to server WebGL variant
+# Jester is required to run a web server from the nakefile to serve WebGL variant
 Requires: "jester"
 Requires: "https://github.com/yglukhov/ttf"
-#Requires: "file:///Volumes/Work/Projects/ttf"
-
