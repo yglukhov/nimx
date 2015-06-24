@@ -28,10 +28,8 @@ const isMobile = defined(ios) or defined(android)
 
 template c*(a: string) = discard
 
-type SampleWindow = ref object of PlatformWindow
-
 proc startApplication() =
-    var mainWindow : SampleWindow
+    var mainWindow : PlatformWindow
     mainWindow.new()
 
     when isMobile:
