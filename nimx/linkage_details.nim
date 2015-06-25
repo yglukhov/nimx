@@ -1,6 +1,9 @@
 import macros
 
 when not defined(windows):
+    when not compileOption("noMain"):
+        {.error: "Please run Nim with --noMain flag.".}
+
     {.emit: """
 #include <SDL2/SDL_main.h>
 
@@ -41,4 +44,3 @@ elif defined(macosx):
 
 when defined(macosx) or defined(ios):
     useFrameworks("AudioToolbox", "CoreAudio", "CoreGraphics", "QuartzCore")
-
