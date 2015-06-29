@@ -124,7 +124,7 @@ proc setCurrentContext*(c: GraphicsContext): GraphicsContext {.discardable.} =
 
 template currentContext*(): GraphicsContext = gCurrentContext
 
-proc setTransformUniform(c: GraphicsContext, program: GLuint) =
+proc setTransformUniform*(c: GraphicsContext, program: GLuint) =
     c.gl.uniformMatrix4fv(c.gl.getUniformLocation(program, "modelViewProjectionMatrix"), false, c.transform)
 
 proc setColorUniform*(c: GraphicsContext, program: GLuint, name: cstring, color: Color) =
