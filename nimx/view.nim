@@ -213,6 +213,7 @@ method bounds*(v: View): Rect = v.bounds
 
 method subviewDidChangeDesiredSize*(v: View, sub: View, desiredSize: Size) = discard
 
+method acceptsFirstResponder*(v: View): bool = false
 method viewShouldResignFirstResponder*(v, newFirstResponder: View): bool = true
 method viewDidBecomeFirstResponder*(v: View) = discard
 

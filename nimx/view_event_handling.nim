@@ -3,7 +3,10 @@ import view
 import event
 export event
 
-method onMouseDown*(v: View, e: var Event): bool = discard
+method onMouseDown*(v: View, e: var Event): bool =
+    if v.acceptsFirstResponder:
+        result = v.makeFirstResponder()
+
 method onMouseUp*(v: View, e: var Event): bool = discard
 method onScroll*(v: View, e: var Event): bool = discard
 method onKeyDown*(v: View, e: var Event): bool = discard
