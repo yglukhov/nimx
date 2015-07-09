@@ -100,7 +100,7 @@ method drawWindow(w: SdlWindow) =
     let c = w.renderingContext
     c.gl.viewport(0, 0, w.frame.width.GLsizei, w.frame.height.GLsizei)
     c.gl.stencilMask(0xFF) # Android requires setting stencil mask to clear
-    c.gl.clear(c.gl.COLOR_BUFFER_BIT or c.gl.STENCIL_BUFFER_BIT)
+    c.gl.clear(c.gl.COLOR_BUFFER_BIT or c.gl.STENCIL_BUFFER_BIT or c.gl.DEPTH_BUFFER_BIT)
     c.gl.stencilMask(0x00)
     let oldContext = setCurrentContext(c)
 
