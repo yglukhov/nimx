@@ -20,6 +20,7 @@ when defined js:
             TRIANGLES*, TRIANGLE_FAN*, TRIANGLE_STRIP* : GLenum
             COLOR_BUFFER_BIT*: int
             STENCIL_BUFFER_BIT*: int
+            DEPTH_BUFFER_BIT*: int
             TEXTURE_MIN_FILTER* : GLenum
             TEXTURE_MAG_FILTER* : GLenum
             LINEAR* : GLint
@@ -39,7 +40,7 @@ when defined js:
             DEPTH24_STENCIL8* : GLenum
             FRAMEBUFFER_BINDING* : GLenum
             RENDERBUFFER_BINDING* : GLenum
-            STENCIL_TEST* : GLenum
+            STENCIL_TEST*, DEPTH_TEST* : GLenum
             NEVER*, LESS*, LEQUAL*, GREATER*, GEQUAL*, EQUAL*, NOTEQUAL*, ALWAYS*: GLenum
             KEEP*, ZERO*, REPLACE*, INCR*, INCR_WRAP*, DECR*, DECR_WRAP*, INVERT*: GLenum
 
@@ -119,6 +120,7 @@ else:
     template TRIANGLE_STRIP*(gl: GL): GLenum = GL_TRIANGLE_STRIP
     template COLOR_BUFFER_BIT*(gl: GL): GLbitfield = GL_COLOR_BUFFER_BIT
     template STENCIL_BUFFER_BIT*(gl: GL): GLbitfield = GL_STENCIL_BUFFER_BIT
+    template DEPTH_BUFFER_BIT*(gl: GL): GLbitfield = GL_DEPTH_BUFFER_BIT
     template TEXTURE_MIN_FILTER*(gl: GL): GLenum = GL_TEXTURE_MIN_FILTER
     template TEXTURE_MAG_FILTER*(gl: GL): GLenum = GL_TEXTURE_MAG_FILTER
     template LINEAR*(gl: GL): GLint = GL_LINEAR
@@ -139,6 +141,7 @@ else:
     template FRAMEBUFFER_BINDING*(gl: GL): GLenum = GL_FRAMEBUFFER_BINDING
     template RENDERBUFFER_BINDING*(gl: GL): GLenum = GL_RENDERBUFFER_BINDING
     template STENCIL_TEST*(gl: GL): GLenum = GL_STENCIL_TEST
+    template DEPTH_TEST*(gl: GL): GLenum = GL_DEPTH_TEST
 
     template NEVER*(gl: GL): GLenum = GL_NEVER
     template LESS*(gl: GL): GLenum = GL_LESS
