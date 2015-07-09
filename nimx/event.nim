@@ -49,6 +49,8 @@ proc newEvent*(kind: EventType, position: Point = zeroPoint, button: KeyCode = k
     result.button = button
     result.buttonState = buttonState
 
+proc newUnknownEvent*(): Event = newEvent(etUnknown)
+
 proc newMouseMoveEvent*(position: Point): Event =
     newEvent(etMouse, position, kcUnknown, bsUnknown)
 
@@ -70,4 +72,3 @@ proc isButtonDownEvent*(e: Event): bool = e.buttonState == bsDown
 proc isButtonUpEvent*(e: Event): bool = e.buttonState == bsUp
 
 proc isMouseMoveEvent*(e: Event): bool = e.buttonState == bsUnknown and e.kind == etMouse
-
