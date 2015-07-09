@@ -13,6 +13,12 @@ proc newVector3*(x, y, z: Coord = 0): Vector3 =
     result[1] = y
     result[2] = z
 
+proc newVector4*(x, y, z, w: Coord = 0): Vector4 =
+    result[0] = x
+    result[1] = y
+    result[2] = z
+    result[3] = w
+
 proc length*(v: Vector3): Coord = sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2])
 
 proc normalize*(v: var Vector3) =
@@ -31,6 +37,11 @@ proc `*`*(v: Vector3, scalar: Coord): Vector3 =
     result[1] = v[1] * scalar
     result[2] = v[2] * scalar
 
+proc `/`*(v: Vector3, scalar: Coord): Vector3 =
+    result[0] = v[0] / scalar
+    result[1] = v[1] / scalar
+    result[2] = v[2] / scalar
+
 proc `+`*(v1, v2: Vector3): Vector3 =
     result[0] = v1[0] + v2[0]
     result[1] = v1[1] + v2[1]
@@ -40,6 +51,11 @@ proc `-`*(v: Vector3): Vector3 =
     result[0] = -v[0]
     result[1] = -v[1]
     result[2] = -v[2]
+
+proc `-`*(lhs, rhs: Vector3): Vector3 =
+    result[0] = lhs[0] - rhs[0]
+    result[1] = lhs[1] - rhs[1]
+    result[2] = lhs[2] - rhs[2]
 
 proc loadIdentity*(dest: var Matrix4) =
     dest[0] = 1
@@ -708,6 +724,11 @@ proc lookAt*(dest: var Matrix4, eye, center, up: Vector3) =
     dest[13] = -(y0 * eyex + y1 * eyey + y2 * eyez);
     dest[14] = -(z0 * eyex + z1 * eyey + z2 * eyez);
     dest[15] = 1;
+
+proc dotp*[T](a, b: T): Coord =
+    assert a.len == b.len
+    for i in a.low .. a.high:
+        result += a[i] * b[i]
 
 discard """
 mat4_t mat4_fromRotationTranslation(quat_t quat, vec3_t vec, mat4_t dest) {
