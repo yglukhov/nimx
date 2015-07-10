@@ -152,6 +152,8 @@ method onMouseDown(b: Button, e: var Event): bool =
                 else:
                     b.setState(bsUp)
 
+template boolValue*(b: Button): bool = bool(b.value)
+
 template toggleValue(v: int8): int8 =
     if v == 0:
         1
