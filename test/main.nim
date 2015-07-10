@@ -35,7 +35,7 @@ proc startApplication() =
     when isMobile:
         mainWindow.initFullscreen()
     else:
-        mainWindow.init(newRect(0, 0, 800, 600))
+        mainWindow.init(newRect(40, 40, 800, 600))
 
     mainWindow.title = "NimX Sample"
 
