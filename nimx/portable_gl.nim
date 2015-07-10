@@ -250,28 +250,23 @@ var globalGL: GL
 proc newGL*(canvas: ref RootObj): GL =
     when defined js:
         asm """
-            try
-            {
-                `result` = `canvas`.getContext("webgl", {stencil:true});
+            var options = {stencil: true};
+            try {
+                `result` = `canvas`.getContext("webgl", options);
             }
             catch(err) {}
-            if (`result` === null)
-            {
-                try
-                {
-                    `result` = `canvas`.getContext("experimental-webgl", {stencil:true});
+            if (`result` === null) {
+                try {
+                    `result` = `canvas`.getContext("experimental-webgl", options);
                 }
                 catch(err) {}
             }
 
-            if (`result` !== null)
-            {
+            if (`result` !== null) {
                 `result`.viewportWidth = `canvas`.width;
                 `result`.viewportHeight = `canvas`.height;
                 `result`.getExtension('OES_standard_derivatives');
-            }
-            else
-            {
+            } else {
                 alert("Your browser does not support WebGL. Please, use a modern browser.");
             }
             """
