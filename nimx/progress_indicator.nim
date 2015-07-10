@@ -53,6 +53,17 @@ void compose() {
         vec4(0.88, 0.88, 0.88, 1.0));
 
     drawShape(fill, fc);
+
+    vec4 glossColor = gradient(smoothstep(bounds.y, bounds.y + bounds.w / 2.0, vPos.y),
+        vec4(1.0, 1.0, 1.0, 0.5),
+        0.75, vec4(1.0, 1.0, 1.0, 0.8),
+        vec4(1.0, 1.0, 1.0, 1.0)
+    );
+    glossColor.a *= 0.65;
+
+    vec4 glossRect = bounds;
+    glossRect.w /= 2.0;
+    drawShape(sdAnd(fill, sdRect(glossRect)), glossColor);
 }
 """
 
