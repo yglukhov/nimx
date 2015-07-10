@@ -58,6 +58,12 @@ method init(v: ControlsSampleView, r: Rect) =
     radiobox.title = "Radiobox"
     v.addSubview(radiobox)
 
+    let indeterminateCheckbox = newCheckbox(newRect(10, 130, 100, 16))
+    indeterminateCheckbox.title = "Indeterminate"
+    indeterminateCheckbox.onAction do():
+        progress.indeterminate = indeterminateCheckbox.boolValue
+    v.addSubview(indeterminateCheckbox)
+
     let pb = PopupButton.new(newRect(120, 90, 120, 20))
     pb.items = @["Popup button", "Item 1", "Item 2"]
     v.addSubview(pb)
