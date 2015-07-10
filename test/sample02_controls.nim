@@ -6,6 +6,7 @@ import nimx.button
 import nimx.text_field
 import nimx.slider
 import nimx.popup_button
+import nimx.progress_indicator
 
 type ControlsSampleView = ref object of View
 
@@ -41,10 +42,15 @@ method init(v: ControlsSampleView, r: Rect) =
     checkbox.title = "Checkbox"
     v.addSubview(checkbox)
 
+    let progress = ProgressIndicator.new(newRect(120, 130, v.bounds.width - 130, 16))
+    progress.autoresizingMask = { afFlexibleWidth, afFlexibleMaxY }
+    v.addSubview(progress)
+
     let slider = Slider.new(newRect(120, 70, v.bounds.width - 130, 16))
     slider.autoresizingMask = { afFlexibleWidth, afFlexibleMaxY }
     slider.onAction do():
         textField.text = "Slider value: " & $slider.position & " "
+        progress.position = slider.position
         textField.setNeedsDisplay()
     v.addSubview(slider)
 
