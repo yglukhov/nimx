@@ -6,29 +6,16 @@ import unsigned
 export portable_gl
 export context
 
-const commonFragmentFunctions = """
+const commonMath = """
 #define PI 3.14159265359
 #define TWO_PI 6.28318530718
 
-float sdRect(vec2 p, vec4 rect) {
-    vec2 b = rect.zw / 2.0;
-    p -= rect.xy + b;
-    vec2 d = abs(p) - b;
-    return min(max(d.x, d.y), 0.0) + length(max(d, 0.0));
+vec4 insetRect(vec4 rect, float by) {
+    return vec4(rect.xy + by, rect.zw - by * 2.0);
 }
+"""
 
-float sdRect(vec4 rect) {
-    return sdRect(vPos, rect);
-}
-
-float sdCircle(vec2 pos, vec2 center, float radius) {
-    return distance(pos, center) - radius;
-}
-
-float sdCircle(vec2 center, float radius) {
-    return sdCircle(vPos, center, radius);
-}
-
+const distanceSetOperations = """
 float sdAnd(float d1, float d2) {
     return max(d1, d2);
 }
@@ -55,6 +42,27 @@ float sdOr(float d1, float d2, float d3, float d4, float d5, float d6) {
 
 float sdSub(float d1, float d2) {
     return max(d1, -d2);
+}
+"""
+
+const distanceFunctions = """
+float sdRect(vec2 p, vec4 rect) {
+    vec2 b = rect.zw / 2.0;
+    p -= rect.xy + b;
+    vec2 d = abs(p) - b;
+    return min(max(d.x, d.y), 0.0) + length(max(d, 0.0));
+}
+
+float sdRect(vec4 rect) {
+    return sdRect(vPos, rect);
+}
+
+float sdCircle(vec2 pos, vec2 center, float radius) {
+    return distance(pos, center) - radius;
+}
+
+float sdCircle(vec2 center, float radius) {
+    return sdCircle(vPos, center, radius);
 }
 
 float sdRoundedRect(vec2 pos, vec4 rect, float radius) {
@@ -111,10 +119,6 @@ float sdRegularPolygon(vec2 center, float radius, int n, float angle) {
     return sdRegularPolygon(vPos, center, radius, n, angle);
 }
 
-vec4 insetRect(vec4 rect, float by) {
-    return vec4(rect.xy + by, rect.zw - by * 2.0);
-}
-
 float sdStrokeRect(vec2 pos, vec4 rect, float width) {
     return sdSub(sdRect(pos, rect),
                  sdRect(pos, insetRect(rect, width)));
@@ -131,6 +135,16 @@ float sdStrokeRoundedRect(vec2 pos, vec4 rect, float radius, float width) {
 
 float sdStrokeRoundedRect(vec4 rect, float radius, float width) {
     return sdStrokeRoundedRect(vPos, rect, radius, width);
+}
+"""
+
+const colorOperations = """
+vec4 newGrayColor(float v, float a) {
+    return vec4(v, v, v, a);
+}
+
+vec4 newGrayColor(float v) {
+    return newGrayColor(v, 1.0);
 }
 
 vec4 gradient(float pos, vec4 startColor, vec4 endColor) {
@@ -152,6 +166,28 @@ vec4 gradient(float pos, vec4 startColor, float s1, vec4 c1, float s2, vec4 c2, 
         endColor, smoothstep(sN, 1.0, pos));
 }
 
+// Color conversions
+//http://gamedev.stackexchange.com/questions/59797/glsl-shader-change-hue-saturation-brightness
+vec3 rgb2hsv(vec3 c)
+{
+    vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+    vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+    vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+
+    float d = q.x - min(q.w, q.y);
+    float e = 1.0e-10;
+    return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+}
+
+vec3 hsv2rgb(vec3 c)
+{
+    vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+    vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+    return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+}
+"""
+
+const compositionFragmentFunctions = """
 float fillAlpha(float dist) {
     float d = fwidth(dist);
     return 1.0 - smoothstep(-d, d, dist);
@@ -170,15 +206,6 @@ vec4 composeDistanceFuncDebug(float dist) {
 void drawShape(float dist, vec4 color) {
     gl_FragColor = mix(gl_FragColor, color, fillAlpha(dist));
 }
-
-vec4 newGrayColor(float v, float a) {
-    return vec4(v, v, v, a);
-}
-
-vec4 newGrayColor(float v) {
-    return newGrayColor(v, 1.0);
-}
-
 """
 
 const vertexShaderCode = """
@@ -211,7 +238,11 @@ precision mediump float;
 varying vec2 vPos;
 uniform vec4 bounds;
 """
-    fragmentShaderCode &= commonFragmentFunctions
+    fragmentShaderCode &= commonMath &
+        distanceSetOperations &
+        distanceFunctions &
+        compositionFragmentFunctions &
+        colorOperations
     fragmentShaderCode &= comp.definition
 
     fragmentShaderCode &= """
