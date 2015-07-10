@@ -63,7 +63,7 @@ void compose() {
 
     vec4 glossRect = bounds;
     glossRect.w /= 2.0;
-    drawShape(sdAnd(fill, sdRect(glossRect)), glossColor);
+    blendShape(sdAnd(fill, sdRect(glossRect)), glossColor);
 }
 """
 

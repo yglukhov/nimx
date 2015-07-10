@@ -204,8 +204,14 @@ vec4 composeDistanceFuncDebug(float dist) {
 }
 
 void drawShape(float dist, vec4 color) {
+    gl_FragColor = mix(gl_FragColor, color, fillAlpha(dist));
+}
+
+// Same as drawShape, but respects source alpha
+void blendShape(float dist, vec4 color) {
     gl_FragColor = mix(gl_FragColor, color, fillAlpha(dist) * color.a);
 }
+
 """
 
 const vertexShaderCode = """
