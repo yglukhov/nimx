@@ -139,7 +139,7 @@ proc runNim(arguments: varargs[string]) =
 
 task defaultTask, "Build and run":
     createSDLIncludeLink "nimcache"
-    when defined(macos):
+    when defined(macosx):
         if not dirExists(macOSSDK):
             echo "MacOSX SDK not found: ", macOSSDK
             return
