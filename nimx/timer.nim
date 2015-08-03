@@ -2,7 +2,7 @@
 when defined(js):
     type Timer* {.importc.} = ref object
 else:
-    import sdl2
+    import sdl2, sdl_perform_on_main_thread
     type Timer* = ref object
         timer: TimerID
         callback: proc()
@@ -41,11 +41,7 @@ when not defined(js):
     # The following function can not use nim's stack trace and GC.
     {.push stack_trace:off.}
     proc timeoutThreadCallback(interval: uint32, data: pointer): uint32 {.cdecl, thread.} =
-        var evt: UserEventObj
-        evt.kind = UserEvent5
-        evt.data1 = timeoutCallback
-        evt.data2 = data
-        discard pushEvent(cast[ptr Event](addr evt))
+        performOnMainThread(timeoutCallback, data)
         result = interval
     {.pop.}
 
@@ -72,4 +68,3 @@ proc setTimeout*(interval: float, callback: proc()): Timer {.discardable.} =
 
 proc setInterval*(interval: float, callback: proc()): Timer {.discardable.} =
     newTimer(interval, true, callback)
-

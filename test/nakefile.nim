@@ -6,13 +6,13 @@ let appName = "MyGame"
 let bundleId = "com.mycompany.MyGame"
 let javaPackageId = "com.mycompany.MyGame"
 
-let androidSdk = "~/android-sdks"
-let androidNdk = "~/android-ndk-r10d"
+let androidSdk = "~/Library/Android/sdk"
+let androidNdk = "~/Library/Android/sdk/ndk-bundle"
 let sdlRoot = "~/Projects/SDL"
 
 # This should point to the Nim include dir, where nimbase.h resides.
 # Needed for android only
-let nimIncludeDir = "~/Projects/Nimrod/lib"
+let nimIncludeDir = "~/Projects/nim/lib"
 
 let macOSSDKVersion = "10.10"
 let macOSMinVersion = "10.6"
@@ -132,7 +132,7 @@ proc makeAndroidBuildDir(): string =
 
 proc runNim(arguments: varargs[string]) =
     var args = @[nimExe, "c", "--noMain", parallelBuild, "--stackTrace:off", "--lineTrace:off",
-                nimVerbose, "-d:noAutoGLerrorCheck", "-d:release", "--opt:speed", "--passC:-g"]
+                nimVerbose, "-d:noAutoGLerrorCheck", "-d:release", "--opt:speed", "--passC:-g", "--threads:on"]
     args.add arguments
     args.add "main"
     direShell args
@@ -147,15 +147,14 @@ task defaultTask, "Build and run":
             "--passC:-mmacosx-version-min=" & macOSMinVersion, "--passL:-mmacosx-version-min=" & macOSMinVersion,
             "--passL:-fobjc-link-runtime", "-d:SDL_Static", "--passL:-L"&buildSDLForDesktop(), "--passL:-lSDL2",
             "--run"
+    elif defined(windows):
+        # dynamic link sdl2
+        direShell nimExe, "c",
+            "-d:noAutoGLerrorCheck", "-d:release",
+            "--opt:speed", "--threads:on",
+            "main"
     else:
         runNim "--run", "--passL:-L/usr/local/lib", "--passL:-Wl,-rpath,/usr/local/lib", "--passL:-lSDL2", "--passL:-lpthread"
-
-task "windows", "Build for Windows":
-    # dynamic link sdl2
-    direShell nimExe, "c",
-        "-d:noAutoGLerrorCheck", "-d:release",
-        "--opt:speed",
-        "main"
 
 task "ios-sim", "Build and run in iOS simulator":
     if not dirExists(iOSSimulatorSDK):
@@ -195,8 +194,9 @@ task "droid", "Build for android and install on the connected device":
 
     cd buildDir
     putEnv "NIM_INCLUDE_DIR", expandTilde(nimIncludeDir)
-    direShell androidSdk/"tools/android", "update", "project", "-p", ".", "-t", "android-20"
+    direShell androidSdk/"tools/android", "update", "project", "-p", ".", "-t", "android-22"
     direShell androidNdk/"ndk-build"
+    #putEnv "ANDROID_SERIAL", "12345" # Target specific device
     direShell "ant", "debug", "install"
 
 task "js", "Create Javascript version.":
