@@ -10,6 +10,7 @@ import unicode
 import app
 import linkage_details
 import portable_gl
+import screen
 
 export window
 
@@ -67,7 +68,7 @@ method initFullscreen*(w: SdlWindow) =
     initSDLIfNeeded()
     var displayMode : DisplayMode
     discard getDesktopDisplayMode(0, displayMode)
-    let flags = SDL_WINDOW_OPENGL or SDL_WINDOW_FULLSCREEN or SDL_WINDOW_RESIZABLE
+    let flags = SDL_WINDOW_OPENGL or SDL_WINDOW_FULLSCREEN or SDL_WINDOW_RESIZABLE or SDL_WINDOW_ALLOW_HIGHDPI
     w.impl = createWindow(nil, 0, 0, displayMode.w, displayMode.h, flags)
 
     var width, height : cint
@@ -79,7 +80,7 @@ method init*(w: SdlWindow, r: view.Rect) =
         w.initFullscreen()
     else:
         initSDLIfNeeded()
-        w.impl = createWindow(nil, cint(r.x), cint(r.y), cint(r.width), cint(r.height), SDL_WINDOW_OPENGL or SDL_WINDOW_RESIZABLE)
+        w.impl = createWindow(nil, cint(r.x), cint(r.y), cint(r.width), cint(r.height), SDL_WINDOW_OPENGL or SDL_WINDOW_RESIZABLE or SDL_WINDOW_ALLOW_HIGHDPI)
         w.initCommon(newRect(0, 0, r.width, r.height))
 
 proc newFullscreenSdlWindow*(): SdlWindow =
@@ -98,7 +99,7 @@ method title*(w: SdlWindow): string = $w.impl.getTitle()
 
 method drawWindow(w: SdlWindow) =
     let c = w.renderingContext
-    c.gl.viewport(0, 0, w.frame.width.GLsizei, w.frame.height.GLsizei)
+    #c.gl.viewport(0, 0, w.frame.width.GLsizei, w.frame.height.GLsizei)
     c.gl.stencilMask(0xFF) # Android requires setting stencil mask to clear
     c.gl.clear(c.gl.COLOR_BUFFER_BIT or c.gl.STENCIL_BUFFER_BIT or c.gl.DEPTH_BUFFER_BIT)
     c.gl.stencilMask(0x00)
@@ -221,7 +222,8 @@ proc eventFilter(userdata: pointer; event: ptr sdl2.Event): Bool32 {.cdecl.} =
 {.pop.}
 
 method onResize*(w: SdlWindow, newSize: Size) =
-    glViewport(0, 0, GLSizei(newSize.width), GLsizei(newSize.height))
+    let sf = screenScaleFactor()
+    glViewport(0, 0, GLSizei(newSize.width * sf), GLsizei(newSize.height * sf))
     procCall w.Window.onResize(newSize)
 
 # Framerate limiter
