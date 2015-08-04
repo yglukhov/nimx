@@ -17,13 +17,13 @@ let nimIncludeDir = "~/Projects/nim/lib"
 let macOSSDKVersion = "10.10"
 let macOSMinVersion = "10.6"
 
-let iOSSDKVersion = "8.3"
+let iOSSDKVersion = "8.4"
 let iOSMinVersion = iOSSDKVersion
 
 # Simulator device identifier should be set to run the simulator.
 # Available simulators can be listed with the command:
 # $ xcrun simctl list
-let iOSSimulatorDeviceId = "A71A4C09-B9AF-43D2-9B32-D1DE5771FBB4"
+let iOSSimulatorDeviceId = "18BE8493-7EFB-4570-BF2B-5F5ACBCCB82B"
 
 let bundleName = appName & ".app"
 
@@ -101,7 +101,7 @@ proc buildSDLForIOS(forSimulator: bool = false): string =
     let xcodeProjDir = expandTilde(sdlRoot)/"Xcode-iOS/SDL"
     let libDir = xcodeProjDir/"build/Release-" & entity
     if not fileExists libDir/"libSDL2.a":
-        direShell "xcodebuild", "-project", xcodeProjDir/"SDL.xcodeproj", "-configuration", "Release", "-sdk", entity&iOSSDKVersion, "SYMROOT=build"
+        direShell "xcodebuild", "-project", xcodeProjDir/"SDL.xcodeproj", "-configuration", "Release", "-sdk", entity&iOSSDKVersion, "SYMROOT=build", "ARCHS=\"i386 x86_64\""
     libDir
 
 proc makeAndroidBuildDir(): string =

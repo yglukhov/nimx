@@ -63,6 +63,7 @@ method initCommon(w: SdlWindow, r: view.Rect) =
     #w.enableAnimation(true)
     mainApplication().addWindow(w)
     discard w.impl.setData("__nimx_wnd", cast[pointer](w))
+    w.onResize(r.size)
 
 method initFullscreen*(w: SdlWindow) =
     initSDLIfNeeded()
