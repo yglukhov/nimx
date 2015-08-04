@@ -1,5 +1,11 @@
 when not defined(js):
     import asyncdispatch, httpclient, sdl2, sdl_perform_on_main_thread
+    when defined(android):
+        # For some reason pthread_t is not defined on android
+        {.emit: """/*INCLUDESECTION*/
+        #include <pthread.h>"""
+        .}
+
 
     type RequestHandler = ref object
         handlerProc: proc(data: string)
