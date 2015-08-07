@@ -69,7 +69,10 @@ proc symLink(source, destination: string) =
 
 proc createSDLIncludeLink(dir: string) =
     createDir dir
-    symLink(sdlRoot/"include", dir/"SDL2")
+    if dirExists("/usr/local/include/SDL2"):
+        symLink("/usr/local/include/SDL2", dir/"SDL2")
+    else:
+        symLink(sdlRoot/"include", dir/"SDL2")
 
 proc runAppInSimulator() =
     var waitForDebugger = "--wait-for-debugger"
@@ -87,13 +90,18 @@ proc replaceVarsInFile(file: string, vars: Table[string, string]) =
 
 proc buildSDLForDesktop(): string =
     when defined(linux):
-        "/usr/lib"
+        result = "/usr/lib"
+    elif defined(macosx):
+        if fileExists("/usr/local/lib/libSDL2.a") or fileExists("/usr/local/lib/libSDL2.dylib"):
+            result = "/usr/local/lib"
+        else:
+            let xcodeProjDir = expandTilde(sdlRoot)/"Xcode/SDL"
+            let libDir = xcodeProjDir/"build/Release"
+            if not fileExists libDir/"libSDL2.a":
+                direShell "xcodebuild", "-project", xcodeProjDir/"SDL.xcodeproj", "-target", "Static\\ Library", "-configuration", "Release", "-sdk", "macosx"&macOSSDKVersion, "SYMROOT=build"
+            result = libDir
     else:
-        let xcodeProjDir = expandTilde(sdlRoot)/"Xcode/SDL"
-        let libDir = xcodeProjDir/"build/Release"
-        if not fileExists libDir/"libSDL2.a":
-            direShell "xcodebuild", "-project", xcodeProjDir/"SDL.xcodeproj", "-target", "Static\\ Library", "-configuration", "Release", "-sdk", "macosx"&macOSSDKVersion, "SYMROOT=build"
-        libDir
+        assert(false, "Don't know where to find SDL")
 
 
 proc buildSDLForIOS(forSimulator: bool = false): string =
