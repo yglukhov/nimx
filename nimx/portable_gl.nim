@@ -84,6 +84,7 @@ when defined js:
             bindBuffer*: proc(target: GLenum, name: GLuint)
 
             uniform4fv*: proc(location: GLint, data: array[4, GLfloat])
+            uniform2fv*: proc(location: GLint, data: array[2, GLfloat])
             uniform1f*: proc(location: GLint, data: GLfloat)
             uniformMatrix4fv*: proc(location: GLint, transpose: GLboolean, data: array[16, GLfloat])
 

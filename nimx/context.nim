@@ -148,6 +148,15 @@ proc setRectUniform*(c: GraphicsContext, prog: GLuint, name: cstring, r: Rect) =
         {.emit: "`p` = &`r`;".}
         glUniform4fv(loc, 1, p);
 
+proc setPointUniform*(c: GraphicsContext, prog: GLuint, name: cstring, r: Point) =
+    let loc = c.gl.getUniformLocation(prog, name)
+    when defined js:
+        c.gl.uniform2fv(loc, [r.x, r.y])
+    else:
+        var p: ptr GLfloat
+        {.emit: "`p` = &`r`;".}
+        glUniform2fv(loc, 1, p);
+
 proc setStrokeParamsUniform(c: GraphicsContext, program: GLuint) =
     if c.strokeWidth == 0:
         c.setColorUniform(program, "strokeColor", c.fillColor)

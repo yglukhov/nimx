@@ -280,6 +280,9 @@ template draw*(comp: var Composition, r: Rect, code:stmt): stmt {.immediate.} =
     template setUniform(name: string, v: Rect) {.hint[XDeclaredButNotUsed]: off.} =
         ctx.setRectUniform(comp.program, name, v)
 
+    template setUniform(name: string, v: Point) {.hint[XDeclaredButNotUsed]: off.} =
+        ctx.setPointUniform(comp.program, name, v)
+
     template setUniform(name: string, v: Color) {.hint[XDeclaredButNotUsed]: off.}  =
         ctx.setColorUniform(comp.program, name, v)
 
