@@ -21,7 +21,7 @@ type ButtonBehavior = enum
     bbMomentaryLight
     bbToggle
 
-type Button = ref object of Control
+type Button* = ref object of Control
     title*: string
     state*: ButtonState
     value*: int8
