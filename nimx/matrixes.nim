@@ -8,6 +8,10 @@ type Vector3* = array[3, Coord]
 type Vector2* = array[2, Coord]
 type Vector4* = array[4, Coord]
 
+proc newVector2*(x, y: Coord = 0): Vector2 =
+    result[0] = x
+    result[1] = y
+
 proc newVector3*(x, y, z: Coord = 0): Vector3 =
     result[0] = x
     result[1] = y

@@ -132,9 +132,7 @@ proc setColorUniform*(c: GraphicsContext, program: GLuint, name: cstring, color:
     when defined js:
         c.gl.uniform4fv(loc, [color.r, color.g, color.b, color.a])
     else:
-        var p: ptr GLfloat
-        {.emit: "`p` = &`color`;".}
-        glUniform4fv(loc, 1, p);
+        glUniform4fv(loc, 1, cast[ptr GLfloat](unsafeAddr color));
 
 template setFillColorUniform(c: GraphicsContext, program: GLuint) =
     c.setColorUniform(program, "fillColor", c.fillColor)
@@ -144,18 +142,14 @@ proc setRectUniform*(c: GraphicsContext, prog: GLuint, name: cstring, r: Rect) =
     when defined js:
         c.gl.uniform4fv(loc, [r.x, r.y, r.width, r.height])
     else:
-        var p: ptr GLfloat
-        {.emit: "`p` = &`r`;".}
-        glUniform4fv(loc, 1, p);
+        glUniform4fv(loc, 1, cast[ptr GLfloat](unsafeAddr r));
 
 proc setPointUniform*(c: GraphicsContext, prog: GLuint, name: cstring, r: Point) =
     let loc = c.gl.getUniformLocation(prog, name)
     when defined js:
         c.gl.uniform2fv(loc, [r.x, r.y])
     else:
-        var p: ptr GLfloat
-        {.emit: "`p` = &`r`;".}
-        glUniform2fv(loc, 1, p);
+        glUniform2fv(loc, 1, cast[ptr GLfloat](unsafeAddr r));
 
 proc setStrokeParamsUniform(c: GraphicsContext, program: GLuint) =
     if c.strokeWidth == 0:

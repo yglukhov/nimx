@@ -217,10 +217,9 @@ else:
     template bindBuffer*(gl: GL, target: GLenum, name: GLuint) = glBindBuffer(target, name)
 
     template uniform1f*(gl: GL, location: GLint, data: GLfloat) = glUniform1f(location, data)
+    template uniform2fv*(gl: GL, location: GLint, data: array[2, GLfloat]) = glUniform2fv(location, 1, unsafeAddr data[0])
     proc uniformMatrix4fv*(gl: GL, location: GLint, transpose: GLboolean, data: array[16, GLfloat]) {.inline.} =
-        var p : ptr GLfloat
-        {.emit: "`p` = `data`;".}
-        glUniformMatrix4fv(location, 1, transpose, p)
+        glUniformMatrix4fv(location, 1, transpose, unsafeAddr data[0])
 
     template clearColor*(gl: GL, r, g, b, a: GLfloat) = glClearColor(r, g, b, a)
     template clearStencil*(gl: GL, s: GLint) = glClearStencil(s)
