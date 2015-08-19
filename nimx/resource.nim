@@ -1,6 +1,7 @@
 import os
 import strutils
 import sdl2
+import system_logger
 
 type
     Resource* = ref ResourceObj
@@ -55,9 +56,9 @@ when not defined(js):
         result = ops.seek(ops, 0, 1).int
 
     proc rwReadData(s: Stream, buffer: pointer, bufLen: int): int {.nimcall.} =
-        let res = read(s.RWOpsStream.ops, buffer, bufLen.csize, 1)
+        let ops = s.RWOpsStream.ops
+        let res = ops.read(ops, buffer, 1, bufLen.csize)
         result = res
-        echo "R: ", result
 
     proc rwWriteData(s: Stream, buffer: pointer, bufLen: int) {.nimcall.} =
         if write(s.RWOpsStream.ops, buffer, 1, bufLen) != bufLen:
@@ -79,6 +80,8 @@ when not defined(js):
             result = newStreamWithRWops(rwFromFile(name, "rb"))
         else:
             result = newFileStream(pathForResource(name), fmRead)
+        if result.isNil:
+            logi "WARNING: Resource not found: ", name
 
 proc loadResourceByName*(resourceName: string): Resource =
     when defined(android):
