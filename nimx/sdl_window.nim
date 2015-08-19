@@ -258,12 +258,17 @@ proc nextEvent(evt: var sdl2.Event): bool =
         result = waitEvent(evt)
     else:
         if animationEnabled > 0:
+            # TODO: This should be researched more carefully.
+            # During animations we need to process more than one event
             result = pollEvent(evt)
         else:
             result = waitEvent(evt)
 
-    if result == True32 and evt.kind == UserEvent5:
-        handleCallbackEvent(cast[UserEventPtr](addr evt))
+    if result == True32:
+        if evt.kind == UserEvent5:
+            handleCallbackEvent(cast[UserEventPtr](addr evt))
+        else:
+            result = eventFilter(nil, addr evt)
 
     animateAndDraw()
 
@@ -276,7 +281,7 @@ method stopTextInput*(w: SdlWindow) =
 proc runUntilQuit*() =
     # Initialize fist dummy event. The kind should be any unused kind.
     var evt = sdl2.Event(kind: UserEvent1)
-    setEventFilter(eventFilter, nil)
+    #setEventFilter(eventFilter, nil)
     animateAndDraw()
 
     # Main loop
