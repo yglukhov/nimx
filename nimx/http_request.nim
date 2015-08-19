@@ -1,5 +1,6 @@
 when not defined(js):
     import asyncdispatch, httpclient, sdl2, sdl_perform_on_main_thread
+    import system_logger
     when defined(android):
         # For some reason pthread_t is not defined on android
         {.emit: """/*INCLUDESECTION*/
@@ -25,11 +26,15 @@ when not defined(js):
         deallocShared(rh.handlerData)
 
     proc ayncHTTPRequest(a: ThreadArg) {.thread.} =
-        let resp = request(a.url, "http" & a.httpMethod, a.extraHeaders, a.body, sslContext = nil)
-        let rh = cast[RequestHandler](a.handler)
-        rh.handlerData = allocShared(resp.body.len + 1)
-        copyMem(rh.handlerData, cstring(resp.body), resp.body.len + 1)
-        performOnMainThread(cHandler, a.handler)
+        try:
+            let resp = request(a.url, "http" & a.httpMethod, a.extraHeaders, a.body, sslContext = nil)
+            let rh = cast[RequestHandler](a.handler)
+            rh.handlerData = allocShared(resp.body.len + 1)
+            copyMem(rh.handlerData, cstring(resp.body), resp.body.len + 1)
+            performOnMainThread(cHandler, a.handler)
+        except:
+            logi "Exception caught: ", getCurrentExceptionMsg()
+            logi getCurrentException().getStackTrace()
 
 proc sendRequest*(meth, url, body: string, headers: openarray[(string, string)], handler: proc(data: string)) =
     when defined(js):
