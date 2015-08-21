@@ -117,8 +117,6 @@ method initWithCanvas*(w: JSCanvasWindow, canvas: Element) =
     `width` = `canvas`.width;
     `height` = `canvas`.height;
     """
-    width = 800
-    height = 600
     w.canvas = canvas
     procCall w.Window.init(newRect(0, 0, width, height))
     w.renderingContext = newGraphicsContext(canvas)
