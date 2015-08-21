@@ -48,7 +48,7 @@ when not defined(js):
 proc newTimer*(interval: float, repeat: bool, callback: proc()): Timer =
     when defined(js):
         asm """
-        `result` = setTimeout(`callback`, `interval` * 1000);
+        `result` = `repeat` ? setInterval(`callback`, `interval` * 1000) : setTimeout(`callback`, `interval` * 1000);
         `result`.__nimx_periodic = `repeat`;
         """
     else:
