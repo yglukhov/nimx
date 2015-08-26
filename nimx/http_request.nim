@@ -63,5 +63,5 @@ proc sendRequest*(meth, url, body: string, headers: openarray[(string, string)],
 
         var extraHeaders = ""
         for h in headers:
-            extraHeaders &= h[0] & ": " & h[1] & "\n\r"
+            extraHeaders &= h[0] & ": " & h[1] & "\r\n"
         createThread(t[], ayncHTTPRequest, ThreadArg(url: url, httpMethod: meth, extraHeaders: extraHeaders, body: body, handler: cast[pointer](rh)))
