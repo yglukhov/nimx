@@ -83,9 +83,11 @@ when defined js:
             bindRenderbuffer*: proc(target: GLenum, name: GLuint)
             bindBuffer*: proc(target: GLenum, name: GLuint)
 
-            uniform4fv*: proc(location: GLint, data: array[4, GLfloat])
-            uniform2fv*: proc(location: GLint, data: array[2, GLfloat])
+            uniform1fv*: proc(location: GLint, data: openarray[GLfloat])
+            uniform2fv*: proc(location: GLint, data: openarray[GLfloat])
+            uniform4fv*: proc(location: GLint, data: openarray[GLfloat])
             uniform1f*: proc(location: GLint, data: GLfloat)
+            uniform1i*: proc(location: GLint, data: GLint)
             uniformMatrix4fv*: proc(location: GLint, transpose: GLboolean, data: array[16, GLfloat])
 
             clearColor*: proc(r, g, b, a: GLfloat)
@@ -217,7 +219,11 @@ else:
     template bindBuffer*(gl: GL, target: GLenum, name: GLuint) = glBindBuffer(target, name)
 
     template uniform1f*(gl: GL, location: GLint, data: GLfloat) = glUniform1f(location, data)
-    template uniform2fv*(gl: GL, location: GLint, data: array[2, GLfloat]) = glUniform2fv(location, 1, unsafeAddr data[0])
+    template uniform1i*(gl: GL, location: GLint, data: GLint) = glUniform1i(location, data)
+    template uniform2fv*(gl: GL, location: GLint, data: openarray[GLfloat]) = glUniform2fv(location, GLSizei(data.len / 2), unsafeAddr data[0])
+    template uniform2fv*(gl: GL, location: GLint, length: GLsizei, data: ptr GLfloat) = glUniform2fv(location, length, data)
+    template uniform1fv*(gl: GL, location: GLint, data: openarray[GLfloat]) = glUniform1fv(location, data.len, unsafeAddr data[0])
+    template uniform1fv*(gl: GL, location: GLint, length: GLsizei, data: ptr GLfloat) = glUniform1fv(location, length, data)
     proc uniformMatrix4fv*(gl: GL, location: GLint, transpose: GLboolean, data: array[16, GLfloat]) {.inline.} =
         glUniformMatrix4fv(location, 1, transpose, unsafeAddr data[0])
 
