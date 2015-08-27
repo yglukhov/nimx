@@ -1,9 +1,7 @@
-
 import types
 import opengl
 import math
 import portable_gl
-import unsigned
 
 when not defined js:
     import resource

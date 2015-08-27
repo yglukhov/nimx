@@ -3,7 +3,6 @@ import system_logger
 import unicode
 import tables
 import rect_packer
-import unsigned
 
 when defined js:
     import dom

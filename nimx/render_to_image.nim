@@ -1,8 +1,6 @@
-
 import image
 import portable_gl
 import context
-import unsigned
 import math
 import opengl
 
@@ -56,4 +54,3 @@ proc draw*(i: Image, drawProc: proc()) =
     gl.deleteRenderbuffer(depthBuffer)
     gl.bindFramebuffer(gl.FRAMEBUFFER, oldFb)
     gl.deleteFramebuffer(framebuffer)
-
