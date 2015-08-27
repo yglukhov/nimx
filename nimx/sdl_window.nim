@@ -222,15 +222,19 @@ proc eventWithSDLEvent(event: ptr sdl2.Event): Event =
             #echo "Unknown event: ", event.kind
             discard
 
-# The following function may be called on a foreign thread.
-{.push stack_trace: off.}
-proc eventFilter(userdata: pointer; event: ptr sdl2.Event): Bool32 {.cdecl.} =
-    if event.kind != UserEvent5: # Callback events should be passed to main thread.
+proc handleEvent(event: ptr sdl2.Event): Bool32 =
+    if event.kind == UserEvent5:
+        let evt = cast[UserEventPtr](event)
+        let p = cast[proc (data: pointer) {.cdecl.}](evt.data1)
+        if p.isNil:
+            logi "WARNING: UserEvent5 with nil proc"
+        else:
+            p(evt.data2)
+    else:
         # This branch should never execute on a foreign thread!!!
         var e = eventWithSDLEvent(event)
         discard mainApplication().handleEvent(e)
     result = True32
-{.pop.}
 
 method onResize*(w: SdlWindow, newSize: Size) =
     let sf = screenScaleFactor()
@@ -263,22 +267,20 @@ proc handleCallbackEvent(evt: UserEventPtr) =
     else:
         p(evt.data2)
 
-proc nextEvent(evt: var sdl2.Event): bool =
+proc nextEvent(evt: var sdl2.Event) =
     when defined(ios):
-        result = waitEvent(evt)
+        if waitEvent(evt):
+            discard handleEvent(addr evt)
     else:
         if animationEnabled > 0:
             # TODO: This should be researched more carefully.
             # During animations we need to process more than one event
-            result = pollEvent(evt)
-        else:
-            result = waitEvent(evt)
-
-    if result == True32:
-        if evt.kind == UserEvent5:
-            handleCallbackEvent(cast[UserEventPtr](addr evt))
-        else:
-            result = eventFilter(nil, addr evt)
+            while pollEvent(evt):
+                if evt.kind == QuitEvent:
+                    break
+                discard handleEvent(addr evt)
+        elif waitEvent(evt):
+            discard handleEvent(addr evt)
 
     animateAndDraw()
 
@@ -296,7 +298,7 @@ proc runUntilQuit*() =
 
     # Main loop
     while true:
-        discard nextEvent(evt)
+        nextEvent(evt)
         if evt.kind == QuitEvent:
             break
 
