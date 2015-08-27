@@ -283,11 +283,24 @@ template draw*(comp: var Composition, r: Rect, code:stmt): stmt {.immediate.} =
     template setUniform(name: string, v: Point) {.hint[XDeclaredButNotUsed]: off.} =
         ctx.setPointUniform(comp.program, name, v)
 
+    template setUniform(name: string, v: openarray[Point]) {.hint[XDeclaredButNotUsed]: off.} =
+        when defined(js):
+            var buf = newSeq[GLfloat](v.len * 2)
+            for p in v:
+                buf.add(p.x)
+                buf.add(p.y)
+            gl.uniform2fv(gl.getUniformLocation(comp.program, name), buf)
+        else:
+            gl.uniform2fv(gl.getUniformLocation(comp.program, name), GLsizei(v.len), cast[ptr GLfloat](unsafeAddr v[0]))
+
     template setUniform(name: string, v: Color) {.hint[XDeclaredButNotUsed]: off.}  =
         ctx.setColorUniform(comp.program, name, v)
 
     template setUniform(name: string, v: GLfloat) {.hint[XDeclaredButNotUsed]: off.}  =
         gl.uniform1f(gl.getUniformLocation(comp.program, name), v)
+
+    template setUniform(name: string, v: GLint) {.hint[XDeclaredButNotUsed]: off.}  =
+        gl.uniform1i(gl.getUniformLocation(comp.program, name), v)
 
     setUniform("bounds", r)
 
