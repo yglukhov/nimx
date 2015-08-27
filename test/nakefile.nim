@@ -140,7 +140,8 @@ proc makeAndroidBuildDir(): string =
 
 proc runNim(arguments: varargs[string]) =
     var args = @[nimExe, "c", "--noMain", parallelBuild, "--stackTrace:on", "--lineTrace:off",
-                nimVerbose, "-d:noAutoGLerrorCheck", "-d:release", "--opt:speed", "--passC:-g", "--threads:on"]
+                nimVerbose, "-d:noAutoGLerrorCheck", "-d:release", "--opt:speed", "--passC:-g",
+                "--threads:on", "--warning[LockLevel]:off"]
     args.add arguments
     args.add "main"
     direShell args
