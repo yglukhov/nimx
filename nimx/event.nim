@@ -5,6 +5,7 @@ import window
 type EventType* = enum
     etUnknown
     etMouse
+    etTouch
     etScroll
     etKeyboard
     etWindowResized
@@ -23,6 +24,10 @@ type KeyCode* = enum
     kcMouseButtonPrimary
     kcMouseButtonSecondary
     kcMouseButtonMiddle
+
+type Touch* = object
+    position*: Point
+    id*: int
 
 type Event* = object
     kind*: EventType
@@ -56,6 +61,15 @@ proc newMouseMoveEvent*(position: Point): Event =
 
 proc newMouseButtonEvent*(position: Point, button: KeyCode, state: ButtonState): Event =
     newEvent(etMouse, position, button, state)
+
+proc newTouchEvent*(position: Point, state: ButtonState): Event =
+    newEvent(etTouch, position, kcUnknown, state)
+
+proc newFingerDownEvent*(position: Point): Event =
+    newTouchEvent(position, bsDown)
+
+proc newFingerUpEvent*(position: Point): Event =
+    newTouchEvent(position, bsUp)
 
 proc newMouseDownEvent*(position: Point, button: KeyCode): Event =
     newMouseButtonEvent(position, button, bsDown)

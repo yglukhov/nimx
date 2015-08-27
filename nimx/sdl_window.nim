@@ -49,10 +49,16 @@ method enableAnimation*(w: SdlWindow, flag: bool) =
         when defined(ios):
             discard iPhoneSetAnimationCallback(w.impl, 0, nil, nil)
 
+# SDL does not provide window id in touch event info, so we add this workaround
+# assuming that touch devices may have only one window.
+var defaultWindow: SdlWindow
+
 method initCommon(w: SdlWindow, r: view.Rect) =
     if w.impl == nil:
         logi "Could not create window!"
         quit 1
+    if defaultWindow.isNil:
+        defaultWindow = w
     procCall init(w.Window, r)
     w.sdlGlContext = w.impl.glCreateContext()
     if w.sdlGlContext == nil:
@@ -128,15 +134,19 @@ template buttonStateFromSDLState(s: KeyState): ButtonState =
 
 proc eventWithSDLEvent(event: ptr sdl2.Event): Event =
     case event.kind:
-        of FingerMotion:
-            discard
-            #logi("finger motion")
-        of FingerDown:
-            #logi("Finger down")
-            discard
-        of FingerUp:
-            #logi("Finger up")
-            discard
+        of FingerMotion, FingerDown, FingerUp:
+            let bs = case event.kind
+                of FingerDown: bsDown
+                of FingerUp: bsUp
+                else: bsUnknown
+            let touchEv = cast[TouchFingerEventPtr](event)
+
+            result = newTouchEvent(
+                newPoint(touchEv.x * defaultWindow.frame.width,
+                    touchEv.y * defaultWindow.frame.height),
+                bs)
+            result.window = defaultWindow
+
         of WindowEvent:
             let wndEv = cast[WindowEventPtr](event)
             let wnd = windowFromSDLEvent(wndEv)
