@@ -1,7 +1,6 @@
 
 import opengl
 # export opengl
-import unsigned
 
 export GLuint, GLint, GLfloat, GLenum, GLsizei, GLushort
 

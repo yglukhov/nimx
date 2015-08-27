@@ -1,7 +1,6 @@
 import types
 import opengl
 from opengl import GLuint, GLint, GLfloat, GLenum
-import unsigned
 import system_logger
 import matrixes
 import font

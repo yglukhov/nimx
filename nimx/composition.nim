@@ -1,7 +1,6 @@
 import context
 import types
 import portable_gl
-import unsigned
 
 export portable_gl
 export context
