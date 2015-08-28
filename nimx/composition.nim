@@ -256,7 +256,13 @@ void main() { gl_FragColor = vec4(0.0); compose(); }
     comp.definition = nil
     comp.program = gl.newShaderProgram(vertexShaderCode, fragmentShaderCode, [(posAttr, "aPosition")])
 
-template draw*(comp: var Composition, r: Rect, code:stmt): stmt {.immediate.} =
+proc unwrapPointArray(a: openarray[Point]): seq[GLfloat] =
+    result = newSeq[GLfloat](a.len * 2)
+    for p in a:
+        result.add(p.x)
+        result.add(p.y)
+
+template draw*(comp: var Composition, r: Rect, code: untyped): stmt =
     let ctx = currentContext()
     let gl = ctx.gl
     if comp.program == 0:
@@ -284,11 +290,7 @@ template draw*(comp: var Composition, r: Rect, code:stmt): stmt {.immediate.} =
 
     template setUniform(name: string, v: openarray[Point]) {.hint[XDeclaredButNotUsed]: off.} =
         when defined(js):
-            var buf = newSeq[GLfloat](v.len * 2)
-            for p in v:
-                buf.add(p.x)
-                buf.add(p.y)
-            gl.uniform2fv(gl.getUniformLocation(comp.program, name), buf)
+            gl.uniform2fv(gl.getUniformLocation(comp.program, name), unwrapPointArray(v))
         else:
             gl.uniform2fv(gl.getUniformLocation(comp.program, name), GLsizei(v.len), cast[ptr GLfloat](unsafeAddr v[0]))
 

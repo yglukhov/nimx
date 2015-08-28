@@ -56,13 +56,10 @@ void compose() {
 }
 """
 
-proc drawBecauseNimBug*(b: PopupButton) =
+method draw(b: PopupButton, r: Rect) =
     pbComposition.draw b.bounds:
         setUniform("uFillColorStart", newColor(0.31, 0.60, 0.98))
         setUniform("uFillColorEnd", newColor(0.09, 0.42, 0.88))
-
-method draw(b: PopupButton, r: Rect) =
-    b.drawBecauseNimBug()
     let c = currentContext()
     c.fillColor = blackColor()
     let font = systemFont()

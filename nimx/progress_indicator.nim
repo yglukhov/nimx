@@ -74,16 +74,13 @@ method init(v: ProgressIndicator, r: Rect) =
     v.animation.onAnimate = proc(p: float) =
         v.setNeedsDisplay()
 
-proc drawBecauseNimBug(v: ProgressIndicator, r: Rect) =
+method draw*(v: ProgressIndicator, r: Rect) =
     if v.mIndeterminate:
         indeterminateComposition.draw v.bounds:
             setUniform("uPosition", float32(epochTime() mod 1.0))
     else:
         piComposition.draw v.bounds:
             setUniform("uPosition", v.mPosition)
-
-method draw*(v: ProgressIndicator, r: Rect) =
-    v.drawBecauseNimBug(r)
 
 proc `position=`*(v: ProgressIndicator, p: Coord) =
     v.mPosition = p
