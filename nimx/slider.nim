@@ -8,7 +8,7 @@ import view_event_handling
 import app
 
 type Slider* = ref object of Control
-    mPosition: Coord
+    mValue: Coord
 
 var sliderComposition = newComposition """
 uniform float uPosition;
@@ -33,24 +33,21 @@ void compose() {
 }
 """
 
-proc drawBecauseNimBug*(s: Slider, r: Rect) =
-    sliderComposition.draw s.bounds:
-        setUniform("uPosition", s.mPosition)
-
 method draw*(s: Slider, r: Rect) =
-    s.drawBecauseNimBug(r)
+    sliderComposition.draw s.bounds:
+        setUniform("uPosition", s.mValue)
 
-proc `position=`*(s: Slider, p: Coord) =
-    s.mPosition = p
-    if p < 0: s.mPosition = 0
-    elif p > 1: s.mPosition = 1
+proc `value=`*(s: Slider, p: Coord) =
+    s.mValue = p
+    if p < 0: s.mValue = 0
+    elif p > 1: s.mValue = 1
     s.setNeedsDisplay()
 
-template position*(s: Slider): Coord = s.mPosition
+template value*(s: Slider): Coord = s.mValue
 
 method onMouseDown(s: Slider, e: var Event): bool =
     result = true
-    s.position = e.localPosition.x / s.bounds.width
+    s.value = e.localPosition.x / s.bounds.width
 
     mainApplication().pushEventFilter do(e: var Event, c: var EventFilterControl) -> bool:
         result = true
@@ -60,7 +57,7 @@ method onMouseDown(s: Slider, e: var Event): bool =
                 c = efcBreak
                 result = s.onMouseUp(e)
             elif e.isMouseMoveEvent():
-                s.position = e.localPosition.x / s.bounds.width
+                s.value = e.localPosition.x / s.bounds.width
                 s.setNeedsDisplay()
                 s.sendAction(e)
 

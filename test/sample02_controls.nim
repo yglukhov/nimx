@@ -49,8 +49,8 @@ method init(v: ControlsSampleView, r: Rect) =
     let slider = Slider.new(newRect(120, 70, v.bounds.width - 130, 16))
     slider.autoresizingMask = { afFlexibleWidth, afFlexibleMaxY }
     slider.onAction do():
-        textField.text = "Slider value: " & $slider.position & " "
-        progress.position = slider.position
+        textField.text = "Slider value: " & $slider.value & " "
+        progress.value = slider.value
         textField.setNeedsDisplay()
     v.addSubview(slider)
 

@@ -9,7 +9,7 @@ import times
 import math
 
 type ProgressIndicator* = ref object of View
-    mPosition: Coord
+    mValue: Coord
     mIndeterminate: bool
     animation: Animation
 
@@ -80,13 +80,13 @@ method draw*(v: ProgressIndicator, r: Rect) =
             setUniform("uPosition", float32(epochTime() mod 1.0))
     else:
         piComposition.draw v.bounds:
-            setUniform("uPosition", v.mPosition)
+            setUniform("uPosition", v.mValue)
 
-proc `position=`*(v: ProgressIndicator, p: Coord) =
-    v.mPosition = p
+proc `value=`*(v: ProgressIndicator, p: Coord) =
+    v.mValue = p
     v.setNeedsDisplay()
 
-proc position*(v: ProgressIndicator): Coord = v.mPosition
+proc value*(v: ProgressIndicator): Coord = v.mValue
 
 proc indeterminate*(v: ProgressIndicator): bool = v.mIndeterminate
 proc `indeterminate=`*(v: ProgressIndicator, flag: bool) =
