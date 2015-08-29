@@ -15,6 +15,8 @@ Installation
 
     nimble install nimx
 
+Please note that nimx is tested only against the latest devel version of Nim compiler.
+
 Usage
 ------------
 .. code-block:: nim
