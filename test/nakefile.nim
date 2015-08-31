@@ -209,7 +209,7 @@ task "droid", "Build for android and install on the connected device":
     direShell "ant", "debug", "install"
 
 task "js", "Create Javascript version.":
-    direShell nimExe, "js", "--stackTrace:off", "main"
+    direShell nimExe, "js", "--stackTrace:off", "--warning[LockLevel]:off", "main"
     closure_compiler.compileFileAndRewrite("nimcache/main.js", ADVANCED_OPTIMIZATIONS)
     let settings = newSettings(staticDir = getCurrentDir())
     routes:
