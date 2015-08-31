@@ -50,7 +50,11 @@ proc sendRequest*(meth, url, body: string, headers: openarray[(string, string)],
         oReq.responseType = "text";
         oReq.addEventListener('load', `reqListener`);
         oReq.open(`cmeth`, `curl`, true);
-        oReq.send(`cbody`);
+        if (`cbody` === null) {
+            oReq.send();
+        } else {
+            oReq.send(`cbody`);
+        }
         """.}
     else:
         var t : ref Thread[ThreadArg]
