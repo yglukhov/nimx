@@ -102,9 +102,12 @@ proc tick*(a: Animation, curTime: float) =
         totalProgress = 1.0
 
     if not a.onAnimate.isNil:
-        let curvedProgress =
-            if a.timingFunction.isNil: loopProgress
-            else: a.timingFunction(loopProgress)
+        var curvedProgress = loopProgress
+        if a.loopPattern == lpStartToEndToStart:
+            curvedProgress *= 2
+            if curvedProgress >= 1.0: curvedProgress = 2 - curvedProgress
+        if not a.timingFunction.isNil:
+            curvedProgress = a.timingFunction(curvedProgress)
         a.onAnimate(curvedProgress)
 
     if not a.finished:
