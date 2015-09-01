@@ -40,7 +40,8 @@ proc sendRequest*(meth, url, body: string, headers: openarray[(string, string)],
     when defined(js):
         let cmeth : cstring = meth
         let curl : cstring = url
-        let cbody : cstring = body
+        var cbody : cstring
+        if not body.isNil: cbody = body
 
         let reqListener = proc (r: cstring) =
             handler($r)
