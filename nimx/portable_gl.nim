@@ -255,7 +255,7 @@ var globalGL: GL
 proc newGL*(canvas: ref RootObj): GL =
     when defined js:
         asm """
-            var options = {stencil: true};
+            var options = {stencil: true, alpha: false};
             try {
                 `result` = `canvas`.getContext("webgl", options);
             }
