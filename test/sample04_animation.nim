@@ -4,6 +4,8 @@ import nimx.image
 import nimx.context
 import nimx.animation
 import nimx.window
+import nimx.button
+import nimx.progress_indicator
 import sample_registry
 
 type AnimationSampleView = ref object of View
@@ -13,10 +15,37 @@ type AnimationSampleView = ref object of View
 method init*(v: AnimationSampleView, r: Rect) =
     procCall v.View.init(r)
     v.animation = newAnimation()
+
+    # Start/Stop button
+    let startStopButton = newButton(newRect(20, 20, 50, 50))
+    startStopButton.title = "Stop"
+    startStopButton.onAction do():
+        if v.animation.finished:
+            v.window.addAnimation(v.animation)
+            startStopButton.title = "Stop"
+        else:
+            v.animation.cancel()
+    v.addSubview(startStopButton)
+
     v.animation.timingFunction = bezierTimingFunction(0.53,-0.53,0.38,1.52)
     v.animation.onAnimate = proc(p: float) =
         v.rotation = p * PI * 2
     v.animation.loopDuration = 2.0
+    v.animation.onComplete do():
+        startStopButton.title = "Start"
+    #v.animation.numberOfLoops = 2
+
+    let progressBar = ProgressIndicator.new(newRect(90, 20, 90, 20))
+    v.addSubview(progressBar)
+
+    # Loop progress handlers are called when animation reaches specified loop progress.
+    v.animation.addLoopProgressHandler 1.0, false, proc() =
+        progressBar.value = 1.0
+
+    v.animation.addLoopProgressHandler 0.5, false, proc() =
+        progressBar.value = 0.5
+
+    v.animation.continueUntilEndOfLoopOnCancel = true
 
 method draw(v: AnimationSampleView, r: Rect) =
     let c = currentContext()

@@ -1,5 +1,7 @@
 import math
 import macros
+import algorithm
+import times
 
 type LoopPattern* = enum
     lpStartToEndToStart
@@ -10,51 +12,126 @@ type LoopPattern* = enum
 type TimingFunction = proc(time: float): float
 type AnimationFunction = proc(progress: float)
 
+type ProgressHandler = object
+    handler: proc()
+    progress: float
+    callIfCancelled: bool
+
 type Animation* = ref object of RootObj
     startTime*: float
     loopDuration*: float
-    pattern*: LoopPattern
+    loopPattern*: LoopPattern
     numberOfLoops*: int
     timingFunction*: TimingFunction
     onAnimate*: AnimationFunction
     finished*: bool
-    completionHandler: proc()
+    cancelLoop: int # Loop at which animation was cancelled. -1 if not cancelled
+    curLoop: int
+
+    continueUntilEndOfLoopOnCancel*: bool
+    loopProgressHandlers: seq[ProgressHandler]
+    totalProgressHandlers: seq[ProgressHandler]
+    lphIt, tphIt: int # Cursors for progressHandlers arrays
 
 proc newAnimation*(): Animation =
     result.new()
     result.numberOfLoops = -1
     result.loopDuration = 1.0
-    result.pattern = lpStartToEnd
+    result.loopPattern = lpStartToEnd
 
-method tick*(a: Animation, curTime: float) =
+proc addHandler(s: var seq[ProgressHandler], ph: ProgressHandler) =
+    if s.isNil: s = newSeq[ProgressHandler]()
+    s.insert(ph,
+        s.lowerBound(ph, proc (a, b: ProgressHandler): int = cmp(a.progress, b.progress)))
+
+proc addLoopProgressHandler*(a: Animation, progress: float, callIfCancelled: bool, handler: proc()) =
+    addHandler(a.loopProgressHandlers, ProgressHandler(handler: handler, progress: progress,
+        callIfCancelled: callIfCancelled))
+
+proc addTotalProgressHandler*(a: Animation, progress: float, callIfCancelled: bool, handler: proc()) =
+    addHandler(a.totalProgressHandlers, ProgressHandler(handler: handler, progress: progress,
+        callIfCancelled: callIfCancelled))
+
+proc prepare*(a: Animation) =
+    a.finished = false
+    a.startTime = epochTime()
+    a.lphIt = 0
+    a.tphIt = 0
+    a.cancelLoop = -1
+    a.curLoop = 0
+
+template currentLoopForTotalDuration(a: Animation, d: float): int = int(d / a.loopDuration)
+
+proc processHandlers(handlers: openarray[ProgressHandler], it: var int, progress: float) =
+    while it < handlers.len:
+        if handlers[it].progress <= progress:
+            handlers[it].handler()
+            inc it
+        else:
+            break
+
+proc processRemainingHandlersInLoop(handlers: openarray[ProgressHandler], it: var int, stopped: bool) =
+    while it < handlers.len:
+        if not stopped or handlers[it].callIfCancelled:
+            handlers[it].handler()
+        inc it
+    it = 0
+
+proc tick*(a: Animation, curTime: float) =
     let duration = curTime - a.startTime
-    var loopProgress = 1.0
-    if a.numberOfLoops > 0 and duration >= a.numberOfLoops.float * a.loopDuration:
-        a.finished = true
-    else:
-        let timeInLoop = duration mod a.loopDuration
-        loopProgress = timeInLoop / a.loopDuration
-        if not a.timingFunction.isNil:
-            loopProgress = a.timingFunction(loopProgress)
-    if not a.onAnimate.isNil:
-        a.onAnimate(loopProgress)
-    if a.finished and not a.completionHandler.isNil:
-        a.completionHandler()
+    let currentLoop = a.currentLoopForTotalDuration(duration)
+    var loopProgress = (duration mod a.loopDuration) / a.loopDuration
+    if currentLoop > a.curLoop:
+        if not a.loopProgressHandlers.isNil:
+            processRemainingHandlersInLoop(a.loopProgressHandlers, a.lphIt, stopped=false)
 
-proc cancel*(a: Animation) =
-    a.finished = true
+    var totalProgress =
+        if a.numberOfLoops > 0: duration / (float(a.numberOfLoops) * a.loopDuration)
+        else: 0.0
+
+    if a.cancelLoop >= 0:
+        if not a.continueUntilEndOfLoopOnCancel:
+            a.finished = true
+        elif currentLoop > a.cancelLoop:
+            a.finished = true
+            loopProgress = 1.0
+
+    if a.numberOfLoops >= 0 and currentLoop >= a.numberOfLoops:
+        a.finished = true
+        loopProgress = 1.0
+        totalProgress = 1.0
+
+    if not a.onAnimate.isNil:
+        let curvedProgress =
+            if a.timingFunction.isNil: loopProgress
+            else: a.timingFunction(loopProgress)
+        a.onAnimate(curvedProgress)
+
+    if not a.finished:
+        if not a.loopProgressHandlers.isNil: processHandlers(a.loopProgressHandlers, a.lphIt, loopProgress)
+    if not a.totalProgressHandlers.isNil: processHandlers(a.totalProgressHandlers, a.tphIt, totalProgress)
+
+    if a.finished:
+        if currentLoop == a.curLoop and not a.loopProgressHandlers.isNil and a.lphIt < a.loopProgressHandlers.len:
+            processRemainingHandlersInLoop(a.loopProgressHandlers, a.lphIt, stopped=true)
+        if not a.totalProgressHandlers.isNil and a.tphIt < a.totalProgressHandlers.len:
+            processRemainingHandlersInLoop(a.totalProgressHandlers, a.tphIt, stopped=true)
+    a.curLoop = currentLoop
+
+proc cancel*(a: Animation) = a.cancelLoop = a.curLoop
+proc isCancelled*(a: Animation): bool = a.cancelLoop != -1
 
 proc onComplete*(a: Animation, p: proc()) =
-    a.completionHandler = p
+    a.addTotalProgressHandler(1.0, true, p)
 
 # Bezier curves timing stuff.
 # Taken from http://greweb.me/2012/02/bezier-curve-based-easing-functions-from-concept-to-implementation/
-proc A(a1, a2: float): float = 1.0 - 3.0 * a2 + 3.0 * a1
-proc B(a1, a2: float): float = 3.0 * a2 - 6.0 * a1
-proc C(a1: float): float = 3.0 * a1
+template A(a1, a2: float): float = 1.0 - 3.0 * a2 + 3.0 * a1
+template B(a1, a2: float): float = 3.0 * a2 - 6.0 * a1
+template C(a1: float): float = 3.0 * a1
 
 # Returns x(t) given t, x1, and x2, or y(t) given t, y1, and y2.
-proc calcBezier(t, a1, a2: float): float = ((A(a1, a2) * t + B(a1, a2)) * t + C(a1)) * t
+template calcBezier(t, a1, a2: float): float = ((A(a1, a2) * t + B(a1, a2)) * t + C(a1)) * t
 
 # Returns dx/dt given t, x1, and x2, or dy/dt given t, y1, and y2.
 proc getSlope(t, a1, a2: float): float = 3.0 * A(a1, a2) * t * t + 2.0 * B(a1, a2) * t + C(a1)
