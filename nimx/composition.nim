@@ -258,9 +258,12 @@ void main() { gl_FragColor = vec4(0.0); compose(); }
 
 proc unwrapPointArray(a: openarray[Point]): seq[GLfloat] =
     result = newSeq[GLfloat](a.len * 2)
+    var i = 0
     for p in a:
-        result.add(p.x)
-        result.add(p.y)
+        result[i] = p.x
+        inc i
+        result[i] = p.y
+        inc i
 
 template draw*(comp: var Composition, r: Rect, code: untyped): stmt =
     let ctx = currentContext()
