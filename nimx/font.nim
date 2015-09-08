@@ -205,7 +205,7 @@ const fontSearchPaths = when defined(macosx):
         ]
     elif defined(windows):
         [
-            r"\Windows\Fonts"
+            r"c:\Windows\Fonts" #todo: system will not always in the c disk
         ]
     else:
         [
