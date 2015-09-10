@@ -17,3 +17,4 @@ Requires: "closure_compiler"
 # Jester is required to run a web server from the nakefile to serve WebGL variant
 Requires: "jester"
 Requires: "https://github.com/yglukhov/ttf"
+Requires: "https://github.com/yglukhov/async_http_request"

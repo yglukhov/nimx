@@ -1,72 +1,44 @@
+import async_http_request
+export async_http_request
+
 when not defined(js):
-    import asyncdispatch, httpclient, sdl2, sdl_perform_on_main_thread
-    import system_logger
-    when defined(android):
-        # For some reason pthread_t is not defined on android
-        {.emit: """/*INCLUDESECTION*/
-        #include <pthread.h>"""
-        .}
+    import sdl2, sdl_perform_on_main_thread, marshal, streams
 
+    proc storeToSharedBuffer*[T](a: T): pointer =
+        let s = newStringStream()
+        store(s, a)
+        result = allocShared(s.data.len + sizeof(uint64))
+        cast[ptr uint64](result)[] = s.data.len.uint64
+        copyMem(cast[pointer](cast[int](result) + sizeof(uint64)), addr s.data[0], s.data.len)
+        s.close()
 
-    type RequestHandler = ref object
-        handlerProc: proc(data: string)
-        handlerData: pointer
+    proc readFromSharedBuffer*[T](p: pointer, res: var T) =
+        let l = cast[ptr uint64](p)[]
+        var str = newStringOfCap(l)
+        str.setLen(l)
+        copyMem(addr str[0], cast[pointer](cast[int](p) + sizeof(uint64)), l)
+        let s = newStringStream(str)
+        load(s, res)
+        s.close()
 
-    type ThreadArg = object
-        url: string
-        httpMethod: string
-        extraHeaders: string
-        body: string
-        handler: pointer
+    proc sendRequest*(meth, url, body: string, headers: openarray[(string, string)], handler: Handler) =
+        type SdlHandlerContext = object
+            handler: Handler
+            data: pointer
 
-    proc cHandler(a: pointer) {.cdecl.} =
-        let rh = cast[RequestHandler](a)
-        GC_unref(rh)
-        rh.handlerProc($(cast[cstring](rh.handlerData)))
-        deallocShared(rh.handlerData)
+        let ctx = cast[ptr SdlHandlerContext](allocShared(sizeof(SdlHandlerContext)))
+        ctx.handler = handler
 
-    proc ayncHTTPRequest(a: ThreadArg) {.thread.} =
-        try:
-            let resp = request(a.url, "http" & a.httpMethod, a.extraHeaders, a.body, sslContext = nil)
-            let rh = cast[RequestHandler](a.handler)
-            rh.handlerData = allocShared(resp.body.len + 1)
-            copyMem(rh.handlerData, cstring(resp.body), resp.body.len + 1)
-            performOnMainThread(cHandler, a.handler)
-        except:
-            logi "Exception caught: ", getCurrentExceptionMsg()
-            logi getCurrentException().getStackTrace()
+        proc callHandler(c: pointer) {.cdecl.} =
+            let ctx = cast[ptr SdlHandlerContext](c)
+            var r: Response
+            readFromSharedBuffer(ctx.data, r)
+            deallocShared(ctx.data)
+            ctx.handler(r)
+            deallocShared(ctx)
 
-proc sendRequest*(meth, url, body: string, headers: openarray[(string, string)], handler: proc(data: string)) =
-    when defined(js):
-        let cmeth : cstring = meth
-        let curl : cstring = url
-        var cbody : cstring
-        if not body.isNil: cbody = body
+        proc sdlThreadSafeHandler(r: Response) =
+            ctx.data = storeToSharedBuffer(r)
+            performOnMainThread(callHandler, ctx)
 
-        let reqListener = proc (r: cstring) =
-            handler($r)
-
-        {.emit: """
-        var oReq = new XMLHttpRequest();
-        oReq.responseType = "text";
-        oReq.addEventListener('load', `reqListener`);
-        oReq.open(`cmeth`, `curl`, true);
-        if (`cbody` === null) {
-            oReq.send();
-        } else {
-            oReq.send(`cbody`);
-        }
-        """.}
-    else:
-        var t : ref Thread[ThreadArg]
-        t.new()
-
-        var rh : RequestHandler
-        rh.new()
-        GC_ref(rh)
-        rh.handlerProc = handler
-
-        var extraHeaders = ""
-        for h in headers:
-            extraHeaders &= h[0] & ": " & h[1] & "\r\n"
-        createThread(t[], ayncHTTPRequest, ThreadArg(url: url, httpMethod: meth, extraHeaders: extraHeaders, body: body, handler: cast[pointer](rh)))
+        sendRequestThreaded(meth, url, body, headers, sdlThreadSafeHandler)
