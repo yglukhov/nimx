@@ -4,26 +4,28 @@ import math
 type Matrix4* = array[16, Coord]
 type Matrix3* = array[9, Coord]
 
-type Vector3* = array[3, Coord]
-type Vector2* = array[2, Coord]
-type Vector4* = array[4, Coord]
+type TVector*[I: static[int], T] = array[I, T]
+type TVector2*[T] = TVector[2, T]
+type TVector3*[T] = TVector[3, T]
+type TVector4*[T] = TVector[4, T]
 
-proc newVector2*(x, y: Coord = 0): Vector2 =
-    result[0] = x
-    result[1] = y
+type Vector2* = TVector2[Coord]
+type Vector3* = TVector3[Coord]
+type Vector4* = TVector4[Coord]
 
-proc newVector3*(x, y, z: Coord = 0): Vector3 =
-    result[0] = x
-    result[1] = y
-    result[2] = z
+proc newVector*[T](v0, v1 : T): TVector2[T] = [v0, v1]
+proc newVector*[T](v0, v1, v2 : T): TVector3[T] = [v0, v1, v2]
+proc newVector*[T](v0, v1, v2, v3 : T): TVector3[T] = [v0, v1, v2, v3]
 
-proc newVector4*(x, y, z, w: Coord = 0): Vector4 =
-    result[0] = x
-    result[1] = y
-    result[2] = z
-    result[3] = w
+proc newVector2*(x, y: Coord = 0): Vector2 = [x, y]
+proc newVector3*(x, y, z: Coord = 0): Vector3 = [x, y, z]
+proc newVector4*(x, y, z, w: Coord = 0): Vector4 = [x, y, z, w]
 
 proc length*(v: Vector3): Coord = sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2])
+
+proc clamp*[I: static[int], T](v, minV, maxV: TVector[I, T]): TVector[I, T] =
+    for i in 0 ..< I:
+        result[i] = clamp[T](result[i], minV[i], maxV[i])
 
 proc normalize*(v: var Vector3) =
     let leng = v.length()
@@ -32,34 +34,74 @@ proc normalize*(v: var Vector3) =
         v[1] /= leng
         v[2] /= leng
 
-proc x*(v: Vector3): Coord = v[0]
-proc y*(v: Vector3): Coord = v[1]
-proc z*(v: Vector3): Coord = v[2]
+proc x*[I: static[int], T](v: TVector[I, T]): T = v[0]
+proc y*[I: static[int], T](v: TVector[I, T]): T = v[1]
+proc z*[I: static[int], T](v: TVector[I, T]): T = v[2]
 
-proc `*`*(v: Vector3, scalar: Coord): Vector3 =
-    result[0] = v[0] * scalar
-    result[1] = v[1] * scalar
-    result[2] = v[2] * scalar
+proc `x=`*[I: static[int], T](v: var TVector[I, T], val: T) = v[0] = val
+proc `y=`*[I: static[int], T](v: var TVector[I, T], val: T) = v[1] = val
+proc `z=`*[I: static[int], T](v: var TVector[I, T], val: T) = v[2] = val
 
-proc `/`*(v: Vector3, scalar: Coord): Vector3 =
-    result[0] = v[0] / scalar
-    result[1] = v[1] / scalar
-    result[2] = v[2] / scalar
+proc `*`*[I: static[int], T](v: TVector[I, T], scalar: T): TVector[I, T] =
+    for i in 0 ..< v.len: result[i] = v[i] * scalar
 
-proc `+`*(v1, v2: Vector3): Vector3 =
-    result[0] = v1[0] + v2[0]
-    result[1] = v1[1] + v2[1]
-    result[2] = v1[2] + v2[2]
+proc `/`*[I: static[int], T](v: TVector[I, T], scalar: T): TVector[I, T] =
+    for i in 0 ..< v.len: result[i] = v[i] / scalar
 
-proc `-`*(v: Vector3): Vector3 =
-    result[0] = -v[0]
-    result[1] = -v[1]
-    result[2] = -v[2]
+proc `+`*[I: static[int], T](v: TVector[I, T], scalar: T): TVector[I, T] =
+    for i in 0 ..< v.len: result[i] = v[i] + scalar
 
-proc `-`*(lhs, rhs: Vector3): Vector3 =
-    result[0] = lhs[0] - rhs[0]
-    result[1] = lhs[1] - rhs[1]
-    result[2] = lhs[2] - rhs[2]
+proc `-`*[I: static[int], T](v: TVector[I, T], scalar: T): TVector[I, T] =
+    for i in 0 ..< v.len: result[i] = v[i] - scalar
+
+proc `*=`*[I: static[int], T](v: var TVector[I, T], scalar: T) =
+    for i in 0 ..< v.len: v[i] *= scalar
+
+proc `/=`*[I: static[int], T](v: var TVector[I, T], scalar: T): TVector[I, T] =
+    for i in 0 ..< v.len: v[i] /= scalar
+
+proc `+=`*[I: static[int], T](v: var TVector[I, T], scalar: T): TVector[I, T] =
+    for i in 0 ..< v.len: v[i] += scalar
+
+proc `-=`*[I: static[int], T](v: var TVector[I, T], scalar: T): TVector[I, T] =
+    for i in 0 ..< v.len: v[i] -= scalar
+
+proc `*`*[I: static[int], T](v1, v2: TVector[I, T]): TVector[I, T] =
+    for i in 0 ..< v1.len: result[i] = v1[i] * v2[i]
+
+proc `/`*[I: static[int], T](v1, v2: TVector[I, T]): TVector[I, T] =
+    for i in 0 ..< v1.len: result[i] = v1[i] / v2[i]
+
+proc `+`*[I: static[int], T](v1, v2: TVector[I, T]): TVector[I, T] =
+    for i in 0 ..< v1.len: result[i] = v1[i] + v2[i]
+
+proc `-`*[I: static[int], T](v1, v2: TVector[I, T]): TVector[I, T] =
+    for i in 0 ..< v1.len: result[i] = v1[i] - v2[i]
+
+proc `*=`*[I: static[int], T](v1: var TVector[I, T], v2: TVector[I, T]) =
+    for i in 0 ..< v1.len: v1[i] *= v2[i]
+
+proc `/=`*[I: static[int], T](v1: var TVector[I, T], v2: TVector[I, T]) =
+    for i in 0 ..< v1.len: v1[i] /= v2[i]
+
+proc `+=`*[I: static[int], T](v1: var TVector[I, T], v2: TVector[I, T]) =
+    for i in 0 ..< v1.len: v1[i] += v2[i]
+
+proc `-=`*[I: static[int], T](v1: var TVector[I, T], v2: TVector[I, T]) =
+    for i in 0 ..< v1.len: v1[i] -= v2[i]
+
+proc `-`*[I: static[int], T](v: TVector[I, T]): TVector[I, T] =
+    for i in 0 ..< v.len: result[i] = -v[i]
+
+proc `$`*[I: static[int], T](v: TVector[I, T]): string =
+    result = "["
+    for i in 0 ..< v.len:
+        if i != 0: result &= ", "
+        result &= $v[i]
+    result &= "]"
+
+proc dot*[I: static[int], T](v1, v2: TVector[I, T]): T =
+    for i in 0 ..< v.len: result += v1[i] * v2[i]
 
 proc loadIdentity*(dest: var Matrix4) =
     dest[0] = 1
