@@ -13,10 +13,10 @@ when not defined(js):
         s.close()
 
     proc readFromSharedBuffer*[T](p: pointer, res: var T) =
-        let l = cast[ptr uint64](p)[]
-        var str = newStringOfCap(l)
-        str.setLen(l)
-        copyMem(addr str[0], cast[pointer](cast[int](p) + sizeof(uint64)), l)
+        let bufLen = cast[ptr uint64](p)[]
+        var str = newStringOfCap(bufLen)
+        str.setLen(bufLen)
+        copyMem(addr str[0], cast[pointer](cast[int](p) + sizeof(uint64)), bufLen)
         let s = newStringStream(str)
         load(s, res)
         s.close()
