@@ -94,7 +94,7 @@ when defined js:
             blendFunc*: proc(sfactor, dfactor: GLenum)
             texParameteri*: proc(target, pname: GLenum, param: GLint)
 
-            texImage2D*: proc(target: GLenum, level, internalformat: GLint, width, height: GLsizei, border: GLint, format, t: GLenum, pixels: pointer)
+            texImage2D*: proc(target: GLenum, level, internalformat: GLint, width, height: GLsizei, border: GLint, format, t: GLenum, pixels: ref RootObj)
             framebufferTexture2D*: proc(target, attachment, textarget: GLenum, texture: GLuint, level: GLint)
             renderbufferStorage*: proc(target, internalformat: GLenum, width, height: GLsizei)
             framebufferRenderbuffer*: proc(target, attachment, renderbuffertarget: GLenum, renderbuffer: GLuint)
