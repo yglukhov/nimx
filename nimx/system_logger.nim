@@ -10,6 +10,7 @@ when defined(JS):
     proc logi*(a: varargs[string, `$`]) =
         js_log_imported(a.join())
 elif defined(macosx) or defined(ios):
+    {.passL:"-framework Foundation"}
     {.emit: """
 
     #include <CoreFoundation/CoreFoundation.h>
@@ -31,4 +32,3 @@ elif defined(android):
     proc logi*(a: varargs[string, `$`]) = droid_log_imported(a.join())
 else:
     proc logi*(a: varargs[string, `$`]) = echo a.join()
-
