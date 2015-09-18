@@ -6,8 +6,17 @@ import opengl
 
 proc draw*(i: Image, drawProc: proc()) =
     let gl = sharedGL()
-    if i.texture == 0:
-        i.texture = gl.createTexture()
+
+    var texCoords : array[4, GLfloat]
+    var texture = i.getTextureQuad(gl, texCoords)
+
+    if texture == 0:
+        let sci = SelfContainedImage(i)
+        if not sci.isNil:
+            texture = gl.createTexture()
+            sci.texture = texture
+        else:
+            raise newException(Exception, "Cannot draw to image")
 
     let oldFb = gl.getParami(gl.FRAMEBUFFER_BINDING).GLuint
     let oldViewport = gl.getViewport()
@@ -18,14 +27,14 @@ proc draw*(i: Image, drawProc: proc()) =
     let framebuffer = gl.createFramebuffer()
     gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer)
 
-    gl.bindTexture(gl.TEXTURE_2D, i.texture)
+    gl.bindTexture(gl.TEXTURE_2D, texture)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
 
     let texWidth = if isPowerOfTwo(i.size.width.int): i.size.width.int else: nextPowerOfTwo(i.size.width.int)
     let texHeight = if isPowerOfTwo(i.size.height.int): i.size.height.int else: nextPowerOfTwo(i.size.height.int)
 
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA.GLint, texWidth.GLsizei, texHeight.GLsizei, 0, gl.RGBA, gl.UNSIGNED_BYTE, nil)
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, i.texture, 0)
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0)
 
     let oldRb = gl.getParami(gl.RENDERBUFFER_BINDING).GLuint
     let depthBuffer = gl.createRenderbuffer()

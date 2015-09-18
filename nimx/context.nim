@@ -1,6 +1,5 @@
 import types
 import opengl
-from opengl import GLuint, GLint, GLfloat, GLenum
 import system_logger
 import matrixes
 import font
@@ -240,22 +239,25 @@ proc drawText*(c: GraphicsContext, font: Font, pt: Point, text: string) =
     c.drawText(font, p, text)
 
 proc drawImage*(c: GraphicsContext, i: Image, toRect: Rect, fromRect: Rect = zeroRect, alpha: ColorComponent = 1.0) =
-    let t = i.getTexture(c.gl)
+    var texCoords : array[4, GLfloat]
+    let t = i.getTextureQuad(c.gl, texCoords)
     if t != 0:
         c.gl.useProgram(c.imageShaderProgram)
         c.gl.bindTexture(c.gl.TEXTURE_2D, t)
         c.gl.enable(c.gl.BLEND)
         c.gl.blendFunc(c.gl.SRC_ALPHA, c.gl.ONE_MINUS_SRC_ALPHA)
 
-        var s0 : Coord
-        var t0 : Coord
-        var s1 : Coord = i.sizeInTexels.width
-        var t1 : Coord = i.sizeInTexels.height
+        let sizeInTexels = newSize(texCoords[2] - texCoords[0], texCoords[3] - texCoords[1])
+
+        var s0 : Coord = texCoords[0]
+        var t0 : Coord = texCoords[1]
+        var s1 : Coord = texCoords[2]
+        var t1 : Coord = texCoords[3]
         if fromRect != zeroRect:
-            s0 = fromRect.x / i.size.width * i.sizeInTexels.width
-            t0 = fromRect.y / i.size.height * i.sizeInTexels.height
-            s1 = fromRect.maxX / i.size.width * i.sizeInTexels.width
-            t1 = fromRect.maxY / i.size.height * i.sizeInTexels.height
+            s0 = texCoords[0] + fromRect.x / i.size.width * sizeInTexels.width
+            t0 = texCoords[1] + fromRect.y / i.size.height * sizeInTexels.height
+            s1 = texCoords[0] + fromRect.maxX / i.size.width * sizeInTexels.width
+            t1 = texCoords[1] + fromRect.maxY / i.size.height * sizeInTexels.height
 
         let points = [toRect.minX, toRect.minY, s0, t0,
                     toRect.maxX, toRect.minY, s1, t0,

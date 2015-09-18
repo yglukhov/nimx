@@ -2,39 +2,52 @@ import types
 import opengl
 import math
 import portable_gl
+import tables
+import json
+import streams
+import resource
 
 when not defined js:
-    import resource
     import load_image_impl
     import write_image_impl
 
 type Image* = ref object of RootObj
+
+type SelfContainedImage* = ref object of Image
     texture*: GLuint
-    size*: Size
-    sizeInTexels*: Size
+    mSize: Size
+    sizeInTexels: Size
+
+type
+    SpriteSheet* = ref object of SelfContainedImage
+        images: TableRef[string, SpriteImage]
+
+    SpriteImage* = ref object of Image
+        spriteSheet*: SpriteSheet
+        texCoords: array[4, GLfloat]
+        mSize: Size
 
 when not defined js:
     template offset(p: pointer, off: int): pointer =
         cast[pointer](cast[int](p) + off)
 
-    proc imageWithBitmap*(data: ptr uint8, x, y, comp: int): Image =
-        result.new()
-        glGenTextures(1, addr result.texture)
-        glBindTexture(GL_TEXTURE_2D, result.texture)
+    proc initWithBitmap*(i: SelfContainedImage, data: ptr uint8, x, y, comp: int) =
+        glGenTextures(1, addr i.texture)
+        glBindTexture(GL_TEXTURE_2D, i.texture)
         let format : GLint = case comp:
             of 1: GL_ALPHA
             of 2: GL_LUMINANCE_ALPHA
             of 3: GL_RGB
             of 4: GL_RGBA
             else: 0
-        result.size = newSize(x.Coord, y.Coord)
+        i.mSize = newSize(x.Coord, y.Coord)
         let texWidth = if isPowerOfTwo(x): x.int else: nextPowerOfTwo(x)
         let texHeight = if isPowerOfTwo(y): y.int else: nextPowerOfTwo(y)
 
         var pixelData = data
 
-        result.sizeInTexels.width = 1.0
-        result.sizeInTexels.height = 1.0
+        i.sizeInTexels.width = 1.0
+        i.sizeInTexels.height = 1.0
 
         if texWidth != x or texHeight != y:
             let texRowWidth = texWidth * comp
@@ -43,55 +56,117 @@ when not defined js:
             for row in 0 .. <y:
                 copyMem(offset(newData, row * texRowWidth), offset(data, row * rowWidth), rowWidth)
             pixelData = cast[ptr uint8](newData)
-            result.sizeInTexels.width = x.Coord / texWidth.Coord
-            result.sizeInTexels.height = y.Coord / texHeight.Coord
+            i.sizeInTexels.width = x.Coord / texWidth.Coord
+            i.sizeInTexels.height = y.Coord / texHeight.Coord
 
         glTexImage2D(GL_TEXTURE_2D, 0, format.cint, texWidth.GLsizei, texHeight.GLsizei, 0, format.GLenum, GL_UNSIGNED_BYTE, cast[pointer] (pixelData))
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
 
-        result.size.width = x.Coord
-        result.size.height = y.Coord
+        i.mSize.width = x.Coord
+        i.mSize.height = y.Coord
         if data != pixelData:
             dealloc(pixelData)
 
-    proc imageWithContentsOfFile*(path: string): Image =
+    proc initWithContentsOfFile*(i: SelfContainedImage, path: string) =
         var x, y, comp: cint
         var data = stbi_load(path, addr x, addr y, addr comp, 0)
-        result = imageWithBitmap(data, x, y, comp)
+        i.initWithBitmap(data, x, y, comp)
         stbi_image_free(data)
 
-    proc imageWithResource*(r: ResourceObj): Image =
+    proc initWithResource*(i: SelfContainedImage, r: ResourceObj) =
         var x, y, comp: cint
         var data = stbi_load_from_memory(cast[ptr uint8](r.data), r.size.cint, addr x, addr y, addr comp, 0)
-        result = imageWithBitmap(data, x, y, comp)
+        i.initWithBitmap(data, x, y, comp)
         stbi_image_free(data)
 
-
-proc imageWithResource*(name: string): Image =
-    when defined js:
+    proc imageWithBitmap*(data: ptr uint8, x, y, comp: int): SelfContainedImage =
         result.new()
+        result.initWithBitmap(data, x, y, comp)
+
+    proc imageWithContentsOfFile*(path: string): SelfContainedImage =
+        result.new()
+        result.initWithContentsOfFile(path)
+
+    proc imageWithResource*(r: ResourceObj): SelfContainedImage =
+        result.new()
+        result.initWithResource(r)
+
+proc initWithResource*(i: SelfContainedImage, name: string) =
+    when defined js:
         let nativeName : cstring = "res/" & name
         asm """
-        `result`.__image = new Image();
-        `result`.__image.crossOrigin = '';
-        `result`.__image.src = `nativeName`;
+        `i`.__image = new Image();
+        `i`.__image.crossOrigin = '';
+        `i`.__image.src = `nativeName`;
         """
     else:
         let r = loadResourceByName(name)
-        result = imageWithResource(r[])
+        i.initWithResource(r[])
         freeResource(r)
 
-proc imageWithSize*(size: Size): Image =
+proc imageWithResource*(name: string): SelfContainedImage =
     result.new()
-    result.size = size
+    result.initWithResource(name)
+
+proc initSpriteImages(s: SpriteSheet, data: JsonNode) =
+    let images = newTable[string, SpriteImage]()
+    let fullOrigSize = if s.texture == 0:
+            newSize(1, 1)
+        else:
+            newSize(s.mSize.width / s.sizeInTexels.width, s.mSize.height / s.sizeInTexels.height)
+    for k, v in data["frames"]:
+        let fr = v["frame"]
+        let r = newRect(fr["x"].getFNum(), fr["y"].getFNum(), fr["w"].getFNum(), fr["h"].getFNum())
+        var si : SpriteImage
+        if not s.images.isNil: si = s.images[k]
+        if si.isNil: si.new()
+        si.spriteSheet = s
+        si.mSize = r.size
+        si.texCoords = [r.x / fullOrigSize.width, r.y / fullOrigSize.height, r.maxX / fullOrigSize.width, r.maxY / fullOrigSize.height]
+        images[k] = si
+    if not s.images.isNil:
+        for k, v in s.images:
+            if not images.hasKey(k): v.spriteSheet = nil
+    s.images = images
+
+proc newSpriteSheetWithResourceAndJson*(name: string, spriteDesc: JsonNode): SpriteSheet =
+    result.new()
+    result.initWithResource(name)
+    result.initSpriteImages(spriteDesc)
+
+# TODO: This isn't a place for parseJson
+when defined(js):
+    proc parseJson(s: Stream, filename: string): JsonNode =
+        var fullJson = ""
+        while true:
+            const chunkSize = 1024
+            let r = s.readStr(chunkSize)
+            fullJson &= r
+            if r.len != chunkSize: break
+        result = parseJson(fullJson)
+
+proc newSpriteSheetWithResourceAndJson*(imageFileName, jsonDescFileName: string): SpriteSheet =
+    result.new()
+    result.initWithResource(imageFileName)
+    let res = result
+    loadResourceAsync jsonDescFileName, proc(s: Stream) =
+        let ssJson = parseJson(s, jsonDescFileName)
+        res.initSpriteImages(ssJson)
+        s.close()
+
+proc imageWithSize*(size: Size): SelfContainedImage =
+    result.new()
+    result.mSize = size
     let texWidth = if isPowerOfTwo(size.width.int): size.width.int else: nextPowerOfTwo(size.width.int)
     let texHeight = if isPowerOfTwo(size.height.int): size.height.int else: nextPowerOfTwo(size.height.int)
     result.sizeInTexels.width = size.width / texWidth.Coord
     result.sizeInTexels.height = size.height / texHeight.Coord
 
-proc isLoaded*(i: Image): bool =
+method isLoaded*(i: Image): bool {.base.} = false
+
+method isLoaded*(i: SelfContainedImage): bool =
     when defined js:
         result = i.texture != 0
         if not result:
@@ -99,17 +174,23 @@ proc isLoaded*(i: Image): bool =
     else:
         result = true
 
-method getTexture*(i: Image, gl: GL): GLuint =
+method isLoaded*(i: SpriteImage): bool = i.spriteSheet.isLoaded
+
+method getTextureQuad*(i: Image, gl: GL, texCoords: var array[4, GLfloat]): GLuint {.base.} =
+    raise newException(Exception, "Abstract method called!")
+
+method getTextureQuad*(i: SelfContainedImage, gl: GL, texCoords: var array[4, GLfloat]): GLuint =
     when defined js:
-        if i.texture == 0:
+        if i.texture == 0 and not gl.isNil:
             var width, height : Coord
             var loadingComplete = false
             asm """
-            `loadingComplete` = `i`.__image.complete;
-            if (`loadingComplete`)
-            {
-                `width` = `i`.__image.width;
-                `height` = `i`.__image.height;
+            if (`i`.__image !== undefined) {
+                `loadingComplete` = `i`.__image.complete;
+                if (`loadingComplete`) {
+                    `width` = `i`.__image.width;
+                    `height` = `i`.__image.height;
+                }
             }
             """
             if loadingComplete:
@@ -117,8 +198,8 @@ method getTexture*(i: Image, gl: GL): GLuint =
                 gl.bindTexture(gl.TEXTURE_2D, i.texture)
                 let texWidth = if isPowerOfTwo(width.int): width.int else: nextPowerOfTwo(width.int)
                 let texHeight = if isPowerOfTwo(height.int): height.int else: nextPowerOfTwo(height.int)
-                i.size.width = width
-                i.size.height = height
+                i.mSize.width = width
+                i.mSize.height = height
                 i.sizeInTexels.width = width / texWidth.Coord
                 i.sizeInTexels.height = height / texHeight.Coord
                 if texWidth != width.int or texHeight != height.int:
@@ -131,18 +212,54 @@ method getTexture*(i: Image, gl: GL): GLuint =
                     """
                 else:
                     asm "`gl`.texImage2D(`gl`.TEXTURE_2D, 0, `gl`.RGBA, `gl`.RGBA, `gl`.UNSIGNED_BYTE, `i`.__image);"
-
                 gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
                 gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+    texCoords[0] = 0
+    texCoords[1] = 0
+    texCoords[2] = i.sizeInTexels.width
+    texCoords[3] = i.sizeInTexels.height
     result = i.texture
 
-method size*(i: Image): Size = i.size
+proc fixupSpriteImages(s: SpriteSheet) =
+    let fullOrigSize = newSize(s.mSize.width / s.sizeInTexels.width, s.mSize.height / s.sizeInTexels.height)
+
+    for k, v in s.images:
+        v.texCoords[0] /= fullOrigSize.width
+        v.texCoords[1] /= fullOrigSize.height
+        v.texCoords[2] /= fullOrigSize.width
+        v.texCoords[3] /= fullOrigSize.height
+
+method getTextureQuad*(i: SpriteSheet, gl: GL, texCoords: var array[4, GLfloat]): GLuint =
+    let texWasnotReady = i.texture == 0
+    result = procCall i.SelfContainedImage.getTextureQuad(gl, texCoords)
+    if result != 0 and texWasnotReady:
+        # Update images
+        i.fixupSpriteImages()
+
+method getTextureQuad*(i: SpriteImage, gl: GL, texCoords: var array[4, GLfloat]): GLuint =
+    result = i.spriteSheet.getTextureQuad(gl, texCoords)
+    texCoords = i.texCoords
+
+method size*(i: Image): Size {.base.} = discard
+method size*(i: SelfContainedImage): Size = i.mSize
+method size*(i: SpriteImage): Size = i.mSize
+
+proc imageNamed*(s: SpriteSheet, name: string): SpriteImage =
+    if not s.images.isNil:
+        result = s.images[name]
+    if result.isNil and s.texture == 0:
+        result.new()
+        result.spriteSheet = s
+        if s.images.isNil: s.images = newTable[string, SpriteImage]()
+        s.images[name] = result
 
 type ImageFileFormat = enum tga, hdr, bmp, png
 
 proc writeToFile(i: Image, path: string, format: ImageFileFormat) =
     when not defined(js) and not defined(android):
-        glBindTexture(GL_TEXTURE_2D, i.texture)
+        var texCoords : array[4, GLfloat]
+        let texture = i.getTextureQuad(nil, texCoords)
+        glBindTexture(GL_TEXTURE_2D, texture)
         var w, h: GLint
         glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH, addr w)
         glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT, addr h)
