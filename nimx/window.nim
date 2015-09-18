@@ -66,6 +66,5 @@ proc runAnimations*(w: Window) =
 proc addAnimation*(w: Window, a: Animation) =
     if w.animations.len == 0:
         w.enableAnimation(true)
+    a.prepare()
     w.animations.add(a)
-    a.startTime = epochTime()
-    a.finished = false
