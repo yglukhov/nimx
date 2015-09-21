@@ -12,7 +12,7 @@ method subviewDidChangeDesiredSize*(v: ClipView, sub: View, desiredSize: Size) =
 
 method clipType*(v: ClipView): ClipType = ctDefaultClip
 
-method isClipView(v: View): bool = false
+method isClipView(v: View): bool {.base.} = false
 method isClipView(v: ClipView): bool = true
 
 proc enclosingClipView*(v: View): ClipView =
@@ -20,4 +20,3 @@ proc enclosingClipView*(v: View): ClipView =
         v.superview.ClipView
     else:
         nil
-

@@ -18,11 +18,11 @@ method init*(w: Window, frame: Rect) =
     w.animations = @[]
     w.needsDisplay = true
 
-method `title=`*(w: Window, t: string) = discard
-method title*(w: Window): string = ""
+method `title=`*(w: Window, t: string) {.base.} = discard
+method title*(w: Window): string {.base.} = ""
 
 
-method onResize*(w: Window, newSize: Size) =
+method onResize*(w: Window, newSize: Size) {.base.} =
     procCall w.View.setFrameSize(newSize)
 
 # Bug 2488. Can not use {.global.} for JS target.
@@ -36,7 +36,7 @@ proc fps(): int =
     result = (1.0 / lastFrame).int
     lastTime = curTime
 
-method drawWindow*(w: Window) =
+method drawWindow*(w: Window) {.base.} =
     w.needsDisplay = false
     let c = currentContext()
     var pt = newPoint(w.frame.width - 80, 2)
@@ -45,10 +45,10 @@ method drawWindow*(w: Window) =
 
     w.recursiveDrawSubviews()
 
-method enableAnimation*(w: Window, flag: bool) = discard
+method enableAnimation*(w: Window, flag: bool) {.base.} = discard
 
-method startTextInput*(w: Window, r: Rect) = discard
-method stopTextInput*(w: Window) = discard
+method startTextInput*(w: Window, r: Rect) {.base.} = discard
+method stopTextInput*(w: Window) {.base.} = discard
 
 proc runAnimations*(w: Window) =
     let t = epochTime()

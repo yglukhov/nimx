@@ -18,7 +18,7 @@ proc newTableViewCell*(v: View): TableViewCell =
     v.autoresizingMask = { afFlexibleWidth, afFlexibleHeight }
     result.addSubview(v)
 
-method isTableViewCell*(c: View): TableViewCell = nil
+method isTableViewCell*(c: View): TableViewCell {.base.} = nil
 method isTableViewCell*(c: TableViewCell): TableViewCell = c
 
 proc enclosingTableViewCell*(v: View): TableViewCell =

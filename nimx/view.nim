@@ -33,7 +33,7 @@ type
         animations*: seq[Animation]
         needsDisplay*: bool
 
-method init*(v: View, frame: Rect) =
+method init*(v: View, frame: Rect) {.base.} =
     v.frame = frame
     v.bounds = newRect(0, 0, frame.width, frame.height)
     v.subviews = @[]
@@ -71,8 +71,8 @@ proc convertRectFromWindow*(v: View, r: Rect): Rect =
     # TODO: Respect bounds transformations
     result.size = r.size
 
-method viewWillMoveToSuperview*(v: View, s: View) = discard
-method viewWillMoveToWindow*(v: View, w: Window) =
+method viewWillMoveToSuperview*(v: View, s: View) {.base.} = discard
+method viewWillMoveToWindow*(v: View, w: Window) {.base.} =
     for s in v.subviews:
         s.window = v.window
         s.viewWillMoveToWindow(w)
@@ -102,10 +102,10 @@ proc removeFromSuperview(v: View, callHandlers: bool) =
         v.moveToWindow(nil)
         v.superview = nil
 
-method removeFromSuperview*(v: View) =
+method removeFromSuperview*(v: View) {.base.} =
     v.removeFromSuperview(true)
 
-method addSubview*(v: View, s: View) =
+method addSubview*(v: View, s: View) {.base.} =
     if s.superview != v:
         if v.window != s.window: s.viewWillMoveToWindow(v.window)
         s.viewWillMoveToSuperview(v)
@@ -115,7 +115,7 @@ method addSubview*(v: View, s: View) =
         s.moveToWindow(v.window)
         v.setNeedsDisplay()
 
-method clipType*(v: View): ClipType = ctNone
+method clipType*(v: View): ClipType {.base.} = ctNone
 
 proc recursiveDrawSubviews*(view: View)
 
@@ -137,7 +137,7 @@ proc drawWithinSuperview*(v: View) =
         else:
             v.recursiveDrawSubviews()
 
-method draw*(view: View, rect: Rect) =
+method draw*(view: View, rect: Rect) {.base.} =
     let c = currentContext()
     #c.fillColor = newGrayColor(0.93)
     c.fillColor = view.backgroundColor
@@ -161,9 +161,9 @@ proc drawFocusRing*(v: View) =
     c.strokeWidth = 3
     c.drawRoundedRect(v.bounds.inset(-1, -1), 2)
 
-method setFrame*(v: View, r: Rect)
+method setFrame*(v: View, r: Rect) {.base.}
 
-method resizeSubviews*(v: View, oldSize: Size) =
+method resizeSubviews*(v: View, oldSize: Size) {.base.} =
     let sizeDiff = v.frame.size - oldSize
 
     for s in v.subviews:
@@ -180,13 +180,13 @@ method resizeSubviews*(v: View, oldSize: Size) =
 
         s.setFrame(newRect)
 
-method setBoundsSize*(v: View, s: Size) =
+method setBoundsSize*(v: View, s: Size) {.base.} =
     let oldSize = v.bounds.size
     v.bounds.size = s
     v.setNeedsDisplay()
     v.resizeSubviews(oldSize)
 
-method setBoundsOrigin*(v: View, o: Point) =
+method setBoundsOrigin*(v: View, o: Point) {.base.} =
     v.bounds.origin = o
     v.setNeedsDisplay()
 
@@ -194,12 +194,12 @@ proc setBounds*(v: View, b: Rect) =
     v.setBoundsOrigin(b.origin)
     v.setBoundsSize(b.size)
 
-method setFrameSize*(v: View, s: Size) =
+method setFrameSize*(v: View, s: Size) {.base.} =
     let oldSize = v.bounds.size
     v.frame.size = s
     v.setBoundsSize(s)
 
-method setFrameOrigin*(v: View, o: Point) =
+method setFrameOrigin*(v: View, o: Point) {.base.} =
     v.frame.origin = o
 
 method setFrame*(v: View, r: Rect) =
@@ -208,17 +208,17 @@ method setFrame*(v: View, r: Rect) =
     if v.frame.size != r.size:
         v.setFrameSize(r.size)
 
-method frame*(v: View): Rect = v.frame
-method bounds*(v: View): Rect = v.bounds
+method frame*(v: View): Rect {.base.} = v.frame
+method bounds*(v: View): Rect {.base.} = v.bounds
 
-method subviewDidChangeDesiredSize*(v: View, sub: View, desiredSize: Size) = discard
+method subviewDidChangeDesiredSize*(v: View, sub: View, desiredSize: Size) {.base.} = discard
 
-method acceptsFirstResponder*(v: View): bool = false
-method viewShouldResignFirstResponder*(v, newFirstResponder: View): bool = true
-method viewDidBecomeFirstResponder*(v: View) = discard
+method acceptsFirstResponder*(v: View): bool {.base.} = false
+method viewShouldResignFirstResponder*(v, newFirstResponder: View): bool {.base.} = true
+method viewDidBecomeFirstResponder*(v: View) {.base.} = discard
 
 # Responder chain implementation
-method makeFirstResponder*(v: View): bool =
+method makeFirstResponder*(v: View): bool {.base.} =
     let w = v.window
     if not w.isNil:
         var shouldChange = true

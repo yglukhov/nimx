@@ -3,17 +3,17 @@ import view
 import event
 export event
 
-method onMouseDown*(v: View, e: var Event): bool =
+method onMouseDown*(v: View, e: var Event): bool {.base.} =
     if v.acceptsFirstResponder:
         result = v.makeFirstResponder()
 
-method onMouseUp*(v: View, e: var Event): bool = discard
-method onScroll*(v: View, e: var Event): bool = discard
-method onKeyDown*(v: View, e: var Event): bool = discard
-method onKeyUp*(v: View, e: var Event): bool = discard
-method onTextInput*(v: View, s: string): bool = discard
+method onMouseUp*(v: View, e: var Event): bool {.base.} = discard
+method onScroll*(v: View, e: var Event): bool {.base.} = discard
+method onKeyDown*(v: View, e: var Event): bool {.base.} = discard
+method onKeyUp*(v: View, e: var Event): bool {.base.} = discard
+method onTextInput*(v: View, s: string): bool {.base.} = discard
 
-method handleMouseEvent*(v: View, e: var Event): bool =
+method handleMouseEvent*(v: View, e: var Event): bool {.base.} =
     if e.isButtonDownEvent():
         result = v.onMouseDown(e)
     elif e.isButtonUpEvent():

@@ -111,7 +111,7 @@ proc setupEventHandlersForCanvas(w: JSCanvasWindow, c: Element) =
     window.onresize = `onresize`;
     """
 
-method initWithCanvas*(w: JSCanvasWindow, canvas: Element) =
+proc initWithCanvas*(w: JSCanvasWindow, canvas: Element) =
     var width, height: Coord
     asm """
     `width` = `canvas`.width;
@@ -126,10 +126,10 @@ method initWithCanvas*(w: JSCanvasWindow, canvas: Element) =
     w.enableAnimation(true)
     mainApplication().addWindow(w)
 
-method initWithCanvasId*(w: JSCanvasWindow, id: cstring) =
+proc initWithCanvasId*(w: JSCanvasWindow, id: cstring) =
     w.initWithCanvas(document.getElementById(id))
 
-method initByFillingBrowserWindow*(w: JSCanvasWindow) =
+proc initByFillingBrowserWindow*(w: JSCanvasWindow) =
     # This is glitchy sometimes
     let canvas = document.createElement("canvas")
     canvas.style.width = "100%"

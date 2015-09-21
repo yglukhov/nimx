@@ -53,7 +53,7 @@ method enableAnimation*(w: SdlWindow, flag: bool) =
 # assuming that touch devices may have only one window.
 var defaultWindow: SdlWindow
 
-method initCommon(w: SdlWindow, r: view.Rect) =
+proc initCommon(w: SdlWindow, r: view.Rect) =
     if w.impl == nil:
         logi "Could not create window!"
         quit 1
@@ -71,7 +71,7 @@ method initCommon(w: SdlWindow, r: view.Rect) =
     discard w.impl.setData("__nimx_wnd", cast[pointer](w))
     w.onResize(r.size)
 
-method initFullscreen*(w: SdlWindow) =
+proc initFullscreen*(w: SdlWindow) =
     initSDLIfNeeded()
     var displayMode : DisplayMode
     discard getDesktopDisplayMode(0, displayMode)

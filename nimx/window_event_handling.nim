@@ -18,7 +18,7 @@ method onTextInput*(w: Window, s: string): bool =
     if w.canPassEventToFirstResponder:
         result = w.firstResponder.onTextInput(s)
 
-method handleEvent*(w: Window, e: var Event): bool =
+method handleEvent*(w: Window, e: var Event): bool {.base.} =
     case e.kind:
         of etMouse, etScroll:
             result = w.recursiveHandleMouseEvent(e)
@@ -35,4 +35,3 @@ method handleEvent*(w: Window, e: var Event): bool =
             w.drawWindow()
         else:
             result = false
-
