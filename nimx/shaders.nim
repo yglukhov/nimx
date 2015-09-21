@@ -150,10 +150,12 @@ precision mediump float;
 #endif
 
 uniform sampler2D texUnit;
+uniform float uAlpha;
 varying vec2 vTexCoord;
 
 void main()
 {
     gl_FragColor = texture2D(texUnit, vTexCoord);
+		gl_FragColor.a *= uAlpha;
 }
 """

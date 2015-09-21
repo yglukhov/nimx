@@ -265,6 +265,7 @@ proc drawImage*(c: GraphicsContext, i: Image, toRect: Rect, fromRect: Rect = zer
                     toRect.minX, toRect.maxY, s0, t1]
         c.gl.enableVertexAttribArray(saPosition.GLuint)
         c.setTransformUniform(c.imageShaderProgram)
+        c.gl.uniform1f(c.gl.getUniformLocation(c.imageShaderProgram, "uAlpha"), alpha)
         c.gl.vertexAttribPointer(saPosition.GLuint, 4, false, 0, points)
         c.gl.drawArrays(c.gl.TRIANGLE_FAN, 0, 4)
 
