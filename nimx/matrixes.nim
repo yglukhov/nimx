@@ -124,7 +124,7 @@ proc `$`*[I: static[int], T](v: TVector[I, T]): string =
     result &= "]"
 
 proc dot*[I: static[int], T](v1, v2: TVector[I, T]): T =
-    for i in 0 ..< v.len: result += v1[i] * v2[i]
+    for i in 0 ..< v1.len: result += v1[i] * v2[i]
 
 proc cross*[T](a, b: TVector3[T]): TVector3[T] =
     [a[1]*b[2] - a[2]*b[1], a[2]*b[0] - a[0]*b[2], a[0]*b[1] - a[1]*b[0]]
