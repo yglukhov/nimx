@@ -34,13 +34,36 @@ proc normalize*(v: var Vector3) =
         v[1] /= leng
         v[2] /= leng
 
-proc x*[I: static[int], T](v: TVector[I, T]): T = v[0]
-proc y*[I: static[int], T](v: TVector[I, T]): T = v[1]
-proc z*[I: static[int], T](v: TVector[I, T]): T = v[2]
+template x*[I: static[int], T](v: TVector[I, T]): T = v[0]
+template y*[I: static[int], T](v: TVector[I, T]): T = v[1]
+template z*[I: static[int], T](v: TVector[I, T]): T = v[2]
+template w*[I: static[int], T](v: TVector[I, T]): T = v[3]
 
-proc `x=`*[I: static[int], T](v: var TVector[I, T], val: T) = v[0] = val
-proc `y=`*[I: static[int], T](v: var TVector[I, T], val: T) = v[1] = val
-proc `z=`*[I: static[int], T](v: var TVector[I, T], val: T) = v[2] = val
+template `x=`*[I: static[int], T](v: var TVector[I, T], val: T) = v[0] = val
+template `y=`*[I: static[int], T](v: var TVector[I, T], val: T) = v[1] = val
+template `z=`*[I: static[int], T](v: var TVector[I, T], val: T) = v[2] = val
+template `w=`*[I: static[int], T](v: var TVector[I, T], val: T) = v[3] = val
+
+proc `.`*[I: static[int], T](v: TVector[I, T], field: static[string]): TVector[field.len, T] =
+    for i, c in field:
+        case c
+            of 'x': result[i] = v.x
+            of 'y': result[i] = v.y
+            of 'z': result[i] = v.z
+            of 'w': result[i] = v.w
+            else: assert(false, "Unknown field: " & $c)
+
+# The following .= doesn't work yet because of Nim bug #3319
+discard """
+proc `.=`*[I: static[int], T](v: var TVector[I, T], field: static[string], val: TVector[field.len, T]) =
+    for i, c in field:
+        case c
+            of 'x': v.x = val[i]
+            of 'y': v.y = val[i]
+            of 'z': v.z = val[i]
+            of 'w': v.w = val[i]
+            else: assert(false, "Unknown field: " & $c)
+"""
 
 proc `*`*[I: static[int], T](v: TVector[I, T], scalar: T): TVector[I, T] =
     for i in 0 ..< v.len: result[i] = v[i] * scalar
@@ -102,6 +125,9 @@ proc `$`*[I: static[int], T](v: TVector[I, T]): string =
 
 proc dot*[I: static[int], T](v1, v2: TVector[I, T]): T =
     for i in 0 ..< v.len: result += v1[i] * v2[i]
+
+proc cross*[T](a, b: TVector3[T]): TVector3[T] =
+    [a[1]*b[2] - a[2]*b[1], a[2]*b[0] - a[0]*b[2], a[0]*b[1] - a[1]*b[0]]
 
 proc loadIdentity*(dest: var Matrix4) =
     dest[0] = 1
@@ -771,11 +797,6 @@ proc lookAt*(dest: var Matrix4, eye, center, up: Vector3) =
     dest[14] = -(z0 * eyex + z1 * eyey + z2 * eyez);
     dest[15] = 1;
 
-proc dotp*[T](a, b: T): Coord =
-    assert a.len == b.len
-    for i in a.low .. a.high:
-        result += a[i] * b[i]
-
 discard """
 mat4_t mat4_fromRotationTranslation(quat_t quat, vec3_t vec, mat4_t dest) {
     if (!dest) { dest = mat4_create(NULL); }
@@ -816,3 +837,11 @@ mat4_t mat4_fromRotationTranslation(quat_t quat, vec3_t vec, mat4_t dest) {
     return dest;
 }
 """
+
+when isMainModule:
+    var v1 = newVector3(1, 2, 3)
+    var v2 = newVector3(4, 5, 6)
+    doAssert(v1.x == 1)
+    doAssert(v2.y == 5)
+    v2.z = 10
+    doAssert(v2.z == 10)
