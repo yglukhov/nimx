@@ -46,11 +46,11 @@ buildTest()
     cd -
 }
 
-echo "SDL CONFIG CFLAGS"
-sdl2-config --cflags
+#echo "SDL CONFIG CFLAGS"
+#sdl2-config --cflags
 
-echo "SDL CONFIG LINKER"
-sdl2-config --libs
+#echo "SDL CONFIG LINKER"
+#sdl2-config --libs
 
 #echo Install Sdl
 #installSdl
