@@ -23,7 +23,7 @@ type
         images: TableRef[string, SpriteImage]
 
     SpriteImage* = ref object of Image
-        spriteSheet*: SpriteSheet
+        spriteSheet*: Image
         texCoords: array[4, GLfloat]
         mSize: Size
 
@@ -243,6 +243,12 @@ method getTextureQuad*(i: SpriteImage, gl: GL, texCoords: var array[4, GLfloat])
 method size*(i: Image): Size {.base.} = discard
 method size*(i: SelfContainedImage): Size = i.mSize
 method size*(i: SpriteImage): Size = i.mSize
+
+proc subimageWithRect*(i: Image, r: Rect): SpriteImage =
+    result.new()
+    result.spriteSheet = i
+    result.mSize = r.size
+    result.texCoords = [r.x / i.size.width, r.y / i.size.height, r.maxX / i.size.width, r.maxY / i.size.height]
 
 proc imageNamed*(s: SpriteSheet, name: string): SpriteImage =
     if not s.images.isNil:
