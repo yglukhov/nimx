@@ -3,6 +3,8 @@
 echo "BUILD.sh"
 env
 
+set -ev
+
 installSdl()
 {
     curl -O http://www.libsdl.org/release/SDL2-2.0.3.tar.gz
