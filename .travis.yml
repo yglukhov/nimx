@@ -1,6 +1,9 @@
 language: c
 sudo: false
 
+os:
+  - osx
+
 addons:
   apt:
     packages:
