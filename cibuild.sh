@@ -18,9 +18,9 @@ installSdl()
 
 installNim()
 {
-    git clone "https://github.com/Araq/Nim" ~/nim
+    git clone "https://github.com/nim-lang/Nim" ~/nim
     cd ~/nim
-    sh build.sh
+    sh bootstrap.sh
     export PATH=$PWD/bin:$PATH
     cd -
 }
