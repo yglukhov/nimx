@@ -46,6 +46,8 @@ buildTest()
     cd -
 }
 
+sdl-config --cflags --libs
+
 echo "SDL CONFIG CFLAGS"
 pkg-config --cflags sdl2
 #sdl2-config --cflags
