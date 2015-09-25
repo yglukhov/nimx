@@ -66,5 +66,5 @@ proc runAnimations*(w: Window) =
 proc addAnimation*(w: Window, a: Animation) =
     if w.animations.len == 0:
         w.enableAnimation(true)
-    a.prepare()
+    a.prepare(epochTime())
     w.animations.add(a)

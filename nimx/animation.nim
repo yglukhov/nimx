@@ -1,7 +1,6 @@
 import math
 import macros
 import algorithm
-import times
 
 type LoopPattern* = enum
     lpStartToEndToStart
@@ -52,9 +51,9 @@ proc addTotalProgressHandler*(a: Animation, progress: float, callIfCancelled: bo
     addHandler(a.totalProgressHandlers, ProgressHandler(handler: handler, progress: progress,
         callIfCancelled: callIfCancelled))
 
-proc prepare*(a: Animation) =
+proc prepare*(a: Animation, startTime: float) =
     a.finished = false
-    a.startTime = epochTime()
+    a.startTime = startTime
     a.lphIt = 0
     a.tphIt = 0
     a.cancelLoop = -1
