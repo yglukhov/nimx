@@ -54,14 +54,27 @@ proc runAnimations*(w: Window) =
     let t = epochTime()
     var i = 0
     w.needsDisplay = w.needsDisplay or w.animations.len > 0
-    while i < w.animations.len:
+
+    # New animations can be added while in the following loop. They will
+    # have to be ticked on the next frame.
+    let count = w.animations.len
+    var finishedAnimations = 0
+    for i in 0 ..< count:
         w.animations[i].tick(t)
-        if w.animations[i].finished:
-            w.animations.del(i)
-            if w.animations.len == 0:
-                w.enableAnimation(false)
-        else:
-            inc i
+        if w.animations[i].finished: inc finishedAnimations
+
+    # Delete animations that have finished
+    if finishedAnimations > 0:
+        var i = 0
+        while finishedAnimations > 0:
+            if w.animations[i].finished:
+                w.animations.del(i)
+                dec finishedAnimations
+            else:
+                inc i
+        if w.animations.len == 0:
+            w.enableAnimation(false)
+
 
 proc addAnimation*(w: Window, a: Animation) =
     if w.animations.len == 0:
