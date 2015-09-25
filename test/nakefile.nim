@@ -27,7 +27,7 @@ let iOSSimulatorDeviceId = "18BE8493-7EFB-4570-BF2B-5F5ACBCCB82B"
 
 let bundleName = appName & ".app"
 
-let parallelBuild = "--parallelBuild:0"
+let parallelBuild = "--parallelBuild:1"
 let nimVerbose = "--verbosity:0"
 
 let xCodeApp = "/Applications/Xcode.app"
