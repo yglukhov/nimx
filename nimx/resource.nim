@@ -1,6 +1,7 @@
 import strutils
 import system_logger
 import streams
+import json
 
 when not defined(js):
     import os
@@ -206,6 +207,21 @@ proc loadResourceAsync*(resourceName: string, handler: proc(s: Stream)) =
         """.}
     else:
         handler(streamForResourceWithName(resourceName))
+
+when defined(js):
+    proc parseJson(s: Stream, filename: string): JsonNode =
+        var fullJson = ""
+        while true:
+            const chunkSize = 1024
+            let r = s.readStr(chunkSize)
+            fullJson &= r
+            if r.len != chunkSize: break
+        result = parseJson(fullJson)
+
+proc loadJsonResourceAsync*(resourceName: string, handler: proc(j: JsonNode)) =
+    loadResourceAsync resourceName, proc(s: Stream) =
+        handler(parseJson(s, resourceName))
+        s.close()
 
 when isMainModule and not defined(js):
     # Test for non-existing resource
