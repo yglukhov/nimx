@@ -59,6 +59,8 @@ echo "SDL CONFIG LINKER"
 #echo Install Sdl
 #installSdl
 
+brew install sdl2
+
 echo Install Nim
 installNim
 
