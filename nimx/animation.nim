@@ -171,3 +171,27 @@ macro animate*(a: Animation, what: expr, how: stmt): stmt {.immediate.} =
 proc animateValue*[T](fromValue, toValue: T, cb: proc(value: T)): AnimationFunction =
     result = proc(progress: float) =
         cb((toValue - fromValue) * progress)
+
+
+when isMainModule:
+    proc emulateAnimationRun(a: Animation, startTime, endTime, fps: float): float =
+        var curTime = startTime
+        a.prepare(startTime)
+        let timeStep = 1.0 / fps
+        while true:
+            a.tick(curTime)
+            if a.finished: break
+            curTime += timeStep
+        result = curTime - startTime
+
+    let a = newAnimation()
+    a.loopDuration = 1.0
+    a.numberOfLoops = 1
+
+    var progresses = newSeq[float]()
+    a.onAnimate = proc(p: float) =
+        progresses.add(p)
+
+    let timeTaken = a.emulateAnimationRun(5.0, 6.0, 60)
+
+    doAssert(progresses[^1] == 1.0)
