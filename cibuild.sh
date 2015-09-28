@@ -46,7 +46,7 @@ buildTest()
     cd -
 }
 
-sudo -n apt-get install -y libsdl2-2.0-0
+sudo -n apt-get install -y libsdl2-dev
 
 #sdl2-config --cflags --libs
 
