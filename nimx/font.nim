@@ -192,7 +192,8 @@ const preferredFonts = when defined(macosx) or defined(js) or defined(windows):
         ]
     else:
         [
-            "Ubuntu-R"
+            "Ubuntu-R",
+            "DejaVuSans"
         ]
 
 const fontSearchPaths = when defined(macosx):
@@ -210,7 +211,8 @@ const fontSearchPaths = when defined(macosx):
     else:
         [
             "/usr/share/fonts/truetype/ubuntu-font-family",
-            "/usr/share/fonts/TTF"
+            "/usr/share/fonts/TTF",
+            "/usr/share/fonts/truetype/dejavu"
         ]
 
 when not defined js:
