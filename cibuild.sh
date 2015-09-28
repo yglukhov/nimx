@@ -46,6 +46,8 @@ buildTest()
     cd -
 }
 
+apt-get install sdl2
+
 #sdl2-config --cflags --libs
 
 echo "SDL CONFIG CFLAGS"
@@ -58,8 +60,6 @@ echo "SDL CONFIG LINKER"
 
 #echo Install Sdl
 #installSdl
-
-brew install sdl2
 
 echo Install Nim
 installNim
