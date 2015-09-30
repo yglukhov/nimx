@@ -221,7 +221,8 @@ else:
     template uniform1i*(gl: GL, location: GLint, data: GLint) = glUniform1i(location, data)
     template uniform2fv*(gl: GL, location: GLint, data: openarray[GLfloat]) = glUniform2fv(location, GLSizei(data.len / 2), unsafeAddr data[0])
     template uniform2fv*(gl: GL, location: GLint, length: GLsizei, data: ptr GLfloat) = glUniform2fv(location, length, data)
-    template uniform1fv*(gl: GL, location: GLint, data: openarray[GLfloat]) = glUniform1fv(location, data.len, unsafeAddr data[0])
+    template uniform4fv*(gl: GL, location: GLint, data: openarray[GLfloat]) = glUniform4fv(location, GLsizei(data.len / 4), unsafeAddr data[0])
+    template uniform1fv*(gl: GL, location: GLint, data: openarray[GLfloat]) = glUniform1fv(location, GLsizei(data.len), unsafeAddr data[0])
     template uniform1fv*(gl: GL, location: GLint, length: GLsizei, data: ptr GLfloat) = glUniform1fv(location, length, data)
     proc uniformMatrix4fv*(gl: GL, location: GLint, transpose: GLboolean, data: array[16, GLfloat]) {.inline.} =
         glUniformMatrix4fv(location, 1, transpose, unsafeAddr data[0])
@@ -268,8 +269,9 @@ proc newGL*(canvas: ref RootObj): GL =
             }
 
             if (`result` !== null) {
-                `result`.viewportWidth = `canvas`.width;
-                `result`.viewportHeight = `canvas`.height;
+                var devicePixelRatio = 1; //window.devicePixelRatio || 1;
+                `result`.viewportWidth = `canvas`.width * devicePixelRatio;
+                `result`.viewportHeight = `canvas`.height * devicePixelRatio;
                 `result`.getExtension('OES_standard_derivatives');
             } else {
                 alert("Your browser does not support WebGL. Please, use a modern browser.");
