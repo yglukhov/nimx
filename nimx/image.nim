@@ -17,6 +17,7 @@ type SelfContainedImage* = ref object of Image
     texture*: GLuint
     mSize: Size
     sizeInTexels: Size
+    framebuffer*: GLuint
 
 type
     SpriteSheet* = ref object of SelfContainedImage
