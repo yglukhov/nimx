@@ -1,17 +1,23 @@
 import context
 import types
 import portable_gl
+import image
 
 export portable_gl
 export context
 
-const commonMath = """
+const commonDefinitions = """
 #define PI 3.14159265359
 #define TWO_PI 6.28318530718
 
 vec4 insetRect(vec4 rect, float by) {
     return vec4(rect.xy + by, rect.zw - by * 2.0);
 }
+
+struct Image {
+    sampler2D tex;
+    vec4 texCoords;
+};
 """
 
 const distanceSetOperations = """
@@ -243,7 +249,7 @@ precision mediump float;
 varying vec2 vPos;
 uniform vec4 bounds;
 """
-    fragmentShaderCode &= commonMath &
+    fragmentShaderCode &= commonDefinitions &
         distanceSetOperations &
         distanceFunctions &
         compositionFragmentFunctions &
@@ -297,7 +303,7 @@ template draw*(comp: var Composition, r: Rect, code: untyped): stmt =
         else:
             gl.uniform2fv(gl.getUniformLocation(comp.program, name), GLsizei(v.len), cast[ptr GLfloat](unsafeAddr v[0]))
 
-    template setUniform(name: string, v: Color) {.hint[XDeclaredButNotUsed]: off.}  =
+    template setUniform(name: string, v: Color) {.hint[XDeclaredButNotUsed]: off.} =
         ctx.setColorUniform(comp.program, name, v)
 
     template setUniform(name: string, v: GLfloat) {.hint[XDeclaredButNotUsed]: off.}  =
@@ -305,6 +311,16 @@ template draw*(comp: var Composition, r: Rect, code: untyped): stmt =
 
     template setUniform(name: string, v: GLint) {.hint[XDeclaredButNotUsed]: off.}  =
         gl.uniform1i(gl.getUniformLocation(comp.program, name), v)
+
+    var texIndex : GLint = 0
+    var theQuad = [0.GLfloat, 0, 0, 0]
+
+    template setUniform(name: string, i: Image) {.hint[XDeclaredButNotUsed]: off.} =
+        gl.activeTexture(gl.TEXTURE0 + texIndex.GLenum)
+        gl.bindTexture(gl.TEXTURE_2D, getTextureQuad(i, gl, theQuad))
+        gl.uniform4fv(gl.getUniformLocation(comp.program, name & ".texCoords"), theQuad)
+        gl.uniform1i(gl.getUniformLocation(comp.program, name & ".tex"), texIndex)
+        inc texIndex
 
     setUniform("bounds", r)
 

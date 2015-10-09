@@ -47,6 +47,7 @@ when defined js:
                 STATIC_COPY*, DYNAMIC_DRAW*, DYNAMIC_READ*, DYNAMIC_COPY* : GLenum
 
             FLOAT*, UNSIGNED_SHORT* : GLenum
+            TEXTURE0*: GLenum
 
             compileShader*: proc(shader: GLuint)
             deleteShader*: proc(shader: GLuint)
@@ -77,6 +78,7 @@ when defined js:
             isEnabled*: proc(flag: GLenum): bool
             viewport*: proc(x, y: GLint, width, height: GLsizei)
             clear*: proc(mask: int)
+            activeTexture*: proc(t: GLenum)
             bindTexture*: proc(target: GLenum, name: GLuint)
             bindFramebuffer*: proc(target: GLenum, name: GLuint)
             bindRenderbuffer*: proc(target: GLenum, name: GLuint)
@@ -176,6 +178,8 @@ else:
     template FLOAT*(gl: GL): GLenum = cGL_FLOAT
     template UNSIGNED_SHORT*(gl: GL): GLenum = GL_UNSIGNED_SHORT
 
+    template TEXTURE0*(gl: GL): GLenum = GL_TEXTURE0
+
     template compileShader*(gl: GL, shader: GLuint) = glCompileShader(shader)
     template deleteShader*(gl: GL, shader: GLuint) = glDeleteShader(shader)
     template deleteProgram*(gl: GL, prog: GLuint) = glDeleteProgram(prog)
@@ -212,6 +216,7 @@ else:
     template isEnabled*(gl: GL, flag: GLenum): bool = glIsEnabled(flag)
     template viewport*(gl: GL, x, y: GLint, width, height: GLsizei) = glViewport(x, y, width, height)
     template clear*(gl: GL, mask: GLbitfield) = glClear(mask)
+    template activeTexture*(gl: GL, t: GLenum) = glActiveTexture(t)
     template bindTexture*(gl: GL, target: GLenum, name: GLuint) = glBindTexture(target, name)
     template bindFramebuffer*(gl: GL, target: GLenum, name: GLuint) = glBindFramebuffer(target, name)
     template bindRenderbuffer*(gl: GL, target: GLenum, name: GLuint) = glBindRenderbuffer(target, name)
