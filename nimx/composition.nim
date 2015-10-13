@@ -313,7 +313,7 @@ template draw*(comp: var Composition, r: Rect, code: untyped): stmt =
         gl.uniform1i(gl.getUniformLocation(comp.program, name), v)
 
     var texIndex : GLint = 0
-    var theQuad = [0.GLfloat, 0, 0, 0]
+    var theQuad {.noinit.}: array[4, GLfloat]
 
     template setUniform(name: string, i: Image) {.hint[XDeclaredButNotUsed]: off.} =
         gl.activeTexture(gl.TEXTURE0 + texIndex.GLenum)
