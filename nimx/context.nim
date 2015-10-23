@@ -112,7 +112,7 @@ proc newGraphicsContext*(canvas: ref RootObj = nil): GraphicsContext =
 
     result.fontShaderProgram = result.gl.newShaderProgram(fontVertexShader, fontFragmentShader)
     #result.testPolyShaderProgram = result.gl.newShaderProgram(testPolygonVertexShader, testPolygonFragmentShader)
-    result.gl.clearColor(0.93, 0.93, 0.93, 1.0)
+    result.gl.clearColor(0.93, 0.93, 0.93, 0.0)
 
 proc setCurrentContext*(c: GraphicsContext): GraphicsContext {.discardable.} =
     result = gCurrentContext
