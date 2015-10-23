@@ -84,7 +84,6 @@ type GraphicsContext* = ref object of RootObj
     strokeWidth*: Coord
     fontShaderProgram: GLuint
     testPolyShaderProgram: GLuint
-    imageShaderProgram: GLuint
     debugClipColor: Color
 
 var gCurrentContext: GraphicsContext
@@ -113,7 +112,6 @@ proc newGraphicsContext*(canvas: ref RootObj = nil): GraphicsContext =
 
     result.fontShaderProgram = result.gl.newShaderProgram(fontVertexShader, fontFragmentShader)
     #result.testPolyShaderProgram = result.gl.newShaderProgram(testPolygonVertexShader, testPolygonFragmentShader)
-    result.imageShaderProgram = result.gl.newShaderProgram(imageVertexShader, imageFragmentShader)
     result.gl.clearColor(0.93, 0.93, 0.93, 1.0)
 
 proc setCurrentContext*(c: GraphicsContext): GraphicsContext {.discardable.} =
@@ -238,36 +236,32 @@ proc drawText*(c: GraphicsContext, font: Font, pt: Point, text: string) =
     var p = pt
     c.drawText(font, p, text)
 
+var imageComposition = newComposition """
+uniform Image uImage;
+uniform vec4 uFromRect;
+uniform float uAlpha;
+
+void compose() {
+    vec2 destuv = (vPos - bounds.xy) / bounds.zw;
+    vec2 duv = uImage.texCoords.zw - uImage.texCoords.xy;
+    vec2 srcxy = uImage.texCoords.xy + duv * uFromRect.xy;
+    vec2 srczw = uImage.texCoords.xy + duv * uFromRect.zw;
+    vec2 uv = srcxy + (srczw - srcxy) * destuv;
+    gl_FragColor = texture2D(uImage.tex, uv);
+    gl_FragColor.a *= uAlpha;
+}
+"""
+
 proc drawImage*(c: GraphicsContext, i: Image, toRect: Rect, fromRect: Rect = zeroRect, alpha: ColorComponent = 1.0) =
-    var texCoords : array[4, GLfloat]
-    let t = i.getTextureQuad(c.gl, texCoords)
-    if t != 0:
-        c.gl.useProgram(c.imageShaderProgram)
-        c.gl.bindTexture(c.gl.TEXTURE_2D, t)
-        c.gl.enable(c.gl.BLEND)
-        c.gl.blendFunc(c.gl.SRC_ALPHA, c.gl.ONE_MINUS_SRC_ALPHA)
-
-        let sizeInTexels = newSize(texCoords[2] - texCoords[0], texCoords[3] - texCoords[1])
-
-        var s0 : Coord = texCoords[0]
-        var t0 : Coord = texCoords[1]
-        var s1 : Coord = texCoords[2]
-        var t1 : Coord = texCoords[3]
+    if i.isLoaded:
+        var fr = newRect(0, 0, 1, 1)
         if fromRect != zeroRect:
-            s0 = texCoords[0] + fromRect.x / i.size.width * sizeInTexels.width
-            t0 = texCoords[1] + fromRect.y / i.size.height * sizeInTexels.height
-            s1 = texCoords[0] + fromRect.maxX / i.size.width * sizeInTexels.width
-            t1 = texCoords[1] + fromRect.maxY / i.size.height * sizeInTexels.height
-
-        let points = [toRect.minX, toRect.minY, s0, t0,
-                    toRect.maxX, toRect.minY, s1, t0,
-                    toRect.maxX, toRect.maxY, s1, t1,
-                    toRect.minX, toRect.maxY, s0, t1]
-        c.gl.enableVertexAttribArray(saPosition.GLuint)
-        c.setTransformUniform(c.imageShaderProgram)
-        c.gl.uniform1f(c.gl.getUniformLocation(c.imageShaderProgram, "uAlpha"), alpha)
-        c.gl.vertexAttribPointer(saPosition.GLuint, 4, false, 0, points)
-        c.gl.drawArrays(c.gl.TRIANGLE_FAN, 0, 4)
+            let s = i.size
+            fr = newRect(fromRect.x / s.width, fromRect.y / s.height, fromRect.maxX / s.width, fromRect.maxY / s.height)
+        imageComposition.draw toRect:
+            setUniform("uImage", i)
+            setUniform("uAlpha", alpha)
+            setUniform("uFromRect", fr)
 
 proc drawPoly*(c: GraphicsContext, points: openArray[Coord]) =
     let shaderProg = c.testPolyShaderProgram

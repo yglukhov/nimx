@@ -297,6 +297,9 @@ template draw*(comp: var Composition, r: Rect, code: untyped): stmt =
     template setUniform(name: string, v: Point) {.hint[XDeclaredButNotUsed]: off.} =
         ctx.setPointUniform(comp.program, name, v)
 
+    template setUniform(name: string, v: Size) {.hint[XDeclaredButNotUsed]: off.} =
+        setUniform(name, newPoint(v.width, v.height))
+
     template setUniform(name: string, v: openarray[Point]) {.hint[XDeclaredButNotUsed]: off.} =
         when defined(js):
             gl.uniform2fv(gl.getUniformLocation(comp.program, name), unwrapPointArray(v))
@@ -312,7 +315,7 @@ template draw*(comp: var Composition, r: Rect, code: untyped): stmt =
     template setUniform(name: string, v: GLint) {.hint[XDeclaredButNotUsed]: off.}  =
         gl.uniform1i(gl.getUniformLocation(comp.program, name), v)
 
-    var texIndex : GLint = 0
+    var texIndex : GLint
     var theQuad {.noinit.}: array[4, GLfloat]
 
     template setUniform(name: string, i: Image) {.hint[XDeclaredButNotUsed]: off.} =

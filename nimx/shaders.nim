@@ -128,34 +128,3 @@ void main(void)
 		gl_FragColor = vec4(0.0, 1, 0, 1);
 }
 """
-
-const imageVertexShader = """
-attribute vec4 position;
-
-uniform mat4 modelViewProjectionMatrix;
-
-varying vec2 vTexCoord;
-
-void main()
-{
-    vTexCoord = position.zw;
-    gl_Position = modelViewProjectionMatrix * vec4(position.xy, 0, 1);
-}
-"""
-
-const imageFragmentShader = """
-#ifdef GL_ES
-#extension GL_OES_standard_derivatives : enable
-precision mediump float;
-#endif
-
-uniform sampler2D texUnit;
-uniform float uAlpha;
-varying vec2 vTexCoord;
-
-void main()
-{
-    gl_FragColor = texture2D(texUnit, vTexCoord);
-		gl_FragColor.a *= uAlpha;
-}
-"""
