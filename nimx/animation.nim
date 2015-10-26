@@ -51,6 +51,16 @@ proc addTotalProgressHandler*(a: Animation, progress: float, callIfCancelled: bo
     addHandler(a.totalProgressHandlers, ProgressHandler(handler: handler, progress: progress,
         callIfCancelled: callIfCancelled))
 
+proc removeTotalProgressHandlers*(a: Animation) =
+    if not a.totalProgressHandlers.isNil: a.totalProgressHandlers.setLen(0)
+
+proc removeLoopProgressHandlers*(a: Animation) =
+    if not a.loopProgressHandlers.isNil: a.loopProgressHandlers.setLen(0)
+
+proc removeHandlers*(a: Animation) =
+    a.removeTotalProgressHandlers()
+    a.removeLoopProgressHandlers()
+
 proc prepare*(a: Animation, startTime: float) =
     a.finished = false
     a.startTime = startTime
