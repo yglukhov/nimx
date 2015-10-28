@@ -61,6 +61,6 @@ proc draw*(i: Image, drawProc: proc()) =
 
     gl.clearColor(oldClearColor[0], oldClearColor[1], oldClearColor[2], oldClearColor[3])
 
-    gl.viewport(oldViewport[0], oldViewport[1], oldViewport[2], oldViewport[3])
+    gl.viewport(oldViewport)
     gl.bindRenderbuffer(gl.RENDERBUFFER, oldRb)
     gl.bindFramebuffer(gl.FRAMEBUFFER, oldFb)

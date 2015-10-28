@@ -254,7 +254,6 @@ else:
 
     template getError*(gl: GL): GLenum = glGetError()
 
-
 # TODO: This is a quick and dirty hack for render to texture.
 var globalGL: GL
 
@@ -409,6 +408,8 @@ proc getViewport*(gl: GL): array[4, GLint] =
         asm "`result` = `gl`.getParameter(`gl`.VIEWPORT);"
     else:
         glGetIntegerv(GL_VIEWPORT, addr result[0])
+
+template viewport*(gl: GL, vp: array[4, GLint]) = gl.viewport(vp[0], vp[1], vp[2], vp[3])
 
 proc getClearColor*(gl: GL, colorComponents: var array[4, GLfloat]) =
     when defined js:
