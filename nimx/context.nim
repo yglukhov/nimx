@@ -231,6 +231,7 @@ proc drawText*(c: GraphicsContext, font: Font, pt: var Point, text: string) =
             c.gl.bindTexture(c.gl.TEXTURE_2D, texture)
         c.gl.vertexAttribPointer(saPosition.GLuint, 4, false, 0, vertexes)
         c.gl.drawArrays(c.gl.TRIANGLE_FAN, 0, 4)
+        pt.x += font.horizontalSpacing
 
 proc drawText*(c: GraphicsContext, font: Font, pt: Point, text: string) =
     var p = pt

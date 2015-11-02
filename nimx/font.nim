@@ -49,6 +49,7 @@ type Font* = ref object
     size*: float
     isHorizontal*: bool
     filePath: string
+    horizontalSpacing*: Coord
     when defined js:
         canvas: Element
 
@@ -307,7 +308,12 @@ proc sizeOfString*(f: Font, s: string): Size =
     var pt : Point
     var quad: array[16, Coord]
     var tex: GLuint
+    var first = true
     for ch in s.runes:
+        if first:
+            first = false
+        else:
+            pt.x += f.horizontalSpacing
         f.getQuadDataForRune(ch, quad, tex, pt)
     result = newSize(pt.x, f.size)
 
@@ -323,6 +329,7 @@ proc getClosestCursorPositionToPointInString*(f: Font, s: string, p: Point, posi
            (not f.isHorizontal and (abs(p.y - pt.y) < abs(p.y - closestPoint.y))):
             closestPoint = pt
             position = i + 1
+        pt.x += f.horizontalSpacing
         inc i
     offset = if f.isHorizontal: closestPoint.x else: closestPoint.y
 
@@ -338,4 +345,5 @@ proc cursorOffsetForPositionInString*(f: Font, s: string, position: int): Coord 
         inc i
 
         f.getQuadDataForRune(ch, quad, tex, pt)
+        pt.x += f.horizontalSpacing
     result = if f.isHorizontal: pt.x else: pt.y
