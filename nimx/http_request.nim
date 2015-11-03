@@ -37,8 +37,8 @@ when not defined(js):
             ctx.handler(r)
             deallocShared(ctx)
 
-        proc sdlThreadSafeHandler(r: Response) =
-            ctx.data = storeToSharedBuffer(r)
+        proc sdlThreadSafeHandler(r: Response, ctx: pointer) {.nimcall.} =
+            cast[ptr SdlHandlerContext](ctx).data = storeToSharedBuffer(r)
             performOnMainThread(callHandler, ctx)
 
-        sendRequestThreaded(meth, url, body, headers, sdlThreadSafeHandler)
+        sendRequestThreaded(meth, url, body, headers, sdlThreadSafeHandler, ctx)
