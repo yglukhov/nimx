@@ -2,6 +2,8 @@ import strutils
 import system_logger
 import streams
 import json
+import tables
+import async_http_request
 
 when not defined(js):
     import os
@@ -12,6 +14,21 @@ type
     ResourceObj* = object
         size*: int
         data*: pointer
+
+type
+    ResourceCache* = ref object
+        jsons*: Table[string, JsonNode]
+        texts*: Table[string, string]
+
+proc newResourceCache*(): ResourceCache =
+    result.new()
+    result.jsons = initTable[string, JsonNode]()
+    result.texts = initTable[string, string]()
+
+var gResCache* = newResourceCache()
+
+
+var warnWhenResourceNotCached* = false
 
 when not defined(android) and not defined(js):
     proc pathForResource(name: string): string =
@@ -45,8 +62,9 @@ when not defined(js):
             ops: RWopsPtr
 
     proc rwClose(s: Stream) {.nimcall.} =
-        if RWOpsStream(s).ops != nil:
-            discard close(RWOpsStream(s).ops)
+        let ops = RWOpsStream(s).ops
+        if ops != nil:
+            discard ops.close(ops)
             RWOpsStream(s).ops = nil
     proc rwAtEnd(s: Stream): bool {.nimcall.} =
         let ops = s.RWOpsStream.ops
@@ -64,7 +82,8 @@ when not defined(js):
         result = res
 
     proc rwWriteData(s: Stream, buffer: pointer, bufLen: int) {.nimcall.} =
-        if write(s.RWOpsStream.ops, buffer, 1, bufLen) != bufLen:
+        let ops = s.RWOpsStream.ops
+        if ops.write(ops, buffer, 1, bufLen) != bufLen:
             raise newException(IOError, "cannot write to stream")
 
     proc newStreamWithRWops*(ops: RWopsPtr): RWOpsStream =
@@ -101,6 +120,8 @@ when not defined(js):
         else:
             # Generic resource loading from file
             result = findResourceInFS(resourceName)
+        if result.isNil:
+            logi "WARNING: resource not found: ", resourceName
 
     proc freeResource*(res: Resource) {.discardable.} =
         res.size = 0
@@ -189,39 +210,48 @@ when defined(js):
         #r.atEndImpl
         result = r
 
-proc loadResourceAsync*(resourceName: string, handler: proc(s: Stream)) =
-    when defined(js):
-        let cresName : cstring = "res/" & resourceName
+type ResourceLoadingError* = object
+    description*: string
 
+when defined js:
+    proc loadJSResourceAsync*(resourceName: string, resourceType: cstring, onProgress: proc(p: float), onError: proc(e: ResourceLoadingError), onComplete: proc(result: ref RootObj)) =
         let reqListener = proc(ev: ref RootObj) =
             var data : ref RootObj
-            {.emit: "`data` = new DataView(`ev`.target.response);".}
-            handler(newStreamWithDataView(data))
+            {.emit: "`data` = `ev`.target.response;".}
+            onComplete(data)
 
-        {.emit: """
-        var oReq = new XMLHttpRequest();
-        oReq.responseType = "arraybuffer";
-        oReq.addEventListener('load', `reqListener`);
-        oReq.open("GET", `cresName`, true);
-        oReq.send();
-        """.}
+        let oReq = newXMLHTTPRequest()
+        oReq.responseType = resourceType
+        oReq.addEventListener("load", reqListener)
+        oReq.open("GET", "res/" & resourceName)
+        oReq.send()
+
+proc loadResourceAsync*(resourceName: string, handler: proc(s: Stream)) =
+    when defined(js):
+        let reqListener = proc(data: ref RootObj) =
+            var dataView : ref RootObj
+            {.emit: "`dataView` = new DataView(`data`);".}
+            handler(newStreamWithDataView(dataView))
+        loadJSResourceAsync(resourceName, "arraybuffer", nil, nil, reqListener)
     else:
         handler(streamForResourceWithName(resourceName))
 
-when defined(js):
-    proc parseJson(s: Stream, filename: string): JsonNode =
-        var fullJson = ""
-        while true:
-            const chunkSize = 1024
-            let r = s.readStr(chunkSize)
-            fullJson &= r
-            if r.len != chunkSize: break
-        result = parseJson(fullJson)
-
 proc loadJsonResourceAsync*(resourceName: string, handler: proc(j: JsonNode)) =
-    loadResourceAsync resourceName, proc(s: Stream) =
-        handler(parseJson(s, resourceName))
-        s.close()
+    let j = gResCache.jsons.getOrDefault(resourceName)
+    if j.isNil:
+        if warnWhenResourceNotCached:
+            logi "WARNING: Resource not loaded: ", resourceName
+        when defined js:
+            let reqListener = proc(data: ref RootObj) =
+                var jsonstring = cast[cstring](data)
+                handler(parseJson($jsonstring))
+            loadJSResourceAsync(resourceName, "text", nil, nil, reqListener)
+        else:
+            loadResourceAsync resourceName, proc(s: Stream) =
+                handler(parseJson(s, resourceName))
+                s.close()
+    else:
+        handler(j)
 
 when isMainModule and not defined(js):
     # Test for non-existing resource

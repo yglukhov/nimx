@@ -6,6 +6,7 @@ import tables
 import json
 import streams
 import resource
+import system_logger
 
 when not defined js:
     import load_image_impl
@@ -27,6 +28,11 @@ type
         spriteSheet*: Image
         texCoords: array[4, GLfloat]
         mSize: Size
+
+var imageCache = initTable[string, Image]()
+
+proc registerImageInCache*(name: string, i: Image) =
+    imageCache[name] = i
 
 when not defined js:
     template offset(p: pointer, off: int): pointer =
@@ -108,8 +114,12 @@ proc initWithResource*(i: SelfContainedImage, name: string) =
         freeResource(r)
 
 proc imageWithResource*(name: string): SelfContainedImage =
-    result.new()
-    result.initWithResource(name)
+    result = SelfContainedImage(imageCache.getOrDefault(name))
+    if result.isNil:
+        if warnWhenResourceNotCached:
+            logi "WARNING: Image not found in cache: ", name
+        result.new()
+        result.initWithResource(name)
 
 proc initSpriteImages(s: SpriteSheet, data: JsonNode) =
     let images = newTable[string, SpriteImage]()
