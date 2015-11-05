@@ -232,7 +232,7 @@ void main()
 """
 
 type Composition* = object
-    program: GLuint
+    program*: GLuint
     definition: string
 
 const posAttr : GLuint = 0
