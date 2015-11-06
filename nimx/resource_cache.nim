@@ -30,15 +30,18 @@ proc startPreloadingResource(ld: ResourceLoader, name: string) =
     of "png", "jpg", "jpeg", "gif", "tif", "tiff", "tga":
         when defined(js):
             proc handler(r: ref RootObj) =
-                let image = imageWithSize(newSize(0, 0))
-                {.emit: """
-                var imgUrl = window.URL.createObjectURL(`r`);
+                var onImLoad = proc (im: ref RootObj) =
+                    var w, h: Coord
+                    {.emit: "`w` = im.width; `h` = im.height;".}
+                    let image = imageWithSize(newSize(w, h))
+                    {.emit: "`image`.__image = im;".}
+                    registerImageInCache(name, image)
+                    ld.onResourceLoaded()
+                {.emit:"""
                 var im = new Image();
-                im.src = imgUrl;
-                `image`.__image = im;
+                im.onload = function(){`onImLoad`(im);};
+                im.src = window.URL.createObjectURL(`r`);
                 """.}
-                registerImageInCache(name, image)
-                ld.onResourceLoaded()
 
             loadJSResourceAsync(name, "blob", nil, nil, handler)
         else:
