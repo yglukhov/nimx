@@ -80,4 +80,5 @@ proc preloadResources*(ld: ResourceLoader, resourceNames: openarray[string]) =
 proc getResourceNames*(path: string = ""): seq[string] {.compileTime.} =
     result = newSeq[string]()
     for f in walkDirRec("res/" & path, {pcFile}):
-        result.add(f)
+        if f[0] != '.':
+            result.add(f)
