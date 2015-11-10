@@ -7,6 +7,7 @@ import streams
 import system_logger
 import types
 import sequtils
+import oswalkdir
 
 type ResourceLoader* = ref object
     totalSize : int
@@ -76,20 +77,7 @@ proc preloadResources*(ld: ResourceLoader, resourceNames: openarray[string]) =
     for i in resourceNames:
         ld.startPreloadingResource(i)
 
-proc ctReadDir*(root, path: string, res: var seq[string]) {.compileTime.} =
-    when defined(windows):
-        discard
-    else:
-        let rp = root & "/" & path
-        let lsOutput = staticExec("ls " & rp)
-        let files = lsOutput.splitLines()
-        for f in files:
-            var fp = if path.len > 0: path & "/" & f else: f
-            if f.getFileExtension().isNil:
-                ctReadDir(root, fp, res)
-            else:
-                res.add(fp)
-
 proc getResourceNames*(path: string = ""): seq[string] {.compileTime.} =
     result = newSeq[string]()
-    ctReadDir("res", path, result)
+    for f in walkDirRec("res/" & path, {pcFile}):
+        result.add(f)
