@@ -163,6 +163,7 @@ proc bezierTimingFunction*(x1, y1, x2, y2: float): TimingFunction =
         return calcBezier(aGuessT, y1, y2)
 
 template interpolate*[T](fromValue, toValue: T, p: float): T = fromValue + (toValue - fromValue) * p
+template interpolate*(fromValue, toValue: SomeInteger, p: float): auto = fromValue + type(fromValue)(float(toValue - fromValue) * p)
 
 template nimx_setInterpolationAnimation*(a: Animation, ident: expr, fromVal, toVal: expr, body: stmt): stmt {.immediate.} =
     let fv = fromVal
