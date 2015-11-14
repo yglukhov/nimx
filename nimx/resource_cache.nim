@@ -9,20 +9,26 @@ import types
 import sequtils
 import oswalkdir
 
+const debugResCache = false
+
 type ResourceLoader* = ref object
     totalSize : int
     loadedSize: int
     itemsToLoad: int
     onComplete*: proc()
-    resourcesToLoad: seq[string]
+    when debugResCache:
+        resourcesToLoad: seq[string]
 
 proc getFileExtension(name: string): string =
     let p = name.rfind('.')
     if p != -1:
         result = name.substr(p + 1)
 
-proc onResourceLoaded(ld: ResourceLoader) =
+proc onResourceLoaded(ld: ResourceLoader, name: string) =
     dec ld.itemsToLoad
+    when debugResCache:
+        ld.resourcesToLoad.keepIf(proc(a: string):bool = a != name)
+        echo "REMAINING ITEMS: ", ld.resourcesToLoad
     if ld.itemsToLoad == 0:
         ld.onComplete()
 
@@ -37,7 +43,7 @@ proc startPreloadingResource(ld: ResourceLoader, name: string) =
                     let image = imageWithSize(newSize(w, h))
                     {.emit: "`image`.__image = im;".}
                     registerImageInCache(name, image)
-                    ld.onResourceLoaded()
+                    ld.onResourceLoaded(name)
                 {.emit:"""
                 var im = new Image();
                 im.onload = function(){`onImLoad`(im);};
@@ -47,38 +53,41 @@ proc startPreloadingResource(ld: ResourceLoader, name: string) =
             loadJSResourceAsync(name, "blob", nil, nil, handler)
         else:
             registerImageInCache(name, imageWithResource(name))
-            ld.onResourceLoaded()
+            ld.onResourceLoaded(name)
 
     of "json", "zsm":
         loadJsonResourceAsync(name, proc(j: JsonNode) =
             gResCache.jsons[name] = j
-            ld.onResourceLoaded()
+            ld.onResourceLoaded(name)
         )
     of "obj", "txt":
         when defined(js):
             proc handler(r: ref RootObj) =
                 var jsonstring = cast[cstring](r)
                 gResCache.texts[name] = $jsonstring
-                ld.onResourceLoaded()
+                ld.onResourceLoaded(name)
 
             loadJSResourceAsync(name, "text", nil, nil, handler)
         else:
             loadResourceAsync name, proc(s: Stream) =
                 gResCache.texts[name] = s.readAll()
                 s.close()
-                ld.onResourceLoaded()
+                ld.onResourceLoaded(name)
     else:
-        ld.onResourceLoaded()
+        ld.onResourceLoaded(nil)
         logi "WARNING: Unknown resource type: ", name
         #raise newException(Exception, "Unknown resource type: " & name)
 
 proc preloadResources*(ld: ResourceLoader, resourceNames: openarray[string]) =
     ld.itemsToLoad += resourceNames.len
+    when debugResCache:
+        ld.resourcesToLoad = @resourceNames
     for i in resourceNames:
         ld.startPreloadingResource(i)
 
 proc getResourceNames*(path: string = ""): seq[string] {.compileTime.} =
     result = newSeq[string]()
-    for f in walkDirRec("res/" & path, {pcFile}):
+    const prefix = "res/"
+    for f in walkDirRec(prefix & path, {pcFile}):
         if f[0] != '.':
-            result.add(f)
+            result.add(f.substr(prefix.len))
