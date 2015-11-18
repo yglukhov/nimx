@@ -2,6 +2,7 @@ import context
 import types
 import portable_gl
 import image
+import strutils
 
 export portable_gl
 export context
@@ -14,10 +15,6 @@ vec4 insetRect(vec4 rect, float by) {
     return vec4(rect.xy + by, rect.zw - by * 2.0);
 }
 
-struct Image {
-    sampler2D tex;
-    vec4 texCoords;
-};
 """
 
 const distanceSetOperations = """
@@ -237,8 +234,27 @@ type Composition* = object
 
 const posAttr : GLuint = 0
 
-proc newComposition*(definition: string): Composition =
-    result.definition = definition
+proc replaceSymbolsInLine(syms: openarray[string], ln: string): string {.compileTime.} =
+    result = ln
+    for s in syms:
+        result = result.replaceWord(s & ".tex", s & "_tex")
+        result = result.replaceWord(s & ".texCoords", s & "_texCoords")
+
+proc preprocessDefinition(definition: string): string {.compileTime.} =
+    result = ""
+    var symbolsToReplace = newSeq[string]()
+    for ln in definition.splitLines():
+        const prefix = "uniform Image "
+        if ln.startsWith(prefix):
+            let uniformName = ln.substr(prefix.len, ln.len - 2)
+            symbolsToReplace.add(uniformName)
+            result &= "\Luniform sampler2D " & uniformName & "_tex;\Luniform vec4 " & uniformName & "_texCoords;"
+        else:
+            result &= "\L" & replaceSymbolsInLine(symbolsToReplace, ln)
+
+proc newComposition*(definition: static[string]): Composition =
+    const preprocessedDefinition = preprocessDefinition(definition)
+    result.definition = preprocessedDefinition
 
 proc compileComposition*(gl: GL, comp: var Composition) =
     var fragmentShaderCode = """
@@ -321,8 +337,8 @@ template draw*(comp: var Composition, r: Rect, code: untyped): stmt =
     template setUniform(name: string, i: Image) {.hint[XDeclaredButNotUsed]: off.} =
         gl.activeTexture(gl.TEXTURE0 + texIndex.GLenum)
         gl.bindTexture(gl.TEXTURE_2D, getTextureQuad(i, gl, theQuad))
-        gl.uniform4fv(gl.getUniformLocation(comp.program, name & ".texCoords"), theQuad)
-        gl.uniform1i(gl.getUniformLocation(comp.program, name & ".tex"), texIndex)
+        gl.uniform4fv(gl.getUniformLocation(comp.program, name & "_texCoords"), theQuad)
+        gl.uniform1i(gl.getUniformLocation(comp.program, name & "_tex"), texIndex)
         inc texIndex
 
     setUniform("bounds", r)
