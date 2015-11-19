@@ -46,6 +46,8 @@ buildTest()
     cd -
 }
 
+uname
+
 brew install sdl2
 #sudo -n apt-get update
 #sudo -n apt-get install -y libsdl2-dev
