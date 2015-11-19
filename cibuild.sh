@@ -46,9 +46,16 @@ buildTest()
     cd -
 }
 
-uname
-
-brew install sdl2
+if [ "$(uname)" = "Linux" ]
+then
+    sudo -n apt-get update
+    sudo -n apt-get install -y libsdl2-dev
+else
+    if [ "$(uname)" = "Darwin" ]
+    then
+        brew install sdl2
+    fi
+fi
 #sudo -n apt-get update
 #sudo -n apt-get install -y libsdl2-dev
 
