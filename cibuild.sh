@@ -42,7 +42,7 @@ installDependencies()
 buildTest()
 {
     cd test
-    nake
+    nake build
     cd -
 }
 

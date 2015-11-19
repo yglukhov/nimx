@@ -17,7 +17,7 @@ let nimIncludeDir = "~/Projects/nim/lib"
 let macOSSDKVersion = "10.11"
 let macOSMinVersion = "10.6"
 
-let iOSSDKVersion = "8.4"
+let iOSSDKVersion = "9.1"
 let iOSMinVersion = iOSSDKVersion
 
 # Simulator device identifier should be set to run the simulator.
@@ -29,6 +29,8 @@ let bundleName = appName & ".app"
 
 let parallelBuild = "--parallelBuild:1"
 let nimVerbose = "--verbosity:0"
+
+var runOption = "--run"
 
 let xCodeApp = "/Applications/Xcode.app"
 
@@ -80,7 +82,7 @@ proc createSDLIncludeLink(dir: string, preferInstalledSDL: bool) =
 proc runAppInSimulator() =
     var waitForDebugger = "--wait-for-debugger"
     waitForDebugger = ""
-    direShell "open", "-a", "iOS\\ Simulator"
+    direShell "open", "-b", "com.apple.iphonesimulator"
     shell "xcrun", "simctl", "uninstall", iOSSimulatorDeviceId, bundleId
     direShell "xcrun", "simctl", "install", iOSSimulatorDeviceId, bundleName
     direShell "xcrun", "simctl", "launch", waitForDebugger, iOSSimulatorDeviceId, bundleId
@@ -158,15 +160,19 @@ task defaultTask, "Build and run":
         runNim "--passC:-Inimcache", "--passC:-isysroot", "--passC:" & macOSSDK, "--passL:-isysroot", "--passL:" & macOSSDK,
             "--passC:-mmacosx-version-min=" & macOSMinVersion, "--passL:-mmacosx-version-min=" & macOSMinVersion,
             "--passL:-fobjc-link-runtime", "-d:SDL_Static", "--passL:-L"&buildSDLForDesktop(), "--passL:-lSDL2",
-            "--run"
+            runOption
     elif defined(windows):
         # dynamic link sdl2
-        direShell nimExe, "c",
+        direShell nimExe, "c", runOption,
             "-d:noAutoGLerrorCheck", "-d:release",
             "--opt:speed", "--threads:on",
             "main"
     else:
-        runNim "--run", "--passL:-L/usr/local/lib", "--passL:-Wl,-rpath,/usr/local/lib", "--passL:-lSDL2", "--passL:-lpthread"
+        runNim runOption, "--passL:-L/usr/local/lib", "--passL:-Wl,-rpath,/usr/local/lib", "--passL:-lSDL2", "--passL:-lpthread"
+
+task "build", "Build and don't run":
+    runOption = ""
+    runTask defaultTask
 
 task "ios-sim", "Build and run in iOS simulator":
     if not dirExists(iOSSimulatorSDK):
@@ -214,8 +220,9 @@ task "droid", "Build for android and install on the connected device":
 task "js", "Create Javascript version.":
     direShell nimExe, "js", "--stackTrace:off", "--warning[LockLevel]:off", "main"
     closure_compiler.compileFileAndRewrite("nimcache/main.js", ADVANCED_OPTIMIZATIONS)
-    let settings = newSettings(staticDir = getCurrentDir())
-    routes:
-        get "/": redirect "main.html"
-    openDefaultBrowser "http://localhost:5000"
-    runForever()
+    if runOption == "--run":
+        let settings = newSettings(staticDir = getCurrentDir())
+        routes:
+            get "/": redirect "main.html"
+        openDefaultBrowser "http://localhost:5000"
+        runForever()
