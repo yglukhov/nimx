@@ -85,9 +85,16 @@ proc preloadResources*(ld: ResourceLoader, resourceNames: openarray[string]) =
     for i in resourceNames:
         ld.startPreloadingResource(i)
 
+proc isHiddenFile(path: string): bool =
+    let lastSlash = path.rfind("/")
+    if lastSlash == -1:
+        result = path[0] == '.'
+    elif lastSlash != path.len - 1:
+        result = path[lastSlash + 1] == '.'
+
 proc getResourceNames*(path: string = ""): seq[string] {.compileTime.} =
     result = newSeq[string]()
     const prefix = "res/"
     for f in walkDirRec(prefix & path, {pcFile}):
-        if f[0] != '.':
+        if not isHiddenFile(f):
             result.add(f.substr(prefix.len))
