@@ -1,3 +1,4 @@
+import sequtils
 
 import window
 import event
@@ -12,23 +13,14 @@ type EventFilter* = proc(evt: var Event, control: var EventFilterControl): bool
 
 type Application* = ref object of RootObj
     windows : seq[Window]
-    eventFilterStack : seq[EventFilter]
+    eventFilters: seq[EventFilter]
 
-proc pushEventFilter*(a: Application, f: EventFilter) = a.eventFilterStack.add(f)
-proc popEventFilter(a: Application) = discard a.eventFilterStack.pop()
+proc pushEventFilter*(a: Application, f: EventFilter) = a.eventFilters.add(f)
 
 proc newApplication(): Application =
     result.new()
     result.windows = @[]
-    result.eventFilterStack = @[]
-    let a = result
-    result.pushEventFilter do(e: var Event, control: var EventFilterControl) -> bool:
-        if not e.window.isNil:
-            result = e.window.handleEvent(e)
-        elif e.kind == etAppWillEnterBackground:
-            for w in a.windows: w.enableAnimation(false)
-        elif e.kind == etAppWillEnterForeground:
-            for w in a.windows: w.enableAnimation(true)
+    result.eventFilters = @[]
 
 var mainApp : Application
 
@@ -42,9 +34,26 @@ proc addWindow*(a: Application, w: Window) =
 
 proc handleEvent*(a: Application, e: var Event): bool =
     var control = efcContinue
-    result = a.eventFilterStack[a.eventFilterStack.high](e, control)
-    if control == efcBreak:
-        a.popEventFilter()
+    var cleanupEventFilters = false
+    for i in 0 ..< a.eventFilters.len:
+        result = a.eventFilters[i](e, control)
+        if control == efcBreak:
+            a.eventFilters[i] = nil
+            cleanupEventFilters = true
+            control = efcContinue
+        if result:
+            break
+
+    if cleanupEventFilters:
+        a.eventFilters.keepItIf(not it.isNil)
+
+    if not result:
+        if not e.window.isNil:
+            result = e.window.handleEvent(e)
+        elif e.kind == etAppWillEnterBackground:
+            for w in a.windows: w.enableAnimation(false)
+        elif e.kind == etAppWillEnterForeground:
+            for w in a.windows: w.enableAnimation(true)
 
 proc drawWindows*(a: Application) =
     for w in a.windows:
@@ -53,4 +62,3 @@ proc drawWindows*(a: Application) =
 
 proc runAnimations*(a: Application) =
     for w in a.windows: w.runAnimations()
-
