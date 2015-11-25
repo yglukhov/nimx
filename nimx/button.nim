@@ -25,6 +25,7 @@ type Button* = ref object of Control
     title*: string
     state*: ButtonState
     value*: int8
+    enabled*: bool
     style*: ButtonStyle
     behavior*: ButtonBehavior
 
@@ -45,6 +46,7 @@ proc newRadiobox*(r: Rect): Button =
 method init(b: Button, frame: Rect) =
     procCall b.Control.init(frame)
     b.state = bsUp
+    b.enabled = true
     b.backgroundColor = whiteColor()
 
 proc drawTitle(b: Button, xOffset: Coord) =
@@ -80,8 +82,8 @@ proc drawRegularStyle(b: Button, r: Rect) {.inline.} =
     regularButtonComposition.draw r:
         if b.state == bsUp:
             setUniform("uStrokeColor", newGrayColor(0.78))
-            setUniform("uFillColorStart", b.backgroundColor)
-            setUniform("uFillColorEnd", b.backgroundColor)
+            setUniform("uFillColorStart", if b.enabled: b.backgroundColor else: grayColor())
+            setUniform("uFillColorEnd", if b.enabled: b.backgroundColor else grayColor())
         else:
             setUniform("uStrokeColor", newColor(0.18, 0.50, 0.98))
             setUniform("uFillColorStart", newColor(0.31, 0.60, 0.98))
@@ -132,6 +134,18 @@ proc setState*(b: Button, s: ButtonState) =
     if b.state != s:
         b.state = s
         b.setNeedsDisplay()
+
+proc enable*(b: Button) =
+    b.enabled = true
+
+proc disable*(b: Button) =
+    b.enabled = false
+
+method sendAction*(b: Button, e: Event) =
+    if b.enabled:
+        proccall Control(b).sendAction(e)
+    else:
+        discard
 
 method onMouseDown(b: Button, e: var Event): bool =
     result = true
