@@ -83,7 +83,7 @@ proc drawRegularStyle(b: Button, r: Rect) {.inline.} =
         if b.state == bsUp:
             setUniform("uStrokeColor", newGrayColor(0.78))
             setUniform("uFillColorStart", if b.enabled: b.backgroundColor else: grayColor())
-            setUniform("uFillColorEnd", if b.enabled: b.backgroundColor else grayColor())
+            setUniform("uFillColorEnd", if b.enabled: b.backgroundColor else: grayColor())
         else:
             setUniform("uStrokeColor", newColor(0.18, 0.50, 0.98))
             setUniform("uFillColorStart", newColor(0.31, 0.60, 0.98))
