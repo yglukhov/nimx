@@ -144,8 +144,6 @@ proc disable*(b: Button) =
 method sendAction*(b: Button, e: Event) =
     if b.enabled:
         proccall Control(b).sendAction(e)
-    else:
-        discard
 
 method onMouseDown(b: Button, e: var Event): bool =
     result = true
