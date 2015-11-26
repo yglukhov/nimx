@@ -1,4 +1,4 @@
-
+import math
 
 type Coord* = float32
 type ColorComponent* = float32
@@ -102,6 +102,8 @@ proc `+`*(s1, s2: Size): Size =
 proc `-`*(s1, s2: Size): Size =
     newSize(s1.width - s2.width, s1.height - s2.height)
 
+proc distanceTo*(p : Point, to: Point) : float32 =
+    result = sqrt(pow(p.x - to.x, 2) + pow(p.y - to.y, 2))
 
 proc inRect*(p: Point, r: Rect): bool =
     p >= r.origin and p <= r.maxCorner
