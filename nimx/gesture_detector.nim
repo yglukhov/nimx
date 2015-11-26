@@ -17,7 +17,10 @@ template registerDetector*(d: GestureDetector, ev: var Event): stmt {.immediate.
 type
     BaseGestureDetector* = ref object of GestureDetector
 
-    ScrollDetector* = ref object of GestureDetector
+    OnScrollListener* = proc(dx,dy : float32)
+    ScrollDetector* = ref object of BaseGestureDetector
+        scrollListener* : OnScrollListener
+        last_position : Point
 
     OnTapListener* = proc(tapPoint : Point)
     TapGestureDetector* = ref object of BaseGestureDetector
@@ -25,17 +28,31 @@ type
         down_timestamp: uint32
         down_position: Point
 
+
 proc newTapGestureDetector*(listener : OnTapListener) : TapGestureDetector =
     new(result)
     result.tapListener = listener
 
+proc newScrollGestureDetector*(listener : OnScrollListener) : ScrollDetector =
+    new(result)
+    result.scrollListener = listener
+
 method onTouchGesEvent*(d: BaseGestureDetector, e: var Event) : bool =
     registerDetector(d, e)
 
-
-method handleGesEvent*(sd: ScrollDetector, e: var Event) : bool =
-    logi("ScrollDetector event X:" & $e.position.x & " state " & $e.buttonState)
+method handleGesEvent*(d: ScrollDetector, e: var Event) : bool =
     result = true
+    if e.pointerId != 0: result = false
+    else:
+        if e.isButtonDownEvent():
+            d.last_position = e.position
+        elif e.isButtonUpEvent():
+            result = false
+        else:
+            if not d.scrollListener.isNil:
+                d.scrollListener(e.position.x - d.last_position.x, e.position.y - d.last_position.y)
+            d.last_position = e.position
+
 
 method handleGesEvent*(d: TapGestureDetector, e: var Event) : bool =
     result = true
