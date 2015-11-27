@@ -81,13 +81,13 @@ proc `-`*[I: static[int], T](v: TVector[I, T], scalar: T): TVector[I, T] =
 proc `*=`*[I: static[int], T](v: var TVector[I, T], scalar: T) =
     for i in 0 ..< v.len: v[i] *= scalar
 
-proc `/=`*[I: static[int], T](v: var TVector[I, T], scalar: T): TVector[I, T] =
+proc `/=`*[I: static[int], T](v: var TVector[I, T], scalar: T) =
     for i in 0 ..< v.len: v[i] /= scalar
 
-proc `+=`*[I: static[int], T](v: var TVector[I, T], scalar: T): TVector[I, T] =
+proc `+=`*[I: static[int], T](v: var TVector[I, T], scalar: T) =
     for i in 0 ..< v.len: v[i] += scalar
 
-proc `-=`*[I: static[int], T](v: var TVector[I, T], scalar: T): TVector[I, T] =
+proc `-=`*[I: static[int], T](v: var TVector[I, T], scalar: T) =
     for i in 0 ..< v.len: v[i] -= scalar
 
 proc `*`*[I: static[int], T](v1, v2: TVector[I, T]): TVector[I, T] =
