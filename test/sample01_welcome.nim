@@ -5,6 +5,8 @@ import nimx.view
 import nimx.font
 import nimx.context
 import nimx.composition
+import nimx.button
+import nimx.autotest
 
 const welcomeMessage = "Welcome to nimX"
 
@@ -13,6 +15,11 @@ type WelcomeView = ref object of View
 
 method init(v: WelcomeView, r: Rect) =
     procCall v.View.init(r)
+    let autoTestButton = newButton(newRect(20, 20, 150, 20))
+    autoTestButton.title = "Start Auto Tests"
+    autoTestButton.onAction do():
+        startRegisteredTests()
+    v.addSubview(autoTestButton)
 
 var gradientComposition = newComposition """
 void compose() {

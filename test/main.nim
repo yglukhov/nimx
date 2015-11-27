@@ -8,6 +8,8 @@ import nimx.app
 import nimx.scroll_view
 import nimx.table_view
 import nimx.text_field
+import nimx.autotest
+
 import sequtils
 import intsets
 
@@ -62,6 +64,28 @@ proc startApplication() =
 
     tableView.reloadData()
     tableView.selectRow(0)
+
+    uiTest generalUITest:
+        sendMouseDownEvent(mainWindow, newPoint(50, 60))
+        sendMouseUpEvent(mainWindow, newPoint(50, 60))
+
+        sendMouseDownEvent(mainWindow, newPoint(50, 90))
+        sendMouseUpEvent(mainWindow, newPoint(50, 90))
+
+        sendMouseDownEvent(mainWindow, newPoint(50, 120))
+        sendMouseUpEvent(mainWindow, newPoint(50, 120))
+
+        sendMouseDownEvent(mainWindow, newPoint(50, 90))
+        sendMouseUpEvent(mainWindow, newPoint(50, 90))
+
+        sendMouseDownEvent(mainWindow, newPoint(50, 60))
+        sendMouseUpEvent(mainWindow, newPoint(50, 60))
+
+        sendMouseDownEvent(mainWindow, newPoint(50, 30))
+        sendMouseUpEvent(mainWindow, newPoint(50, 30))
+
+    registerTest(generalUITest)
+    #startRegisteredTests()
 
 when defined js:
     import dom
