@@ -1,9 +1,12 @@
 ===========
-nimx |travis|
+nimx |travis| |semaphore|
 ===========
 
 .. |travis| image:: https://travis-ci.org/yglukhov/nimx.svg?branch=master
     :target: https://travis-ci.org/yglukhov/nimx
+
+.. |semaphore| image:: https://semaphoreci.com/api/v1/projects/24bc2fb0-aebf-4065-a02b-f40ea736a1c6/552519/badge.svg
+    :target: https://semaphoreci.com/yglukhov/nimx
 
 Cross-platform GUI framework in `Nim <https://github.com/nim-lang/nim>`_.
 

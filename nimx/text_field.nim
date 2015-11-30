@@ -9,6 +9,8 @@ import unicode
 import timer
 import table_view_cell
 
+export control
+
 type TextField* = ref object of Control
     text*: string
     editable*: bool
@@ -120,6 +122,8 @@ method onKeyDown*(t: TextField, e: var Event): bool =
             if cursorPos > textLen: cursorPos = textLen
             t.updateCursorOffset()
             t.bumpCursorVisibility()
+        elif e.keyCode == K_RETURN:
+            t.sendAction()
 
 method onTextInput*(t: TextField, s: string): bool =
     result = true
@@ -133,6 +137,7 @@ method viewShouldResignFirstResponder*(v: TextField, newFirstResponder: View): b
     result = true
     cursorUpdateTimer.clear()
     cursorVisible = false
+    v.sendAction()
 
 method viewDidBecomeFirstResponder*(t: TextField) =
     t.window.startTextInput(t.convertRectoToWindow(t.bounds))

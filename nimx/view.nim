@@ -3,7 +3,6 @@ import types
 import context
 import animation
 
-
 export types
 
 type AutoresizingFlag* = enum
@@ -19,6 +18,8 @@ type ClipType* = enum
     ctDefaultClip
 
 type
+    GestureDetector* = ref object of RootObj
+
     View* = ref object of RootObj
         window*: Window
         frame: Rect
@@ -27,17 +28,23 @@ type
         superview*: View
         autoresizingMask*: set[AutoresizingFlag]
         backgroundColor*: Color
+        gestureDetectors*: seq[GestureDetector]
 
     Window* = ref object of View
         firstResponder*: View
         animations*: seq[Animation]
         needsDisplay*: bool
 
+
+
 method init*(v: View, frame: Rect) {.base.} =
     v.frame = frame
     v.bounds = newRect(0, 0, frame.width, frame.height)
     v.subviews = @[]
+    v.gestureDetectors = @[]
     v.autoresizingMask = { afFlexibleMaxX, afFlexibleMaxY }
+
+method addGestureDetector*(v: View, d: GestureDetector) = v.gestureDetectors.add(d)
 
 proc new*[V](v: typedesc[V], frame: Rect): V =
     result.new()
@@ -71,8 +78,35 @@ proc convertRectFromWindow*(v: View, r: Rect): Rect =
     # TODO: Respect bounds transformations
     result.size = r.size
 
+# Responder chain implementation
+method acceptsFirstResponder*(v: View): bool {.base.} = false
+method viewShouldResignFirstResponder*(v, newFirstResponder: View): bool {.base.} = true
+method viewDidBecomeFirstResponder*(v: View) {.base.} = discard
+
+proc makeFirstResponder*(w: Window, responder: View): bool =
+    var shouldChange = true
+    let r = if responder.isNil: w else: responder
+    if not w.firstResponder.isNil:
+        shouldChange = w.firstResponder.viewShouldResignFirstResponder(r)
+    if shouldChange:
+        w.firstResponder = r
+        r.viewDidBecomeFirstResponder()
+        result = true
+
+method makeFirstResponder*(v: View): bool {.base.} =
+    let w = v.window
+    if not w.isNil:
+        result = w.makeFirstResponder(v)
+
+template isFirstResponder*(v: View): bool =
+    not v.window.isNil and v.window.firstResponder == v
+
+####
 method viewWillMoveToSuperview*(v: View, s: View) {.base.} = discard
 method viewWillMoveToWindow*(v: View, w: Window) {.base.} =
+    if not v.window.isNil and v.window.firstResponder == v and w != v.window:
+        discard v.window.makeFirstResponder(nil)
+
     for s in v.subviews:
         s.window = v.window
         s.viewWillMoveToWindow(w)
@@ -212,26 +246,6 @@ method frame*(v: View): Rect {.base.} = v.frame
 method bounds*(v: View): Rect {.base.} = v.bounds
 
 method subviewDidChangeDesiredSize*(v: View, sub: View, desiredSize: Size) {.base.} = discard
-
-method acceptsFirstResponder*(v: View): bool {.base.} = false
-method viewShouldResignFirstResponder*(v, newFirstResponder: View): bool {.base.} = true
-method viewDidBecomeFirstResponder*(v: View) {.base.} = discard
-
-# Responder chain implementation
-method makeFirstResponder*(v: View): bool {.base.} =
-    let w = v.window
-    if not w.isNil:
-        var shouldChange = true
-        if not w.firstResponder.isNil:
-            shouldChange = w.firstResponder.viewShouldResignFirstResponder(v)
-        if shouldChange:
-            w.firstResponder = v
-            v.viewDidBecomeFirstResponder()
-            result = true
-
-proc isFirstResponder*(v: View): bool =
-    if v.window != nil:
-        result = v.window.firstResponder == v
 
 proc isDescendantOf*(subView, superview: View): bool =
     var vi = subView

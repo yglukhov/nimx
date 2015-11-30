@@ -21,6 +21,7 @@ proc newVector2*(x, y: Coord = 0): Vector2 = [x, y]
 proc newVector3*(x, y, z: Coord = 0): Vector3 = [x, y, z]
 proc newVector4*(x, y, z, w: Coord = 0): Vector4 = [x, y, z, w]
 
+proc length*(v: Vector2): Coord = sqrt(v[0] * v[0] + v[1] * v[1])
 proc length*(v: Vector3): Coord = sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2])
 
 proc clamp*[I: static[int], T](v, minV, maxV: TVector[I, T]): TVector[I, T] =
@@ -80,13 +81,13 @@ proc `-`*[I: static[int], T](v: TVector[I, T], scalar: T): TVector[I, T] =
 proc `*=`*[I: static[int], T](v: var TVector[I, T], scalar: T) =
     for i in 0 ..< v.len: v[i] *= scalar
 
-proc `/=`*[I: static[int], T](v: var TVector[I, T], scalar: T): TVector[I, T] =
+proc `/=`*[I: static[int], T](v: var TVector[I, T], scalar: T) =
     for i in 0 ..< v.len: v[i] /= scalar
 
-proc `+=`*[I: static[int], T](v: var TVector[I, T], scalar: T): TVector[I, T] =
+proc `+=`*[I: static[int], T](v: var TVector[I, T], scalar: T) =
     for i in 0 ..< v.len: v[i] += scalar
 
-proc `-=`*[I: static[int], T](v: var TVector[I, T], scalar: T): TVector[I, T] =
+proc `-=`*[I: static[int], T](v: var TVector[I, T], scalar: T) =
     for i in 0 ..< v.len: v[i] -= scalar
 
 proc `*`*[I: static[int], T](v1, v2: TVector[I, T]): TVector[I, T] =

@@ -18,7 +18,7 @@ installSdl()
 
 installNim()
 {
-    git clone "https://github.com/nim-lang/Nim" ~/nim
+    git clone --depth 1 "https://github.com/nim-lang/Nim" ~/nim
     cd ~/nim
     sh bootstrap.sh
     export PATH=$PWD/bin:$PATH
@@ -27,7 +27,7 @@ installNim()
 
 installNimble()
 {
-    git clone https://github.com/nim-lang/nimble.git ~/nimble
+    git clone --depth 1 "https://github.com/nim-lang/nimble.git" ~/nimble
     cd ~/nimble
     nim c -r src/nimble install
     cd -
@@ -42,12 +42,22 @@ installDependencies()
 buildTest()
 {
     cd test
-    nake
+    nake build
     cd -
 }
 
-sudo -n apt-get update
-sudo -n apt-get install -y libsdl2-dev
+if [ "$(uname)" = "Linux" ]
+then
+    sudo -n apt-get update
+    sudo -n apt-get install -y libsdl2-dev
+else
+    if [ "$(uname)" = "Darwin" ]
+    then
+        brew install sdl2
+    fi
+fi
+#sudo -n apt-get update
+#sudo -n apt-get install -y libsdl2-dev
 
 #sdl2-config --cflags --libs
 

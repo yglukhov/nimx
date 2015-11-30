@@ -28,7 +28,7 @@ elif defined(android):
         proc getDefaultDisplay(w: WindowManager): Display
         proc getMetrics(d: Display, outMetrics: DisplayMetrics)
 
-        proc `.density`(d: DisplayMetrics): jfloat
+        proc density(d: DisplayMetrics): jfloat {.property.}
 
 proc screenScaleFactor*(): float =
     when defined(macosx) or defined(ios):
@@ -39,6 +39,6 @@ proc screenScaleFactor*(): float =
         let act = Activity(sdl2.androidGetActivity())
         let dm = DisplayMetrics.new()
         act.getWindowManager().getDefaultDisplay().getMetrics(dm)
-        result = dm.`.density`
+        result = dm.density
     else:
         result = 1.0

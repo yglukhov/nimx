@@ -7,7 +7,7 @@ import event
 type Control* = ref object of View
     actionHandler: proc(e: Event)
 
-proc sendAction*(c: Control, e: Event) =
+method sendAction*(c: Control, e: Event) {. base .} =
     if c.actionHandler != nil:
         c.actionHandler(e)
 
