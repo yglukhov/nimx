@@ -160,7 +160,7 @@ proc eventWithSDLEvent(event: ptr sdl2.Event): Event =
 
         of MouseButtonDown, MouseButtonUp:
             let mouseEv = cast[MouseButtonEventPtr](event)
-            if mouseEv.which != (0'u32 - 1):
+            if mouseEv.which != SDL_TOUCH_MOUSEID:
                 let wnd = windowFromSDLEvent(mouseEv)
                 let state = buttonStateFromSDLState(mouseEv.state.KeyState)
                 let button = case mouseEv.button:
@@ -174,8 +174,8 @@ proc eventWithSDLEvent(event: ptr sdl2.Event): Event =
 
         of MouseMotion:
             let mouseEv = cast[MouseMotionEventPtr](event)
-            if mouseEv.which != (0'u32 - 1):
-                logi("which: " & $mouseEv.which)
+            if mouseEv.which != SDL_TOUCH_MOUSEID:
+                #logi("which: " & $mouseEv.which)
                 let wnd = windowFromSDLEvent(mouseEv)
                 if wnd != nil:
                     let pos = positionFromSDLEvent(mouseEv)
