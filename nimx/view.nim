@@ -3,7 +3,6 @@ import types
 import context
 import animation
 
-
 export types
 
 type AutoresizingFlag* = enum
@@ -19,6 +18,8 @@ type ClipType* = enum
     ctDefaultClip
 
 type
+    GestureDetector* = ref object of RootObj
+
     View* = ref object of RootObj
         window*: Window
         frame: Rect
@@ -27,17 +28,23 @@ type
         superview*: View
         autoresizingMask*: set[AutoresizingFlag]
         backgroundColor*: Color
+        gestureDetectors*: seq[GestureDetector]
 
     Window* = ref object of View
         firstResponder*: View
         animations*: seq[Animation]
         needsDisplay*: bool
 
+
+
 method init*(v: View, frame: Rect) {.base.} =
     v.frame = frame
     v.bounds = newRect(0, 0, frame.width, frame.height)
     v.subviews = @[]
+    v.gestureDetectors = @[]
     v.autoresizingMask = { afFlexibleMaxX, afFlexibleMaxY }
+
+method addGestureDetector*(v: View, d: GestureDetector) = v.gestureDetectors.add(d)
 
 proc new*[V](v: typedesc[V], frame: Rect): V =
     result.new()

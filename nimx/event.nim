@@ -30,7 +30,9 @@ type Touch* = object
     id*: int
 
 type Event* = object
+    timestamp*: uint32
     kind*: EventType
+    pointerId*: int
     position*: Point
     localPosition*: Point
     offset*: Point
@@ -47,12 +49,15 @@ proc `button=`*(e: var Event, b: KeyCode) = e.fButton = cast[cint](b)
 proc keyCode*(e: Event): cint = e.fButton
 proc `keyCode=`*(e: var Event, c: cint) = e.fButton = c
 
-proc newEvent*(kind: EventType, position: Point = zeroPoint, button: KeyCode = kcUnknown, buttonState: ButtonState = bsUnknown): Event =
+proc newEvent*(kind: EventType, position: Point = zeroPoint, button: KeyCode = kcUnknown,
+               buttonState: ButtonState = bsUnknown, pointerId : int = 0, timestamp : uint32 = 0): Event =
     result.kind = kind
     result.position = position
     result.localPosition = position
     result.button = button
     result.buttonState = buttonState
+    result.pointerId = pointerId
+    result.timestamp = timestamp
 
 proc newUnknownEvent*(): Event = newEvent(etUnknown)
 
@@ -62,14 +67,8 @@ proc newMouseMoveEvent*(position: Point): Event =
 proc newMouseButtonEvent*(position: Point, button: KeyCode, state: ButtonState): Event =
     newEvent(etMouse, position, button, state)
 
-proc newTouchEvent*(position: Point, state: ButtonState): Event =
-    newEvent(etTouch, position, kcUnknown, state)
-
-proc newFingerDownEvent*(position: Point): Event =
-    newTouchEvent(position, bsDown)
-
-proc newFingerUpEvent*(position: Point): Event =
-    newTouchEvent(position, bsUp)
+proc newTouchEvent*(position: Point, state: ButtonState, pointerId : int, tstamp : uint32): Event =
+    newEvent(etTouch, position, kcUnknown, state, pointerId, tstamp)
 
 proc newMouseDownEvent*(position: Point, button: KeyCode): Event =
     newMouseButtonEvent(position, button, bsDown)

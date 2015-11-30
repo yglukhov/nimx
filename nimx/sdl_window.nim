@@ -140,11 +140,10 @@ proc eventWithSDLEvent(event: ptr sdl2.Event): Event =
                 of FingerUp: bsUp
                 else: bsUnknown
             let touchEv = cast[TouchFingerEventPtr](event)
-
             result = newTouchEvent(
-                newPoint(touchEv.x * defaultWindow.frame.width,
-                    touchEv.y * defaultWindow.frame.height),
-                bs)
+                                   newPoint(touchEv.x * defaultWindow.frame.width, touchEv.y * defaultWindow.frame.height),
+                                   bs, int(touchEv.fingerID), touchEv.timestamp
+                                   )
             result.window = defaultWindow
 
         of WindowEvent:
@@ -161,24 +160,27 @@ proc eventWithSDLEvent(event: ptr sdl2.Event): Event =
 
         of MouseButtonDown, MouseButtonUp:
             let mouseEv = cast[MouseButtonEventPtr](event)
-            let wnd = windowFromSDLEvent(mouseEv)
-            let state = buttonStateFromSDLState(mouseEv.state.KeyState)
-            let button = case mouseEv.button:
-                of sdl2.BUTTON_LEFT: kcMouseButtonPrimary
-                of sdl2.BUTTON_MIDDLE: kcMouseButtonMiddle
-                of sdl2.BUTTON_RIGHT: kcMouseButtonSecondary
-                else: kcUnknown
-            let pos = positionFromSDLEvent(mouseEv)
-            result = newMouseButtonEvent(pos, button, state)
-            result.window = wnd
+            if mouseEv.which != (0'u32 - 1):
+                let wnd = windowFromSDLEvent(mouseEv)
+                let state = buttonStateFromSDLState(mouseEv.state.KeyState)
+                let button = case mouseEv.button:
+                    of sdl2.BUTTON_LEFT: kcMouseButtonPrimary
+                    of sdl2.BUTTON_MIDDLE: kcMouseButtonMiddle
+                    of sdl2.BUTTON_RIGHT: kcMouseButtonSecondary
+                    else: kcUnknown
+                let pos = positionFromSDLEvent(mouseEv)
+                result = newMouseButtonEvent(pos, button, state)
+                result.window = wnd
 
         of MouseMotion:
             let mouseEv = cast[MouseMotionEventPtr](event)
-            let wnd = windowFromSDLEvent(mouseEv)
-            if wnd != nil:
-                let pos = positionFromSDLEvent(mouseEv)
-                result = newMouseMoveEvent(pos)
-                result.window = wnd
+            if mouseEv.which != (0'u32 - 1):
+                logi("which: " & $mouseEv.which)
+                let wnd = windowFromSDLEvent(mouseEv)
+                if wnd != nil:
+                    let pos = positionFromSDLEvent(mouseEv)
+                    result = newMouseMoveEvent(pos)
+                    result.window = wnd
 
         of MouseWheel:
             let mouseEv = cast[MouseWheelEventPtr](event)
@@ -233,7 +235,8 @@ proc handleEvent(event: ptr sdl2.Event): Bool32 =
     else:
         # This branch should never execute on a foreign thread!!!
         var e = eventWithSDLEvent(event)
-        discard mainApplication().handleEvent(e)
+        if (e.kind != etUnknown):
+            discard mainApplication().handleEvent(e)
     result = True32
 
 method onResize*(w: SdlWindow, newSize: Size) =
@@ -272,14 +275,11 @@ proc nextEvent(evt: var sdl2.Event) =
         if waitEvent(evt):
             discard handleEvent(addr evt)
     else:
-        if animationEnabled > 0:
-            # TODO: This should be researched more carefully.
-            # During animations we need to process more than one event
-            while pollEvent(evt):
-                if evt.kind == QuitEvent:
-                    break
-                discard handleEvent(addr evt)
-        elif waitEvent(evt):
+        # TODO: This should be researched more carefully.
+        # During animations we need to process more than one event
+        while pollEvent(evt):
+            if evt.kind == QuitEvent:
+                break
             discard handleEvent(addr evt)
 
     animateAndDraw()
