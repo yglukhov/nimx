@@ -108,6 +108,14 @@ proc distanceTo*(p : Point, to: Point) : float32 =
 proc inRect*(p: Point, r: Rect): bool =
     p >= r.origin and p <= r.maxCorner
 
+# return angle between 0 and 360 degrees
+proc vectorAngle*(p: Point, to: Point) : float32 =
+    let v = to - p
+    var angle = radToDeg(arctan2(v.y, v.x));
+    if angle < 0:
+        angle = angle + float(360)
+    result = angle
+
 proc centerInRect*(s: Size, r: Rect): Point =
     # Returns origin of rect of size s, centered in rect r.
     # The result may be outside of rect r, if s is bigger than size of r.
