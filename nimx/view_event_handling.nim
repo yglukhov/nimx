@@ -23,8 +23,7 @@ method handleMouseEvent*(v: View, e: var Event): bool {.base.} =
         result = v.onMouseUp(e)
     elif e.kind == etScroll:
         result = v.onScroll(e)
-
-method handleGesEvent*(d: GestureDetector, e: var Event) : bool {.base.} = discard
+        
 method onTouchGesEvent*(d: GestureDetector, e: var Event) : bool {.base.} = discard
 
 method onTouchEvent*(v: View, e: var Event): bool {.base.} =
