@@ -279,6 +279,48 @@ proc drawPoly*(c: GraphicsContext, points: openArray[Coord]) =
     #glUniform4fv(c.gl.getUniformLocation(shaderProg, "fillColor"), 1, cast[ptr GLfloat](addr c.fillColor))
     #c.gl.drawArrays(cast[GLenum](c.gl.TRIANGLE_FAN), 0, GLsizei(numberOfVertices))
 
+
+var lineComposition = newComposition """
+uniform float uStrokeWidth;
+uniform vec4  uStrokeColor;
+uniform vec2  A;
+uniform vec2  B;
+
+float drawLine(vec2 p1, vec2 p2) {
+  vec2 va = B - A;
+  vec2 vb = vPos - A;
+  vec2 vc = vPos - B;
+
+  vec3 tri = vec3(distance(A, B), distance(vPos, A), distance(vPos, B));
+  float p = (tri.x + tri.y + tri.z) / 2.0;
+  float h = 2.0 * sqrt(p * (p - tri.x) * (p - tri.y) * (p - tri.z)) / tri.x;
+
+  vec2 angles = acos(vec2(dot(normalize(-va), normalize(vc)), dot(normalize(va), normalize(vb))));
+  vec2 anglem = 1.0 - step(PI / 2.0, angles);
+  float pixelValue = 1.0 - smoothstep(0.0, uStrokeWidth, h);
+
+  float res = anglem.x * anglem.y * pixelValue;
+  return res;
+}
+
+void compose() {
+  gl_FragColor = vec4(uStrokeColor.xyz, uStrokeColor.a * drawLine(A, B));
+}
+"""
+
+proc drawLine*(c: GraphicsContext, pointFrom: Point, pointTo: Point) =
+    let xfrom = min(pointFrom.x, pointTo.x)
+    let yfrom = min(pointFrom.y, pointTo.y)
+    let xsize = max(pointFrom.x, pointTo.x) - xfrom
+    let ysize = max(pointFrom.y, pointTo.y) - yfrom
+    let r = newRect(xfrom - c.strokeWidth, yfrom - c.strokeWidth, xsize + 2 * c.strokeWidth, ysize + 2 * c.strokeWidth)
+
+    lineComposition.draw r:
+        setUniform("uStrokeWidth", c.strokeWidth)
+        setUniform("uStrokeColor", c.strokeColor)
+        setUniform("A", pointFrom)
+        setUniform("B", pointTo)
+
 proc testPoly*(c: GraphicsContext) =
     let points = [
         Coord(500.0), 400,
