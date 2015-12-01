@@ -33,6 +33,12 @@ proc newButton*(r: Rect): Button =
     result.new()
     result.init(r)
 
+proc newButton*(parent: View = nil, position: Point = newPoint(0, 0), size: Size = newSize(100, 20), title: string = "Button"): Button =
+    result = newButton(newRect(position.x, position.y, size.width, size.height))
+    result.title = title
+    if not isNil(parent):
+        parent.addSubview(result)
+
 proc newCheckbox*(r: Rect): Button =
     result = newButton(r)
     result.style = bsCheckbox

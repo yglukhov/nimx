@@ -28,9 +28,23 @@ proc newTextField*(r: Rect): TextField =
     result.new()
     result.init(r)
 
+proc newTextField*(parent: View = nil, position: Point = newPoint(0, 0), size: Size = newSize(100, 20), text: string = ""): TextField =
+    result = newTextField(newRect(position.x, position.y, size.width, size.height))
+    result.editable = true
+    result.text = text
+    if not isNil(parent):
+        parent.addSubview(result)
+
 proc newLabel*(r: Rect): TextField =
     result = newTextField(r)
     result.editable = false
+
+proc newLabel*(parent: View = nil, position: Point = newPoint(0, 0), size: Size = newSize(100, 20), text: string = "label"): TextField =
+    result = newLabel(newRect(position.x, position.y, size.width, size.height))
+    result.editable = false
+    result.text = text
+    if not isNil(parent):
+        parent.addSubview(result)
 
 method init*(t: TextField, r: Rect) =
     procCall t.Control.init(r)
