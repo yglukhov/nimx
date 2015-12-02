@@ -208,13 +208,14 @@ method onMouseDown(b: TableView, e: var Event): bool =
         if rows[0] != -1:
             let initiallyClickedRow = rows[0]
             mainApplication().pushEventFilter do(e: var Event, c: var EventFilterControl) -> bool:
-                result = true
-                if e.isButtonUpEvent():
-                    b.selectRow(rows[0])
-                    c = efcBreak
-                elif e.isMouseMoveEvent():
-                    e.localPosition = b.convertPointFromWindow(e.position)
-                    var newRows: array[1, int]
-                    b.getRowsAtHeights([e.localPosition.y], newRows)
-                    if newRows[0] != initiallyClickedRow:
+                if e.isPointingEvent():
+                    result = true
+                    if e.isButtonUpEvent():
+                        b.selectRow(rows[0])
                         c = efcBreak
+                    elif e.isMouseMoveEvent():
+                        e.localPosition = b.convertPointFromWindow(e.position)
+                        var newRows: array[1, int]
+                        b.getRowsAtHeights([e.localPosition.y], newRows)
+                        if newRows[0] != initiallyClickedRow:
+                            c = efcBreak

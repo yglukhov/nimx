@@ -159,7 +159,7 @@ method onMouseDown(b: Button, e: var Event): bool =
 
     mainApplication().pushEventFilter do(e: var Event, c: var EventFilterControl) -> bool:
         result = true
-        if e.kind == etMouse:
+        if e.isPointingEvent():
             e.localPosition = b.convertPointFromWindow(e.position)
             if e.isButtonUpEvent():
                 c = efcBreak

@@ -46,7 +46,7 @@ proc startTrackingMouse(v: MenuView) =
     var highlightedRow = -1
     mainApplication().pushEventFilter do(e: var Event, c: var EventFilterControl) -> bool:
         result = true
-        if e.kind == etMouse:
+        if e.isPointingEvent():
             e.localPosition = currentMenuView.convertPointFromWindow(e.position)
             var newHighlightedRow = -1
             if e.localPosition.inRect(currentMenuView.bounds):

@@ -161,8 +161,8 @@ method handleGesEvent*(d: TapGestureDetector, e: var Event, c: var EventFilterCo
             d.down_position = e.position
             d.down_timestamp = e.timestamp
         else:
-            let timedelta = e.timestamp - d.down_timestamp
-            if timedelta > 200'u32:
+            let timedelta = cast[int](e.timestamp - d.down_timestamp)
+            if timedelta > 200:
                 c = efcBreak
             else:
                 if e.isButtonUpEvent():
