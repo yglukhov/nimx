@@ -41,8 +41,8 @@ proc handleEvent*(a: Application, e: var Event): bool =
             a.eventFilters[i] = nil
             cleanupEventFilters = true
             control = efcContinue
-        # if result:
-        #     break
+        if result:
+            break
 
     if cleanupEventFilters:
         a.eventFilters.keepItIf(not it.isNil)
