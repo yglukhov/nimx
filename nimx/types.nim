@@ -30,7 +30,7 @@ proc newSize*(w, h: Coord): Size =
 
 const zeroSize* = newSize(0, 0)
 
-proc newRect*(o: Point, s: Size): Rect =
+proc newRect*(o: Point, s: Size = zeroSize): Rect =
     result.origin = o
     result.size = s
 
@@ -43,6 +43,24 @@ proc newRectWithPoints*(p1, p2: Point): Rect =
     let maxX = max(p1.x, p2.x)
     let maxY = max(p1.y, p2.y)
     result = newRect(minX, minY, maxX - minX, maxY - minY)
+
+proc union*(r : var Rect, x , y : Coord) =
+    if x < r.origin.x:
+        r.size.width += r.origin.x - x
+        r.origin.x = x
+    elif x > r.origin.x + r.size.width:
+        r.size.width = x - r.origin.x
+    if y < r.origin.y:
+        r.size.height += r.origin.y - y
+        r.origin.y = y
+    elif y > r.origin.y + r.size.height:
+        r.size.height = y - r.origin.y
+
+proc union*(r : var Rect, p: Point) =
+    r.union(p.x, p.y)
+
+proc centerPoint*(r : var Rect) : Point =
+    result = newPoint(r.origin.x + r.size.width / 2, r.origin.y + r.size.height / 2 )
 
 const zeroRect* = newRect(zeroPoint, zeroSize)
 
