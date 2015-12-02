@@ -167,11 +167,20 @@ proc updateCellsInVisibleRect(v: TableView) =
             if cell.isNil:
                 cell = v.dequeueReusableCell(reusableCells, i, y)
                 assert(not cell.isNil)
+            else:
+                v.configureCell(cell)
             y = cell.frame.maxY
 
         # 3. Remove the cells that were not reused
         for c in reusableCells:
             c.removeFromSuperview()
+
+    else:
+        for c in v.subviews:
+            let cell = c.isTableViewCell()
+            if not cell.isNil:
+                v.configureCell(cell)
+
 
 method draw*(v: TableView, r: Rect) =
     procCall v.View.draw(r)
@@ -199,6 +208,7 @@ proc selectRow*(t: TableView, row: int) =
     t.updateSelectedCells()
     if not t.onSelectionChange.isNil:
         t.onSelectionChange()
+    t.setNeedsDisplay()
 
 method onMouseDown(b: TableView, e: var Event): bool =
     if b.selectionMode == smSingleSelection:
