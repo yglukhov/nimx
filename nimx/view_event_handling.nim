@@ -23,7 +23,7 @@ method handleMouseEvent*(v: View, e: var Event): bool {.base.} =
         result = v.onMouseUp(e)
     elif e.kind == etScroll:
         result = v.onScroll(e)
-        
+
 method onTouchGesEvent*(d: GestureDetector, e: var Event) : bool {.base.} = discard
 
 method onTouchEvent*(v: View, e: var Event): bool {.base.} =
@@ -31,6 +31,8 @@ method onTouchEvent*(v: View, e: var Event): bool {.base.} =
     for i in v.gestureDetectors:
         let a = i.onTouchGesEvent(e)
         result = result or a
+    if v.gestureDetectors.len < 1:
+        result = v.handleMouseEvent(e)
 
 proc recursiveHandleMouseEvent*(v: View, e: var Event): bool =
     if e.localPosition.inRect(v.bounds):
