@@ -90,6 +90,7 @@ proc reloadData*(v: TableView) =
     desiredSize.height = v.requiredTotalHeight(rowCount)
     if not v.superview.isNil:
         v.superview.subviewDidChangeDesiredSize(v, desiredSize)
+    v.visibleRect = zeroRect
     v.setNeedsDisplay()
 
 proc containsFirstResponder(cell: TableViewCell): bool =
@@ -174,13 +175,6 @@ proc updateCellsInVisibleRect(v: TableView) =
         # 3. Remove the cells that were not reused
         for c in reusableCells:
             c.removeFromSuperview()
-
-    else:
-        for c in v.subviews:
-            let cell = c.isTableViewCell()
-            if not cell.isNil:
-                v.configureCell(cell)
-
 
 method draw*(v: TableView, r: Rect) =
     procCall v.View.draw(r)
