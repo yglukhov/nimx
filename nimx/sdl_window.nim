@@ -275,12 +275,20 @@ proc nextEvent(evt: var sdl2.Event) =
         if waitEvent(evt):
             discard handleEvent(addr evt)
     else:
+        var doPoll = false
+        if animationEnabled > 0:
+            doPoll = true
+        elif waitEvent(evt):
+            discard handleEvent(addr evt)
+            doPoll = evt.kind != QuitEvent
+
         # TODO: This should be researched more carefully.
         # During animations we need to process more than one event
-        while pollEvent(evt):
-            if evt.kind == QuitEvent:
-                break
-            discard handleEvent(addr evt)
+        if doPoll:
+            while pollEvent(evt):
+                discard handleEvent(addr evt)
+                if evt.kind == QuitEvent:
+                    break
 
     animateAndDraw()
 
