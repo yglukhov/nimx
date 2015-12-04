@@ -50,17 +50,17 @@ type
         angle : float32
         angle_offset : float32
 
-method onTapDown*(l: OnScrollListener, e : var Event) {.base.} = discard
-method onScrollProgress*(l: OnScrollListener, dx, dy : float32, e : var Event) {.base.} = discard
-method onTapUp*(l: OnScrollListener, dx, dy : float32, e : var Event) {.base.} = discard
+method onTapDown*(ls: OnScrollListener, e : var Event) {.base.} = discard
+method onScrollProgress*(ls: OnScrollListener, dx, dy : float32, e : var Event) {.base.} = discard
+method onTapUp*(ls: OnScrollListener, dx, dy : float32, e : var Event) {.base.} = discard
 
-method onZoomStart*(l: OnZoomListener) {.base.} = discard
-method onZoomProgress*(l: OnZoomListener, scale : float32) {.base.} = discard
-method onZoomFinish*(l: OnZoomListener) {.base.} = discard
+method onZoomStart*(ls: OnZoomListener) {.base.} = discard
+method onZoomProgress*(ls: OnZoomListener, scale : float32) {.base.} = discard
+method onZoomFinish*(ls: OnZoomListener) {.base.} = discard
 
-method onRotateStart*(l : OnRotateListener) {.base.} = discard
-method onRotateProgress*(l : OnRotateListener, angle : float32) {.base.} = discard
-method onRotateFinish*(l : OnRotateListener) {.base.} = discard
+method onRotateStart*(ls : OnRotateListener) {.base.} = discard
+method onRotateProgress*(ls : OnRotateListener, angle : float32) {.base.} = discard
+method onRotateFinish*(ls : OnRotateListener) {.base.} = discard
 
 proc newTapGestureDetector*(listener : OnTapListener) : TapGestureDetector =
     new(result)
