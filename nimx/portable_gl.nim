@@ -260,7 +260,7 @@ var globalGL: GL
 proc newGL*(canvas: ref RootObj): GL =
     when defined js:
         asm """
-            var options = {stencil: true, alpha: false};
+            var options = {stencil: true, alpha: false, premultipliedAlpha: false};
             try {
                 `result` = `canvas`.getContext("webgl", options);
             }
@@ -277,6 +277,7 @@ proc newGL*(canvas: ref RootObj): GL =
                 `result`.viewportWidth = `canvas`.width * devicePixelRatio;
                 `result`.viewportHeight = `canvas`.height * devicePixelRatio;
                 `result`.getExtension('OES_standard_derivatives');
+                `result`.pixelStorei(`result`.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
             } else {
                 alert("Your browser does not support WebGL. Please, use a modern browser.");
             }
