@@ -49,65 +49,69 @@ when defined js:
             FLOAT*, UNSIGNED_SHORT* : GLenum
             TEXTURE0*: GLenum
 
-            compileShader*: proc(shader: GLuint)
-            deleteShader*: proc(shader: GLuint)
-            deleteProgram*: proc(prog: GLuint)
-            attachShader*: proc(prog, shader: GLuint)
-            detachShader*: proc(prog, shader: GLuint)
+    {.push importcpp.}
 
-            linkProgram*: proc(prog: GLuint)
-            drawArrays*: proc (mode: GLenum, first: GLint, count: GLsizei)
-            drawElements*: proc (mode: GLenum, count: GLsizei, typ: GLenum, alwaysZeroOffset: int = 0)
-            createShader*: proc (shaderType: GLenum): GLuint
-            createProgram*: proc (): GLuint
-            createTexture*: proc(): GLuint
-            createFramebuffer*: proc(): GLuint
-            createRenderbuffer*: proc(): GLuint
-            createBuffer*: proc(): GLuint
+    proc compileShader*(gl: GL, shader: GLuint)
+    proc deleteShader*(gl: GL, shader: GLuint)
+    proc deleteProgram*(gl: GL, prog: GLuint)
+    proc attachShader*(gl: GL, prog, shader: GLuint)
+    proc detachShader*(gl: GL, prog, shader: GLuint)
 
-            deleteFramebuffer*: proc(name: GLuint)
-            deleteRenderbuffer*: proc(name: GLuint)
+    proc linkProgram*(gl: GL, prog: GLuint)
+    proc drawArrays*(gl: GL, mode: GLenum, first: GLint, count: GLsizei)
+    proc drawElements*(gl: GL, mode: GLenum, count: GLsizei, typ: GLenum, alwaysZeroOffset: int = 0)
+    proc createShader*(gl: GL, shaderType: GLenum): GLuint
+    proc createProgram*(gl: GL): GLuint
+    proc createTexture*(gl: GL): GLuint
+    proc createFramebuffer*(gl: GL): GLuint
+    proc createRenderbuffer*(gl: GL): GLuint
+    proc createBuffer*(gl: GL): GLuint
 
-            bindAttribLocation*: proc (program, index: GLuint, name: cstring)
-            enableVertexAttribArray*: proc (attrib: GLuint)
-            disableVertexAttribArray*: proc (attrib: GLuint)
-            getUniformLocation*: proc(prog: GLuint, name: cstring): GLint
-            useProgram*: proc(prog: GLuint)
-            enable*: proc(flag: GLenum)
-            disable*: proc(flag: GLenum)
-            isEnabled*: proc(flag: GLenum): bool
-            viewport*: proc(x, y: GLint, width, height: GLsizei)
-            clear*: proc(mask: int)
-            activeTexture*: proc(t: GLenum)
-            bindTexture*: proc(target: GLenum, name: GLuint)
-            bindFramebuffer*: proc(target: GLenum, name: GLuint)
-            bindRenderbuffer*: proc(target: GLenum, name: GLuint)
-            bindBuffer*: proc(target: GLenum, name: GLuint)
+    proc deleteFramebuffer*(gl: GL, name: GLuint)
+    proc deleteRenderbuffer*(gl: GL, name: GLuint)
 
-            uniform1fv*: proc(location: GLint, data: openarray[GLfloat])
-            uniform2fv*: proc(location: GLint, data: openarray[GLfloat])
-            uniform4fv*: proc(location: GLint, data: openarray[GLfloat])
-            uniform1f*: proc(location: GLint, data: GLfloat)
-            uniform1i*: proc(location: GLint, data: GLint)
-            uniformMatrix4fv*: proc(location: GLint, transpose: GLboolean, data: array[16, GLfloat])
+    proc bindAttribLocation*(gl: GL, program, index: GLuint, name: cstring)
+    proc enableVertexAttribArray*(gl: GL, attrib: GLuint)
+    proc disableVertexAttribArray*(gl: GL, attrib: GLuint)
+    proc getUniformLocation*(gl: GL, prog: GLuint, name: cstring): GLint
+    proc useProgram*(gl: GL, prog: GLuint)
+    proc enable*(gl: GL, flag: GLenum)
+    proc disable*(gl: GL, flag: GLenum)
+    proc isEnabled*(gl: GL, flag: GLenum): bool
+    proc viewport*(gl: GL, x, y: GLint, width, height: GLsizei)
+    proc clear*(gl: GL, mask: int)
+    proc activeTexture*(gl: GL, t: GLenum)
+    proc bindTexture*(gl: GL, target: GLenum, name: GLuint)
+    proc bindFramebuffer*(gl: GL, target: GLenum, name: GLuint)
+    proc bindRenderbuffer*(gl: GL, target: GLenum, name: GLuint)
+    proc bindBuffer*(gl: GL, target: GLenum, name: GLuint)
 
-            clearColor*: proc(r, g, b, a: GLfloat)
-            clearStencil*: proc(s: GLint)
-            blendFunc*: proc(sfactor, dfactor: GLenum)
-            texParameteri*: proc(target, pname: GLenum, param: GLint)
+    proc uniform1fv*(gl: GL, location: GLint, data: openarray[GLfloat])
+    proc uniform2fv*(gl: GL, location: GLint, data: openarray[GLfloat])
+    proc uniform4fv*(gl: GL, location: GLint, data: openarray[GLfloat])
+    proc uniform1f*(gl: GL, location: GLint, data: GLfloat)
+    proc uniform1i*(gl: GL, location: GLint, data: GLint)
+    proc uniformMatrix4fv*(gl: GL, location: GLint, transpose: GLboolean, data: array[16, GLfloat])
 
-            texImage2D*: proc(target: GLenum, level, internalformat: GLint, width, height: GLsizei, border: GLint, format, t: GLenum, pixels: ref RootObj)
-            framebufferTexture2D*: proc(target, attachment, textarget: GLenum, texture: GLuint, level: GLint)
-            renderbufferStorage*: proc(target, internalformat: GLenum, width, height: GLsizei)
-            framebufferRenderbuffer*: proc(target, attachment, renderbuffertarget: GLenum, renderbuffer: GLuint)
+    proc clearColor*(gl: GL, r, g, b, a: GLfloat)
+    proc clearStencil*(gl: GL, s: GLint)
+    proc blendFunc*(gl: GL, sfactor, dfactor: GLenum)
+    proc texParameteri*(gl: GL, target, pname: GLenum, param: GLint)
 
-            stencilFunc*: proc(fun: GLenum, refe: GLint, mask: GLuint)
-            stencilOp*: proc(fail, zfail, zpass: GLenum)
-            colorMask*: proc(r, g, b, a: bool)
-            depthMask*: proc(d: bool)
-            stencilMask*: proc(m: GLuint)
+    proc texImage2D*(gl: GL, target: GLenum, level, internalformat: GLint, width, height: GLsizei, border: GLint, format, t: GLenum, pixels: ref RootObj)
+    proc framebufferTexture2D*(gl: GL, target, attachment, textarget: GLenum, texture: GLuint, level: GLint)
+    proc renderbufferStorage*(gl: GL, target, internalformat: GLenum, width, height: GLsizei)
+    proc framebufferRenderbuffer*(gl: GL, target, attachment, renderbuffertarget: GLenum, renderbuffer: GLuint)
 
-            getError*: proc(): GLenum
+    proc stencilFunc*(gl: GL, fun: GLenum, refe: GLint, mask: GLuint)
+    proc stencilOp*(gl: GL, fail, zfail, zpass: GLenum)
+    proc colorMask*(gl: GL, r, g, b, a: bool)
+    proc depthMask*(gl: GL, d: bool)
+    proc stencilMask*(gl: GL, m: GLuint)
+
+    proc getError*(gl: GL): GLenum
+
+    {.pop.}
 
 else:
     type GL* = ref object
