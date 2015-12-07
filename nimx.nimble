@@ -10,6 +10,7 @@ SkipDirs = "test/android/com.mycompany.MyGame"
 [Dependencies]
 Requires: "sdl2"
 Requires: "opengl"
+Requires: "nimsl"
 Requires: "jnim" # For android target
 Requires: "nake"
 Requires: "closure_compiler"

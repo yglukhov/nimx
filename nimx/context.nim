@@ -6,6 +6,7 @@ import font
 import image
 import unicode
 import portable_gl
+import nimsl.nimsl
 
 export matrixes
 
@@ -30,6 +31,7 @@ proc loadShader(gl: GL, shaderSrc: string, kind: GLenum): GLuint =
     let info = gl.shaderInfoLog(result)
     if not compiled:
         logi "Shader compile error: ", info
+        logi "The shader: ", shaderSrc
         gl.deleteShader(result)
     elif info.len > 0:
         logi "Shader compile log: ", info
@@ -175,16 +177,13 @@ proc drawRoundedRect*(c: GraphicsContext, r: Rect, radius: Coord) =
         setUniform("uStrokeWidth", c.strokeWidth)
         setUniform("uRadius", radius)
 
-var rectComposition = newComposition """
-uniform vec4 uFillColor;
-uniform vec4 uStrokeColor;
-uniform float uStrokeWidth;
+proc drawRect(bounds, uFillColor, uStrokeColor: vec4,
+                    uStrokeWidth: float32,
+                    vPos: vec2): vec4 =
+    result.drawShape(sdRect(vPos, bounds), uStrokeColor);
+    result.drawShape(sdRect(vPos, insetRect(bounds, uStrokeWidth)), uFillColor);
 
-void compose() {
-    drawShape(sdRect(bounds), uStrokeColor);
-    drawShape(sdRect(insetRect(bounds, uStrokeWidth)), uFillColor);
-}
-"""
+var rectComposition = newCompositionWithFragShader(getGLSLFragmentShader(drawRect))
 
 proc drawRect*(c: GraphicsContext, r: Rect) =
     rectComposition.draw r:
@@ -192,16 +191,13 @@ proc drawRect*(c: GraphicsContext, r: Rect) =
         setUniform("uStrokeColor", if c.strokeWidth == 0: c.fillColor else: c.strokeColor)
         setUniform("uStrokeWidth", c.strokeWidth)
 
-var ellipseComposition = newComposition """
-uniform vec4 uFillColor;
-uniform vec4 uStrokeColor;
-uniform float uStrokeWidth;
+proc drawEllipse(bounds, uFillColor, uStrokeColor: vec4,
+                    uStrokeWidth: float32,
+                    vPos: vec2): vec4 =
+    result.drawShape(sdEllipseInRect(vPos, bounds), uStrokeColor);
+    result.drawShape(sdEllipseInRect(vPos, insetRect(bounds, uStrokeWidth)), uFillColor);
 
-void compose() {
-    drawShape(sdEllipseInRect(bounds), uStrokeColor);
-    drawShape(sdEllipseInRect(insetRect(bounds, uStrokeWidth)), uFillColor);
-}
-"""
+var ellipseComposition = newCompositionWithFragShader(getGLSLFragmentShader(drawEllipse))
 
 proc drawEllipseInRect*(c: GraphicsContext, r: Rect) =
     ellipseComposition.draw r:

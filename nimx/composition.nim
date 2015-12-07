@@ -3,6 +3,7 @@ import types
 import portable_gl
 import image
 import strutils
+import nimsl.nimsl
 
 export portable_gl
 export context
@@ -216,21 +217,38 @@ void blendShape(float dist, vec4 color) {
 
 """
 
-const vertexShaderCode = """
-attribute vec2 aPosition;
-uniform mat4 uModelViewProjectionMatrix;
-varying vec2 vPos;
+proc fillAlpha*(dist: float32): float32 =
+    let d = fwidth(dist)
+    result = 1.0 - smoothstep(-d, d, dist)
+    #    return 1.0 - step(0.0, dist); # No antialiasing
 
-void main()
-{
-    vPos = aPosition;
-    gl_Position = uModelViewProjectionMatrix * vec4(aPosition, 0.0, 1.0);
-}
-"""
+proc drawShape*(res: var vec4, dist: float32, color: vec4) =
+    res = mix(res, color, fillAlpha(dist))
+
+proc sdRect*(p: vec2, rect: vec4): float32 =
+    let b = rect.zw / 2.0
+    let dp = p - (rect.xy + b)
+    let d = abs(dp) - b
+    result = min(max(d.x, d.y), 0.0) + length(max(d, 0.0))
+
+proc sdEllipseInRect*(pos: vec2, rect: vec4): float32 =
+    let ab = rect.zw / 2.0
+    let center = rect.xy + ab
+    let p = pos - center
+    result = dot(p * p, 1.0 / (ab * ab)) - 1.0
+    result *= min(ab.x, ab.y)
+
+proc insetRect*(r: vec4, by: float32): vec4 = newVec4(r.xy + by, r.zw - by * 2.0)
+
+proc vertexShader(aPosition: vec2, uModelViewProjectionMatrix: mat4, vPos: var vec2): vec4 =
+    vPos = aPosition
+    result = uModelViewProjectionMatrix * newVec4(aPosition, 0.0, 1.0);
+
+const vertexShaderCode = getGLSLVertexShader(vertexShader)
 
 type Composition* = object
     program*: GLuint
-    definition: string
+    definition, fragShader: string
 
 const posAttr : GLuint = 0
 
@@ -252,12 +270,17 @@ proc preprocessDefinition(definition: string): string {.compileTime.} =
         else:
             result &= "\L" & replaceSymbolsInLine(symbolsToReplace, ln)
 
+proc newCompositionWithFragShader*(s: string): Composition =
+    result.fragShader = s
+
 proc newComposition*(definition: static[string]): Composition =
     const preprocessedDefinition = preprocessDefinition(definition)
     result.definition = preprocessedDefinition
 
 proc compileComposition*(gl: GL, comp: var Composition) =
-    var fragmentShaderCode = """
+    var fragmentShaderCode = comp.fragShader
+    if fragmentShaderCode.len == 0:
+        fragmentShaderCode = """
 #ifdef GL_ES
 #extension GL_OES_standard_derivatives : enable
 precision mediump float;
@@ -265,17 +288,18 @@ precision mediump float;
 varying vec2 vPos;
 uniform vec4 bounds;
 """
-    fragmentShaderCode &= commonDefinitions &
-        distanceSetOperations &
-        distanceFunctions &
-        compositionFragmentFunctions &
-        colorOperations
-    fragmentShaderCode &= comp.definition
+        fragmentShaderCode &= commonDefinitions &
+            distanceSetOperations &
+            distanceFunctions &
+            compositionFragmentFunctions &
+            colorOperations
+        fragmentShaderCode &= comp.definition
 
-    fragmentShaderCode &= """
-void main() { gl_FragColor = vec4(0.0); compose(); }
-"""
+        fragmentShaderCode &= """
+    void main() { gl_FragColor = vec4(0.0); compose(); }
+    """
     comp.definition = nil
+    comp.fragShader = nil
     comp.program = gl.newShaderProgram(vertexShaderCode, fragmentShaderCode, [(posAttr, "aPosition")])
 
 proc unwrapPointArray(a: openarray[Point]): seq[GLfloat] =
