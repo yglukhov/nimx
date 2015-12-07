@@ -115,6 +115,8 @@ proc tick*(a: Animation, curTime: float) =
         if a.loopPattern == lpStartToEndToStart:
             curvedProgress *= 2
             if curvedProgress >= 1.0: curvedProgress = 2 - curvedProgress
+        elif a.loopPattern == lpEndToStart:
+            curvedProgress = 1.0 - curvedProgress
         if not a.timingFunction.isNil:
             curvedProgress = a.timingFunction(curvedProgress)
         a.onAnimate(curvedProgress)
