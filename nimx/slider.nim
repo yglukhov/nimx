@@ -61,7 +61,7 @@ proc `value=`*(s: Slider, p: Coord) =
 
 template value*(s: Slider): Coord = s.mValue
 
-template isHorizontal(s: Slider): bool = s.bounds.width > s.bounds.height
+template isHorizontal*(s: Slider): bool = s.bounds.width > s.bounds.height
 
 method onMouseDown(s: Slider, e: var Event): bool =
     result = true
