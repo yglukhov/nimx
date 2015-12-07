@@ -44,7 +44,7 @@ method init*(v: View, frame: Rect) {.base.} =
     v.gestureDetectors = @[]
     v.autoresizingMask = { afFlexibleMaxX, afFlexibleMaxY }
 
-method addGestureDetector*(v: View, d: GestureDetector) = v.gestureDetectors.add(d)
+proc addGestureDetector*(v: View, d: GestureDetector) = v.gestureDetectors.add(d)
 
 proc new*[V](v: typedesc[V], frame: Rect): V =
     result.new()
