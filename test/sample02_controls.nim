@@ -54,6 +54,10 @@ method init(v: ControlsSampleView, r: Rect) =
         textField.setNeedsDisplay()
     v.addSubview(slider)
 
+    let vertSlider = Slider.new(newRect(v.bounds.width - 26, 150, 16, v.bounds.height - 160))
+    vertSlider.autoresizingMask = { afFlexibleMinX, afFlexibleHeight }
+    v.addSubview(vertSlider)
+
     let radiobox = newRadiobox(newRect(10, 90, 50, 16))
     radiobox.title = "Radiobox"
     v.addSubview(radiobox)
@@ -67,5 +71,18 @@ method init(v: ControlsSampleView, r: Rect) =
     let pb = PopupButton.new(newRect(120, 90, 120, 20))
     pb.items = @["Popup button", "Item 1", "Item 2"]
     v.addSubview(pb)
+
+    let tfLabel = newLabel(newRect(330, 150, 150, 20))
+    tfLabel.text = "<-- Enter some text"
+    let tf1 = newTextField(newRect(10, 150, 150, 20))
+    let tf2 = newTextField(newRect(170, 150, 150, 20))
+    tf1.onAction do():
+        tfLabel.text = "Left textfield: " & (if tf1.text.isNil: "nil" else: tf1.text)
+    tf2.onAction do():
+        tfLabel.text = "Right textfield: " & (if tf2.text.isNil: "nil" else: tf2.text)
+
+    v.addSubview(tfLabel)
+    v.addSubview(tf1)
+    v.addSubview(tf2)
 
 registerSample "Controls", ControlsSampleView.new(newRect(0, 0, 100, 100))

@@ -3,7 +3,6 @@ export control
 
 import composition
 import context
-import font
 import view_event_handling
 import app
 
@@ -14,22 +13,39 @@ var sliderComposition = newComposition """
 uniform float uPosition;
 
 void compose() {
-    float height = 4.0;
-    float knobRadius = bounds.w / 2.0 - 1.0;
+    float lineWidth = 4.0;
+    float knobRadius = min(bounds.w, bounds.z) / 2.0 - 1.0;
 
     vec4 strokeColor = newGrayColor(0.78);
-    float knobX = clamp(bounds.x + bounds.z * uPosition, knobRadius + 0.5, bounds.x + bounds.z - knobRadius - 0.5);
 
-    float y = bounds.y + (bounds.w - height) / 2.0;
+    if (bounds.z > bounds.w) { // Horizontal
+        float knobPos = clamp(bounds.x + bounds.z * uPosition, knobRadius + 0.5, bounds.x + bounds.z - knobRadius - 0.5);
 
-    vec4 firstPartRect = vec4(bounds.x, y, bounds.x + knobX, height);
-    vec4 secondPartRect = vec4(firstPartRect.z, y, bounds.x + bounds.z - knobX, height);
-    drawShape(sdRoundedRect(firstPartRect, height / 2.0), vec4(0.25, 0.60, 0.98, 1.0));
-    drawShape(sdRoundedRect(secondPartRect, height / 2.0), strokeColor);
+        float y = bounds.y + (bounds.w - lineWidth) / 2.0;
 
-    vec2 center = vec2(knobX, bounds.y + bounds.w / 2.0);
-    drawShape(sdCircle(center, knobRadius), strokeColor);
-    drawShape(sdCircle(center, knobRadius - 1.0), newGrayColor(1.0));
+        vec4 firstPartRect = vec4(bounds.x, y, bounds.x + knobPos, lineWidth);
+        vec4 secondPartRect = vec4(firstPartRect.z, y, bounds.x + bounds.z - knobPos, lineWidth);
+        drawShape(sdRoundedRect(firstPartRect, lineWidth / 2.0), vec4(0.25, 0.60, 0.98, 1.0));
+        drawShape(sdRoundedRect(secondPartRect, lineWidth / 2.0), strokeColor);
+
+        vec2 center = vec2(knobPos, bounds.y + bounds.w / 2.0);
+        drawShape(sdCircle(center, knobRadius), strokeColor);
+        drawShape(sdCircle(center, knobRadius - 1.0), newGrayColor(1.0));
+    }
+    else { // Vertical
+        float knobPos = clamp(bounds.y + bounds.w * uPosition, knobRadius + 0.5, bounds.y + bounds.w - knobRadius - 0.5);
+
+        float x = bounds.x + (bounds.z - lineWidth) / 2.0;
+
+        vec4 firstPartRect = vec4(x, bounds.y, lineWidth, bounds.y + knobPos);
+        vec4 secondPartRect = vec4(x, firstPartRect.w, lineWidth, bounds.y + bounds.w - knobPos);
+        drawShape(sdRoundedRect(firstPartRect, lineWidth / 2.0), vec4(0.25, 0.60, 0.98, 1.0));
+        drawShape(sdRoundedRect(secondPartRect, lineWidth / 2.0), strokeColor);
+
+        vec2 center = vec2(bounds.x + bounds.z / 2.0, knobPos);
+        drawShape(sdCircle(center, knobRadius), strokeColor);
+        drawShape(sdCircle(center, knobRadius - 1.0), newGrayColor(1.0));
+    }
 }
 """
 
@@ -45,9 +61,15 @@ proc `value=`*(s: Slider, p: Coord) =
 
 template value*(s: Slider): Coord = s.mValue
 
+template isHorizontal(s: Slider): bool = s.bounds.width > s.bounds.height
+
 method onMouseDown(s: Slider, e: var Event): bool =
     result = true
-    s.value = e.localPosition.x / s.bounds.width
+
+    if s.isHorizontal:
+        s.value = e.localPosition.x / s.bounds.width
+    else:
+        s.value = e.localPosition.y / s.bounds.height
 
     mainApplication().pushEventFilter do(e: var Event, c: var EventFilterControl) -> bool:
         result = true
@@ -57,7 +79,10 @@ method onMouseDown(s: Slider, e: var Event): bool =
                 c = efcBreak
                 result = s.onMouseUp(e)
             elif e.isMouseMoveEvent():
-                s.value = e.localPosition.x / s.bounds.width
+                if s.isHorizontal:
+                    s.value = e.localPosition.x / s.bounds.width
+                else:
+                    s.value = e.localPosition.y / s.bounds.height
                 s.setNeedsDisplay()
                 s.sendAction(e)
 
