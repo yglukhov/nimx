@@ -68,7 +68,7 @@ proc makeBundle() =
 
 proc trySymLink(src, dest: string) =
     try:
-        createSymlink(src, dest)
+        createSymlink(expandTilde(src), dest)
     except:
         discard
 
