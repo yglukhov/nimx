@@ -95,6 +95,6 @@ proc isHiddenFile(path: string): bool =
 proc getResourceNames*(path: string = ""): seq[string] {.compileTime.} =
     result = newSeq[string]()
     const prefix = "res/"
-    for f in walkDirRec(prefix & path, {pcFile}):
+    for f in walkDirRec(prefix & path):
         if not isHiddenFile(f):
             result.add(f.substr(prefix.len))
