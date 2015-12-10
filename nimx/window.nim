@@ -66,7 +66,7 @@ proc runAnimations*(w: Window) =
     # Delete animations that have finished
     if finishedAnimations > 0:
         var i = 0
-        while finishedAnimations > 0:
+        while finishedAnimations > 0 and i < w.animations.len:
             if w.animations[i].finished:
                 w.animations.del(i)
                 dec finishedAnimations
