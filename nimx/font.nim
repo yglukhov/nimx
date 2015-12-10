@@ -255,12 +255,6 @@ proc systemFont*(): Font =
 
 import math
 
-when defined js:
-    proc toRef[T](v: T): ref T =
-        asm "`result` = `v`;"
-else:
-    template toRef[T](v: var T): ptr T = addr v
-
 proc chunkAndCharIndexForRune(f: Font, r: Rune): tuple[ch: CharInfo, index: int] =
     let chunkStart = floor(r.int / charChunkLength.int).int32
     result.index = r.int mod charChunkLength
@@ -282,18 +276,19 @@ proc chunkAndCharIndexForRune(f: Font, r: Rune): tuple[ch: CharInfo, index: int]
 
 proc getQuadDataForRune*(f: Font, r: Rune, quad: var array[16, Coord], texture: var GLuint, pt: var Point) =
     let (chunk, charIndexInChunk) = f.chunkAndCharIndexForRune(r)
-    let bc = toRef chunk.bakedChars
+    var bc : type(chunk.bakedChars)
+    shallowCopy(bc, chunk.bakedChars)
     let c = charOff(charIndexInChunk)
 
-    let x0 = pt.x + bc[].charOffComp(c, compX).Coord
-    let x1 = x0 + bc[].charOffComp(c, compWidth).Coord
-    let y0 = pt.y + bc[].charOffComp(c, compY).Coord
-    let y1 = y0 + bc[].charOffComp(c, compHeight).Coord
+    let x0 = pt.x + bc.charOffComp(c, compX).Coord
+    let x1 = x0 + bc.charOffComp(c, compWidth).Coord
+    let y0 = pt.y + bc.charOffComp(c, compY).Coord
+    let y1 = y0 + bc.charOffComp(c, compHeight).Coord
 
-    var s0 = bc[].charOffComp(c, compTexX).Coord
-    var t0 = bc[].charOffComp(c, compTexY).Coord
-    let s1 = (s0 + bc[].charOffComp(c, compWidth).Coord) / chunk.texWidth.Coord
-    let t1 = (t0 + bc[].charOffComp(c, compHeight).Coord) / chunk.texHeight.Coord
+    var s0 = bc.charOffComp(c, compTexX).Coord
+    var t0 = bc.charOffComp(c, compTexY).Coord
+    let s1 = (s0 + bc.charOffComp(c, compWidth).Coord) / chunk.texWidth.Coord
+    let t1 = (t0 + bc.charOffComp(c, compHeight).Coord) / chunk.texHeight.Coord
     s0 /= chunk.texWidth.Coord
     t0 /= chunk.texHeight.Coord
 
@@ -301,7 +296,7 @@ proc getQuadDataForRune*(f: Font, r: Rune, quad: var array[16, Coord], texture: 
     quad[4] = x1; quad[5] = y0; quad[6] = s1; quad[7] = t0
     quad[8] = x1; quad[9] = y1; quad[10] = s1; quad[11] = t1
     quad[12] = x0; quad[13] = y1; quad[14] = s0; quad[15] = t1
-    pt.x += bc[].charOffComp(c, compAdvance).Coord
+    pt.x += bc.charOffComp(c, compAdvance).Coord
     texture = chunk.texture
 
 proc sizeOfString*(f: Font, s: string): Size =
