@@ -32,51 +32,69 @@ proc onResourceLoaded(ld: ResourceLoader, name: string) =
     if ld.itemsToLoad == 0:
         ld.onComplete()
 
+type ResourceLoaderProc* = proc(name: string, completionCallback: proc())
+
+var resourcePreloaders = newSeq[tuple[fileExtensions: seq[string], loader: ResourceLoaderProc]]()
+
 proc startPreloadingResource(ld: ResourceLoader, name: string) =
-    case name.getFileExtension()
-    of "png", "jpg", "jpeg", "gif", "tif", "tiff", "tga":
-        when defined(js):
-            proc handler(r: ref RootObj) =
-                var onImLoad = proc (im: ref RootObj) =
-                    var w, h: Coord
-                    {.emit: "`w` = im.width; `h` = im.height;".}
-                    let image = imageWithSize(newSize(w, h))
-                    {.emit: "`image`.__image = im;".}
-                    registerImageInCache(name, image)
-                    ld.onResourceLoaded(name)
-                {.emit:"""
-                var im = new Image();
-                im.onload = function(){`onImLoad`(im);};
-                im.src = window.URL.createObjectURL(`r`);
-                """.}
+    let extension = name.getFileExtension()
 
-            loadJSResourceAsync(name, "blob", nil, nil, handler)
-        else:
-            registerImageInCache(name, imageWithResource(name))
-            ld.onResourceLoaded(name)
-
-    of "json", "zsm":
-        loadJsonResourceAsync(name, proc(j: JsonNode) =
-            gResCache.jsons[name] = j
-            ld.onResourceLoaded(name)
-        )
-    of "obj", "txt":
-        when defined(js):
-            proc handler(r: ref RootObj) =
-                var jsonstring = cast[cstring](r)
-                gResCache.texts[name] = $jsonstring
+    for rp in resourcePreloaders:
+        if extension in rp.fileExtensions:
+            rp.loader name, proc() =
                 ld.onResourceLoaded(name)
+            return
 
-            loadJSResourceAsync(name, "text", nil, nil, handler)
-        else:
-            loadResourceAsync name, proc(s: Stream) =
-                gResCache.texts[name] = s.readAll()
-                s.close()
-                ld.onResourceLoaded(name)
+    ld.onResourceLoaded(nil)
+    logi "WARNING: Unknown resource type: ", name
+    #raise newException(Exception, "Unknown resource type: " & name)
+
+proc registerResourcePreloader*(fileExtensions: openarray[string], loader: ResourceLoaderProc) =
+    resourcePreloaders.add((@fileExtensions, loader))
+
+registerResourcePreloader(["json", "zsm"], proc(name: string, callback: proc()) =
+    loadJsonResourceAsync(name, proc(j: JsonNode) =
+        gResCache.jsons[name] = j
+        callback()
+    )
+)
+
+registerResourcePreloader(["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga"], proc(name: string, callback: proc()) =
+    when defined(js):
+        proc handler(r: ref RootObj) =
+            var onImLoad = proc (im: ref RootObj) =
+                var w, h: Coord
+                {.emit: "`w` = im.width; `h` = im.height;".}
+                let image = imageWithSize(newSize(w, h))
+                {.emit: "`image`.__image = im;".}
+                registerImageInCache(name, image)
+                callback()
+            {.emit:"""
+            var im = new Image();
+            im.onload = function(){`onImLoad`(im);};
+            im.src = window.URL.createObjectURL(`r`);
+            """.}
+
+        loadJSResourceAsync(name, "blob", nil, nil, handler)
     else:
-        ld.onResourceLoaded(nil)
-        logi "WARNING: Unknown resource type: ", name
-        #raise newException(Exception, "Unknown resource type: " & name)
+        registerImageInCache(name, imageWithResource(name))
+        callback()
+)
+
+registerResourcePreloader(["obj", "txt"], proc(name: string, callback: proc()) =
+    when defined(js):
+        proc handler(r: ref RootObj) =
+            var jsonstring = cast[cstring](r)
+            gResCache.texts[name] = $jsonstring
+            callback()
+
+        loadJSResourceAsync(name, "text", nil, nil, handler)
+    else:
+        loadResourceAsync name, proc(s: Stream) =
+            gResCache.texts[name] = s.readAll()
+            s.close()
+            callback()
+)
 
 proc preloadResources*(ld: ResourceLoader, resourceNames: openarray[string]) =
     ld.itemsToLoad += resourceNames.len
