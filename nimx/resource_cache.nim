@@ -2,7 +2,6 @@ import resource
 import tables
 import json
 import strutils
-import image
 import streams
 import system_logger
 import types
@@ -57,28 +56,6 @@ registerResourcePreloader(["json", "zsm"], proc(name: string, callback: proc()) 
         gResCache.jsons[name] = j
         callback()
     )
-)
-
-registerResourcePreloader(["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga"], proc(name: string, callback: proc()) =
-    when defined(js):
-        proc handler(r: ref RootObj) =
-            var onImLoad = proc (im: ref RootObj) =
-                var w, h: Coord
-                {.emit: "`w` = im.width; `h` = im.height;".}
-                let image = imageWithSize(newSize(w, h))
-                {.emit: "`image`.__image = im;".}
-                registerImageInCache(name, image)
-                callback()
-            {.emit:"""
-            var im = new Image();
-            im.onload = function(){`onImLoad`(im);};
-            im.src = window.URL.createObjectURL(`r`);
-            """.}
-
-        loadJSResourceAsync(name, "blob", nil, nil, handler)
-    else:
-        registerImageInCache(name, imageWithResource(name))
-        callback()
 )
 
 registerResourcePreloader(["obj", "txt"], proc(name: string, callback: proc()) =

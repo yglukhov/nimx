@@ -6,6 +6,7 @@ import tables
 import json
 import streams
 import resource
+import resource_cache
 import system_logger
 
 when not defined js:
@@ -317,3 +318,25 @@ proc writeToBMPFile*(i: Image, path: string) = i.writeToFile(path, bmp)
 proc writeToPNGFile*(i: Image, path: string) = i.writeToFile(path, png)
 proc writeToTGAFile*(i: Image, path: string) = i.writeToFile(path, tga)
 #proc writeToHDRFile*(i: Image, path: string) = i.writeToFile(path, hdr) # Crashes...
+
+registerResourcePreloader(["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga"], proc(name: string, callback: proc()) =
+    when defined(js):
+        proc handler(r: ref RootObj) =
+            var onImLoad = proc (im: ref RootObj) =
+                var w, h: Coord
+                {.emit: "`w` = im.width; `h` = im.height;".}
+                let image = imageWithSize(newSize(w, h))
+                {.emit: "`image`.__image = im;".}
+                registerImageInCache(name, image)
+                callback()
+            {.emit:"""
+            var im = new Image();
+            im.onload = function(){`onImLoad`(im);};
+            im.src = window.URL.createObjectURL(`r`);
+            """.}
+
+        loadJSResourceAsync(name, "blob", nil, nil, handler)
+    else:
+        registerImageInCache(name, imageWithResource(name))
+        callback()
+)
