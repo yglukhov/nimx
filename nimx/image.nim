@@ -207,6 +207,9 @@ method getTextureQuad*(i: SelfContainedImage, gl: GL, texCoords: var array[4, GL
             if loadingComplete:
                 i.texture = gl.createTexture()
                 gl.bindTexture(gl.TEXTURE_2D, i.texture)
+                {.emit: """
+                `gl`.pixelStorei(`gl`.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+                """.}
                 let texWidth = if isPowerOfTwo(width.int): width.int else: nextPowerOfTwo(width.int)
                 let texHeight = if isPowerOfTwo(height.int): height.int else: nextPowerOfTwo(height.int)
                 i.mSize.width = width
@@ -218,7 +221,9 @@ method getTextureQuad*(i: SelfContainedImage, gl: GL, texCoords: var array[4, GL
                     var canvas = document.createElement('canvas');
                     canvas.width = `texWidth`;
                     canvas.height = `texHeight`;
-                    canvas.getContext('2d').drawImage(`i`.__image, 0, 0);
+                    var ctx2d = canvas.getContext('2d');
+                    ctx2d.globalCompositeOperation = "copy";
+                    ctx2d.drawImage(`i`.__image, 0, 0);
                     `gl`.texImage2D(`gl`.TEXTURE_2D, 0, `gl`.RGBA, `gl`.RGBA, `gl`.UNSIGNED_BYTE, canvas);
                     """
                 else:
