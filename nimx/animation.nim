@@ -185,6 +185,15 @@ proc animateValue*[T](fromValue, toValue: T, cb: proc(value: T)): AnimationFunct
     result = proc(progress: float) =
         cb((toValue - fromValue) * progress)
 
+proc chainOnAnimate*(a: Animation, oa: proc(p: float)) =
+    if a.onAnimate.isNil:
+        a.onAnimate = oa
+    else:
+        let oldProc = a.onAnimate
+        a.onAnimate = proc(p: float) =
+            oldProc(p)
+            oa(p)
+
 when isMainModule:
     proc emulateAnimationRun(a: Animation, startTime, endTime, fps: float): float =
         var curTime = startTime
