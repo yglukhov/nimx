@@ -31,7 +31,7 @@ var gResCache* = newResourceCache()
 var warnWhenResourceNotCached* = false
 
 when not defined(android) and not defined(js):
-    proc pathForResource(name: string): string =
+    proc pathForResource*(name: string): string =
         let appDir = getAppDir()
         result = appDir / name
         if fileExists(result): return
