@@ -92,6 +92,7 @@ when defined js:
     proc uniform1f*(gl: GL, location: GLint, data: GLfloat)
     proc uniform1i*(gl: GL, location: GLint, data: GLint)
     proc uniformMatrix4fv*(gl: GL, location: GLint, transpose: GLboolean, data: array[16, GLfloat])
+    proc uniformMatrix3fv*(gl: GL, location: GLint, transpose: GLboolean, data: array[9, GLfloat])
 
     proc clearColor*(gl: GL, r, g, b, a: GLfloat)
     proc clearStencil*(gl: GL, s: GLint)
@@ -235,6 +236,8 @@ else:
     template uniform1fv*(gl: GL, location: GLint, length: GLsizei, data: ptr GLfloat) = glUniform1fv(location, length, data)
     proc uniformMatrix4fv*(gl: GL, location: GLint, transpose: GLboolean, data: array[16, GLfloat]) {.inline.} =
         glUniformMatrix4fv(location, 1, transpose, unsafeAddr data[0])
+    proc uniformMatrix3fv*(gl: GL, location: GLint, transpose: GLboolean, data: array[9, GLfloat]) {.inline.} =
+        glUniformMatrix3fv(location, 1, transpose, unsafeAddr data[0])
 
     template clearColor*(gl: GL, r, g, b, a: GLfloat) = glClearColor(r, g, b, a)
     template clearStencil*(gl: GL, s: GLint) = glClearStencil(s)

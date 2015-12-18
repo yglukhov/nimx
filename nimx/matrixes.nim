@@ -148,6 +148,18 @@ proc loadIdentity*(dest: var Matrix4) =
     dest[14] = 0
     dest[15] = 1
 
+proc loadIdentity*(dest: var Matrix3) =
+    dest[0] = 1
+    dest[1] = 0
+    dest[2] = 0
+    dest[3] = 0
+    dest[4] = 1
+    dest[5] = 0
+    dest[6] = 0
+    dest[7] = 0
+    dest[8] = 1
+
+
 proc transpose*(mat: var Matrix4) =
     let
         (a01, a02, a03) = (mat[1], mat[2], mat[3]) #a02 = mat[2], a03 = mat[3],
@@ -167,6 +179,17 @@ proc transpose*(mat: var Matrix4) =
     mat[13] = a13
     mat[14] = a23
 
+proc transpose*(mat: var Matrix3) =
+    let
+        (a01, a02) = (mat[1], mat[2])
+        a12 = mat[5]
+
+    mat[1] = mat[3]
+    mat[2] = mat[6]
+    mat[3] = a01
+    mat[5] = mat[7]
+    mat[6] = a02
+    mat[7] = a12
 
 proc transposed*(mat: Matrix4): Matrix4 =
     result[0] = mat[0]
