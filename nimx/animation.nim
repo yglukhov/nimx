@@ -25,7 +25,7 @@ type Animation* = ref object of RootObj
     onAnimate*: AnimationFunction
     finished*: bool
     cancelLoop: int # Loop at which animation was cancelled. -1 if not cancelled
-    curLoop: int
+    curLoop*: int
 
     continueUntilEndOfLoopOnCancel*: bool
     loopProgressHandlers: seq[ProgressHandler]
