@@ -1,5 +1,5 @@
 ===========
-nimx |travis| |semaphore|
+nimx |travis| |semaphore| |nimble|
 ===========
 
 .. |travis| image:: https://travis-ci.org/yglukhov/nimx.svg?branch=master
@@ -7,6 +7,9 @@ nimx |travis| |semaphore|
 
 .. |semaphore| image:: https://semaphoreci.com/api/v1/projects/24bc2fb0-aebf-4065-a02b-f40ea736a1c6/552519/badge.svg
     :target: https://semaphoreci.com/yglukhov/nimx
+
+.. |nimble| image:: https://raw.githubusercontent.com/yglukhov/nimble-tag/master/nimble_js.png
+    :target: https://github.com/yglukhov/nimble-tag
 
 Cross-platform GUI framework in `Nim <https://github.com/nim-lang/nim>`_.
 
