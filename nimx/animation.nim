@@ -106,9 +106,13 @@ proc tick*(a: Animation, curTime: float) =
             loopProgress = 1.0
 
     if a.numberOfLoops >= 0 and currentLoop >= a.numberOfLoops:
+
         a.finished = true
         loopProgress = 1.0
         totalProgress = 1.0
+
+    let oldLoop = a.curLoop
+    a.curLoop = currentLoop
 
     if not a.onAnimate.isNil:
         var curvedProgress = loopProgress
@@ -126,11 +130,10 @@ proc tick*(a: Animation, curTime: float) =
     if not a.totalProgressHandlers.isNil: processHandlers(a.totalProgressHandlers, a.tphIt, totalProgress)
 
     if a.finished:
-        if currentLoop == a.curLoop and not a.loopProgressHandlers.isNil and a.lphIt < a.loopProgressHandlers.len:
+        if currentLoop == oldLoop and not a.loopProgressHandlers.isNil and a.lphIt < a.loopProgressHandlers.len:
             processRemainingHandlersInLoop(a.loopProgressHandlers, a.lphIt, stopped=true)
         if not a.totalProgressHandlers.isNil and a.tphIt < a.totalProgressHandlers.len:
             processRemainingHandlersInLoop(a.totalProgressHandlers, a.tphIt, stopped=true)
-    a.curLoop = currentLoop
 
 proc cancel*(a: Animation) = a.cancelLoop = a.curLoop
 proc isCancelled*(a: Animation): bool = a.cancelLoop != -1
