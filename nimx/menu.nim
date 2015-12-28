@@ -75,6 +75,6 @@ method draw(v: MenuView, r: Rect) =
 
 proc popupAtPoint*(m: Menu, v: View, p: Point) =
     let mv = newViewWithMenuItems(m.items)
-    mv.setFrameOrigin(p)
-    v.addSubview(mv)
+    mv.setFrameOrigin(v.convertPointToWindow(p))
+    v.window.addSubview(mv)
     mv.startTrackingMouse()
