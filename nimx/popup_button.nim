@@ -26,6 +26,14 @@ proc `items=`*(b: PopupButton, items: openarray[string]) =
 
         b.mItems[i].action = pWorkaroundForJS(i)
 
+proc selectedIndex*(b: PopupButton): int = b.mSelectedItem
+  ## Returns selected item index
+
+proc `selectedIndex=`*(b: PopupButton, index: int) =
+  ## Set selected item manually
+  b.mSelectedItem = index
+  b.setNeedsDisplay()
+
 var pbComposition = newComposition """
 uniform vec4 uFillColorStart;
 uniform vec4 uFillColorEnd;
