@@ -21,8 +21,9 @@ type SelectionMode = enum
 
 
 type TableView* = ref object of View
+    numberOfColumns*: int
     numberOfRows*: proc (): int
-    createCell*: proc(): TableViewCell
+    mCreateCell: proc(c: int): TableViewCell
     configureCell*: proc (cell: TableViewCell)
     heightOfRow*: proc (row: int): Coord
     onSelectionChange*: proc()
@@ -32,12 +33,20 @@ type TableView* = ref object of View
     selectionMode*: SelectionMode
     selectedRows*: IntSet
 
+proc `createCell=`*(v: TableView, p: proc(): TableViewCell) =
+  v.mCreateCell = proc(c: int): TableViewCell =
+    p()
+
+proc `createCell=`*(v: TableView, p: proc(c: int): TableViewCell) =
+  v.mCreateCell = p
+
 proc newTableView*(r: Rect): TableView =
     result.new()
     result.init(r)
 
 method init*(v: TableView, r: Rect) =
     procCall v.View.init(r)
+    v.numberOfColumns = 1
     v.defaultRowHeight = 30
     v.backgroundColor = newGrayColor(0.89)
     v.selectionMode = smSingleSelection
@@ -93,7 +102,7 @@ proc reloadData*(v: TableView) =
     v.visibleRect = zeroRect
     v.setNeedsDisplay()
 
-proc containsFirstResponder(cell: TableViewCell): bool =
+proc containsFirstResponder(cell: View): bool =
     let w = cell.window
     if not w.isNil:
         let fr = w.firstResponder
@@ -107,19 +116,35 @@ proc topCoordOfRow(v: TableView, row: int): Coord {.inline.} =
         for i in 0 .. < row:
             result += v.heightOfRowUsingDelegate(i)
 
-proc dequeueReusableCell(v: TableView, cells: var seq[TableViewCell], row: int, top: Coord): TableViewCell =
+type TableRow = ref object of View
+
+proc dequeueReusableCell(v: TableView, cells: var seq[TableRow], row: int, top: Coord): TableRow =
     var needToAdd = false
     if cells.len > 0:
         result = cells[0]
         cells.del(0)
     else:
         needToAdd = true
-        result = v.createCell()
+        result = TableRow.new(newRect(0, 0, 200, v.defaultRowHeight))
+        let h = v.requiredHeightForRow(row)
+        result.setFrame(newRect(0, top, v.bounds.width, h))
+        for i in 0..< v.numberOfColumns:
+            let c = v.mCreateCell(i)
+            c.row = row
+            let width = if v.numberOfColumns == 1:
+                v.bounds.width
+              else:
+                50 #v.columnWidth(i)
+            c.setFrame(newRect(50 * i.Coord, 0, width, h))
+            result.addSubview(c)
 
-    result.setFrame(newRect(0, top, v.bounds.width, v.requiredHeightForRow(row)))
-    result.row = row
-    result.selected = v.selectedRows.contains(row)
-    v.configureCell(result)
+#    result.setFrame(newRect(0, top, v.bounds.width, v.requiredHeightForRow(row)))
+#    result.row = row
+#    result.col = col
+    for i, s in result.subviews:
+        TableViewCell(s).selected = v.selectedRows.contains(row)
+        TableViewCell(s).col = i
+        v.configureCell(TableViewCell(s))
     if needToAdd:
         v.addSubview(result)
 
@@ -141,19 +166,20 @@ proc updateCellsInVisibleRect(v: TableView) =
         if maxVisibleRow < 0:
             maxVisibleRow = v.numberOfRows() - 1
 
-        var reusableCells = newSeq[TableViewCell]()
-        var visibleCells = newSeq[TableViewCell](maxVisibleRow - minVisibleRow + 1)
+        var reusableCells = newSeq[TableRow]()
+        var visibleCells = newSeq[TableRow](maxVisibleRow - minVisibleRow + 1)
 
         # 1. Collect cells that are not within visible rect to reusable cells
         for sv in v.subviews:
-            let cell = sv.isTableViewCell()
+            let cell = TableRow(sv)
             if not cell.isNil:
-                if (cell.row < minVisibleRow or cell.row > maxVisibleRow):
+                let cr = TableViewCell(cell.subviews[0]).row
+                if (cr < minVisibleRow or cr > maxVisibleRow):
                     # If cell contains first responder it should remain intact
                     if not cell.containsFirstResponder():
                         reusableCells.add(cell)
                 else:
-                    visibleCells[cell.row - minVisibleRow] = cell
+                    visibleCells[cr - minVisibleRow] = cell
 
         var y : Coord = 0
         var cell = visibleCells[0]
@@ -169,7 +195,8 @@ proc updateCellsInVisibleRect(v: TableView) =
                 cell = v.dequeueReusableCell(reusableCells, i, y)
                 assert(not cell.isNil)
             else:
-                v.configureCell(cell)
+                for c in cell.subviews:
+                    v.configureCell(TableViewCell(c))
             y = cell.frame.maxY
 
         # 3. Remove the cells that were not reused
@@ -191,10 +218,9 @@ method draw*(v: TableView, r: Rect) =
 proc isRowSelected*(t: TableView, row: int): bool = t.selectedRows.contains(row)
 
 proc updateSelectedCells*(t: TableView) {.inline.} =
-    for s in t.subviews:
-        let c = s.isTableViewCell()
-        if not c.isNil:
-            c.selected = t.isRowSelected(c.row)
+    for i, s in t.subviews:
+        for c in s.subviews:
+            TableViewCell(c).selected = t.isRowSelected(i)
 
 proc selectRow*(t: TableView, row: int) =
     t.selectedRows = initIntSet()
