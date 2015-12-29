@@ -19,6 +19,10 @@ type SelectionMode = enum
     smSingleSelection
     smMultipleSelection
 
+type SelectionKind* {.pure.} = enum
+    Nothing = 0
+    Row
+    Column
 
 type TableView* = ref object of View
     numberOfColumns*: int
@@ -29,6 +33,7 @@ type TableView* = ref object of View
     onSelectionChange*: proc()
 
     defaultRowHeight*: Coord
+    defaultColWidth*: Coord
     visibleRect: Rect
     selectionMode*: SelectionMode
     selectedRows*: IntSet
@@ -48,6 +53,7 @@ method init*(v: TableView, r: Rect) =
     procCall v.View.init(r)
     v.numberOfColumns = 1
     v.defaultRowHeight = 30
+    v.defaultColWidth = 50
     v.backgroundColor = newGrayColor(0.89)
     v.selectionMode = smSingleSelection
     v.selectedRows = initIntSet()
@@ -92,7 +98,6 @@ proc getRowsAtHeights(v: TableView, heights: openarray[Coord], rows: var openarr
                 inc j
                 rows[j] = -1
 
-
 proc reloadData*(v: TableView) =
     let rowCount = v.numberOfRows()
     var desiredSize = v.frame.size
@@ -125,7 +130,7 @@ proc dequeueReusableCell(v: TableView, cells: var seq[TableRow], row: int, top: 
         cells.del(0)
     else:
         needToAdd = true
-        result = TableRow.new(newRect(0, 0, 200, v.defaultRowHeight))
+        result = TableRow.new(newRect(0, 0, if v.numberOfColumns == 1: v.bounds.width else: (v.numberOfColumns.Coord * v.defaultColWidth).Coord, v.defaultRowHeight))
         let h = v.requiredHeightForRow(row)
         result.setFrame(newRect(0, top, v.bounds.width, h))
         for i in 0..< v.numberOfColumns:
@@ -134,8 +139,8 @@ proc dequeueReusableCell(v: TableView, cells: var seq[TableRow], row: int, top: 
             let width = if v.numberOfColumns == 1:
                 v.bounds.width
               else:
-                50 #v.columnWidth(i)
-            c.setFrame(newRect(50 * i.Coord, 0, width, h))
+                v.defaultColWidth
+            c.setFrame(newRect(width * i.Coord, 0, width, h))
             result.addSubview(c)
 
 #    result.setFrame(newRect(0, top, v.bounds.width, v.requiredHeightForRow(row)))
