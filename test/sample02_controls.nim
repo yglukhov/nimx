@@ -3,10 +3,13 @@ import sample_registry
 import nimx.view
 import nimx.segmented_control
 import nimx.button
+import nimx.image
 import nimx.text_field
+import nimx.types
 import nimx.slider
 import nimx.popup_button
 import nimx.progress_indicator
+import nimx.timer
 
 type ControlsSampleView = ref object of View
 
@@ -71,6 +74,9 @@ method init(v: ControlsSampleView, r: Rect) =
     let pb = PopupButton.new(newRect(120, 90, 120, 20))
     pb.items = @["Popup button", "Item 1", "Item 2"]
     v.addSubview(pb)
+
+    setTimeout 0.2, proc() =
+        discard newImageButton(v, newPoint(260, 90), newSize(32, 32), imageWithResource("cat.jpg"))
 
     let tfLabel = newLabel(newRect(330, 150, 150, 20))
     tfLabel.text = "<-- Enter some text"
