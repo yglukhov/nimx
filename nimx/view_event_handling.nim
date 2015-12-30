@@ -37,7 +37,8 @@ method onTouchEvent*(v: View, e: var Event): bool {.base.} =
 proc recursiveHandleMouseEvent*(v: View, e: var Event): bool =
     if e.localPosition.inRect(v.bounds):
         let localPosition = e.localPosition
-        for s in v.subviews:
+        for i in countdown(v.subviews.len - 1, 0):
+            let s = v.subviews[i]
             e.localPosition = localPosition - s.frame.origin + s.bounds.origin
             result = s.recursiveHandleMouseEvent(e)
             if result:
@@ -50,7 +51,8 @@ proc handleTouchEvent*(v: View, e : var Event): bool =
     if e.buttonState == bsDown:
         if e.localPosition.inRect(v.bounds):
             let localPosition = e.localPosition
-            for s in v.subviews:
+            for i in countdown(v.subviews.len - 1, 0):
+                let s = v.subviews[i]
                 e.localPosition = localPosition - s.frame.origin + s.bounds.origin
                 result = s.handleTouchEvent(e)
                 if result:
