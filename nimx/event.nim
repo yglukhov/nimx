@@ -1,6 +1,6 @@
 import types
 import unicode
-import window
+import abstract_window
 
 type EventType* = enum
     etUnknown

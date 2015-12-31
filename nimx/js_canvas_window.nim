@@ -1,4 +1,4 @@
-import window
+import abstract_window
 import system_logger
 import view
 import context
@@ -14,7 +14,7 @@ type JSCanvasWindow* = ref object of Window
     canvas: Element
 
 
-export window
+export abstract_window
 
 proc setupWebGL() =
     asm """
@@ -111,6 +111,13 @@ proc setupEventHandlersForCanvas(w: JSCanvasWindow, c: Element) =
     window.onresize = `onresize`;
     """
 
+proc requestAnimFrame(w: dom.Window, p: proc() {.nimcall.}) {.importcpp.}
+
+proc animFrame() =
+    mainApplication().runAnimations()
+    mainApplication().drawWindows()
+    dom.window.requestAnimFrame(animFrame)
+
 proc initWithCanvas*(w: JSCanvasWindow, canvas: Element) =
     var width, height: Coord
     asm """
@@ -125,6 +132,7 @@ proc initWithCanvas*(w: JSCanvasWindow, canvas: Element) =
 
     w.enableAnimation(true)
     mainApplication().addWindow(w)
+    dom.window.requestAnimFrame(animFrame)
 
 proc initWithCanvasId*(w: JSCanvasWindow, id: cstring) =
     w.initWithCanvas(document.getElementById(id))
@@ -156,6 +164,12 @@ proc newJSWindowByFillingBrowserWindow*(): JSCanvasWindow =
     result.new()
     result.initByFillingBrowserWindow()
 
+newWindow = proc(r: view.Rect): Window =
+    result = newJSCanvasWindow(r)
+
+newFullscreenWindow = proc(): Window =
+    result = newJSWindowByFillingBrowserWindow()
+
 method init*(w: JSCanvasWindow, r: Rect) =
     let canvas = document.createElement("canvas")
     let width = r.width
@@ -179,10 +193,7 @@ method onResize*(w: JSCanvasWindow, newSize: Size) =
     w.renderingContext.gl.viewport(0, 0, GLSizei(newSize.width), GLsizei(newSize.height))
     procCall w.Window.onResize(newSize)
 
-proc startAnimation*() =
-    mainApplication().runAnimations()
-    mainApplication().drawWindows()
-    asm "window.requestAnimFrame(`startAnimation`);"
+proc startAnimation*() {.deprecated.} = discard
 
 proc sendInputEvent(wnd: JSCanvasWindow, evt: ref TEvent) =
     var s: cstring
