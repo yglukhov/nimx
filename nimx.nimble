@@ -20,4 +20,7 @@ requires "https://github.com/yglukhov/ttf"
 requires "https://github.com/yglukhov/async_http_request"
 
 task tests, "Build and run tests for":
+    --threads:on
+    --noMain
+    switch("path", ".")
     setCommand "c", "test/main.nim"
