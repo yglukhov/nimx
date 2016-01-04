@@ -9,6 +9,7 @@ import nimx.scroll_view
 import nimx.table_view
 import nimx.text_field
 import nimx.autotest
+import nimx.window
 
 import sequtils
 import intsets
@@ -18,26 +19,17 @@ import sample02_controls
 import sample03_image
 import sample04_animation
 
-
-when defined js:
-    import nimx.js_canvas_window
-    type PlatformWindow = JSCanvasWindow
-else:
-    import nimx.sdl_window
-    type PlatformWindow = SdlWindow
-
 const isMobile = defined(ios) or defined(android)
 
 template c*(a: string) = discard
 
 proc startApplication() =
-    var mainWindow : PlatformWindow
-    mainWindow.new()
+    var mainWindow : Window
 
     when isMobile:
-        mainWindow.initFullscreen()
+        mainWindow = newFullscreenWindow()
     else:
-        mainWindow.init(newRect(40, 40, 800, 600))
+        mainWindow = newWindow(newRect(40, 40, 800, 600))
 
     mainWindow.title = "NimX Sample"
 
@@ -89,9 +81,8 @@ proc startApplication() =
 
 when defined js:
     import dom
-    window.onload = proc (e: ref TEvent) =
+    dom.window.onload = proc (e: dom.Event) =
         startApplication()
-        startAnimation()
 else:
     try:
         startApplication()

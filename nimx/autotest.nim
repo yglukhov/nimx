@@ -2,7 +2,7 @@ import macros
 import nimx.timer
 import nimx.app
 import nimx.event
-import nimx.window
+import nimx.abstract_window
 
 type UITestSuiteStep* = tuple
     code : proc()

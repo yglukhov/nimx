@@ -1,5 +1,4 @@
 import view
-import window
 import table_view_cell
 import text_field
 import context
@@ -75,6 +74,6 @@ method draw(v: MenuView, r: Rect) =
 
 proc popupAtPoint*(m: Menu, v: View, p: Point) =
     let mv = newViewWithMenuItems(m.items)
-    mv.setFrameOrigin(p)
-    v.addSubview(mv)
+    mv.setFrameOrigin(v.convertPointToWindow(p))
+    v.window.addSubview(mv)
     mv.startTrackingMouse()

@@ -1,5 +1,5 @@
 import types
-import window
+import abstract_window
 import event
 import view_event_handling
 import system_logger

@@ -10,6 +10,10 @@ type PopupButton* = ref object of Control
     mItems: seq[MenuItem]
     mSelectedItem: int
 
+proc newPopupButton(r: Rect): PopupButton =
+    result.new()
+    result.init(r)
+
 method init*(b: PopupButton, r: Rect) =
     procCall b.Control.init(r)
     b.mItems = newSeq[MenuItem](0)
@@ -25,6 +29,21 @@ proc `items=`*(b: PopupButton, items: openarray[string]) =
                 b.setNeedsDisplay()
 
         b.mItems[i].action = pWorkaroundForJS(i)
+
+proc newPopupButton*(parent: View = nil, position: Point = newPoint(0, 0), size: Size = newSize(100, 20), items: openarray[string]=[], selectedIndex: int=0): PopupButton =
+    result = newPopupButton(newRect(position.x, position.y, size.width, size.height))
+    result.mSelectedItem = selectedIndex
+    result.items = items
+    if not isNil(parent):
+        parent.addSubview(result)
+
+proc selectedIndex*(b: PopupButton): int = b.mSelectedItem
+  ## Returns selected item index
+
+proc `selectedIndex=`*(b: PopupButton, index: int) =
+  ## Set selected item manually
+  b.mSelectedItem = index
+  b.setNeedsDisplay()
 
 var pbComposition = newComposition """
 uniform vec4 uFillColorStart;

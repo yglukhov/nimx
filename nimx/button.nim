@@ -1,5 +1,6 @@
 import control
 import context
+import image
 import types
 import system_logger
 import event
@@ -16,6 +17,7 @@ type ButtonStyle* = enum
     bsRegular
     bsCheckbox
     bsRadiobox
+    bsImage
 
 type ButtonBehavior = enum
     bbMomentaryLight
@@ -28,6 +30,7 @@ type Button* = ref object of Control
     enabled*: bool
     style*: ButtonStyle
     behavior*: ButtonBehavior
+    image*: Image
 
 proc newButton*(r: Rect): Button =
     result.new()
@@ -48,6 +51,16 @@ proc newRadiobox*(r: Rect): Button =
     result = newButton(r)
     result.style = bsRadiobox
     result.behavior = bbToggle
+
+proc newImageButton*(r: Rect): Button =
+    result = newButton(r)
+    result.style = bsImage
+
+proc newImageButton*(parent: View = nil, position: Point = newPoint(0, 0), size: Size = newSize(100, 20), image: Image = nil): Button =
+    result = newImageButton(newRect(position.x, position.y, size.width, size.height))
+    result.image = image
+    if not isNil(parent):
+        parent.addSubview(result)
 
 method init(b: Button, frame: Rect) =
     procCall b.Control.init(frame)
@@ -128,11 +141,27 @@ proc drawRadioboxStyle(b: Button, r: Rect) =
         c.drawRoundedRect(checkMarkRect, checkMarkRect.height / 2)
     b.drawTitle(bezelRect.width + 1)
 
+proc drawImageStyle(b: Button, r: Rect) =
+    regularButtonComposition.draw r:
+        if b.state == bsUp:
+            setUniform("uStrokeColor", newGrayColor(0.78))
+            setUniform("uFillColorStart", if b.enabled: b.backgroundColor else: grayColor())
+            setUniform("uFillColorEnd", if b.enabled: b.backgroundColor else: grayColor())
+        else:
+            setUniform("uStrokeColor", newColor(0.18, 0.50, 0.98))
+            setUniform("uFillColorStart", newColor(0.31, 0.60, 0.98))
+            setUniform("uFillColorEnd", newColor(0.09, 0.42, 0.88))
+    let c = currentContext()
+    const border = 2
+    c.drawImage(b.image, newRect(r.x + border, r.y + border, r.width - border * 2, r.height - border * 2))
+
 method draw(b: Button, r: Rect) =
     if b.style == bsRadiobox:
         b.drawRadioboxStyle(r)
     elif b.style == bsCheckbox:
         b.drawCheckboxStyle(r)
+    elif b.style == bsImage:
+        b.drawImageStyle(r)
     else:
         b.drawRegularStyle(r)
 

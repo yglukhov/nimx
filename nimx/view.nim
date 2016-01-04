@@ -123,7 +123,7 @@ template setNeedsDisplay*(v: View) =
 proc removeSubview(v: View, s: View) =
     for i, ss in v.subviews:
         if ss == s:
-            v.subviews.del(i)
+            v.subviews.delete(i)
             v.setNeedsDisplay()
             break
 
@@ -140,6 +140,7 @@ method removeFromSuperview*(v: View) {.base.} =
     v.removeFromSuperview(true)
 
 method addSubview*(v: View, s: View) {.base.} =
+    assert(not v.isNil)
     if s.superview != v:
         if v.window != s.window: s.viewWillMoveToWindow(v.window)
         s.viewWillMoveToSuperview(v)

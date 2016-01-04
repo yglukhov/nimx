@@ -3,7 +3,7 @@ export view
 import context
 
 type TableViewCell* = ref object of View
-    row*: int
+    row*, col*: int
     selected*: bool
 
 proc newTableViewCell*(r: Rect): TableViewCell =

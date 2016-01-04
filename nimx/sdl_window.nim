@@ -1,4 +1,4 @@
-import window
+import abstract_window
 import sdl2 except Event, Rect
 import system_logger
 import view
@@ -12,7 +12,7 @@ import linkage_details
 import portable_gl
 import screen
 
-export window
+export abstract_window
 
 proc initSDLIfNeeded() =
     var sdlInitialized {.global.} = false
@@ -98,6 +98,12 @@ proc newSdlWindow*(r: view.Rect): SdlWindow =
     result.new()
     result.init(r)
 
+newWindow = proc(r: view.Rect): Window =
+    result = newSdlWindow(r)
+
+newFullscreenWindow = proc(): Window =
+    result = newFullscreenSdlWindow()
+
 method `title=`*(w: SdlWindow, t: string) =
     w.impl.setTitle(t)
 
@@ -145,6 +151,7 @@ proc eventWithSDLEvent(event: ptr sdl2.Event): Event =
                                    bs, int(touchEv.fingerID), touchEv.timestamp
                                    )
             result.window = defaultWindow
+            #result.kind = etUnknown TODO: Fix apple trackpad problem
 
         of WindowEvent:
             let wndEv = cast[WindowEventPtr](event)
