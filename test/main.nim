@@ -76,8 +76,12 @@ proc startApplication() =
         sendMouseDownEvent(mainWindow, newPoint(50, 30))
         sendMouseUpEvent(mainWindow, newPoint(50, 30))
 
+        when not defined(js):
+            quit()
+
     registerTest(generalUITest)
-    #startRegisteredTests()
+    when defined(runAutoTests):
+        startRegisteredTests()
 
 when defined js:
     import dom
