@@ -249,8 +249,7 @@ proc inversed*(mat: Matrix4, dest: var Matrix4) =
 
     # Calculate the determinant
     if d == 0:
-        assert false
-        return
+        raise newException(Exception, "Determinant is 0")
     let invDet = 1 / d
 
     dest[0] = (a11 * b11 - a12 * b10 + a13 * b09) * invDet
