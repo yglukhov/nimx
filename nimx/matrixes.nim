@@ -224,7 +224,7 @@ proc determinant*(mat: Matrix4): Coord =
             a10 * a01 * a32 * a23 - a00 * a11 * a32 * a23 - a20 * a11 * a02 * a33 + a10 * a21 * a02 * a33 +
             a20 * a01 * a12 * a33 - a00 * a21 * a12 * a33 - a10 * a01 * a22 * a33 + a00 * a11 * a22 * a33)
 
-proc inversed*(mat: Matrix4, dest: var Matrix4) =
+proc tryInverse*(mat: Matrix4, dest: var Matrix4): bool =
     # Cache the matrix values (makes for huge speed increases!)
     let
         (a00, a01, a02, a03) = (mat[0], mat[1], mat[2], mat[3])
@@ -248,8 +248,8 @@ proc inversed*(mat: Matrix4, dest: var Matrix4) =
         d = (b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06)
 
     # Calculate the determinant
-    if d == 0:
-        raise newException(Exception, "Determinant is 0")
+    if d == 0: return false
+    result = true
 
     let invDet = 1 / d
 
@@ -270,8 +270,15 @@ proc inversed*(mat: Matrix4, dest: var Matrix4) =
     dest[14] = (-a30 * b03 + a31 * b01 - a32 * b00) * invDet
     dest[15] = (a20 * b03 - a21 * b01 + a22 * b00) * invDet
 
+proc inversed*(mat: Matrix4, dest: var Matrix4) =
+    if not tryInverse(mat, dest):
+        raise newException(Exception, "Determinant is 0")
+
 proc inversed*(mat: Matrix4): Matrix4 {.inline.} =
     inversed(mat, result)
+
+proc tryInverse*(mat: var Matrix4): bool {.inline.} =
+    tryInverse(mat, mat)
 
 proc inverse*(mat: var Matrix4) {.inline.} =
     inversed(mat, mat)
