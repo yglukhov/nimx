@@ -28,6 +28,7 @@ type Button* = ref object of Control
     state*: ButtonState
     value*: int8
     enabled*: bool
+    hasBezel*: bool
     style*: ButtonStyle
     behavior*: ButtonBehavior
     image*: Image
@@ -67,6 +68,7 @@ method init(b: Button, frame: Rect) =
     b.state = bsUp
     b.enabled = true
     b.backgroundColor = whiteColor()
+    b.hasBezel = true
 
 proc drawTitle(b: Button, xOffset: Coord) =
     if b.title != nil:
@@ -98,15 +100,16 @@ void compose() {
 """
 
 proc drawRegularStyle(b: Button, r: Rect) {.inline.} =
-    regularButtonComposition.draw r:
-        if b.state == bsUp:
-            setUniform("uStrokeColor", newGrayColor(0.78))
-            setUniform("uFillColorStart", if b.enabled: b.backgroundColor else: grayColor())
-            setUniform("uFillColorEnd", if b.enabled: b.backgroundColor else: grayColor())
-        else:
-            setUniform("uStrokeColor", newColor(0.18, 0.50, 0.98))
-            setUniform("uFillColorStart", newColor(0.31, 0.60, 0.98))
-            setUniform("uFillColorEnd", newColor(0.09, 0.42, 0.88))
+    if b.hasBezel:
+        regularButtonComposition.draw r:
+            if b.state == bsUp:
+                setUniform("uStrokeColor", newGrayColor(0.78))
+                setUniform("uFillColorStart", if b.enabled: b.backgroundColor else: grayColor())
+                setUniform("uFillColorEnd", if b.enabled: b.backgroundColor else: grayColor())
+            else:
+                setUniform("uStrokeColor", newColor(0.18, 0.50, 0.98))
+                setUniform("uFillColorStart", newColor(0.31, 0.60, 0.98))
+                setUniform("uFillColorEnd", newColor(0.09, 0.42, 0.88))
     b.drawTitle(0)
 
 proc drawCheckboxStyle(b: Button, r: Rect) =
