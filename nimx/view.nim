@@ -54,18 +54,21 @@ proc newView*(frame: Rect): View =
     result.new()
     result.init(frame)
 
+method convertPointToParent*(v: View, p: Point): Point {.base.} = p + v.frame.origin
+method convertPointFromParent*(v: View, p: Point): Point {.base.} = p - v.frame.origin
+
 proc convertPointToWindow*(v: View, p: Point): Point =
     var curV = v
     result = p
     while curV != v.window and not curV.isNil:
-        result += curV.frame.origin
+        result = curV.convertPointToParent(result)
         curV = curV.superview
 
 proc convertPointFromWindow*(v: View, p: Point): Point =
     var curV = v
     result = p
     while curV != v.window and not curV.isNil:
-        result -= curV.frame.origin
+        result = curV.convertPointFromParent(result)
         curV = curV.superview
 
 proc convertRectoToWindow*(v: View, r: Rect): Rect =
