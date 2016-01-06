@@ -65,11 +65,8 @@ proc convertPointToWindow*(v: View, p: Point): Point =
         curV = curV.superview
 
 proc convertPointFromWindow*(v: View, p: Point): Point =
-    var curV = v
-    result = p
-    while curV != v.window and not curV.isNil:
-        result = curV.convertPointFromParent(result)
-        curV = curV.superview
+    if v == v.window: p
+    else: v.convertPointFromParent(v.superview.convertPointFromWindow(p))
 
 proc convertRectoToWindow*(v: View, r: Rect): Rect =
     result.origin = v.convertPointToWindow(r.origin)
