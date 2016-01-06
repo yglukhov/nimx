@@ -61,20 +61,20 @@ proc newEvent*(kind: EventType, position: Point = zeroPoint, button: KeyCode = k
 
 proc newUnknownEvent*(): Event = newEvent(etUnknown)
 
-proc newMouseMoveEvent*(position: Point): Event =
-    newEvent(etMouse, position, kcUnknown, bsUnknown)
+proc newMouseMoveEvent*(position: Point, tstamp : uint32): Event =
+    newEvent(etMouse, position, kcUnknown, bsUnknown, 0, tstamp)
 
-proc newMouseButtonEvent*(position: Point, button: KeyCode, state: ButtonState): Event =
-    newEvent(etMouse, position, button, state)
+proc newMouseButtonEvent*(position: Point, button: KeyCode, state: ButtonState, tstamp : uint32): Event =
+    newEvent(etMouse, position, button, state, 0, tstamp)
 
 proc newTouchEvent*(position: Point, state: ButtonState, pointerId : int, tstamp : uint32): Event =
     newEvent(etTouch, position, kcUnknown, state, pointerId, tstamp)
 
 proc newMouseDownEvent*(position: Point, button: KeyCode): Event =
-    newMouseButtonEvent(position, button, bsDown)
+    newMouseButtonEvent(position, button, bsDown,0)
 
 proc newMouseUpEvent*(position: Point, button: KeyCode): Event =
-    newMouseButtonEvent(position, button, bsUp)
+    newMouseButtonEvent(position, button, bsUp,0)
 
 proc newKeyboardEvent*(keyCode: cint, buttonState: ButtonState, repeat: bool = false): Event =
     result = newEvent(etKeyboard, zeroPoint, kcUnknown, buttonState)

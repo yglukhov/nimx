@@ -50,6 +50,11 @@ type
         angle : float32
         angle_offset : float32
 
+    OnFlingListener* = ref object of RootObj
+    FlingGestureDetector* = ref object of BaseGestureDetector
+        flingListener* : OnFlingListener
+        prev_ev, this_ev: Event
+
 method onTapDown*(ls: OnScrollListener, e : var Event) {.base.} = discard
 method onScrollProgress*(ls: OnScrollListener, dx, dy : float32, e : var Event) {.base.} = discard
 method onTapUp*(ls: OnScrollListener, dx, dy : float32, e : var Event) {.base.} = discard
@@ -61,6 +66,8 @@ method onZoomFinish*(ls: OnZoomListener) {.base.} = discard
 method onRotateStart*(ls : OnRotateListener) {.base.} = discard
 method onRotateProgress*(ls : OnRotateListener, angle : float32) {.base.} = discard
 method onRotateFinish*(ls : OnRotateListener) {.base.} = discard
+
+method onFling*(ls : OnFlingListener, vx, vy: float) {.base.} = discard
 
 proc newTapGestureDetector*(listener : OnTapListener) : TapGestureDetector =
     new(result)
@@ -75,6 +82,10 @@ proc newScrollGestureDetector*(listener : OnScrollListener) : ScrollDetector =
     result.last_fired_dx = 0.0'f32
     result.last_fired_dy = 0.0'f32
     result.firing = false
+
+proc newFlingGestureDetector*(listener : OnFlingListener) : FlingGestureDetector =
+    new(result)
+    result.flingListener = listener
 
 proc newZoomGestureDetector*(listener : OnZoomListener) : ZoomGestureDetector =
     new(result)
@@ -260,3 +271,26 @@ method handleGesEvent*(d: RotateGestureDetector, e: var Event, c: var EventFilte
             d.angle = d.angle - 360
         if not d.listener.isNil:
             d.listener.onRotateProgress(d.angle)
+
+proc checkFling*(d: FlingGestureDetector) =
+    let dist = d.prev_ev.position.distanceTo(d.this_ev.position)
+    let timedelta = d.this_ev.timestamp - d.prev_ev.timestamp
+    if not d.flingListener.isNil:
+        let vx = 1000'f32 * (d.this_ev.position.x - d.prev_ev.position.x) / float32(timedelta)
+        let vy = 1000'f32 * (d.this_ev.position.y - d.prev_ev.position.y) / float32(timedelta)
+        if abs(vx)>200 or abs(vy)>200:
+            d.flingListener.onFling(vx,vy)
+
+method handleGesEvent*(d: FlingGestureDetector, e: var Event, c: var EventFilterControl) : bool =
+    result = false
+    if e.pointerId != 0:
+       return
+    if e.buttonState == bsDown:
+        d.prev_ev = e
+        d.this_ev = e
+    if e.buttonState == bsUp:
+        d.checkFling()
+        c = efcBreak
+    if e.buttonState == bsUnknown:
+        d.prev_ev = d.this_ev
+        d.this_ev = e

@@ -176,7 +176,7 @@ proc eventWithSDLEvent(event: ptr sdl2.Event): Event =
                     of sdl2.BUTTON_RIGHT: kcMouseButtonSecondary
                     else: kcUnknown
                 let pos = positionFromSDLEvent(mouseEv)
-                result = newMouseButtonEvent(pos, button, state)
+                result = newMouseButtonEvent(pos, button, state, mouseEv.timestamp)
                 result.window = wnd
 
         of MouseMotion:
@@ -186,7 +186,7 @@ proc eventWithSDLEvent(event: ptr sdl2.Event): Event =
                 let wnd = windowFromSDLEvent(mouseEv)
                 if wnd != nil:
                     let pos = positionFromSDLEvent(mouseEv)
-                    result = newMouseMoveEvent(pos)
+                    result = newMouseMoveEvent(pos, mouseEv.timestamp)
                     result.window = wnd
 
         of MouseWheel:
