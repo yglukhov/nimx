@@ -87,6 +87,7 @@ type GraphicsContext* = ref object of RootObj
     fontShaderProgram: GLuint
     testPolyShaderProgram: GLuint
     debugClipColor: Color
+    alpha*: Coord
 
 var gCurrentContext: GraphicsContext
 
@@ -115,6 +116,7 @@ proc newGraphicsContext*(canvas: ref RootObj = nil): GraphicsContext =
     result.fontShaderProgram = result.gl.newShaderProgram(fontVertexShader, fontFragmentShader)
     #result.testPolyShaderProgram = result.gl.newShaderProgram(testPolygonVertexShader, testPolygonFragmentShader)
     result.gl.clearColor(0.93, 0.93, 0.93, 0.0)
+    result.alpha = 1.0
 
 proc setCurrentContext*(c: GraphicsContext): GraphicsContext {.discardable.} =
     result = gCurrentContext
@@ -128,9 +130,10 @@ proc setTransformUniform*(c: GraphicsContext, program: GLuint) =
 proc setColorUniform*(c: GraphicsContext, program: GLuint, name: cstring, color: Color) =
     let loc = c.gl.getUniformLocation(program, name)
     when defined js:
-        c.gl.uniform4fv(loc, [color.r, color.g, color.b, color.a])
+        c.gl.uniform4fv(loc, [color.r, color.g, color.b, color.a * c.alpha])
     else:
-        glUniform4fv(loc, 1, cast[ptr GLfloat](unsafeAddr color));
+        var arr = [color.r, color.g, color.b, color.a * c.alpha]
+        glUniform4fv(loc, 1, addr arr[0]);
 
 template setFillColorUniform(c: GraphicsContext, program: GLuint) =
     c.setColorUniform(program, "fillColor", c.fillColor)
@@ -257,7 +260,7 @@ proc drawImage*(c: GraphicsContext, i: Image, toRect: Rect, fromRect: Rect = zer
             fr = newRect(fromRect.x / s.width, fromRect.y / s.height, fromRect.maxX / s.width, fromRect.maxY / s.height)
         imageComposition.draw toRect:
             setUniform("uImage", i)
-            setUniform("uAlpha", alpha)
+            setUniform("uAlpha", alpha * c.alpha)
             setUniform("uFromRect", fr)
 
 proc drawPoly*(c: GraphicsContext, points: openArray[Coord]) =

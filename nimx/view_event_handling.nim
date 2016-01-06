@@ -31,8 +31,9 @@ method onTouchEvent*(v: View, e: var Event): bool {.base.} =
     for i in v.gestureDetectors:
         let a = i.onTouchGesEvent(e)
         result = result or a
-    if v.gestureDetectors.len < 1:
-        result = v.handleMouseEvent(e)
+    when not defined(macosx) or defined(ios): # TODO: This works bad with Apple trackpad
+        if v.gestureDetectors.len < 1:
+            result = v.handleMouseEvent(e)
 
 proc recursiveHandleMouseEvent*(v: View, e: var Event): bool =
     if e.localPosition.inRect(v.bounds):
