@@ -64,8 +64,14 @@ proc newUnknownEvent*(): Event = newEvent(etUnknown)
 proc newMouseMoveEvent*(position: Point, tstamp : uint32): Event =
     newEvent(etMouse, position, kcUnknown, bsUnknown, 0, tstamp)
 
+proc newMouseMoveEvent*(position: Point): Event =
+    newEvent(etMouse, position, kcUnknown, bsUnknown, 0, 0)
+
 proc newMouseButtonEvent*(position: Point, button: KeyCode, state: ButtonState, tstamp : uint32): Event =
     newEvent(etMouse, position, button, state, 0, tstamp)
+
+proc newMouseButtonEvent*(position: Point, button: KeyCode, state: ButtonState): Event =
+    newEvent(etMouse, position, button, state, 0, 0)
 
 proc newTouchEvent*(position: Point, state: ButtonState, pointerId : int, tstamp : uint32): Event =
     newEvent(etTouch, position, kcUnknown, state, pointerId, tstamp)
