@@ -32,14 +32,14 @@ proc setupWebGL() =
 
 setupWebGL()
 
-proc buttonCodeFromJSEvent(e: ref TEvent): KeyCode =
+proc buttonCodeFromJSEvent(e: dom.Event): KeyCode =
     case e.button:
         of 1: kcMouseButtonPrimary
         of 2: kcMouseButtonSecondary
         of 3: kcMouseButtonMiddle
         else: kcUnknown
 
-proc eventLocationFromJSEvent(e: ref TEvent, c: Element): Point =
+proc eventLocationFromJSEvent(e: dom.Event, c: Element): Point =
     var offx, offy: Coord
     asm """
     var r = `c`.getBoundingClientRect();
@@ -50,22 +50,22 @@ proc eventLocationFromJSEvent(e: ref TEvent, c: Element): Point =
     result.y = e.clientY.Coord - offy
 
 proc setupEventHandlersForCanvas(w: JSCanvasWindow, c: Element) =
-    let onmousedown = proc (e: ref TEvent) =
+    let onmousedown = proc (e: dom.Event) =
         var evt = newMouseDownEvent(eventLocationFromJSEvent(e, c), buttonCodeFromJSEvent(e))
         evt.window = w
         discard mainApplication().handleEvent(evt)
 
-    let onmouseup = proc (e: ref TEvent) =
+    let onmouseup = proc (e: dom.Event) =
         var evt = newMouseUpEvent(eventLocationFromJSEvent(e, c), buttonCodeFromJSEvent(e))
         evt.window = w
         discard mainApplication().handleEvent(evt)
 
-    let onmousemove = proc (e: ref TEvent) =
+    let onmousemove = proc (e: dom.Event) =
         var evt = newMouseMoveEvent(eventLocationFromJSEvent(e, c))
         evt.window = w
         discard mainApplication().handleEvent(evt)
 
-    let onscroll = proc (e: ref TEvent): bool =
+    let onscroll = proc (e: dom.Event): bool =
         var evt = newEvent(etScroll, eventLocationFromJSEvent(e, c))
         var x, y: Coord
         asm """
@@ -77,7 +77,7 @@ proc setupEventHandlersForCanvas(w: JSCanvasWindow, c: Element) =
         evt.window = w
         result = not mainApplication().handleEvent(evt)
 
-    let onresize = proc (e: ref TEvent): bool =
+    let onresize = proc (e: dom.Event): bool =
         var sizeChanged = false
         var newWidth, newHeight : Coord
         asm """
@@ -174,10 +174,10 @@ method init*(w: JSCanvasWindow, r: Rect) =
     let canvas = document.createElement("canvas")
     let width = r.width
     let height = r.height
-    asm """
+    {.emit: """
     `canvas`.width = `width`;
     `canvas`.height = `height`;
-    """
+    """.}
     document.body.appendChild(canvas)
     w.initWithCanvas(canvas)
 
@@ -195,41 +195,58 @@ method onResize*(w: JSCanvasWindow, newSize: Size) =
 
 proc startAnimation*() {.deprecated.} = discard
 
-proc sendInputEvent(wnd: JSCanvasWindow, evt: ref TEvent) =
+proc sendInputEvent(wnd: JSCanvasWindow, evt: dom.Event) =
     var s: cstring
-    asm """
+    {.emit: """
     `s` = window.__nimx_textinput.value;
     window.__nimx_textinput.value = "";
-    """
+    """.}
     var e = newEvent(etTextInput)
     e.window = wnd
     e.text = $s
     discard mainApplication().handleEvent(e)
 
+template buttonStateFromKeyEvent(evt: dom.Event): ButtonState =
+    if evt.`type` == "keyup": bsUp
+    elif evt.`type` == "keydown": bsDown
+    else: bsUnknown
+
+proc sendKeyEvent(wnd: JSCanvasWindow, evt: dom.Event) =
+    # TODO: Complete this!
+    var e = newKeyboardEvent(evt.keyCode.cint, buttonStateFromKeyEvent(evt), false)
+#    result.rune = keyEv.keysym.unicode.Rune
+    e.window = wnd
+    #discard mainApplication().handleEvent(e)
+
 method startTextInput*(wnd: JSCanvasWindow, r: Rect) =
     let canvas = wnd.canvas
 
-    let oninput = proc(evt: ref TEvent) =
+    let oninput = proc(evt: dom.Event) =
         wnd.sendInputEvent(evt)
 
-    asm """
-    if (typeof(window.__nimx_textinput) === 'undefined')
+    let onkey = proc(evt: dom.Event) =
+        wnd.sendKeyEvent(evt)
+
+    {.emit: """
+    if (window.__nimx_textinput === undefined)
     {
         var i = window.__nimx_textinput = document.createElement('input');
         i.type = 'text';
     }
     window.__nimx_textinput.oninput = `oninput`;
+    window.__nimx_textinput.onkeydown = `onkey`;
+    window.__nimx_textinput.onkeyup = `onkey`;
     window.__nimx_textinput.style.position = 'absolute';
-    window.__nimx_textinput.style.top = '-9999px';
+    window.__nimx_textinput.style.top = '-99999px';
     document.body.appendChild(window.__nimx_textinput);
     setTimeout(function(){ window.__nimx_textinput.focus(); }, 1);
-    """
+    """.}
 
 method stopTextInput*(w: JSCanvasWindow) =
-    asm """
-    if (typeof(window.__nimx_textinput) !== 'undefined')
+    {.emit: """
+    if (window.__nimx_textinput !== undefined)
     {
         window.__nimx_textinput.oninput = null;
         window.__nimx_textinput.blur();
     }
-    """
+    """.}
