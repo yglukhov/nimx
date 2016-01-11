@@ -7,8 +7,7 @@ uniform mat4 modelViewProjectionMatrix;
 
 varying vec2 vTexCoord;
 
-void main()
-{
+void main() {
     vTexCoord = position.zw;
     gl_Position = modelViewProjectionMatrix * vec4(position.xy, 0, 1);
 }
@@ -22,12 +21,16 @@ precision mediump float;
 
 uniform sampler2D texUnit;
 uniform vec4 fillColor;
+uniform float uGamma;
+uniform float uBase;
 
 varying vec2 vTexCoord;
 
-void main()
-{
-    gl_FragColor = vec4(fillColor.rgb, texture2D(texUnit, vTexCoord).w * fillColor.a);
+void main() {
+	float dist = texture2D(texUnit, vTexCoord).a;
+	float width = fwidth(dist);
+	float alpha = smoothstep(uBase - uGamma, uBase + uGamma, dist);
+	gl_FragColor = vec4(fillColor.rgb, alpha * fillColor.a);
 }
 """
 

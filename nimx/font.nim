@@ -6,9 +6,13 @@ import rect_packer
 
 when defined js:
     import dom
+    import private.js_font_metrics
 else:
     import ttf
     import os
+
+import private.edtaa3func # From ttf library
+import private.simple_table
 
 # Quick and dirty interface for fonts.
 # TODO:
@@ -41,17 +45,56 @@ type CharInfo = ref object
     texture: GLuint
     texWidth, texHeight: uint16
 
-type Font* = ref object
-    when defined js:
-        chars: ref RootObj
+when defined(js):
+    type FastString = cstring
+else:
+    type FastString = string
+
+
+template charHeightForSize(s: float): float = 64
+template scaleForSize(s: float): float = s / charHeightForSize(s)
+
+var fontCache : SimpleTable[FastString, SimpleTable[int32, CharInfo]]
+
+proc cachedCharsForFont(face: string, sz: float): SimpleTable[int32, CharInfo] =
+    if fontCache.isNil:
+        fontCache = newSimpleTable(FastString, SimpleTable[int32, CharInfo])
+    var key : FastString = face & "_" & $charHeightForSize(sz).int
+    if fontCache.hasKey(key):
+        result = fontCache[key]
     else:
-        chars: Table[int32, CharInfo]
-    size*: float
+        result = newSimpleTable(int32, CharInfo)
+        fontCache[key] = result
+
+type Font* = ref object
+    chars: SimpleTable[int32, CharInfo]
+    mSize: float
     isHorizontal*: bool
+    scale: float
     filePath: string
     horizontalSpacing*: Coord
+    gamma*, base*: float32
+    ascent, descent: float32
     when defined js:
         canvas: Element
+
+when defined(js):
+    proc formula(x: float): float = # TODO: Why is this dependency?!?!
+        let x1 = 14.0
+        let y1 = 0.23
+        let x2 = 60.0
+        let y2 = 0.1
+        result = y1 + (x - x1) * (y2 - y1) / (x2 - x1)
+
+proc `size=`*(f: Font, s: float) =
+    f.mSize = s
+    f.scale = scaleForSize(s)
+    f.chars = cachedCharsForFont(f.filePath, s)
+    f.base = 0.5
+
+    f.gamma = when defined(js): formula(s) else: 0.5 # TODO: Why should it differ???
+
+template size*(f: Font): float = f.mSize
 
 proc prepareTexture(i: var CharInfo): GL =
     result = sharedGL()
@@ -59,42 +102,91 @@ proc prepareTexture(i: var CharInfo): GL =
     result.bindTexture(result.TEXTURE_2D, i.texture)
     result.texParameteri(result.TEXTURE_2D, result.TEXTURE_MIN_FILTER, result.LINEAR)
 
+when defined(js) and false:
+    proc logBitmap(title: cstring, bytes: openarray[byte], width, height: int) =
+        {.emit: """
+        var span = document.createElement("span");
+        span.innerHTML = `title`;
+        document.body.appendChild(span);
+        var canvas = document.createElement("canvas")
+        document.body.appendChild(canvas);
+        canvas.width = `width`;
+        canvas.height = `height`;
+        var ctx = `canvas`.getContext('2d');
+        var imgData2 = ctx.createImageData(`width`, `height`);
+        var imgData = imgData2.data;
+        var sz = `width` * `height`;
+        for (var i = 0; i < sz; ++i) {
+            var offs = i * 4;
+            imgData[offs] = 0;// `bytes`[i];
+            imgData[offs + 1] = 0; //`bytes`[i];
+            imgData[offs + 2] = 0; //`bytes`[i];
+            imgData[offs + 3] = `bytes`[i];
+        }
+        ctx.putImageData(imgData2, 0, 0);
+        """.}
+
+template isPrintableCodePoint(c: int): bool = not (i <= 0x1f or i == 0x7f or (i >= 0x80 and i <= 0x9F))
+
 proc bakeChars(f: Font, start: int32): CharInfo =
     result.new()
 
     let startChar = start * charChunkLength
     let endChar = startChar + charChunkLength
 
+    let fSize = charHeightForSize(f.size)
+
     var rectPacker = newPacker(32, 32)
     when defined js:
-        let fontName : cstring = $f.size & "px " & f.filePath
+        let fName : cstring = f.filePath
+        let fontName : cstring = $fSize.int & "px " & f.filePath
         let canvas = document.createElement("canvas").Element
-        asm """
+        var ascent, descent: int32
+        {.emit: """
         var ctx = `canvas`.getContext('2d');
         ctx.font = `fontName`;
+        `canvas`.style.font = `fontName`;
         ctx.textBaseline = "top";
-        """
+        var metrics = `f`.__nimx_metrix;
+        if (metrics === undefined) {
+            var mt = nimx_calculateFontMetricsInCanvas(ctx, `fName`, `fSize`);
+            metrics = {ascent: mt.ascent, descent: mt.descent};
+            `f`.__nimx_metrix = metrics;
+        }
+        `ascent` = metrics.ascent;
+        `descent` = metrics.descent;
+        """.}
         f.canvas = canvas
 
+        const glyphMargin = 2
+        let h = ascent + descent
+
         for i in startChar .. < endChar:
-            var w: int32
-            let h = f.size.int32 + 2
-            asm """
-            var mt = ctx.measureText(String.fromCharCode(`i`));
-            `w` = mt.width;
-            """
+            if isPrintableCodePoint(i):
+                var w: int32
+                var isspace = false
+                var s : cstring
+                asm """
+                var mt = ctx.measureText(String.fromCharCode(`i`));
+                `s` = String.fromCharCode(`i`);
+                `isspace` = `s` == " ";
+                `w` = mt.width;
+                if (`s` === ' ') {
+                    console.log("'", `s`, "':", `w`);
+                }
+                """
 
-            if w > 0:
-                let (x, y) = rectPacker.packAndGrow(w, h)
+                if w > 0:
+                    let (x, y) = rectPacker.packAndGrow(w + glyphMargin * 2, h + glyphMargin * 2)
 
-                let c = charOff(i - startChar)
-                #result.bakedChars.charOffComp(c, compX) = 0
-                #result.bakedChars.charOffComp(c, compY) = 0
-                result.bakedChars.charOffComp(c, compAdvance) = w.int16
-                result.bakedChars.charOffComp(c, compTexX) = x.int16
-                result.bakedChars.charOffComp(c, compTexY) = y.int16
-                result.bakedChars.charOffComp(c, compWidth) = w.int16
-                result.bakedChars.charOffComp(c, compHeight) = h.int16
+                    let c = charOff(i - startChar)
+                    #result.bakedChars.charOffComp(c, compX) = 0
+                    #result.bakedChars.charOffComp(c, compY) = 0
+                    result.bakedChars.charOffComp(c, compAdvance) = w.int16
+                    result.bakedChars.charOffComp(c, compTexX) = (x + glyphMargin).int16
+                    result.bakedChars.charOffComp(c, compTexY) = (y + glyphMargin).int16
+                    result.bakedChars.charOffComp(c, compWidth) = w.int16
+                    result.bakedChars.charOffComp(c, compHeight) = h.int16
 
         let texWidth = rectPacker.width
         let texHeight = rectPacker.height
@@ -109,15 +201,35 @@ proc bakeChars(f: Font, start: int32): CharInfo =
         """
 
         for i in startChar .. < endChar:
-            let c = charOff(i - startChar)
-            if result.bakedChars.charOffComp(c, compAdvance) > 0:
-                let x = result.bakedChars.charOffComp(c, compTexX)
-                let y = result.bakedChars.charOffComp(c, compTexY)
-                asm "ctx.fillText(String.fromCharCode(`i`), `x`, `y`);"
+            if isPrintableCodePoint(i):
+                let c = charOff(i - startChar)
+                let w = result.bakedChars.charOffComp(c, compAdvance)
+                if w > 0:
+                    let x = result.bakedChars.charOffComp(c, compTexX)
+                    let y = result.bakedChars.charOffComp(c, compTexY)
+                    {.emit: "ctx.fillText(String.fromCharCode(`i`), `x`, `y`);".}
+
+        var data : seq[cdouble]
+        var byteData : seq[byte]
+        {.emit: """
+        var sz = `texWidth` * `texHeight`;
+        var imgData = ctx.getImageData(0, 0, `texWidth`, `texHeight`).data;
+        `data` = new Float32Array(sz);
+        `byteData` = new Uint8Array(sz);
+        for (var i = 3, j = 0; j < sz; i += 4, ++j) {
+            `data`[j] = imgData[i];
+            //`byteData`[i] = 255 - imgData[i * 4 + 3];
+        }
+        """.}
+
+        make_distance_map(data, texWidth.cuint, texHeight.cuint)
+        {.emit: "for (var i = 0; i < sz; ++i) `byteData`[i] = (255 - (`data`[i]|0))|0;".}
+
+        #logBitmap("alpha", byteData, texWidth, texHeight)
 
         let gl = result.prepareTexture()
         asm """
-        `gl`.texImage2D(`gl`.TEXTURE_2D, 0, `gl`.ALPHA, `gl`.ALPHA, `gl`.UNSIGNED_BYTE, `canvas`);
+        `gl`.texImage2D(`gl`.TEXTURE_2D, 0, `gl`.ALPHA, `texWidth`, `texHeight`, 0, `gl`.ALPHA, `gl`.UNSIGNED_BYTE, `byteData`);
         """
     else:
         var rawData = readFile(f.filePath)
@@ -127,33 +239,35 @@ proc bakeChars(f: Font, start: int32): CharInfo =
             logi "Could not init font"
             return nil
 
-        let scale = stbtt_ScaleForPixelHeight(fontinfo, f.size)
+        let scale = stbtt_ScaleForPixelHeight(fontinfo, fSize)
         var ascent, descent, lineGap : cint
         stbtt_GetFontVMetrics(fontinfo, ascent, descent, lineGap)
         ascent = cint(ascent.cfloat * scale)
         descent = cint(descent.cfloat * scale)
-        lineGap = cint(lineGap.cfloat * scale)
 
         var glyphIndexes: array[charChunkLength, cint]
 
-        for i in startChar .. < endChar:
-            let g = stbtt_FindGlyphIndex(fontinfo, i) # g > 0 when found
-            glyphIndexes[i - startChar] = g
-            var advance, lsb, x0,y0,x1,y1: cint
-            stbtt_GetGlyphHMetrics(fontinfo, g, advance, lsb)
-            stbtt_GetGlyphBitmapBox(fontinfo, g, scale, -scale, x0, y0, x1, y1)
-            let gw = x1 - x0
-            let gh = y0 - y1 + 2 # Why is this +2 needed????
-            let (x, y) = rectPacker.packAndGrow(gw, gh + 1)
+        const glyphMargin = 2
 
-            let c = charOff(i - startChar)
-            result.bakedChars.charOffComp(c, compX) = x0.int16
-            result.bakedChars.charOffComp(c, compY) = (ascent - y0).int16
-            result.bakedChars.charOffComp(c, compAdvance) = (scale * advance.cfloat).int16
-            result.bakedChars.charOffComp(c, compTexX) = x.int16
-            result.bakedChars.charOffComp(c, compTexY) = y.int16
-            result.bakedChars.charOffComp(c, compWidth) = gw.int16
-            result.bakedChars.charOffComp(c, compHeight) = gh.int16
+        for i in startChar .. < endChar:
+            if isPrintableCodePoint(i):
+                let g = stbtt_FindGlyphIndex(fontinfo, i) # g > 0 when found
+                glyphIndexes[i - startChar] = g
+                var advance, lsb, x0,y0,x1,y1: cint
+                stbtt_GetGlyphHMetrics(fontinfo, g, advance, lsb)
+                stbtt_GetGlyphBitmapBox(fontinfo, g, scale, scale, x0, y0, x1, y1)
+                let gw = x1 - x0
+                let gh = y1 - y0
+                let (x, y) = rectPacker.packAndGrow(gw + glyphMargin * 2, gh + glyphMargin * 2)
+
+                let c = charOff(i - startChar)
+                result.bakedChars.charOffComp(c, compX) = x0.int16
+                result.bakedChars.charOffComp(c, compY) = (ascent + y0).int16
+                result.bakedChars.charOffComp(c, compAdvance) = (scale * advance.cfloat).int16
+                result.bakedChars.charOffComp(c, compTexX) = (x + glyphMargin).int16
+                result.bakedChars.charOffComp(c, compTexY) = (y + glyphMargin).int16
+                result.bakedChars.charOffComp(c, compWidth) = gw.int16
+                result.bakedChars.charOffComp(c, compHeight) = gh.int16
 
         let width = rectPacker.width
         let height = rectPacker.height
@@ -162,16 +276,34 @@ proc bakeChars(f: Font, start: int32): CharInfo =
         var temp_bitmap = newSeq[byte](width * height)
 
         for i in startChar .. < endChar:
-            let c = charOff(i - startChar)
-            if result.bakedChars.charOffComp(c, compAdvance) > 0:
-                let x = result.bakedChars.charOffComp(c, compTexX).int
-                let y = result.bakedChars.charOffComp(c, compTexY).int
-                let w = result.bakedChars.charOffComp(c, compWidth).cint
-                let h = result.bakedChars.charOffComp(c, compHeight).cint
-                stbtt_MakeGlyphBitmap(fontinfo, addr temp_bitmap[x + y * width.int], w, h, width.cint, scale, scale, glyphIndexes[i - startChar])
+            if isPrintableCodePoint(i):
+                let c = charOff(i - startChar)
+                if result.bakedChars.charOffComp(c, compAdvance) > 0:
+                    let x = result.bakedChars.charOffComp(c, compTexX).int
+                    let y = result.bakedChars.charOffComp(c, compTexY).int
+                    let w = result.bakedChars.charOffComp(c, compWidth).cint
+                    let h = result.bakedChars.charOffComp(c, compHeight).cint
+                    stbtt_MakeGlyphBitmap(fontinfo, addr temp_bitmap[x + y * width.int], w, h, width.cint, scale, scale, glyphIndexes[i - startChar])
 
+        when false:
+            var fl = open("atlas_nimx_alpha_" & $fSize & "_" & $start & "_" & $width & "x" & $height & ".raw", fmWrite)
+            discard fl.writeBuffer(addr temp_bitmap[0], width * height)
+            fl.close()
+
+            make_distance_map(temp_bitmap, width.cuint, height.cuint)
+
+            fl = open("atlas_nimx_df_" & $fSize & "_" & $start & "_" & $width & "x" & $height & ".raw", fmWrite)
+            discard fl.writeBuffer(addr temp_bitmap[0], width * height)
+            fl.close()
         let gl = result.prepareTexture()
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.ALPHA, width, height, 0, gl.ALPHA, gl.UNSIGNED_BYTE, addr temp_bitmap[0])
+    #glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
+    #gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
+    #gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    #gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    #glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_NEAREST)
+    gl.generateMipmap(gl.TEXTURE_2D)
 
 when not defined js:
     proc newFontWithFile*(pathToTTFile: string, size: float): Font =
@@ -179,7 +311,6 @@ when not defined js:
         result.isHorizontal = true # TODO: Support vertical fonts
         result.filePath = pathToTTFile
         result.size = size
-        result.chars = initTable[int32, CharInfo]()
 
 var sysFont : Font
 
@@ -230,9 +361,6 @@ proc newFontWithFace*(face: string, size: float): Font =
         result.filePath = face
         result.isHorizontal = true # TODO: Support vertical fonts
         result.size = size
-        var c: ref RootObj
-        asm "`c` = {};"
-        result.chars = c
     else:
         let path = findFontFileForFace(face)
         if path != nil:
@@ -258,21 +386,9 @@ import math
 proc chunkAndCharIndexForRune(f: Font, r: Rune): tuple[ch: CharInfo, index: int] =
     let chunkStart = floor(r.int / charChunkLength.int).int32
     result.index = r.int mod charChunkLength
-    when defined js:
-        var chunk: CharInfo
-        let chars = f.chars
-        var hasCh = false
-        asm "`hasCh` = `chunkStart` in `chars`;"
-        if not hasCh:
-            chunk = f.bakeChars(chunkStart)
-            asm "`chars`[`chunkStart`] = `chunk`;"
-        else:
-            asm "`chunk` = `chars`[`chunkStart`];"
-        result.ch = chunk
-    else:
-        if not f.chars.hasKey(chunkStart):
-            f.chars[chunkStart] = f.bakeChars(chunkStart)
-        result.ch = f.chars[chunkStart]
+    if not f.chars.hasKey(chunkStart):
+        f.chars[chunkStart] = f.bakeChars(chunkStart)
+    result.ch = f.chars[chunkStart]
 
 proc getQuadDataForRune*(f: Font, r: Rune, quad: var array[16, Coord], texture: var GLuint, pt: var Point) =
     let (chunk, charIndexInChunk) = f.chunkAndCharIndexForRune(r)
@@ -280,15 +396,18 @@ proc getQuadDataForRune*(f: Font, r: Rune, quad: var array[16, Coord], texture: 
     shallowCopy(bc, chunk.bakedChars)
     let c = charOff(charIndexInChunk)
 
-    let x0 = pt.x + bc.charOffComp(c, compX).Coord
-    let x1 = x0 + bc.charOffComp(c, compWidth).Coord
-    let y0 = pt.y + bc.charOffComp(c, compY).Coord
-    let y1 = y0 + bc.charOffComp(c, compHeight).Coord
+    let w = bc.charOffComp(c, compWidth).Coord
+    let h = bc.charOffComp(c, compHeight).Coord
+
+    let x0 = pt.x + bc.charOffComp(c, compX).Coord * f.scale
+    let x1 = x0 + w * f.scale
+    let y0 = pt.y + bc.charOffComp(c, compY).Coord * f.scale
+    let y1 = y0 + h * f.scale
 
     var s0 = bc.charOffComp(c, compTexX).Coord
     var t0 = bc.charOffComp(c, compTexY).Coord
-    let s1 = (s0 + bc.charOffComp(c, compWidth).Coord) / chunk.texWidth.Coord
-    let t1 = (t0 + bc.charOffComp(c, compHeight).Coord) / chunk.texHeight.Coord
+    let s1 = (s0 + w) / chunk.texWidth.Coord
+    let t1 = (t0 + h) / chunk.texHeight.Coord
     s0 /= chunk.texWidth.Coord
     t0 /= chunk.texHeight.Coord
 
@@ -296,7 +415,7 @@ proc getQuadDataForRune*(f: Font, r: Rune, quad: var array[16, Coord], texture: 
     quad[4] = x1; quad[5] = y0; quad[6] = s1; quad[7] = t0
     quad[8] = x1; quad[9] = y1; quad[10] = s1; quad[11] = t1
     quad[12] = x0; quad[13] = y1; quad[14] = s0; quad[15] = t1
-    pt.x += bc.charOffComp(c, compAdvance).Coord
+    pt.x += bc.charOffComp(c, compAdvance).Coord * f.scale
     texture = chunk.texture
 
 proc sizeOfString*(f: Font, s: string): Size =

@@ -215,6 +215,8 @@ proc drawText*(c: GraphicsContext, font: Font, pt: var Point, text: string) =
 
     c.gl.enableVertexAttribArray(saPosition.GLuint)
     c.setTransformUniform(c.fontShaderProgram)
+    c.gl.uniform1f(c.gl.getUniformLocation(c.fontShaderProgram, "uGamma"), font.gamma.GLfloat)
+    c.gl.uniform1f(c.gl.getUniformLocation(c.fontShaderProgram, "uBase"), font.base.GLfloat)
     c.gl.enable(c.gl.BLEND)
     c.gl.blendFunc(c.gl.SRC_ALPHA, c.gl.ONE_MINUS_SRC_ALPHA)
 
