@@ -113,31 +113,37 @@ proc updateCursorOffset(t: TextField) =
 
 when not defined js:
     import sdl2 except Event
+else:
+    const
+      K_BACKSPACE = 8
+      K_DELETE    = 46
+      K_LEFT      = 37
+      K_RIGHT     = 39
+      K_RETURN    = 13
 
 method onKeyDown*(t: TextField, e: var Event): bool =
-    when not defined js:
-        if e.keyCode == K_BACKSPACE and cursorPos > 0:
-            result = true
-            t.text.uniDelete(cursorPos - 1, cursorPos - 1)
-            dec cursorPos
-            t.updateCursorOffset()
-            t.bumpCursorVisibility()
-        elif e.keyCode == K_DELETE and not t.text.isNil and cursorPos < t.text.runeLen:
-            t.text.uniDelete(cursorPos, cursorPos)
-            t.bumpCursorVisibility()
-        elif e.keyCode == K_LEFT:
-            dec cursorPos
-            if cursorPos < 0: cursorPos = 0
-            t.updateCursorOffset()
-            t.bumpCursorVisibility()
-        elif e.keyCode == K_RIGHT:
-            inc cursorPos
-            let textLen = t.text.runeLen
-            if cursorPos > textLen: cursorPos = textLen
-            t.updateCursorOffset()
-            t.bumpCursorVisibility()
-        elif e.keyCode == K_RETURN:
-            t.sendAction()
+    if e.keyCode == K_BACKSPACE and cursorPos > 0:
+        result = true
+        t.text.uniDelete(cursorPos - 1, cursorPos - 1)
+        dec cursorPos
+        t.updateCursorOffset()
+        t.bumpCursorVisibility()
+    elif e.keyCode == K_DELETE and not t.text.isNil and cursorPos < t.text.runeLen:
+        t.text.uniDelete(cursorPos, cursorPos)
+        t.bumpCursorVisibility()
+    elif e.keyCode == K_LEFT:
+        dec cursorPos
+        if cursorPos < 0: cursorPos = 0
+        t.updateCursorOffset()
+        t.bumpCursorVisibility()
+    elif e.keyCode == K_RIGHT:
+        inc cursorPos
+        let textLen = t.text.runeLen
+        if cursorPos > textLen: cursorPos = textLen
+        t.updateCursorOffset()
+        t.bumpCursorVisibility()
+    elif e.keyCode == K_RETURN:
+        t.sendAction()
 
 method onTextInput*(t: TextField, s: string): bool =
     result = true

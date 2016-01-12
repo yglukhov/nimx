@@ -77,6 +77,13 @@ proc setupEventHandlersForCanvas(w: JSCanvasWindow, c: Element) =
         evt.window = w
         result = not mainApplication().handleEvent(evt)
 
+    let onkeydown = proc(e: dom.Event): bool =
+        var evt = newEvent(etKeyboard, eventLocationFromJSEvent(e, c))
+        evt.keyCode = e.keyCode.cint
+        evt.window = w
+        echo e.keyCode
+        discard mainApplication().handleEvent(evt)
+
     let onresize = proc (e: dom.Event): bool =
         var sizeChanged = false
         var newWidth, newHeight : Coord
@@ -222,9 +229,9 @@ template buttonStateFromKeyEvent(evt: dom.Event): ButtonState =
 proc sendKeyEvent(wnd: JSCanvasWindow, evt: dom.Event) =
     # TODO: Complete this!
     var e = newKeyboardEvent(evt.keyCode.cint, buttonStateFromKeyEvent(evt), false)
-#    result.rune = keyEv.keysym.unicode.Rune
+    #result.rune = keyEv.keysym.unicode.Rune
     e.window = wnd
-    #discard mainApplication().handleEvent(e)
+    discard mainApplication().handleEvent(e)
 
 method startTextInput*(wnd: JSCanvasWindow, r: Rect) =
     let canvas = wnd.canvas
