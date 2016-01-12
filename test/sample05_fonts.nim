@@ -25,7 +25,6 @@ template createSlider(fv: FontsView, title: string, y: var Coord, fr, to: Coord,
     let ef = newTextField(newRect(280, y, 120, 20))
     s.onAction do():
         let v = fr + (to - fr) * s.value
-        echo v
         ef.text = $v
         val = v
         fv.setNeedsDisplay()
@@ -88,8 +87,10 @@ method draw(v: FontsView, r: Rect) =
     if v.curFont.isNil:
         v.curFont = systemFontOfSize(v.curFontSize)
     v.curFont.size = v.curFontSize
-    v.curFont.gamma = v.curFontGamma
-    v.curFont.base = v.curFontBase
+    if v.curFontGamma > 0.00001:
+        v.curFont.gamma = v.curFontGamma
+    if v.curFontBase > 0.00001:
+        v.curFont.base = v.curFontBase
 
     let s = v.curFont.sizeOfString(v.caption)
     let origin = s.centerInRect(v.bounds)
