@@ -120,10 +120,18 @@ proc animFrame() =
 
 proc initWithCanvas*(w: JSCanvasWindow, canvas: Element) =
     var width, height: Coord
-    asm """
+    {.emit: """
     `width` = `canvas`.width;
     `height` = `canvas`.height;
-    """
+    var pixelRatio = 'devicePixelRatio' in window ? window.devicePixelRatio : 1;
+    if (pixelRatio > 1 && !`canvas`.scaled) {
+        `canvas`.style.width = `canvas`.width + 'px';
+        `canvas`.width = `canvas`.width * pixelRatio;
+        `canvas`.style.height = `canvas`.height + 'px';
+        `canvas`.height = `canvas`.height * pixelRatio;
+        `canvas`.scaled = true;
+    }
+    """.}
     w.canvas = canvas
     procCall w.Window.init(newRect(0, 0, width, height))
     w.renderingContext = newGraphicsContext(canvas)
