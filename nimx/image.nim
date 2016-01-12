@@ -35,6 +35,11 @@ var imageCache = initTable[string, Image]()
 proc registerImageInCache*(name: string, i: Image) =
     imageCache[name] = i
 
+template setupTexParams(gl: GL) =
+    gl.generateMipmap(gl.TEXTURE_2D)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST)
+
 when not defined js:
     template offset(p: pointer, off: int): pointer =
         cast[pointer](cast[int](p) + off)
@@ -68,7 +73,7 @@ when not defined js:
             i.sizeInTexels.height = y.Coord / texHeight.Coord
 
         glTexImage2D(GL_TEXTURE_2D, 0, format.cint, texWidth.GLsizei, texHeight.GLsizei, 0, format.GLenum, GL_UNSIGNED_BYTE, cast[pointer] (pixelData))
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
+        setupTexParams(nil)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
 
@@ -229,8 +234,7 @@ method getTextureQuad*(i: SelfContainedImage, gl: GL, texCoords: var array[4, GL
                     """
                 else:
                     asm "`gl`.texImage2D(`gl`.TEXTURE_2D, 0, `gl`.RGBA, `gl`.RGBA, `gl`.UNSIGNED_BYTE, `i`.__image);"
-                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
-                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+                setupTexParams(gl)
     texCoords[0] = 0
     texCoords[1] = 0
     texCoords[2] = i.sizeInTexels.width
