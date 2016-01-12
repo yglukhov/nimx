@@ -10,6 +10,7 @@ when defined js:
 else:
     import ttf
     import os
+    import write_image_impl
 
 import private.edtaa3func # From ttf library
 import private.simple_table
@@ -78,21 +79,19 @@ type Font* = ref object
     when defined js:
         canvas: Element
 
-when defined(js):
-    proc formula(x: float): float = # TODO: Why is this dependency?!?!
-        let x1 = 14.0
-        let y1 = 0.23
-        let x2 = 60.0
-        let y2 = 0.1
-        result = y1 + (x - x1) * (y2 - y1) / (x2 - x1)
+proc gammaWithSize(x: float): float =
+    const x1 = 14.0
+    const y1 = 0.23
+    const x2 = 60.0
+    const y2 = 0.1
+    result = y1 + (x - x1) * (y2 - y1) / (x2 - x1)
 
 proc `size=`*(f: Font, s: float) =
     f.mSize = s
     f.scale = scaleForSize(s)
     f.chars = cachedCharsForFont(f.filePath, s)
     f.base = 0.5
-
-    f.gamma = when defined(js): formula(s) else: 0.5 # TODO: Why should it differ???
+    f.gamma = gammaWithSize(s)
 
 template size*(f: Font): float = f.mSize
 
@@ -102,7 +101,9 @@ proc prepareTexture(i: var CharInfo): GL =
     result.bindTexture(result.TEXTURE_2D, i.texture)
     result.texParameteri(result.TEXTURE_2D, result.TEXTURE_MIN_FILTER, result.LINEAR)
 
-when defined(js) and false:
+const dumpDebugBitmaps = false
+
+when dumpDebugBitmaps and defined(js):
     proc logBitmap(title: cstring, bytes: openarray[byte], width, height: int) =
         {.emit: """
         var span = document.createElement("span");
@@ -221,7 +222,8 @@ proc bakeChars(f: Font, start: int32): CharInfo =
         make_distance_map(data, texWidth, texHeight)
         {.emit: "for (var i = 0; i < sz; ++i) `byteData`[i] = (255 - (`data`[i]|0))|0;".}
 
-        #logBitmap("alpha", byteData, texWidth, texHeight)
+        when dumpDebugBitmaps:
+            logBitmap("alpha", byteData, texWidth, texHeight)
 
         let gl = result.prepareTexture()
         asm """
@@ -281,23 +283,18 @@ proc bakeChars(f: Font, start: int32): CharInfo =
                     let h = result.bakedChars.charOffComp(c, compHeight).cint
                     stbtt_MakeGlyphBitmap(fontinfo, addr temp_bitmap[x + y * width.int], w, h, width.cint, scale, scale, glyphIndexes[i - startChar])
 
-        when false:
-            var fl = open("atlas_nimx_alpha_" & $fSize & "_" & $start & "_" & $width & "x" & $height & ".raw", fmWrite)
-            discard fl.writeBuffer(addr temp_bitmap[0], width * height)
-            fl.close()
+        when dumpDebugBitmaps:
+            discard stbi_write_bmp("atlas_nimx_alpha_" & $fSize & "_" & $start & "_" & $width & "x" & $height & ".bmp", width, height, 1, addr temp_bitmap[0])
 
-            make_distance_map(temp_bitmap, width, height)
+        make_distance_map(temp_bitmap, width, height)
 
-            fl = open("atlas_nimx_df_" & $fSize & "_" & $start & "_" & $width & "x" & $height & ".raw", fmWrite)
-            discard fl.writeBuffer(addr temp_bitmap[0], width * height)
-            fl.close()
+        when dumpDebugBitmaps:
+            discard stbi_write_bmp("atlas_nimx_df_" & $fSize & "_" & $start & "_" & $width & "x" & $height & ".bmp", width, height, 1, addr temp_bitmap[0])
         let gl = result.prepareTexture()
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.ALPHA, width, height, 0, gl.ALPHA, gl.UNSIGNED_BYTE, addr temp_bitmap[0])
 
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.generateMipmap(gl.TEXTURE_2D)
 
 when not defined js:

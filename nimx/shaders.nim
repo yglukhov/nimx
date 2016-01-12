@@ -28,7 +28,6 @@ varying vec2 vTexCoord;
 
 void main() {
 	float dist = texture2D(texUnit, vTexCoord).a;
-	float width = fwidth(dist);
 	float alpha = smoothstep(uBase - uGamma, uBase + uGamma, dist);
 	gl_FragColor = vec4(fillColor.rgb, alpha * fillColor.a);
 }
