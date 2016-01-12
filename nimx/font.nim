@@ -171,9 +171,6 @@ proc bakeChars(f: Font, start: int32): CharInfo =
                 `s` = String.fromCharCode(`i`);
                 `isspace` = `s` == " ";
                 `w` = mt.width;
-                if (`s` === ' ') {
-                    console.log("'", `s`, "':", `w`);
-                }
                 """
 
                 if w > 0:
@@ -218,11 +215,10 @@ proc bakeChars(f: Font, start: int32): CharInfo =
         `byteData` = new Uint8Array(sz);
         for (var i = 3, j = 0; j < sz; i += 4, ++j) {
             `data`[j] = imgData[i];
-            //`byteData`[i] = 255 - imgData[i * 4 + 3];
         }
         """.}
 
-        make_distance_map(data, texWidth.cuint, texHeight.cuint)
+        make_distance_map(data, texWidth, texHeight)
         {.emit: "for (var i = 0; i < sz; ++i) `byteData`[i] = (255 - (`data`[i]|0))|0;".}
 
         #logBitmap("alpha", byteData, texWidth, texHeight)
@@ -290,19 +286,18 @@ proc bakeChars(f: Font, start: int32): CharInfo =
             discard fl.writeBuffer(addr temp_bitmap[0], width * height)
             fl.close()
 
-            make_distance_map(temp_bitmap, width.cuint, height.cuint)
+            make_distance_map(temp_bitmap, width, height)
 
             fl = open("atlas_nimx_df_" & $fSize & "_" & $start & "_" & $width & "x" & $height & ".raw", fmWrite)
             discard fl.writeBuffer(addr temp_bitmap[0], width * height)
             fl.close()
         let gl = result.prepareTexture()
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.ALPHA, width, height, 0, gl.ALPHA, gl.UNSIGNED_BYTE, addr temp_bitmap[0])
-    #glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
-    #gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
-    #gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    #gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    #glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_NEAREST)
+
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.generateMipmap(gl.TEXTURE_2D)
 
 when not defined js:
