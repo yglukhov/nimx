@@ -76,15 +76,22 @@ type Font* = ref object
     horizontalSpacing*: Coord
     gamma*, base*: float32
     ascent, descent: float32
+    shadowX*, shadowY*, shadowBlur*: float32
+
     when defined js:
         canvas: Element
 
-proc gammaWithSize(x: float): float =
-    const x1 = 14.0
-    const y1 = 0.23
-    const x2 = 60.0
-    const y2 = 0.1
+proc linearDependency(x, x1, y1, x2, y2: float): float =
     result = y1 + (x - x1) * (y2 - y1) / (x2 - x1)
+
+proc gammaWithSize(x: float): float =
+    if x < 60:
+        result = linearDependency(x, 14, 0.23, 60, 0.1)
+    elif x < 160:
+        result = linearDependency(x, 60, 0.1, 160, 0.03)
+    else:
+        result = linearDependency(x, 160, 0.03, 200, 0.02)
+
 
 proc `size=`*(f: Font, s: float) =
     f.mSize = s
