@@ -50,9 +50,17 @@ Usage
 
 Running
 ------------
+Unix:
+
 .. code-block:: sh
 
-    nim c -r --noMain main.nim
+    nim c -r --noMain --threads:on main.nim
+
+Windows:
+
+.. code-block:: sh
+
+    nim c -r --threads:on main.nim
 
 
 Running nimx samples
