@@ -3,6 +3,7 @@ import nimx.timer
 import nimx.app
 import nimx.event
 import nimx.abstract_window
+import nimx.system_logger
 
 type UITestSuiteStep* = tuple
     code : proc()
@@ -46,6 +47,13 @@ when true:
     proc sendMouseDownEvent*(wnd: Window, p: Point) = sendMouseEvent(wnd, p, bsDown)
     proc sendMouseUpEvent*(wnd: Window, p: Point) = sendMouseEvent(wnd, p, bsUp)
 
+    proc quitApplication*() =
+        when defined(js):
+            # Hopefully we're using nimx automated testing in Firefox
+            {.emit: """window.dump("---AUTO-TEST-QUIT---\n");""".}
+        else:
+            quit()
+
 when false:
     macro dump(b: typed): stmt =
         echo treeRepr(b)
@@ -68,8 +76,8 @@ proc startTest*(t: UITestSuite) =
     var curTest = 0
     var tim : Timer
     tim = setInterval(0.5, proc() =
-        echo "RUNNING"
-        echo t[curTest].astrepr
+        logi "RUNNING"
+        logi t[curTest].astrepr
         t[curTest].code()
         inc curTest
         if curTest == t.len:
@@ -81,8 +89,8 @@ proc startRegisteredTests*() =
     var curTest = 0
     var tim : Timer
     tim = setInterval(0.5, proc() =
-        echo "RUNNING"
-        echo registeredTests[curTestSuite][curTest].astrepr
+        logi "RUNNING"
+        logi registeredTests[curTestSuite][curTest].astrepr
         registeredTests[curTestSuite][curTest].code()
         inc curTest
         if curTest == registeredTests[curTestSuite].len:

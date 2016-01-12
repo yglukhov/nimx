@@ -77,8 +77,7 @@ proc startApplication() =
         sendMouseDownEvent(mainWindow, newPoint(50, 30))
         sendMouseUpEvent(mainWindow, newPoint(50, 30))
 
-        when not defined(js):
-            quit()
+        quitApplication()
 
     registerTest(generalUITest)
     when defined(runAutoTests):
