@@ -50,7 +50,7 @@ when true:
     proc quitApplication*() =
         when defined(js):
             # Hopefully we're using nimx automated testing in Firefox
-            {.emit: """window.dump("---AUTO-TEST-QUIT---\n");""".}
+            {.emit: """if ('dump' in window) window.dump("---AUTO-TEST-QUIT---\n");""".}
         else:
             quit()
 
