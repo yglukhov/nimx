@@ -57,12 +57,12 @@ proc abReadData(st: Stream, buffer: pointer, bufLen: int): int =
             }
         }
     }
-    else if (`buffer`.length - 1 == `bufLen`) {
+    else if (`buffer`.length - 1 == `bufLen` + `buffer`_Idx) {
         // String is expected
         var toRead = `bufLen`;
         if (`oldPos` + `bufLen` >= `view`.byteLength) `bufLen` = `view`.byteLength - `oldPos`;
         for (var i = 0; i < `bufLen`; ++i) {
-            `buffer`[i] = `view`.getInt8(`oldPos` + i);
+            `buffer`[i + `buffer`_Idx] = `view`.getInt8(`oldPos` + i);
         }
         `newPos` += `bufLen`;
         `result` = `bufLen`;
