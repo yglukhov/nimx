@@ -47,6 +47,8 @@ when defined js:
             FLOAT*, UNSIGNED_SHORT* : GLenum
             TEXTURE0*: GLenum
 
+            CULL_FACE*, FRONT*, BACK*, FRONT_AND_BACK* : GLenum
+
     {.push importcpp.}
 
     proc compileShader*(gl: GL, shader: GLuint)
@@ -109,6 +111,7 @@ when defined js:
     proc colorMask*(gl: GL, r, g, b, a: bool)
     proc depthMask*(gl: GL, d: bool)
     proc stencilMask*(gl: GL, m: GLuint)
+    proc cullFace*(gl: GL, mode: GLenum)
 
     proc getError*(gl: GL): GLenum
 
@@ -189,6 +192,11 @@ else:
 
     template TEXTURE0*(gl: GL): GLenum = GL_TEXTURE0
 
+    template CULL_FACE*(gl: GL) : GLenum = GL_CULL_FACE
+    template FRONT*(gl: GL) : GLenum = GL_FRONT
+    template BACK*(gl: GL) : GLenum = GL_BACK
+    template FRONT_AND_BACK*(gl: GL) : GLenum = GL_FRONT_AND_BACK
+
     template compileShader*(gl: GL, shader: GLuint) = glCompileShader(shader)
     template deleteShader*(gl: GL, shader: GLuint) = glDeleteShader(shader)
     template deleteProgram*(gl: GL, prog: GLuint) = glDeleteProgram(prog)
@@ -265,6 +273,7 @@ else:
     template colorMask*(gl: GL, r, g, b, a: bool) = glColorMask(r, g, b, a)
     template depthMask*(gl: GL, d: bool) = glDepthMask(d)
     template stencilMask*(gl: GL, m: GLuint) = glStencilMask(m)
+    template cullFace*(gl: GL, mode: GLenum) = glCullFace(mode)
 
     template getError*(gl: GL): GLenum = glGetError()
 
