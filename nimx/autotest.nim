@@ -40,7 +40,7 @@ macro registeredUiTest*(name: untyped, body: typed): stmt =
 
 when true:
     proc sendMouseEvent*(wnd: Window, p: Point, bs: ButtonState) =
-        var evt = newMouseButtonEvent(p, kcMouseButtonPrimary, bs)
+        var evt = newMouseButtonEvent(p, VirtualKey.MouseButtonPrimary, bs)
         evt.window = wnd
         discard mainApplication().handleEvent(evt)
 

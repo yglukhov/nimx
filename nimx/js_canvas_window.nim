@@ -8,6 +8,7 @@ import app
 import portable_gl
 import opengl
 import event
+import private.js_vk_map
 
 type JSCanvasWindow* = ref object of Window
     renderingContext: GraphicsContext
@@ -32,12 +33,12 @@ proc setupWebGL() =
 
 setupWebGL()
 
-proc buttonCodeFromJSEvent(e: dom.Event): KeyCode =
+proc buttonCodeFromJSEvent(e: dom.Event): VirtualKey =
     case e.button:
-        of 1: kcMouseButtonPrimary
-        of 2: kcMouseButtonSecondary
-        of 3: kcMouseButtonMiddle
-        else: kcUnknown
+        of 1: VirtualKey.MouseButtonPrimary
+        of 2: VirtualKey.MouseButtonSecondary
+        of 3: VirtualKey.MouseButtonMiddle
+        else: VirtualKey.Unknown
 
 proc eventLocationFromJSEvent(e: dom.Event, c: Element): Point =
     var offx, offy: Coord
@@ -76,13 +77,6 @@ proc setupEventHandlersForCanvas(w: JSCanvasWindow, c: Element) =
         evt.offset.y = y
         evt.window = w
         result = not mainApplication().handleEvent(evt)
-
-    let onkeydown = proc(e: dom.Event): bool =
-        var evt = newEvent(etKeyboard, eventLocationFromJSEvent(e, c))
-        evt.keyCode = e.keyCode.cint
-        evt.window = w
-        echo e.keyCode
-        discard mainApplication().handleEvent(evt)
 
     let onresize = proc (e: dom.Event): bool =
         var sizeChanged = false
@@ -228,7 +222,7 @@ template buttonStateFromKeyEvent(evt: dom.Event): ButtonState =
 
 proc sendKeyEvent(wnd: JSCanvasWindow, evt: dom.Event) =
     # TODO: Complete this!
-    var e = newKeyboardEvent(evt.keyCode.cint, buttonStateFromKeyEvent(evt), false)
+    var e = newKeyboardEvent(virtualKeyFromNative(evt.keyCode), buttonStateFromKeyEvent(evt), false)
     #result.rune = keyEv.keysym.unicode.Rune
     e.window = wnd
     discard mainApplication().handleEvent(e)

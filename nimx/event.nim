@@ -22,12 +22,6 @@ type ButtonState* = enum
     bsUp
     bsDown
 
-type KeyCode* = enum
-    kcUnknown
-    kcMouseButtonPrimary
-    kcMouseButtonSecondary
-    kcMouseButtonMiddle
-
 type Touch* = object
     position*: Point
     id*: int
@@ -39,26 +33,19 @@ type Event* = object
     position*: Point
     localPosition*: Point
     offset*: Point
-    fButton: cint # SDL Keycode for keyboard events and KeyCode for mouse events
+    keyCode*: VirtualKey
     buttonState*: ButtonState
     rune*: Rune
     repeat*: bool
     window*: Window
     text*: string
 
-proc button*(e: Event): KeyCode = cast[KeyCode](e.fButton)
-proc `button=`*(e: var Event, b: KeyCode) = e.fButton = cast[cint](b)
-
-proc keyCode*(e: Event): VirtualKey = virtualKeyFromNative(e.fButton)
-proc `keyCode=`*(e: var Event, v: VirtualKey) = e.fButton = nativeKeyFromVirtual(v)
-proc `keyCode=`*(e: var Event, c: cint) = e.fButton = c
-
-proc newEvent*(kind: EventType, position: Point = zeroPoint, button: KeyCode = kcUnknown,
+proc newEvent*(kind: EventType, position: Point = zeroPoint, keyCode: VirtualKey = VirtualKey.Unknown,
                buttonState: ButtonState = bsUnknown, pointerId : int = 0, timestamp : uint32 = 0): Event =
     result.kind = kind
     result.position = position
     result.localPosition = position
-    result.button = button
+    result.keyCode = keyCode
     result.buttonState = buttonState
     result.pointerId = pointerId
     result.timestamp = timestamp
@@ -66,29 +53,28 @@ proc newEvent*(kind: EventType, position: Point = zeroPoint, button: KeyCode = k
 proc newUnknownEvent*(): Event = newEvent(etUnknown)
 
 proc newMouseMoveEvent*(position: Point, tstamp : uint32): Event =
-    newEvent(etMouse, position, kcUnknown, bsUnknown, 0, tstamp)
+    newEvent(etMouse, position, VirtualKey.Unknown, bsUnknown, 0, tstamp)
 
 proc newMouseMoveEvent*(position: Point): Event =
-    newEvent(etMouse, position, kcUnknown, bsUnknown, 0, 0)
+    newEvent(etMouse, position, VirtualKey.Unknown, bsUnknown, 0, 0)
 
-proc newMouseButtonEvent*(position: Point, button: KeyCode, state: ButtonState, tstamp : uint32): Event =
+proc newMouseButtonEvent*(position: Point, button: VirtualKey, state: ButtonState, tstamp : uint32): Event =
     newEvent(etMouse, position, button, state, 0, tstamp)
 
-proc newMouseButtonEvent*(position: Point, button: KeyCode, state: ButtonState): Event =
+proc newMouseButtonEvent*(position: Point, button: VirtualKey, state: ButtonState): Event =
     newEvent(etMouse, position, button, state, 0, 0)
 
 proc newTouchEvent*(position: Point, state: ButtonState, pointerId : int, tstamp : uint32): Event =
-    newEvent(etTouch, position, kcUnknown, state, pointerId, tstamp)
+    newEvent(etTouch, position, VirtualKey.Unknown, state, pointerId, tstamp)
 
-proc newMouseDownEvent*(position: Point, button: KeyCode): Event =
+proc newMouseDownEvent*(position: Point, button: VirtualKey): Event =
     newMouseButtonEvent(position, button, bsDown,0)
 
-proc newMouseUpEvent*(position: Point, button: KeyCode): Event =
+proc newMouseUpEvent*(position: Point, button: VirtualKey): Event =
     newMouseButtonEvent(position, button, bsUp,0)
 
-proc newKeyboardEvent*(keyCode: cint, buttonState: ButtonState, repeat: bool = false): Event =
-    result = newEvent(etKeyboard, zeroPoint, kcUnknown, buttonState)
-    result.keyCode = keyCode
+proc newKeyboardEvent*(keyCode: VirtualKey, buttonState: ButtonState, repeat: bool = false): Event =
+    result = newEvent(etKeyboard, zeroPoint, keyCode, buttonState)
     result.repeat = repeat
 
 proc isPointingEvent*(e: Event) : bool =

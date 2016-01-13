@@ -11,6 +11,7 @@ import app
 import linkage_details
 import portable_gl
 import screen
+import private.sdl_vk_map
 
 export abstract_window
 
@@ -171,10 +172,10 @@ proc eventWithSDLEvent(event: ptr sdl2.Event): Event =
                 let wnd = windowFromSDLEvent(mouseEv)
                 let state = buttonStateFromSDLState(mouseEv.state.KeyState)
                 let button = case mouseEv.button:
-                    of sdl2.BUTTON_LEFT: kcMouseButtonPrimary
-                    of sdl2.BUTTON_MIDDLE: kcMouseButtonMiddle
-                    of sdl2.BUTTON_RIGHT: kcMouseButtonSecondary
-                    else: kcUnknown
+                    of sdl2.BUTTON_LEFT: VirtualKey.MouseButtonPrimary
+                    of sdl2.BUTTON_MIDDLE: VirtualKey.MouseButtonMiddle
+                    of sdl2.BUTTON_RIGHT: VirtualKey.MouseButtonSecondary
+                    else: VirtualKey.Unknown
                 let pos = positionFromSDLEvent(mouseEv)
                 result = newMouseButtonEvent(pos, button, state, mouseEv.timestamp)
                 result.window = wnd
@@ -204,7 +205,7 @@ proc eventWithSDLEvent(event: ptr sdl2.Event): Event =
         of KeyDown, KeyUp:
             let keyEv = cast[KeyboardEventPtr](event)
             let wnd = windowFromSDLEvent(keyEv)
-            result = newKeyboardEvent(keyEv.keysym.sym, buttonStateFromSDLState(keyEv.state.KeyState), keyEv.repeat)
+            result = newKeyboardEvent(virtualKeyFromNative(keyEv.keysym.sym), buttonStateFromSDLState(keyEv.state.KeyState), keyEv.repeat)
             result.rune = keyEv.keysym.unicode.Rune
             result.window = wnd
 
