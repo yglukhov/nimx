@@ -215,7 +215,6 @@ proc eventWithSDLEvent(event: ptr sdl2.Event): Event =
             result.text = $cast[cstring](addr textEv.text)
 
         of TextEditing:
-            echo "Editing:"
             let textEv = cast[TextEditingEventPtr](event)
             result = newEvent(etTextInput)
             result.window = windowFromSDLEvent(textEv)

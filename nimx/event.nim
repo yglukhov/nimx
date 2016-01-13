@@ -2,6 +2,9 @@ import types
 import unicode
 import abstract_window
 
+import keyboard
+export VirtualKey
+
 type EventType* = enum
     etUnknown
     etMouse
@@ -46,7 +49,8 @@ type Event* = object
 proc button*(e: Event): KeyCode = cast[KeyCode](e.fButton)
 proc `button=`*(e: var Event, b: KeyCode) = e.fButton = cast[cint](b)
 
-proc keyCode*(e: Event): cint = e.fButton
+proc keyCode*(e: Event): VirtualKey = virtualKeyFromNative(e.fButton)
+proc `keyCode=`*(e: var Event, v: VirtualKey) = e.fButton = nativeKeyFromVirtual(v)
 proc `keyCode=`*(e: var Event, c: cint) = e.fButton = c
 
 proc newEvent*(kind: EventType, position: Point = zeroPoint, button: KeyCode = kcUnknown,

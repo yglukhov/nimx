@@ -111,38 +111,28 @@ method onMouseDown*(t: TextField, e: var Event): bool =
 proc updateCursorOffset(t: TextField) =
     cursorOffset = systemFont().cursorOffsetForPositionInString(t.text, cursorPos)
 
-when not defined js:
-    import sdl2 except Event
-else:
-    const
-      K_BACKSPACE = 8
-      K_DELETE    = 46
-      K_LEFT      = 37
-      K_RIGHT     = 39
-      K_RETURN    = 13
-
 method onKeyDown*(t: TextField, e: var Event): bool =
-    if e.keyCode == K_BACKSPACE and cursorPos > 0:
+    if e.keyCode == VirtualKey.Backspace and cursorPos > 0:
         result = true
         t.text.uniDelete(cursorPos - 1, cursorPos - 1)
         dec cursorPos
         t.updateCursorOffset()
         t.bumpCursorVisibility()
-    elif e.keyCode == K_DELETE and not t.text.isNil and cursorPos < t.text.runeLen:
+    elif e.keyCode == VirtualKey.Delete and not t.text.isNil and cursorPos < t.text.runeLen:
         t.text.uniDelete(cursorPos, cursorPos)
         t.bumpCursorVisibility()
-    elif e.keyCode == K_LEFT:
+    elif e.keyCode == VirtualKey.Left:
         dec cursorPos
         if cursorPos < 0: cursorPos = 0
         t.updateCursorOffset()
         t.bumpCursorVisibility()
-    elif e.keyCode == K_RIGHT:
+    elif e.keyCode == VirtualKey.Right:
         inc cursorPos
         let textLen = t.text.runeLen
         if cursorPos > textLen: cursorPos = textLen
         t.updateCursorOffset()
         t.bumpCursorVisibility()
-    elif e.keyCode == K_RETURN:
+    elif e.keyCode == VirtualKey.Return:
         t.sendAction()
 
 method onTextInput*(t: TextField, s: string): bool =
