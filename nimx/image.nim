@@ -27,8 +27,7 @@ type
 
     SpriteImage* = ref object of Image
         spriteSheet*: Image
-        texCoords: array[4, GLfloat]
-        mSize: Size
+        mSubRect: Rect
 
 var imageCache = initTable[string, Image]()
 
@@ -129,10 +128,6 @@ proc imageWithResource*(name: string): SelfContainedImage =
 
 proc initSpriteImages(s: SpriteSheet, data: JsonNode) =
     let images = newTable[string, SpriteImage]()
-    let fullOrigSize = if s.texture == 0:
-            newSize(1, 1)
-        else:
-            newSize(s.mSize.width / s.sizeInTexels.width, s.mSize.height / s.sizeInTexels.height)
     for k, v in data["frames"]:
         let fr = v["frame"]
         let r = newRect(fr["x"].getFNum(), fr["y"].getFNum(), fr["w"].getFNum(), fr["h"].getFNum())
@@ -140,8 +135,7 @@ proc initSpriteImages(s: SpriteSheet, data: JsonNode) =
         if not s.images.isNil: si = s.images[k]
         if si.isNil: si.new()
         si.spriteSheet = s
-        si.mSize = r.size
-        si.texCoords = [r.x / fullOrigSize.width, r.y / fullOrigSize.height, r.maxX / fullOrigSize.width, r.maxY / fullOrigSize.height]
+        si.mSubRect = r
         images[k] = si
     if not s.images.isNil:
         for k, v in s.images:
@@ -241,35 +235,26 @@ method getTextureQuad*(i: SelfContainedImage, gl: GL, texCoords: var array[4, GL
     texCoords[3] = i.sizeInTexels.height
     result = i.texture
 
-proc fixupSpriteImages(s: SpriteSheet) =
-    let fullOrigSize = newSize(s.mSize.width / s.sizeInTexels.width, s.mSize.height / s.sizeInTexels.height)
-
-    for k, v in s.images:
-        v.texCoords[0] /= fullOrigSize.width
-        v.texCoords[1] /= fullOrigSize.height
-        v.texCoords[2] /= fullOrigSize.width
-        v.texCoords[3] /= fullOrigSize.height
-
-method getTextureQuad*(i: SpriteSheet, gl: GL, texCoords: var array[4, GLfloat]): GLuint =
-    let texWasnotReady = i.texture == 0
-    result = procCall i.SelfContainedImage.getTextureQuad(gl, texCoords)
-    if result != 0 and texWasnotReady:
-        # Update images
-        i.fixupSpriteImages()
+method size*(i: Image): Size {.base.} = discard
+method size*(i: SelfContainedImage): Size = i.mSize
+method size*(i: SpriteImage): Size = i.mSubRect.size
 
 method getTextureQuad*(i: SpriteImage, gl: GL, texCoords: var array[4, GLfloat]): GLuint =
     result = i.spriteSheet.getTextureQuad(gl, texCoords)
-    texCoords = i.texCoords
-
-method size*(i: Image): Size {.base.} = discard
-method size*(i: SelfContainedImage): Size = i.mSize
-method size*(i: SpriteImage): Size = i.mSize
+    let superSize = i.spriteSheet.size
+    let s0 = texCoords[0]
+    let t0 = texCoords[1]
+    let s1 = texCoords[2]
+    let t1 = texCoords[3]
+    texCoords[0] = s0 + (s1 - s0) * (i.mSubRect.x / superSize.width)
+    texCoords[1] = t0 + (t1 - t0) * (i.mSubRect.y / superSize.height)
+    texCoords[2] = s0 + (s1 - s0) * (i.mSubRect.maxX / superSize.width)
+    texCoords[3] = t0 + (t1 - t0) * (i.mSubRect.maxY / superSize.height)
 
 proc subimageWithRect*(i: Image, r: Rect): SpriteImage =
     result.new()
     result.spriteSheet = i
-    result.mSize = r.size
-    result.texCoords = [r.x / i.size.width, r.y / i.size.height, r.maxX / i.size.width, r.maxY / i.size.height]
+    result.mSubRect = r
 
 proc imageNamed*(s: SpriteSheet, name: string): SpriteImage =
     if not s.images.isNil:
