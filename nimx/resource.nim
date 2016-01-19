@@ -8,6 +8,10 @@ import async_http_request
 when not defined(js):
     import os
     import sdl2
+else:
+    # What a hacky way to import ospaths...
+    include "system/inclrtl"
+    include ospaths
 
 type
     ResourceCache* = ref object
@@ -24,8 +28,28 @@ var gResCache* = newResourceCache()
 
 var warnWhenResourceNotCached* = false
 
-when not defined(android) and not defined(js):
-    proc pathForResource*(name: string): string =
+var parentResources = newSeq[string]()
+
+proc pathForResource*(name: string): string
+
+proc pushParentResource*(name: string) =
+    parentResources.add(pathForResource(name).parentDir)
+
+proc popParentResource*() =
+    parentResources.setLen(parentResources.len - 1)
+
+proc pathForResource*(name: string): string =
+    when defined(js):
+        if name[0] == '/': return name # Absolute
+    else:
+        if name.isAbsolute: return name
+    if parentResources.len > 0: return parentResources[^1] / name
+
+    when defined(android):
+        result = name
+    elif defined(js):
+        result = "res/" & name
+    else:
         let appDir = getAppDir()
         result = appDir / name
         if fileExists(result): return
@@ -81,7 +105,7 @@ when not defined(js):
 
     proc streamForResourceWithName*(name: string): Stream =
         when defined(android):
-            result = newStreamWithRWops(rwFromFile(name, "rb"))
+            result = newStreamWithRWops(rwFromFile(pathForResource(name), "rb"))
         else:
             result = newFileStream(pathForResource(name), fmRead)
         if result.isNil:
@@ -103,7 +127,7 @@ when defined js:
         let oReq = newXMLHTTPRequest()
         oReq.responseType = resourceType
         oReq.addEventListener("load", reqListener)
-        oReq.open("GET", "res/" & resourceName)
+        oReq.open("GET", pathForResource(resourceName))
         oReq.send()
 
 proc loadResourceAsync*(resourceName: string, handler: proc(s: Stream)) =

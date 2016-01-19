@@ -97,12 +97,12 @@ when not defined js:
 
 proc initWithResource*(i: SelfContainedImage, name: string) =
     when defined js:
-        let nativeName : cstring = "res/" & name
-        asm """
+        let nativeName : cstring = pathForResource(name)
+        {.emit: """
         `i`.__image = new Image();
         `i`.__image.crossOrigin = '';
         `i`.__image.src = `nativeName`;
-        """
+        """.}
     else:
         let s = streamForResourceWithName(name)
         var data = s.readAll()
