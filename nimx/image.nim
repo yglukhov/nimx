@@ -87,12 +87,6 @@ when not defined js:
         i.initWithBitmap(data, x, y, comp)
         stbi_image_free(data)
 
-    proc initWithResource*(i: SelfContainedImage, r: ResourceObj) =
-        var x, y, comp: cint
-        var data = stbi_load_from_memory(cast[ptr uint8](r.data), r.size.cint, addr x, addr y, addr comp, 0)
-        i.initWithBitmap(data, x, y, comp)
-        stbi_image_free(data)
-
     proc imageWithBitmap*(data: ptr uint8, x, y, comp: int): SelfContainedImage =
         result.new()
         result.initWithBitmap(data, x, y, comp)
@@ -100,10 +94,6 @@ when not defined js:
     proc imageWithContentsOfFile*(path: string): SelfContainedImage =
         result.new()
         result.initWithContentsOfFile(path)
-
-    proc imageWithResource*(r: ResourceObj): SelfContainedImage =
-        result.new()
-        result.initWithResource(r)
 
 proc initWithResource*(i: SelfContainedImage, name: string) =
     when defined js:
@@ -114,9 +104,15 @@ proc initWithResource*(i: SelfContainedImage, name: string) =
         `i`.__image.src = `nativeName`;
         """
     else:
-        let r = loadResourceByName(name)
-        i.initWithResource(r[])
-        freeResource(r)
+        let s = streamForResourceWithName(name)
+        var data = s.readAll()
+        s.close()
+        var x, y, comp: cint
+
+        var bitmap = stbi_load_from_memory(cast[ptr uint8](addr data[0]),
+            data.len.cint, addr x, addr y, addr comp, 0)
+        i.initWithBitmap(bitmap, x, y, comp)
+        stbi_image_free(bitmap)
 
 proc imageWithResource*(name: string): SelfContainedImage =
     result = SelfContainedImage(imageCache.getOrDefault(name))
