@@ -6,6 +6,15 @@ export GLuint, GLint, GLfloat, GLenum, GLsizei, GLushort
 
 when defined js:
     type
+        FramebufferRef* = ref FramebufferObj
+        FramebufferObj {.importc.} = object
+
+        RenderbufferRef* = ref FramebufferObj
+        RenderbufferObj {.importc.} = object
+
+        TextureRef* = ref TextureObj
+        TextureObj {.importc.} = object
+
         GL* = ref GLObj
         GLObj {.importc.} = object
             VERTEX_SHADER* : GLenum
@@ -35,8 +44,8 @@ when defined js:
             DEPTH_COMPONENT16* : GLenum
             DEPTH_STENCIL* : GLenum
             DEPTH24_STENCIL8* : GLenum
-            FRAMEBUFFER_BINDING* : GLenum
-            RENDERBUFFER_BINDING* : GLenum
+            FRAMEBUFFER_BINDING : GLenum
+            RENDERBUFFER_BINDING : GLenum
             STENCIL_TEST*, DEPTH_TEST* : GLenum
             NEVER*, LESS*, LEQUAL*, GREATER*, GEQUAL*, EQUAL*, NOTEQUAL*, ALWAYS*: GLenum
             KEEP*, ZERO*, REPLACE*, INCR*, INCR_WRAP*, DECR*, DECR_WRAP*, INVERT*: GLenum
@@ -62,9 +71,9 @@ when defined js:
     proc drawElements*(gl: GL, mode: GLenum, count: GLsizei, typ: GLenum, alwaysZeroOffset: int = 0)
     proc createShader*(gl: GL, shaderType: GLenum): GLuint
     proc createProgram*(gl: GL): GLuint
-    proc createTexture*(gl: GL): GLuint
-    proc createFramebuffer*(gl: GL): GLuint
-    proc createRenderbuffer*(gl: GL): GLuint
+    proc createTexture*(gl: GL): TextureRef
+    proc createFramebuffer*(gl: GL): FramebufferRef
+    proc createRenderbuffer*(gl: GL): RenderbufferRef
     proc createBuffer*(gl: GL): GLuint
 
     proc deleteFramebuffer*(gl: GL, name: GLuint)
@@ -81,9 +90,9 @@ when defined js:
     proc viewport*(gl: GL, x, y: GLint, width, height: GLsizei)
     proc clear*(gl: GL, mask: int)
     proc activeTexture*(gl: GL, t: GLenum)
-    proc bindTexture*(gl: GL, target: GLenum, name: GLuint)
-    proc bindFramebuffer*(gl: GL, target: GLenum, name: GLuint)
-    proc bindRenderbuffer*(gl: GL, target: GLenum, name: GLuint)
+    proc bindTexture*(gl: GL, target: GLenum, name: TextureRef)
+    proc bindFramebuffer*(gl: GL, target: GLenum, name: FramebufferRef)
+    proc bindRenderbuffer*(gl: GL, target: GLenum, name: RenderbufferRef)
     proc bindBuffer*(gl: GL, target: GLenum, name: GLuint)
 
     proc uniform1fv*(gl: GL, location: GLint, data: openarray[GLfloat])
@@ -102,9 +111,9 @@ when defined js:
     proc texImage2D*(gl: GL, target: GLenum, level, internalformat: GLint, width, height: GLsizei, border: GLint, format, t: GLenum, pixels: ref RootObj)
     proc generateMipmap*(gl: GL, target: GLenum)
 
-    proc framebufferTexture2D*(gl: GL, target, attachment, textarget: GLenum, texture: GLuint, level: GLint)
+    proc framebufferTexture2D*(gl: GL, target, attachment, textarget: GLenum, texture: TextureRef, level: GLint)
     proc renderbufferStorage*(gl: GL, target, internalformat: GLenum, width, height: GLsizei)
-    proc framebufferRenderbuffer*(gl: GL, target, attachment, renderbuffertarget: GLenum, renderbuffer: GLuint)
+    proc framebufferRenderbuffer*(gl: GL, target, attachment, renderbuffertarget: GLenum, renderbuffer: RenderbufferRef)
 
     proc stencilFunc*(gl: GL, fun: GLenum, refe: GLint, mask: GLuint)
     proc stencilOp*(gl: GL, fail, zfail, zpass: GLenum)
@@ -117,8 +126,16 @@ when defined js:
 
     {.pop.}
 
+    proc getParameterRef(gl: GL, mode: GLenum): ref RootObj {.importcpp: "getParameter".}
+
+    template isEmpty*(obj: TextureRef or FramebufferRef or RenderbufferRef): bool = obj.isNil
+
 else:
-    type GL* = ref object
+    type
+        GL* = ref object
+        FramebufferRef* = GLuint
+        RenderbufferRef* = GLuint
+        TextureRef* = GLuint
     template VERTEX_SHADER*(gl: GL): GLenum = GL_VERTEX_SHADER
     template FRAGMENT_SHADER*(gl: GL): GLenum = GL_FRAGMENT_SHADER
     template TEXTURE_2D*(gl: GL): GLenum = GL_TEXTURE_2D
@@ -154,8 +171,8 @@ else:
     template DEPTH_COMPONENT16*(gl: GL): GLenum = GL_DEPTH_COMPONENT16
     template DEPTH_STENCIL*(gl: GL): GLenum = GL_DEPTH_STENCIL
     template DEPTH24_STENCIL8*(gl: GL): GLenum = GL_DEPTH24_STENCIL8
-    template FRAMEBUFFER_BINDING*(gl: GL): GLenum = GL_FRAMEBUFFER_BINDING
-    template RENDERBUFFER_BINDING*(gl: GL): GLenum = GL_RENDERBUFFER_BINDING
+    template FRAMEBUFFER_BINDING(gl: GL): GLenum = GL_FRAMEBUFFER_BINDING
+    template RENDERBUFFER_BINDING(gl: GL): GLenum = GL_RENDERBUFFER_BINDING
     template STENCIL_TEST*(gl: GL): GLenum = GL_STENCIL_TEST
     template DEPTH_TEST*(gl: GL): GLenum = GL_DEPTH_TEST
 
@@ -234,9 +251,9 @@ else:
     template viewport*(gl: GL, x, y: GLint, width, height: GLsizei) = glViewport(x, y, width, height)
     template clear*(gl: GL, mask: GLbitfield) = glClear(mask)
     template activeTexture*(gl: GL, t: GLenum) = glActiveTexture(t)
-    template bindTexture*(gl: GL, target: GLenum, name: GLuint) = glBindTexture(target, name)
-    template bindFramebuffer*(gl: GL, target: GLenum, name: GLuint) = glBindFramebuffer(target, name)
-    template bindRenderbuffer*(gl: GL, target: GLenum, name: GLuint) = glBindRenderbuffer(target, name)
+    template bindTexture*(gl: GL, target: GLenum, name: TextureRef) = glBindTexture(target, name)
+    template bindFramebuffer*(gl: GL, target: GLenum, name: FramebufferRef) = glBindFramebuffer(target, name)
+    template bindRenderbuffer*(gl: GL, target: GLenum, name: RenderbufferRef) = glBindRenderbuffer(target, name)
     template bindBuffer*(gl: GL, target: GLenum, name: GLuint) = glBindBuffer(target, name)
 
     template uniform1f*(gl: GL, location: GLint, data: GLfloat) = glUniform1f(location, data)
@@ -262,10 +279,10 @@ else:
 
     template generateMipmap*(gl: GL, target: GLenum) = glGenerateMipmap(target)
 
-    template framebufferTexture2D*(gl: GL, target, attachment, textarget: GLenum, texture: GLuint, level: GLint) =
+    template framebufferTexture2D*(gl: GL, target, attachment, textarget: GLenum, texture: TextureRef, level: GLint) =
         glFramebufferTexture2D(target, attachment, textarget, texture, level)
     template renderbufferStorage*(gl: GL, target, internalformat: GLenum, width, height: GLsizei) = glRenderbufferStorage(target, internalformat, width, height)
-    template framebufferRenderbuffer*(gl: GL, target, attachment, renderbuffertarget: GLenum, renderbuffer: GLuint) =
+    template framebufferRenderbuffer*(gl: GL, target, attachment, renderbuffertarget: GLenum, renderbuffer: RenderbufferRef) =
         glFramebufferRenderbuffer(target, attachment, renderbuffertarget, renderbuffer)
 
     template stencilFunc*(gl: GL, fun: GLenum, refe: GLint, mask: GLuint) = glStencilFunc(fun, refe, mask)
@@ -276,6 +293,8 @@ else:
     template cullFace*(gl: GL, mode: GLenum) = glCullFace(mode)
 
     template getError*(gl: GL): GLenum = glGetError()
+
+    template isEmpty*(obj: TextureRef or FramebufferRef or RenderbufferRef): bool = obj == 0
 
 # TODO: This is a quick and dirty hack for render to texture.
 var globalGL: GL
@@ -434,6 +453,17 @@ proc getViewport*(gl: GL): array[4, GLint] =
         glGetIntegerv(GL_VIEWPORT, addr result[0])
 
 template viewport*(gl: GL, vp: array[4, GLint]) = gl.viewport(vp[0], vp[1], vp[2], vp[3])
+
+when defined(js):
+    template boundFramebuffer*(gl: GL): FramebufferRef =
+        cast[FramebufferRef](getParameterRef(gl, gl.FRAMEBUFFER_BINDING))
+    template boundRenderbuffer*(gl: GL): RenderbufferRef =
+        cast[RenderbufferRef](getParameterRef(gl, gl.RENDERBUFFER_BINDING))
+else:
+    template boundFramebuffer*(gl: GL): FramebufferRef =
+        cast[FramebufferRef](gl.getParami(GL_FRAMEBUFFER_BINDING))
+    template boundRenderbuffer*(gl: GL): RenderbufferRef =
+        cast[RenderbufferRef](gl.getParami(GL_RENDERBUFFER_BINDING))
 
 proc getClearColor*(gl: GL, colorComponents: var array[4, GLfloat]) =
     when defined js:

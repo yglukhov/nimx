@@ -16,10 +16,10 @@ when not defined js:
 type Image* = ref object of RootObj
 
 type SelfContainedImage* = ref object of Image
-    texture*: GLuint
+    texture*: TextureRef
     mSize: Size
     sizeInTexels: Size
-    framebuffer*: GLuint
+    framebuffer*: FramebufferRef
 
 type
     SpriteSheet* = ref object of SelfContainedImage
@@ -175,7 +175,7 @@ method isLoaded*(i: Image): bool {.base.} = false
 
 method isLoaded*(i: SelfContainedImage): bool =
     when defined js:
-        result = i.texture != 0
+        result = not i.texture.isEmpty
         if not result:
             asm "`result` = `i`.__image.complete;"
     else:
@@ -183,12 +183,12 @@ method isLoaded*(i: SelfContainedImage): bool =
 
 method isLoaded*(i: SpriteImage): bool = i.spriteSheet.isLoaded
 
-method getTextureQuad*(i: Image, gl: GL, texCoords: var array[4, GLfloat]): GLuint {.base.} =
+method getTextureQuad*(i: Image, gl: GL, texCoords: var array[4, GLfloat]): TextureRef {.base.} =
     raise newException(Exception, "Abstract method called!")
 
-method getTextureQuad*(i: SelfContainedImage, gl: GL, texCoords: var array[4, GLfloat]): GLuint =
+method getTextureQuad*(i: SelfContainedImage, gl: GL, texCoords: var array[4, GLfloat]): TextureRef =
     when defined js:
-        if i.texture == 0 and not gl.isNil:
+        if i.texture.isEmpty and not gl.isNil:
             var width, height : Coord
             var loadingComplete = false
             asm """
@@ -235,7 +235,7 @@ method size*(i: Image): Size {.base.} = discard
 method size*(i: SelfContainedImage): Size = i.mSize
 method size*(i: SpriteImage): Size = i.mSubRect.size
 
-method getTextureQuad*(i: SpriteImage, gl: GL, texCoords: var array[4, GLfloat]): GLuint =
+method getTextureQuad*(i: SpriteImage, gl: GL, texCoords: var array[4, GLfloat]): TextureRef =
     result = i.spriteSheet.getTextureQuad(gl, texCoords)
     let superSize = i.spriteSheet.size
     let s0 = texCoords[0]
@@ -255,7 +255,7 @@ proc subimageWithRect*(i: Image, r: Rect): SpriteImage =
 proc imageNamed*(s: SpriteSheet, name: string): SpriteImage =
     if not s.images.isNil:
         result = s.images[name]
-    if result.isNil and s.texture == 0:
+    if result.isNil and s.texture.isEmpty:
         result.new()
         result.spriteSheet = s
         if s.images.isNil: s.images = newTable[string, SpriteImage]()

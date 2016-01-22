@@ -5,11 +5,11 @@ import math
 import opengl
 
 proc bindFramebuffer*(gl: GL, i: SelfContainedImage) =
-    if i.framebuffer == 0:
+    if i.framebuffer.isEmpty:
         var texCoords : array[4, GLfloat]
         var texture = i.getTextureQuad(gl, texCoords)
 
-        if texture == 0:
+        if texture.isEmpty:
             texture = gl.createTexture()
             i.texture = texture
 
@@ -36,9 +36,9 @@ proc bindFramebuffer*(gl: GL, i: SelfContainedImage) =
 proc draw*(i: Image, drawProc: proc()) =
     let gl = sharedGL()
 
-    let oldFb = gl.getParami(gl.FRAMEBUFFER_BINDING).GLuint
+    let oldFb = gl.boundFramebuffer()
     let oldViewport = gl.getViewport()
-    let oldRb = gl.getParami(gl.RENDERBUFFER_BINDING).GLuint
+    let oldRb = gl.boundRenderbuffer()
     var oldClearColor : array[4, GLfloat]
     gl.getClearColor(oldClearColor)
 

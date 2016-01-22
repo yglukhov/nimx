@@ -222,8 +222,8 @@ proc drawText*(c: GraphicsContext, font: Font, pt: var Point, text: string) =
 
     var vertexes: array[4 * 4, Coord]
 
-    var texture: GLuint = 0
-    var newTexture: GLuint = 0
+    var texture: TextureRef
+    var newTexture: TextureRef
 
     for ch in text.runes:
         font.getQuadDataForRune(ch, vertexes, newTexture, pt)

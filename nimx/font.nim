@@ -43,7 +43,7 @@ template charOffComp(bc: var BakedCharInfo, charOffset: int, comp: BackedCharCom
 
 type CharInfo = ref object
     bakedChars: BakedCharInfo
-    texture: GLuint
+    texture: TextureRef
     texWidth, texHeight: uint16
 
 when defined(js):
@@ -389,7 +389,7 @@ proc chunkAndCharIndexForRune(f: Font, r: Rune): tuple[ch: CharInfo, index: int]
         f.chars[chunkStart] = f.bakeChars(chunkStart)
     result.ch = f.chars[chunkStart]
 
-proc getQuadDataForRune*(f: Font, r: Rune, quad: var array[16, Coord], texture: var GLuint, pt: var Point) =
+proc getQuadDataForRune*(f: Font, r: Rune, quad: var array[16, Coord], texture: var TextureRef, pt: var Point) =
     let (chunk, charIndexInChunk) = f.chunkAndCharIndexForRune(r)
     var bc : type(chunk.bakedChars)
     shallowCopy(bc, chunk.bakedChars)
@@ -420,7 +420,7 @@ proc getQuadDataForRune*(f: Font, r: Rune, quad: var array[16, Coord], texture: 
 proc sizeOfString*(f: Font, s: string): Size =
     var pt : Point
     var quad: array[16, Coord]
-    var tex: GLuint
+    var tex: TextureRef
     var first = true
     for ch in s.runes:
         if first:
@@ -435,7 +435,7 @@ proc getClosestCursorPositionToPointInString*(f: Font, s: string, p: Point, posi
     var closestPoint = zeroPoint
     var quad: array[16, Coord]
     var i = 0
-    var tex: GLuint
+    var tex: TextureRef
     for ch in s.runes:
         f.getQuadDataForRune(ch, quad, tex, pt)
         if (f.isHorizontal and (abs(p.x - pt.x) < abs(p.x - closestPoint.x))) or
@@ -450,7 +450,7 @@ proc cursorOffsetForPositionInString*(f: Font, s: string, position: int): Coord 
     var pt = zeroPoint
     var quad: array[16, Coord]
     var i = 0
-    var tex: GLuint
+    var tex: TextureRef
 
     for ch in s.runes:
         if i == position:
