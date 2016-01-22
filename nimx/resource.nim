@@ -28,6 +28,10 @@ var gResCache* = newResourceCache()
 
 var warnWhenResourceNotCached* = false
 
+proc resourceNotCached*(name: string) =
+    if warnWhenResourceNotCached:
+        logi "WARNING: Resource not loaded: ", name
+
 var parentResources = newSeq[string]()
 
 proc pathForResource*(name: string): string
