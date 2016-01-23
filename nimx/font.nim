@@ -391,20 +391,21 @@ proc chunkAndCharIndexForRune(f: Font, r: Rune): tuple[ch: CharInfo, index: int]
 
 proc getQuadDataForRune*(f: Font, r: Rune, quad: var array[16, Coord], texture: var TextureRef, pt: var Point) =
     let (chunk, charIndexInChunk) = f.chunkAndCharIndexForRune(r)
-    var bc : type(chunk.bakedChars)
-    shallowCopy(bc, chunk.bakedChars)
     let c = charOff(charIndexInChunk)
 
-    let w = bc.charOffComp(c, compWidth).Coord
-    let h = bc.charOffComp(c, compHeight).Coord
+    template charComp(e: BackedCharComponent): auto =
+        chunk.bakedChars.charOffComp(c, e).Coord
 
-    let x0 = pt.x + bc.charOffComp(c, compX).Coord * f.scale
+    let w = charComp(compWidth).Coord
+    let h = charComp(compHeight).Coord
+
+    let x0 = pt.x + charComp(compX).Coord * f.scale
     let x1 = x0 + w * f.scale
-    let y0 = pt.y + bc.charOffComp(c, compY).Coord * f.scale
+    let y0 = pt.y + charComp(compY).Coord * f.scale
     let y1 = y0 + h * f.scale
 
-    var s0 = bc.charOffComp(c, compTexX).Coord
-    var t0 = bc.charOffComp(c, compTexY).Coord
+    var s0 = charComp(compTexX).Coord
+    var t0 = charComp(compTexY).Coord
     let s1 = (s0 + w) / chunk.texWidth.Coord
     let t1 = (t0 + h) / chunk.texHeight.Coord
     s0 /= chunk.texWidth.Coord
@@ -414,7 +415,7 @@ proc getQuadDataForRune*(f: Font, r: Rune, quad: var array[16, Coord], texture: 
     quad[4] = x1; quad[5] = y0; quad[6] = s1; quad[7] = t0
     quad[8] = x1; quad[9] = y1; quad[10] = s1; quad[11] = t1
     quad[12] = x0; quad[13] = y1; quad[14] = s0; quad[15] = t1
-    pt.x += bc.charOffComp(c, compAdvance).Coord * f.scale
+    pt.x += charComp(compAdvance).Coord * f.scale
     texture = chunk.texture
 
 proc sizeOfString*(f: Font, s: string): Size =
