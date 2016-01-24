@@ -159,11 +159,13 @@ proc loadIdentity*(dest: var Matrix3) =
     dest[7] = 0
     dest[8] = 1
 
-
 proc transpose*(mat: var Matrix4) =
     let
-        (a01, a02, a03) = (mat[1], mat[2], mat[3]) #a02 = mat[2], a03 = mat[3],
-        (a12, a13) = (mat[6], mat[7])
+        a01 = mat[1]
+        a02 = mat[2]
+        a03 = mat[3]
+        a12 = mat[6]
+        a13 = mat[7]
         a23 = mat[11]
 
     mat[1] = mat[4]
@@ -181,7 +183,8 @@ proc transpose*(mat: var Matrix4) =
 
 proc transpose*(mat: var Matrix3) =
     let
-        (a01, a02) = (mat[1], mat[2])
+        a01 = mat[1]
+        a02 = mat[2]
         a12 = mat[5]
 
     mat[1] = mat[3]
@@ -209,41 +212,53 @@ proc transposed*(mat: Matrix4): Matrix4 =
     result[14] = mat[11]
     result[15] = mat[15]
 
+template decomposeToLocals(mat: typed, sym: untyped) =
+    let
+        `sym m00` {.inject.} = mat[0]
+        `sym m01` {.inject.} = mat[1]
+        `sym m02` {.inject.} = mat[2]
+        `sym m03` {.inject.} = mat[3]
+        `sym m10` {.inject.} = mat[4]
+        `sym m11` {.inject.} = mat[5]
+        `sym m12` {.inject.} = mat[6]
+        `sym m13` {.inject.} = mat[7]
+        `sym m20` {.inject.} = mat[8]
+        `sym m21` {.inject.} = mat[9]
+        `sym m22` {.inject.} = mat[10]
+        `sym m23` {.inject.} = mat[11]
+        `sym m30` {.inject.} = mat[12]
+        `sym m31` {.inject.} = mat[13]
+        `sym m32` {.inject.} = mat[14]
+        `sym m33` {.inject.} = mat[15]
+
 proc determinant*(mat: Matrix4): Coord =
     # Cache the matrix values (makes for huge speed increases!)
-    let
-        (a00, a01, a02, a03) = (mat[0], mat[1], mat[2], mat[3])
-        (a10, a11, a12, a13) = (mat[4], mat[5], mat[6], mat[7])
-        (a20, a21, a22, a23) = (mat[8], mat[9], mat[10], mat[11])
-        (a30, a31, a32, a33) = (mat[12], mat[13], mat[14], mat[15])
+    decomposeToLocals(mat, a)
 
-    return (a30 * a21 * a12 * a03 - a20 * a31 * a12 * a03 - a30 * a11 * a22 * a03 + a10 * a31 * a22 * a03 +
-            a20 * a11 * a32 * a03 - a10 * a21 * a32 * a03 - a30 * a21 * a02 * a13 + a20 * a31 * a02 * a13 +
-            a30 * a01 * a22 * a13 - a00 * a31 * a22 * a13 - a20 * a01 * a32 * a13 + a00 * a21 * a32 * a13 +
-            a30 * a11 * a02 * a23 - a10 * a31 * a02 * a23 - a30 * a01 * a12 * a23 + a00 * a31 * a12 * a23 +
-            a10 * a01 * a32 * a23 - a00 * a11 * a32 * a23 - a20 * a11 * a02 * a33 + a10 * a21 * a02 * a33 +
-            a20 * a01 * a12 * a33 - a00 * a21 * a12 * a33 - a10 * a01 * a22 * a33 + a00 * a11 * a22 * a33)
+    return (am30 * am21 * am12 * am03 - am20 * am31 * am12 * am03 - am30 * am11 * am22 * am03 + am10 * am31 * am22 * am03 +
+            am20 * am11 * am32 * am03 - am10 * am21 * am32 * am03 - am30 * am21 * am02 * am13 + am20 * am31 * am02 * am13 +
+            am30 * am01 * am22 * am13 - am00 * am31 * am22 * am13 - am20 * am01 * am32 * am13 + am00 * am21 * am32 * am13 +
+            am30 * am11 * am02 * am23 - am10 * am31 * am02 * am23 - am30 * am01 * am12 * am23 + am00 * am31 * am12 * am23 +
+            am10 * am01 * am32 * am23 - am00 * am11 * am32 * am23 - am20 * am11 * am02 * am33 + am10 * am21 * am02 * am33 +
+            am20 * am01 * am12 * am33 - am00 * am21 * am12 * am33 - am10 * am01 * am22 * am33 + am00 * am11 * am22 * am33)
 
 proc tryInverse*(mat: Matrix4, dest: var Matrix4): bool =
     # Cache the matrix values (makes for huge speed increases!)
-    let
-        (a00, a01, a02, a03) = (mat[0], mat[1], mat[2], mat[3])
-        (a10, a11, a12, a13) = (mat[4], mat[5], mat[6], mat[7])
-        (a20, a21, a22, a23) = (mat[8], mat[9], mat[10], mat[11])
-        (a30, a31, a32, a33) = (mat[12], mat[13], mat[14], mat[15])
+    decomposeToLocals(mat, a)
 
-        b00 = a00 * a11 - a01 * a10
-        b01 = a00 * a12 - a02 * a10
-        b02 = a00 * a13 - a03 * a10
-        b03 = a01 * a12 - a02 * a11
-        b04 = a01 * a13 - a03 * a11
-        b05 = a02 * a13 - a03 * a12
-        b06 = a20 * a31 - a21 * a30
-        b07 = a20 * a32 - a22 * a30
-        b08 = a20 * a33 - a23 * a30
-        b09 = a21 * a32 - a22 * a31
-        b10 = a21 * a33 - a23 * a31
-        b11 = a22 * a33 - a23 * a32
+    let
+        b00 = am00 * am11 - am01 * am10
+        b01 = am00 * am12 - am02 * am10
+        b02 = am00 * am13 - am03 * am10
+        b03 = am01 * am12 - am02 * am11
+        b04 = am01 * am13 - am03 * am11
+        b05 = am02 * am13 - am03 * am12
+        b06 = am20 * am31 - am21 * am30
+        b07 = am20 * am32 - am22 * am30
+        b08 = am20 * am33 - am23 * am30
+        b09 = am21 * am32 - am22 * am31
+        b10 = am21 * am33 - am23 * am31
+        b11 = am22 * am33 - am23 * am32
 
         d = (b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06)
 
@@ -253,22 +268,22 @@ proc tryInverse*(mat: Matrix4, dest: var Matrix4): bool =
 
     let invDet = 1 / d
 
-    dest[0] = (a11 * b11 - a12 * b10 + a13 * b09) * invDet
-    dest[1] = (-a01 * b11 + a02 * b10 - a03 * b09) * invDet
-    dest[2] = (a31 * b05 - a32 * b04 + a33 * b03) * invDet
-    dest[3] = (-a21 * b05 + a22 * b04 - a23 * b03) * invDet
-    dest[4] = (-a10 * b11 + a12 * b08 - a13 * b07) * invDet
-    dest[5] = (a00 * b11 - a02 * b08 + a03 * b07) * invDet
-    dest[6] = (-a30 * b05 + a32 * b02 - a33 * b01) * invDet
-    dest[7] = (a20 * b05 - a22 * b02 + a23 * b01) * invDet
-    dest[8] = (a10 * b10 - a11 * b08 + a13 * b06) * invDet
-    dest[9] = (-a00 * b10 + a01 * b08 - a03 * b06) * invDet
-    dest[10] = (a30 * b04 - a31 * b02 + a33 * b00) * invDet
-    dest[11] = (-a20 * b04 + a21 * b02 - a23 * b00) * invDet
-    dest[12] = (-a10 * b09 + a11 * b07 - a12 * b06) * invDet
-    dest[13] = (a00 * b09 - a01 * b07 + a02 * b06) * invDet
-    dest[14] = (-a30 * b03 + a31 * b01 - a32 * b00) * invDet
-    dest[15] = (a20 * b03 - a21 * b01 + a22 * b00) * invDet
+    dest[0] = (am11 * b11 - am12 * b10 + am13 * b09) * invDet
+    dest[1] = (-am01 * b11 + am02 * b10 - am03 * b09) * invDet
+    dest[2] = (am31 * b05 - am32 * b04 + am33 * b03) * invDet
+    dest[3] = (-am21 * b05 + am22 * b04 - am23 * b03) * invDet
+    dest[4] = (-am10 * b11 + am12 * b08 - am13 * b07) * invDet
+    dest[5] = (am00 * b11 - am02 * b08 + am03 * b07) * invDet
+    dest[6] = (-am30 * b05 + am32 * b02 - am33 * b01) * invDet
+    dest[7] = (am20 * b05 - am22 * b02 + am23 * b01) * invDet
+    dest[8] = (am10 * b10 - am11 * b08 + am13 * b06) * invDet
+    dest[9] = (-am00 * b10 + am01 * b08 - am03 * b06) * invDet
+    dest[10] = (am30 * b04 - am31 * b02 + am33 * b00) * invDet
+    dest[11] = (-am20 * b04 + am21 * b02 - am23 * b00) * invDet
+    dest[12] = (-am10 * b09 + am11 * b07 - am12 * b06) * invDet
+    dest[13] = (am00 * b09 - am01 * b07 + am02 * b06) * invDet
+    dest[14] = (-am30 * b03 + am31 * b01 - am32 * b00) * invDet
+    dest[15] = (am20 * b03 - am21 * b01 + am22 * b00) * invDet
 
 proc inversed*(mat: Matrix4, dest: var Matrix4) =
     if not tryInverse(mat, dest):
@@ -349,33 +364,25 @@ proc toInversedMatrix3*(mat: Matrix4, dest: var Matrix3) =
 
 proc multiply*(mat, mat2: Matrix4, dest: var Matrix4) =
     # Cache the matrix values (makes for huge speed increases!)
-    let
-        (a00, a01, a02, a03) = (mat[0], mat[1], mat[2], mat[3])
-        (a10, a11, a12, a13) = (mat[4], mat[5], mat[6], mat[7])
-        (a20, a21, a22, a23) = (mat[8], mat[9], mat[10], mat[11])
-        (a30, a31, a32, a33) = (mat[12], mat[13], mat[14], mat[15])
+    decomposeToLocals(mat, a)
+    decomposeToLocals(mat2, b)
 
-        (b00, b01, b02, b03) = (mat2[0], mat2[1], mat2[2], mat2[3])
-        (b10, b11, b12, b13) = (mat2[4], mat2[5], mat2[6], mat2[7])
-        (b20, b21, b22, b23) = (mat2[8], mat2[9], mat2[10], mat2[11])
-        (b30, b31, b32, b33) = (mat2[12], mat2[13], mat2[14], mat2[15])
-
-    dest[0] = b00 * a00 + b01 * a10 + b02 * a20 + b03 * a30;
-    dest[1] = b00 * a01 + b01 * a11 + b02 * a21 + b03 * a31;
-    dest[2] = b00 * a02 + b01 * a12 + b02 * a22 + b03 * a32;
-    dest[3] = b00 * a03 + b01 * a13 + b02 * a23 + b03 * a33;
-    dest[4] = b10 * a00 + b11 * a10 + b12 * a20 + b13 * a30;
-    dest[5] = b10 * a01 + b11 * a11 + b12 * a21 + b13 * a31;
-    dest[6] = b10 * a02 + b11 * a12 + b12 * a22 + b13 * a32;
-    dest[7] = b10 * a03 + b11 * a13 + b12 * a23 + b13 * a33;
-    dest[8] = b20 * a00 + b21 * a10 + b22 * a20 + b23 * a30;
-    dest[9] = b20 * a01 + b21 * a11 + b22 * a21 + b23 * a31;
-    dest[10] = b20 * a02 + b21 * a12 + b22 * a22 + b23 * a32;
-    dest[11] = b20 * a03 + b21 * a13 + b22 * a23 + b23 * a33;
-    dest[12] = b30 * a00 + b31 * a10 + b32 * a20 + b33 * a30;
-    dest[13] = b30 * a01 + b31 * a11 + b32 * a21 + b33 * a31;
-    dest[14] = b30 * a02 + b31 * a12 + b32 * a22 + b33 * a32;
-    dest[15] = b30 * a03 + b31 * a13 + b32 * a23 + b33 * a33;
+    dest[0] = bm00 * am00 + bm01 * am10 + bm02 * am20 + bm03 * am30
+    dest[1] = bm00 * am01 + bm01 * am11 + bm02 * am21 + bm03 * am31
+    dest[2] = bm00 * am02 + bm01 * am12 + bm02 * am22 + bm03 * am32
+    dest[3] = bm00 * am03 + bm01 * am13 + bm02 * am23 + bm03 * am33
+    dest[4] = bm10 * am00 + bm11 * am10 + bm12 * am20 + bm13 * am30
+    dest[5] = bm10 * am01 + bm11 * am11 + bm12 * am21 + bm13 * am31
+    dest[6] = bm10 * am02 + bm11 * am12 + bm12 * am22 + bm13 * am32
+    dest[7] = bm10 * am03 + bm11 * am13 + bm12 * am23 + bm13 * am33
+    dest[8] = bm20 * am00 + bm21 * am10 + bm22 * am20 + bm23 * am30
+    dest[9] = bm20 * am01 + bm21 * am11 + bm22 * am21 + bm23 * am31
+    dest[10] = bm20 * am02 + bm21 * am12 + bm22 * am22 + bm23 * am32
+    dest[11] = bm20 * am03 + bm21 * am13 + bm22 * am23 + bm23 * am33
+    dest[12] = bm30 * am00 + bm31 * am10 + bm32 * am20 + bm33 * am30
+    dest[13] = bm30 * am01 + bm31 * am11 + bm32 * am21 + bm33 * am31
+    dest[14] = bm30 * am02 + bm31 * am12 + bm32 * am22 + bm33 * am32
+    dest[15] = bm30 * am03 + bm31 * am13 + bm32 * am23 + bm33 * am33
 
 proc multiply*(mat: Matrix4, vec: Vector3, dest: var Vector3) =
     let (x, y, z) = (vec[0], vec[1], vec[2])
@@ -404,7 +411,9 @@ proc `*`*(mat: Matrix4, vec: Vector4): Vector4 =
 
 proc translate*(mat: Matrix4, vec: Vector3, dest: var Matrix4) =
     let
-        (x, y, z) = (vec[0], vec[1], vec[2])
+        x = vec[0]
+        y = vec[1]
+        z = vec[2]
 
         (a00, a01, a02, a03) = (mat[0], mat[1], mat[2], mat[3])
         (a10, a11, a12, a13) = (mat[4], mat[5], mat[6], mat[7])
@@ -414,22 +423,28 @@ proc translate*(mat: Matrix4, vec: Vector3, dest: var Matrix4) =
     dest[4] = a10; dest[5] = a11; dest[6] = a12; dest[7] = a13;
     dest[8] = a20; dest[9] = a21; dest[10] = a22; dest[11] = a23;
 
-    dest[12] = a00 * x + a10 * y + a20 * z + mat[12];
-    dest[13] = a01 * x + a11 * y + a21 * z + mat[13];
-    dest[14] = a02 * x + a12 * y + a22 * z + mat[14];
-    dest[15] = a03 * x + a13 * y + a23 * z + mat[15];
+    dest[12] = a00 * x + a10 * y + a20 * z + mat[12]
+    dest[13] = a01 * x + a11 * y + a21 * z + mat[13]
+    dest[14] = a02 * x + a12 * y + a22 * z + mat[14]
+    dest[15] = a03 * x + a13 * y + a23 * z + mat[15]
 
 proc translate*(mat: var Matrix4, vec: Vector3) =
-    let (x, y, z) = (vec[0], vec[1], vec[2])
+    let
+        x = vec[0]
+        y = vec[1]
+        z = vec[2]
 
-    mat[12] = mat[0] * x + mat[4] * y + mat[8] * z + mat[12];
-    mat[13] = mat[1] * x + mat[5] * y + mat[9] * z + mat[13];
-    mat[14] = mat[2] * x + mat[6] * y + mat[10] * z + mat[14];
-    mat[15] = mat[3] * x + mat[7] * y + mat[11] * z + mat[15];
+    mat[12] = mat[0] * x + mat[4] * y + mat[8] * z + mat[12]
+    mat[13] = mat[1] * x + mat[5] * y + mat[9] * z + mat[13]
+    mat[14] = mat[2] * x + mat[6] * y + mat[10] * z + mat[14]
+    mat[15] = mat[3] * x + mat[7] * y + mat[11] * z + mat[15]
 
 
 proc scale*(mat: Matrix4, vec: Vector3, dest: var Matrix4) =
-    let (x, y, z) = (vec[0], vec[1], vec[2])
+    let
+        x = vec[0]
+        y = vec[1]
+        z = vec[2]
 
     dest[0] = mat[0] * x;
     dest[1] = mat[1] * x;
@@ -449,19 +464,22 @@ proc scale*(mat: Matrix4, vec: Vector3, dest: var Matrix4) =
     dest[15] = mat[15];
 
 proc scale*(mat: var Matrix4, vec: Vector3) =
-    let (x, y, z) = (vec[0], vec[1], vec[2])
-    mat[0] *= x;
-    mat[1] *= x;
-    mat[2] *= x;
-    mat[3] *= x;
-    mat[4] *= y;
-    mat[5] *= y;
-    mat[6] *= y;
-    mat[7] *= y;
-    mat[8] *= z;
-    mat[9] *= z;
-    mat[10] *= z;
-    mat[11] *= z;
+    let
+        x = vec[0]
+        y = vec[1]
+        z = vec[2]
+    mat[0] *= x
+    mat[1] *= x
+    mat[2] *= x
+    mat[3] *= x
+    mat[4] *= y
+    mat[5] *= y
+    mat[6] *= y
+    mat[7] *= y
+    mat[8] *= z
+    mat[9] *= z
+    mat[10] *= z
+    mat[11] *= z
 
 
 proc rotate*(mat: Matrix4, angle: Coord, axis: Vector3, dest: var Matrix4) =
@@ -478,9 +496,9 @@ proc rotate*(mat: Matrix4, angle: Coord, axis: Vector3, dest: var Matrix4) =
         y *= len
         z *= len
 
-    let s = sin(angle);
-    let c = cos(angle);
-    let t = 1 - c;
+    let s = sin(angle)
+    let c = cos(angle)
+    let t = 1 - c
 
     let
         (a00, a01, a02, a03) = (mat[0], mat[1], mat[2], mat[3])
@@ -497,16 +515,16 @@ proc rotate*(mat: Matrix4, angle: Coord, axis: Vector3, dest: var Matrix4) =
         (b20, b21, b22) = (x * z * t + y * s,   y * z * t - x * s,   z * z * t + c)
 
     # If the source and destination differ, copy the unchanged last row
-    dest[12] = mat[12];
-    dest[13] = mat[13];
-    dest[14] = mat[14];
-    dest[15] = mat[15];
+    dest[12] = mat[12]
+    dest[13] = mat[13]
+    dest[14] = mat[14]
+    dest[15] = mat[15]
 
     # Perform rotation-specific matrix multiplication
-    dest[0] = a00 * b00 + a10 * b01 + a20 * b02;
-    dest[1] = a01 * b00 + a11 * b01 + a21 * b02;
-    dest[2] = a02 * b00 + a12 * b01 + a22 * b02;
-    dest[3] = a03 * b00 + a13 * b01 + a23 * b02;
+    dest[0] = a00 * b00 + a10 * b01 + a20 * b02
+    dest[1] = a01 * b00 + a11 * b01 + a21 * b02
+    dest[2] = a02 * b00 + a12 * b01 + a22 * b02
+    dest[3] = a03 * b00 + a13 * b01 + a23 * b02
 
     dest[4] = a00 * b10 + a10 * b11 + a20 * b12;
     dest[5] = a01 * b10 + a11 * b11 + a21 * b12;
