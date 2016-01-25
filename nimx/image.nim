@@ -117,8 +117,7 @@ proc initWithResource*(i: SelfContainedImage, name: string) =
 proc imageWithResource*(name: string): SelfContainedImage =
     result = SelfContainedImage(imageCache.getOrDefault(name))
     if result.isNil:
-        if warnWhenResourceNotCached:
-            logi "WARNING: Image not found in cache: ", name
+        resourceNotCached(name)
         result.new()
         result.initWithResource(name)
 

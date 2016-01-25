@@ -147,8 +147,7 @@ proc loadResourceAsync*(resourceName: string, handler: proc(s: Stream)) =
 proc loadJsonResourceAsync*(resourceName: string, handler: proc(j: JsonNode)) =
     let j = gResCache.jsons.getOrDefault(resourceName)
     if j.isNil:
-        if warnWhenResourceNotCached:
-            logi "WARNING: Resource not loaded: ", resourceName
+        resourceNotCached(resourceName)
         when defined js:
             let reqListener = proc(data: ref RootObj) =
                 var jsonstring = cast[cstring](data)
