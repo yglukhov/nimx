@@ -1,6 +1,7 @@
 import math
 import macros
 import algorithm
+import system_logger
 
 type LoopPattern* = enum
     lpStartToEndToStart
