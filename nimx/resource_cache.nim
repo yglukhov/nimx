@@ -35,6 +35,8 @@ type ResourceLoaderProc* = proc(name: string, completionCallback: proc())
 
 var resourcePreloaders = newSeq[tuple[fileExtensions: seq[string], loader: ResourceLoaderProc]]()
 
+var gTextResCache = initResourceCache[string]()
+
 proc startPreloadingResource(ld: ResourceLoader, name: string) =
     let extension = name.getFileExtension()
 
@@ -53,7 +55,7 @@ proc registerResourcePreloader*(fileExtensions: openarray[string], loader: Resou
 
 registerResourcePreloader(["json", "zsm"], proc(name: string, callback: proc()) =
     loadJsonResourceAsync(name, proc(j: JsonNode) =
-        gResCache.jsons[name] = j
+        gJsonResCache.registerResource(name, j)
         callback()
     )
 )
@@ -61,14 +63,14 @@ registerResourcePreloader(["json", "zsm"], proc(name: string, callback: proc()) 
 registerResourcePreloader(["obj", "txt"], proc(name: string, callback: proc()) =
     when defined(js):
         proc handler(r: ref RootObj) =
-            var jsonstring = cast[cstring](r)
-            gResCache.texts[name] = $jsonstring
+            var text = cast[cstring](r)
+            gTextResCache.registerResource(name, $text)
             callback()
 
         loadJSResourceAsync(name, "text", nil, nil, handler)
     else:
         loadResourceAsync name, proc(s: Stream) =
-            gResCache.texts[name] = s.readAll()
+            gTextResCache.registerResource(name, s.readAll())
             s.close()
             callback()
 )

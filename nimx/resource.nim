@@ -13,18 +13,54 @@ else:
     include "system/inclrtl"
     include ospaths
 
-type
-    ResourceCache* = ref object
-        jsons*: Table[string, JsonNode]
-        texts*: Table[string, string]
+type ResourceCache*[T] = object
+    cache: Table[string, T]
 
-proc newResourceCache*(): ResourceCache =
-    result.new()
-    result.jsons = initTable[string, JsonNode]()
-    result.texts = initTable[string, string]()
+proc initResourceCache*[T](): ResourceCache[T] =
+    result.cache = initTable[string, T]()
 
-var gResCache* = newResourceCache()
+proc pathForResource*(name: string): string
 
+template registerResource*[T](c: var ResourceCache[T], name: string, r: T) =
+    c.cache[pathForResource(name)] = r
+
+proc normalizePath(path: var string) =
+    let ln = path.len
+    var j = 0
+    var i = 0
+
+    template isSep(c: char): bool = c == '/' or c == '\\'
+    template rollback() =
+        dec j
+        if j < 0:
+            raise newException(Exception, "Path is too relative: " & path)
+        while j > 0:
+            if path[j].isSep: break
+            dec j
+
+    while i < ln:
+        var copyChar = true
+        if path[i].isSep:
+            if ln > i + 1:
+                if path[i + 1] == '.':
+                    if ln > i + 2:
+                        if path[i + 2] == '.':
+                            rollback()
+                            copyChar = false
+                            i += 3
+                        elif path[i + 2].isSep:
+                            copyChar = false
+                            i += 2
+        if copyChar:
+            path[j] = path[i]
+            inc j
+            inc i
+    path.setLen(j)
+
+template get*[T](c: var ResourceCache[T], name: string): T =
+    c.cache.getOrDefault(pathForResource(name))
+
+var gJsonResCache* = initResourceCache[JsonNode]()
 
 var warnWhenResourceNotCached* = false
 
@@ -34,20 +70,19 @@ proc resourceNotCached*(name: string) =
 
 var parentResources = newSeq[string]()
 
-proc pathForResource*(name: string): string
-
 proc pushParentResource*(name: string) =
     parentResources.add(pathForResource(name).parentDir)
 
 proc popParentResource*() =
     parentResources.setLen(parentResources.len - 1)
 
-proc pathForResource*(name: string): string =
+proc pathForResourceAux(name: string): string =
     when defined(js):
         if name[0] == '/': return name # Absolute
     else:
         if name.isAbsolute: return name
-    if parentResources.len > 0: return parentResources[^1] / name
+    if parentResources.len > 0:
+        return parentResources[^1] / name
 
     when defined(android):
         result = name
@@ -64,6 +99,11 @@ proc pathForResource*(name: string): string =
         result = appDir / "resources" / name
         if fileExists(result): return
         result = nil
+
+proc pathForResource*(name: string): string =
+    result = pathForResourceAux(name)
+    if not result.isNil:
+        result.normalizePath()
 
 when not defined(js):
     type
@@ -145,7 +185,7 @@ proc loadResourceAsync*(resourceName: string, handler: proc(s: Stream)) =
         handler(streamForResourceWithName(resourceName))
 
 proc loadJsonResourceAsync*(resourceName: string, handler: proc(j: JsonNode)) =
-    let j = gResCache.jsons.getOrDefault(resourceName)
+    let j = gJsonResCache.get(resourceName)
     if j.isNil:
         resourceNotCached(resourceName)
         when defined js:

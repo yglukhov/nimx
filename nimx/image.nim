@@ -29,10 +29,7 @@ type
         spriteSheet*: Image
         mSubRect: Rect
 
-var imageCache = initTable[string, Image]()
-
-proc registerImageInCache*(name: string, i: Image) =
-    imageCache[name] = i
+var imageCache = initResourceCache[Image]()
 
 template setupTexParams(gl: GL) =
     gl.generateMipmap(gl.TEXTURE_2D)
@@ -115,7 +112,7 @@ proc initWithResource*(i: SelfContainedImage, name: string) =
         stbi_image_free(bitmap)
 
 proc imageWithResource*(name: string): SelfContainedImage =
-    result = SelfContainedImage(imageCache.getOrDefault(name))
+    result = SelfContainedImage(imageCache.get(name))
     if result.isNil:
         resourceNotCached(name)
         result.new()
@@ -311,7 +308,7 @@ registerResourcePreloader(["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga"], p
                 {.emit: "`w` = im.width; `h` = im.height;".}
                 let image = imageWithSize(newSize(w, h))
                 {.emit: "`image`.__image = im;".}
-                registerImageInCache(name, image)
+                imageCache.registerResource(name, image)
                 callback()
             {.emit:"""
             var im = new Image();
@@ -321,6 +318,6 @@ registerResourcePreloader(["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga"], p
 
         loadJSResourceAsync(name, "blob", nil, nil, handler)
     else:
-        registerImageInCache(name, imageWithResource(name))
+        imageCache.registerResource(name, imageWithResource(name))
         callback()
 )
