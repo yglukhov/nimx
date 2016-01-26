@@ -38,6 +38,8 @@ proc normalizePath(path: var string) =
             if path[j].isSep: break
             dec j
 
+    var isabs = path[0].isSep
+
     while i < ln:
         var copyChar = true
         if path[i].isSep:
@@ -48,6 +50,7 @@ proc normalizePath(path: var string) =
                             rollback()
                             copyChar = false
                             i += 3
+                            if j == 0: inc i
                         elif path[i + 2].isSep:
                             copyChar = false
                             i += 2
@@ -57,12 +60,15 @@ proc normalizePath(path: var string) =
             inc i
     path.setLen(j)
 
+var warnWhenResourceNotCached* = false
+
 template get*[T](c: var ResourceCache[T], name: string): T =
-    c.cache.getOrDefault(pathForResource(name))
+    let r = c.cache.getOrDefault(pathForResource(name))
+    if r.isNil and warnWhenResourceNotCached:
+        logi "WARNING: Resource not cached: ", name, "(", pathForResource(name), ")"
+    r
 
 var gJsonResCache* = initResourceCache[JsonNode]()
-
-var warnWhenResourceNotCached* = false
 
 proc resourceNotCached*(name: string) =
     if warnWhenResourceNotCached:
