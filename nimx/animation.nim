@@ -1,6 +1,7 @@
 import math
 import macros
 import algorithm
+import system_logger
 
 type LoopPattern* = enum
     lpStartToEndToStart
@@ -34,6 +35,7 @@ type Animation* = ref object of RootObj
 
 proc newAnimation*(): Animation =
     result.new()
+    result.startTime = -1
     result.numberOfLoops = -1
     result.loopDuration = 1.0
     result.loopPattern = lpStartToEnd
@@ -135,7 +137,11 @@ proc tick*(a: Animation, curTime: float) =
         if not a.totalProgressHandlers.isNil and a.tphIt < a.totalProgressHandlers.len:
             processRemainingHandlersInLoop(a.totalProgressHandlers, a.tphIt, stopped=true)
 
-proc cancel*(a: Animation) = a.cancelLoop = a.curLoop
+proc cancel*(a: Animation) =
+    if a.startTime < 0:
+        logi "Animation was not played before cancelling!"
+    a.cancelLoop = a.curLoop
+
 proc isCancelled*(a: Animation): bool = a.cancelLoop != -1
 
 proc onComplete*(a: Animation, p: proc()) =
