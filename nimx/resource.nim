@@ -38,8 +38,6 @@ proc normalizePath(path: var string) =
             if path[j].isSep: break
             dec j
 
-    var isabs = path[0].isSep
-
     while i < ln:
         var copyChar = true
         if path[i].isSep:
@@ -56,6 +54,11 @@ proc normalizePath(path: var string) =
                             i += 2
         if copyChar:
             path[j] = path[i]
+            when defined(windows):
+                if path[j] == '/': path[j] = '\\'
+            else:
+                if path[j] == '\\': path[j] = '/'
+
             inc j
             inc i
     path.setLen(j)
