@@ -29,6 +29,11 @@ type
         spriteSheet*: Image
         mSubRect: Rect
 
+    FixedTexCoordSpriteImage* = ref object of Image
+        spriteSheet: Image
+        mSize: Size
+        texCoords: array[4, GLfloat]
+
 var imageCache = initResourceCache[Image]()
 
 template setupTexParams(gl: GL) =
@@ -178,6 +183,7 @@ method isLoaded*(i: SelfContainedImage): bool =
         result = true
 
 method isLoaded*(i: SpriteImage): bool = i.spriteSheet.isLoaded
+method isLoaded*(i: FixedTexCoordSpriteImage): bool = i.spriteSheet.isLoaded
 
 method getTextureQuad*(i: Image, gl: GL, texCoords: var array[4, GLfloat]): TextureRef {.base.} =
     raise newException(Exception, "Abstract method called!")
@@ -230,6 +236,7 @@ method getTextureQuad*(i: SelfContainedImage, gl: GL, texCoords: var array[4, GL
 method size*(i: Image): Size {.base.} = discard
 method size*(i: SelfContainedImage): Size = i.mSize
 method size*(i: SpriteImage): Size = i.mSubRect.size
+method size*(i: FixedTexCoordSpriteImage): Size = i.mSize
 
 method getTextureQuad*(i: SpriteImage, gl: GL, texCoords: var array[4, GLfloat]): TextureRef =
     result = i.spriteSheet.getTextureQuad(gl, texCoords)
@@ -243,10 +250,23 @@ method getTextureQuad*(i: SpriteImage, gl: GL, texCoords: var array[4, GLfloat])
     texCoords[2] = s0 + (s1 - s0) * (i.mSubRect.maxX / superSize.width)
     texCoords[3] = t0 + (t1 - t0) * (i.mSubRect.maxY / superSize.height)
 
+method getTextureQuad*(i: FixedTexCoordSpriteImage, gl: GL, texCoords: var array[4, GLfloat]): TextureRef =
+    result = i.spriteSheet.getTextureQuad(gl, texCoords)
+    texCoords[0] = i.texCoords[0]
+    texCoords[1] = i.texCoords[1]
+    texCoords[2] = i.texCoords[2]
+    texCoords[3] = i.texCoords[3]
+
 proc subimageWithRect*(i: Image, r: Rect): SpriteImage =
     result.new()
     result.spriteSheet = i
     result.mSubRect = r
+
+proc subimageWithTexCoords*(i: Image, s: Size, texCoords: array[4, GLfloat]): FixedTexCoordSpriteImage =
+    result.new()
+    result.spriteSheet = i
+    result.mSize = s
+    result.texCoords = texCoords
 
 proc imageNamed*(s: SpriteSheet, name: string): SpriteImage =
     if not s.images.isNil:
