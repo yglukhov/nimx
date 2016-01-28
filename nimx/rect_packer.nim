@@ -5,11 +5,14 @@ type RectPacker* = ref object
     c1, c2: RectPacker
     rect: Rect
     occupied: bool
+    maxX*, maxY*: int32
 
 proc newPacker*(width, height: int32): RectPacker =
     result.new()
     result.rect.width = width
     result.rect.height = height
+    result.maxX = -1
+    result.maxY = -1
 
 type Point = tuple[x, y: int32]
 
@@ -58,20 +61,23 @@ proc packAndGrow*(p: var RectPacker, width, height: int32): Point =
         result = p.pack(width, height)
         if result.hasSpace: break
         var newP : RectPacker
-        if p.width < p.height:
+        if p.width < p.height and (p.maxX == -1 or p.maxX >= p.width * 2):
             newP = newPacker(p.width * 2, p.height)
             newP.c2.new()
             newP.c2.rect.x = p.width
             newP.c2.rect.width = p.width
             newP.c2.rect.y = 0
             newP.c2.rect.height = p.height
-        else:
+        elif p.maxY == -1 or p.maxY >= p.height * 2:
             newP = newPacker(p.width, p.height * 2)
             newP.c2.new()
             newP.c2.rect.x = 0
             newP.c2.rect.width = p.width
             newP.c2.rect.y = p.height
             newP.c2.rect.height = p.height
+        else:
+            break
+        newP.maxX = p.maxX
+        newP.maxY = p.maxY
         newP.c1 = p
         p = newP
-
