@@ -38,12 +38,12 @@ proc fps(): int =
 
 method drawWindow*(w: Window) {.base.} =
     w.needsDisplay = false
-    let c = currentContext()
-    var pt = newPoint(w.frame.width - 80, 2)
-    c.fillColor = blackColor()
-    c.drawText(systemFont(), pt, "FPS: " & $fps())
 
     w.recursiveDrawSubviews()
+    let c = currentContext()
+    var pt = newPoint(w.frame.width - 80, 2)
+    c.fillColor = newColor(1, 0, 0, 1)
+    c.drawText(systemFont(), pt, "FPS: " & $fps())
 
 method enableAnimation*(w: Window, flag: bool) {.base.} = discard
 
