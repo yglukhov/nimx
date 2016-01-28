@@ -20,10 +20,7 @@ when defined js:
             VERTEX_SHADER* : GLenum
             FRAGMENT_SHADER* : GLenum
             TEXTURE_2D* : GLenum
-            ONE_MINUS_SRC_ALPHA* : GLenum
-            ONE_MINUS_DST_ALPHA* : GLenum
-            SRC_ALPHA* : GLenum
-            DST_ALPHA* : GLenum
+            ONE_MINUS_SRC_ALPHA*, ONE_MINUS_DST_ALPHA*, SRC_ALPHA*, DST_ALPHA*, ONE* : GLenum
             BLEND* : GLenum
             TRIANGLES*, TRIANGLE_FAN*, TRIANGLE_STRIP* : GLenum
             COLOR_BUFFER_BIT*: int
@@ -143,6 +140,7 @@ else:
     template ONE_MINUS_DST_ALPHA*(gl: GL): GLenum = GL_ONE_MINUS_DST_ALPHA
     template SRC_ALPHA*(gl: GL): GLenum = GL_SRC_ALPHA
     template DST_ALPHA*(gl: GL): GLenum = GL_DST_ALPHA
+    template ONE*(gl: GL): GLenum = GL_ONE
     template BLEND*(gl: GL): GLenum = GL_BLEND
     template TRIANGLES*(gl: GL): GLenum = GL_TRIANGLES
     template TRIANGLE_FAN*(gl: GL): GLenum = GL_TRIANGLE_FAN
