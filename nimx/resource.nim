@@ -28,9 +28,10 @@ template registerResource*[T](c: var ResourceCache[T], name: string, r: T) =
 var warnWhenResourceNotCached* = false
 
 template get*[T](c: var ResourceCache[T], name: string): T =
-    let r = c.cache.getOrDefault(pathForResource(name))
+    let p = pathForResource(name)
+    let r = c.cache.getOrDefault(p)
     if r.isNil and warnWhenResourceNotCached:
-        logi "WARNING: Resource not cached: ", name, "(", pathForResource(name), ")"
+        logi "WARNING: Resource not cached: ", name, "(", if p.isNil: "nil" else: p, ")"
     r
 
 var gJsonResCache* = initResourceCache[JsonNode]()
@@ -158,7 +159,6 @@ proc loadResourceAsync*(resourceName: string, handler: proc(s: Stream)) =
 proc loadJsonResourceAsync*(resourceName: string, handler: proc(j: JsonNode)) =
     let j = gJsonResCache.get(resourceName)
     if j.isNil:
-        resourceNotCached(resourceName)
         when defined js:
             let reqListener = proc(data: ref RootObj) =
                 var jsonstring = cast[cstring](data)
