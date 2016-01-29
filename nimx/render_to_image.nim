@@ -55,9 +55,13 @@ proc draw*(i: Image, drawProc: proc()) =
 
     gl.disable(gl.STENCIL_TEST)
 
-    # The coordinate system is flipped vertically. The following ortho is a hack. Why??
-    currentContext().withTransform ortho(0, i.size.width, 0, i.size.height, -1, 1):
+    currentContext().withTransform ortho(0, i.size.width, i.size.height, 0, -1, 1):
         drawProc()
+
+    # OpenGL framebuffer coordinate system is flipped comparing to how we load
+    # and handle the rest of images. Compansate for that by flipping texture
+    # coords here.
+    swap(sci.texCoords[1], sci.texCoords[3])
 
     gl.clearColor(oldClearColor[0], oldClearColor[1], oldClearColor[2], oldClearColor[3])
 

@@ -18,7 +18,7 @@ type Image* = ref object of RootObj
 type SelfContainedImage* = ref object of Image
     texture*: TextureRef
     mSize: Size
-    sizeInTexels: Size
+    texCoords*: array[4, GLfloat]
     framebuffer*: FramebufferRef
 
 type
@@ -64,8 +64,8 @@ when not defined js:
 
         var pixelData = data
 
-        i.sizeInTexels.width = 1.0
-        i.sizeInTexels.height = 1.0
+        i.texCoords[2] = 1.0
+        i.texCoords[3] = 1.0
 
         if texWidth != x or texHeight != y:
             let texRowWidth = texWidth * comp
@@ -74,8 +74,8 @@ when not defined js:
             for row in 0 .. <y:
                 copyMem(offset(newData, row * texRowWidth), offset(data, row * rowWidth), rowWidth)
             pixelData = cast[ptr uint8](newData)
-            i.sizeInTexels.width = x.Coord / texWidth.Coord
-            i.sizeInTexels.height = y.Coord / texHeight.Coord
+            i.texCoords[2] = x.Coord / texWidth.Coord
+            i.texCoords[3] = y.Coord / texHeight.Coord
 
         glTexImage2D(GL_TEXTURE_2D, 0, format.cint, texWidth.GLsizei, texHeight.GLsizei, 0, format.GLenum, GL_UNSIGNED_BYTE, cast[pointer] (pixelData))
         setupTexParams(nil)
@@ -173,8 +173,8 @@ proc imageWithSize*(size: Size): SelfContainedImage =
     result.mSize = size
     let texWidth = if isPowerOfTwo(size.width.int): size.width.int else: nextPowerOfTwo(size.width.int)
     let texHeight = if isPowerOfTwo(size.height.int): size.height.int else: nextPowerOfTwo(size.height.int)
-    result.sizeInTexels.width = size.width / texWidth.Coord
-    result.sizeInTexels.height = size.height / texHeight.Coord
+    result.texCoords[2] = size.width / texWidth.Coord
+    result.texCoords[3] = size.height / texHeight.Coord
 
 method isLoaded*(i: Image): bool {.base.} = false
 
@@ -216,8 +216,8 @@ method getTextureQuad*(i: SelfContainedImage, gl: GL, texCoords: var array[4, GL
                 let texHeight = if isPowerOfTwo(height.int): height.int else: nextPowerOfTwo(height.int)
                 i.mSize.width = width
                 i.mSize.height = height
-                i.sizeInTexels.width = width / texWidth.Coord
-                i.sizeInTexels.height = height / texHeight.Coord
+                i.texCoords[2] = width / texWidth.Coord
+                i.texCoords[3] = height / texHeight.Coord
                 if texWidth != width.int or texHeight != height.int:
                     asm """
                     var canvas = document.createElement('canvas');
@@ -231,10 +231,10 @@ method getTextureQuad*(i: SelfContainedImage, gl: GL, texCoords: var array[4, GL
                 else:
                     asm "`gl`.texImage2D(`gl`.TEXTURE_2D, 0, `gl`.RGBA, `gl`.RGBA, `gl`.UNSIGNED_BYTE, `i`.__image);"
                 setupTexParams(gl)
-    texCoords[0] = 0
-    texCoords[1] = 0
-    texCoords[2] = i.sizeInTexels.width
-    texCoords[3] = i.sizeInTexels.height
+    texCoords[0] = i.texCoords[0]
+    texCoords[1] = i.texCoords[1]
+    texCoords[2] = i.texCoords[2]
+    texCoords[3] = i.texCoords[3]
     result = i.texture
 
 method size*(i: Image): Size {.base.} = discard
