@@ -417,9 +417,9 @@ proc getQuadDataForRune*(f: Font, r: Rune, quad: var array[16, Coord], texture: 
     t0 /= chunk.texHeight.Coord
 
     quad[0] = x0; quad[1] = y0; quad[2] = s0; quad[3] = t0
-    quad[4] = x1; quad[5] = y0; quad[6] = s1; quad[7] = t0
+    quad[4] = x0; quad[5] = y1; quad[6] = s0; quad[7] = t1
     quad[8] = x1; quad[9] = y1; quad[10] = s1; quad[11] = t1
-    quad[12] = x0; quad[13] = y1; quad[14] = s0; quad[15] = t1
+    quad[12] = x1; quad[13] = y0; quad[14] = s1; quad[15] = t0
     pt.x += charComp(compAdvance).Coord * f.scale
     texture = chunk.texture
 
