@@ -313,9 +313,14 @@ when not defined js:
 
 var sysFont : Font
 
-const preferredFonts = when defined(macosx) or defined(js) or defined(windows):
+const preferredFonts = when defined(js) or defined(windows):
         [
             "Arial"
+        ]
+    elif defined(macosx):
+        [
+            "Arial",
+            "Arial Unicode"
         ]
     elif defined(android):
         [
