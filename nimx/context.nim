@@ -214,6 +214,7 @@ proc drawText*(c: GraphicsContext, font: Font, pt: var Point, text: string) =
     # assume orthographic projection with units = screen pixels, origin at top left
     c.gl.useProgram(c.fontShaderProgram)
     c.setFillColorUniform(c.fontShaderProgram)
+    c.gl.activeTexture(c.gl.TEXTURE0)
 
     c.gl.enableVertexAttribArray(saPosition.GLuint)
     c.setTransformUniform(c.fontShaderProgram)
