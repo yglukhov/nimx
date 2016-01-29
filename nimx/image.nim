@@ -281,6 +281,9 @@ proc imageNamed*(s: SpriteSheet, name: string): SpriteImage =
         if s.images.isNil: s.images = newTable[string, SpriteImage]()
         s.images[name] = result
 
+template flipVertically*(i: SelfContainedImage) =
+    swap(i.texCoords[1], i.texCoords[3])
+
 type ImageFileFormat = enum tga, hdr, bmp, png
 
 proc writeToFile(i: Image, path: string, format: ImageFileFormat) =

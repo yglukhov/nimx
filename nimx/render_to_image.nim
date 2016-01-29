@@ -45,7 +45,7 @@ proc draw*(i: Image, drawProc: proc()) =
     let sci = SelfContainedImage(i)
     if sci.isNil:
         raise newException(Exception, "Not implemented: Can draw only to SelfContainedImage")
-    bindFramebuffer(gl, sci)
+    gl.bindFramebuffer(sci)
 
     gl.viewport(0, 0, i.size.width.GLsizei, i.size.height.GLsizei)
     gl.stencilMask(0xFF) # Android requires setting stencil mask to clear
@@ -59,9 +59,9 @@ proc draw*(i: Image, drawProc: proc()) =
         drawProc()
 
     # OpenGL framebuffer coordinate system is flipped comparing to how we load
-    # and handle the rest of images. Compansate for that by flipping texture
+    # and handle the rest of images. Compensate for that by flipping texture
     # coords here.
-    swap(sci.texCoords[1], sci.texCoords[3])
+    sci.flipVertically()
 
     gl.clearColor(oldClearColor[0], oldClearColor[1], oldClearColor[2], oldClearColor[3])
 
