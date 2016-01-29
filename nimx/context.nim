@@ -118,6 +118,9 @@ proc newGraphicsContext*(canvas: ref RootObj = nil): GraphicsContext =
     result.gl.clearColor(0.93, 0.93, 0.93, 0.0)
     result.alpha = 1.0
 
+    result.gl.enable(result.gl.BLEND)
+    result.gl.blendFunc(result.gl.SRC_ALPHA, result.gl.ONE_MINUS_SRC_ALPHA)
+
 proc setCurrentContext*(c: GraphicsContext): GraphicsContext {.discardable.} =
     result = gCurrentContext
     gCurrentContext = c
@@ -127,37 +130,36 @@ template currentContext*(): GraphicsContext = gCurrentContext
 proc setTransformUniform*(c: GraphicsContext, program: GLuint) =
     c.gl.uniformMatrix4fv(c.gl.getUniformLocation(program, "modelViewProjectionMatrix"), false, c.transform)
 
-proc setColorUniform*(c: GraphicsContext, program: GLuint, name: cstring, color: Color) =
-    let loc = c.gl.getUniformLocation(program, name)
+proc setColorUniform*(c: GraphicsContext, loc: GLint, color: Color) =
     when defined js:
         c.gl.uniform4fv(loc, [color.r, color.g, color.b, color.a * c.alpha])
     else:
         var arr = [color.r, color.g, color.b, color.a * c.alpha]
         glUniform4fv(loc, 1, addr arr[0]);
 
+proc setColorUniform*(c: GraphicsContext, program: GLuint, name: cstring, color: Color) =
+    c.setColorUniform(c.gl.getUniformLocation(program, name), color)
+
 template setFillColorUniform(c: GraphicsContext, program: GLuint) =
     c.setColorUniform(program, "fillColor", c.fillColor)
 
-proc setRectUniform*(c: GraphicsContext, prog: GLuint, name: cstring, r: Rect) =
-    let loc = c.gl.getUniformLocation(prog, name)
+proc setRectUniform*(c: GraphicsContext, loc: GLint, r: Rect) =
     when defined js:
         c.gl.uniform4fv(loc, [r.x, r.y, r.width, r.height])
     else:
         glUniform4fv(loc, 1, cast[ptr GLfloat](unsafeAddr r));
 
-proc setPointUniform*(c: GraphicsContext, prog: GLuint, name: cstring, r: Point) =
-    let loc = c.gl.getUniformLocation(prog, name)
+template setRectUniform*(c: GraphicsContext, prog: GLuint, name: cstring, r: Rect) =
+    c.setRectUniform(c.gl.getUniformLocation(prog, name), r)
+
+proc setPointUniform*(c: GraphicsContext, loc: GLint, r: Point) =
     when defined js:
         c.gl.uniform2fv(loc, [r.x, r.y])
     else:
         glUniform2fv(loc, 1, cast[ptr GLfloat](unsafeAddr r));
 
-proc setStrokeParamsUniform(c: GraphicsContext, program: GLuint) =
-    if c.strokeWidth == 0:
-        c.setColorUniform(program, "strokeColor", c.fillColor)
-    else:
-        c.setColorUniform(program, "strokeColor", c.strokeColor)
-    c.gl.uniform1f(c.gl.getUniformLocation(program, "strokeWidth"), c.strokeWidth)
+template setPointUniform*(c: GraphicsContext, prog: GLuint, name: cstring, r: Point) =
+    c.setPointUniform(c.gl.getUniformLocation(prog, name), r)
 
 import composition
 

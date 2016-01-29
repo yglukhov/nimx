@@ -249,6 +249,7 @@ const vertexShaderCode = getGLSLVertexShader(vertexShader)
 type Composition* = object
     program*: GLuint
     definition, fragShader: string
+    uniformLocations: array[10, GLint]
 
 const posAttr : GLuint = 0
 
@@ -257,6 +258,22 @@ proc replaceSymbolsInLine(syms: openarray[string], ln: string): string {.compile
     for s in syms:
         result = result.replaceWord(s & ".tex", s & "_tex")
         result = result.replaceWord(s & ".texCoords", s & "_texCoords")
+
+proc uniforNamesFromShaderCode(code: string): seq[string] =
+    result = newSeq[string]()
+    var loc = 0
+    while true:
+        const prefix = "uniform "
+        loc = code.find(prefix, loc)
+        if loc < 0: break
+        loc += prefix.len
+        loc = code.find(" ", loc)
+        if loc < 0: break
+        inc loc
+        let e = code.find(";", loc)
+        if e < 0: break
+        result.add(code.substr(loc, e - 1))
+        loc = e
 
 proc preprocessDefinition(definition: string): string {.compileTime.} =
     result = ""
@@ -278,12 +295,14 @@ proc newComposition*(definition: static[string]): Composition =
     result.definition = preprocessedDefinition
 
 proc compileComposition*(gl: GL, comp: var Composition) =
+    for i in 0 ..< comp.uniformLocations.len: comp.uniformLocations[i] = -1
+
     var fragmentShaderCode = comp.fragShader
     if fragmentShaderCode.len == 0:
         fragmentShaderCode = """
 #ifdef GL_ES
 #extension GL_OES_standard_derivatives : enable
-precision mediump float;
+precision highp float;
 #endif
 varying vec2 vPos;
 uniform vec4 bounds;
@@ -325,35 +344,43 @@ template draw*(comp: var Composition, r: Rect, code: untyped): stmt =
     let componentCount : GLint= 2
     gl.enableVertexAttribArray(posAttr)
     gl.vertexAttribPointer(posAttr, componentCount, false, 0, points)
-    gl.uniformMatrix4fv(gl.getUniformLocation(comp.program, "uModelViewProjectionMatrix"), false, ctx.transform)
+    var iUniform = -1
+
+    template uniformLocation(name: string): GLint =
+        inc iUniform
+        if comp.uniformLocations[iUniform] == -1:
+            comp.uniformLocations[iUniform] = gl.getUniformLocation(comp.program, name)
+        comp.uniformLocations[iUniform]
+
+    gl.uniformMatrix4fv(uniformLocation("uModelViewProjectionMatrix"), false, ctx.transform)
 
     # Do we need it here?
     #gl.enable(c.gl.BLEND)
     #gl.blendFunc(c.gl.SRC_ALPHA, c.gl.ONE_MINUS_SRC_ALPHA)
 
     template setUniform(name: string, v: Rect) {.hint[XDeclaredButNotUsed]: off.} =
-        ctx.setRectUniform(comp.program, name, v)
+        ctx.setRectUniform(uniformLocation(name), v)
 
     template setUniform(name: string, v: Point) {.hint[XDeclaredButNotUsed]: off.} =
-        ctx.setPointUniform(comp.program, name, v)
+        ctx.setPointUniform(uniformLocation(name), v)
 
     template setUniform(name: string, v: Size) {.hint[XDeclaredButNotUsed]: off.} =
         setUniform(name, newPoint(v.width, v.height))
 
     template setUniform(name: string, v: openarray[Point]) {.hint[XDeclaredButNotUsed]: off.} =
         when defined(js):
-            gl.uniform2fv(gl.getUniformLocation(comp.program, name), unwrapPointArray(v))
+            gl.uniform2fv(uniformLocation(name), unwrapPointArray(v))
         else:
-            gl.uniform2fv(gl.getUniformLocation(comp.program, name), GLsizei(v.len), cast[ptr GLfloat](unsafeAddr v[0]))
+            gl.uniform2fv(uniformLocation(name), GLsizei(v.len), cast[ptr GLfloat](unsafeAddr v[0]))
 
     template setUniform(name: string, v: Color) {.hint[XDeclaredButNotUsed]: off.} =
-        ctx.setColorUniform(comp.program, name, v)
+        ctx.setColorUniform(uniformLocation(name), v)
 
     template setUniform(name: string, v: GLfloat) {.hint[XDeclaredButNotUsed]: off.}  =
-        gl.uniform1f(gl.getUniformLocation(comp.program, name), v)
+        gl.uniform1f(uniformLocation(name), v)
 
     template setUniform(name: string, v: GLint) {.hint[XDeclaredButNotUsed]: off.}  =
-        gl.uniform1i(gl.getUniformLocation(comp.program, name), v)
+        gl.uniform1i(uniformLocation(name), v)
 
     var texIndex : GLint
     var theQuad {.noinit.}: array[4, GLfloat]
@@ -361,8 +388,8 @@ template draw*(comp: var Composition, r: Rect, code: untyped): stmt =
     template setUniform(name: string, i: Image) {.hint[XDeclaredButNotUsed]: off.} =
         gl.activeTexture(gl.TEXTURE0 + texIndex.GLenum)
         gl.bindTexture(gl.TEXTURE_2D, getTextureQuad(i, gl, theQuad))
-        gl.uniform4fv(gl.getUniformLocation(comp.program, name & "_texCoords"), theQuad)
-        gl.uniform1i(gl.getUniformLocation(comp.program, name & "_tex"), texIndex)
+        gl.uniform4fv(uniformLocation(name & "_texCoords"), theQuad)
+        gl.uniform1i(uniformLocation(name & "_tex"), texIndex)
         inc texIndex
 
     setUniform("bounds", r)
