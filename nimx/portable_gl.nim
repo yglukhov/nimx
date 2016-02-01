@@ -474,3 +474,9 @@ proc getClearColor*(gl: GL, colorComponents: var array[4, GLfloat]) =
         """
     else:
         glGetFloatv(GL_COLOR_CLEAR_VALUE, cast[ptr GLfloat](addr colorComponents))
+
+proc clearWithColor*(gl: GL, r, g, b, a: GLfloat) =
+    var oldColor: array[4, GLfloat]
+    gl.getClearColor(oldColor)
+    gl.clear(gl.COLOR_BUFFER_BIT or gl.STENCIL_BUFFER_BIT or gl.DEPTH_BUFFER_BIT)
+    gl.clearColor(oldColor[0], oldColor[1], oldColor[2], oldColor[3])
