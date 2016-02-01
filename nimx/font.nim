@@ -346,6 +346,7 @@ const fontSearchPaths = when defined(macosx):
         ]
     else:
         [
+            "/usr/share/fonts/truetype",
             "/usr/share/fonts/truetype/ubuntu-font-family",
             "/usr/share/fonts/TTF",
             "/usr/share/fonts/truetype/dejavu"
