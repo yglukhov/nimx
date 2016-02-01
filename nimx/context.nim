@@ -121,6 +121,9 @@ proc newGraphicsContext*(canvas: ref RootObj = nil): GraphicsContext =
     result.gl.enable(result.gl.BLEND)
     result.gl.blendFunc(result.gl.SRC_ALPHA, result.gl.ONE_MINUS_SRC_ALPHA)
 
+    result.gl.enable(result.gl.CULL_FACE)
+    result.gl.cullFace(result.gl.BACK)
+
 proc setCurrentContext*(c: GraphicsContext): GraphicsContext {.discardable.} =
     result = gCurrentContext
     gCurrentContext = c
