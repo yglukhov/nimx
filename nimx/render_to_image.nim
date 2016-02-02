@@ -4,7 +4,7 @@ import context
 import math
 import opengl
 
-proc bindFramebuffer*(gl: GL, i: SelfContainedImage) =
+proc bindFramebuffer*(gl: GL, i: SelfContainedImage, makeDepthAndStencil: bool = true) =
     if i.framebuffer.isEmpty:
         var texCoords : array[4, GLfloat]
         var texture = i.getTextureQuad(gl, texCoords)
@@ -23,13 +23,14 @@ proc bindFramebuffer*(gl: GL, i: SelfContainedImage) =
 
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA.GLint, texWidth.GLsizei, texHeight.GLsizei, 0, gl.RGBA, gl.UNSIGNED_BYTE, nil)
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0)
-        let depthBuffer = gl.createRenderbuffer()
-        gl.bindRenderbuffer(gl.RENDERBUFFER, depthBuffer)
+        if makeDepthAndStencil:
+            let depthBuffer = gl.createRenderbuffer()
+            gl.bindRenderbuffer(gl.RENDERBUFFER, depthBuffer)
 
-        let depthStencilFormat = when defined(js): gl.DEPTH_STENCIL else: gl.DEPTH24_STENCIL8
+            let depthStencilFormat = when defined(js): gl.DEPTH_STENCIL else: gl.DEPTH24_STENCIL8
 
-        gl.renderbufferStorage(gl.RENDERBUFFER, depthStencilFormat, texWidth.GLsizei, texHeight.GLsizei)
-        gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_STENCIL_ATTACHMENT, gl.RENDERBUFFER, depthBuffer)
+            gl.renderbufferStorage(gl.RENDERBUFFER, depthStencilFormat, texWidth.GLsizei, texHeight.GLsizei)
+            gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_STENCIL_ATTACHMENT, gl.RENDERBUFFER, depthBuffer)
     else:
         gl.bindFramebuffer(gl.FRAMEBUFFER, i.framebuffer)
 
