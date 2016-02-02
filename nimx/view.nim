@@ -174,10 +174,10 @@ proc drawWithinSuperview*(v: View) =
 
 method draw*(view: View, rect: Rect) {.base.} =
     let c = currentContext()
-    #c.fillColor = newGrayColor(0.93)
-    c.fillColor = view.backgroundColor
-    c.strokeWidth = 0
-    c.drawRect(view.bounds)
+    if view.backgroundColor.a > 0.001:
+        c.fillColor = view.backgroundColor
+        c.strokeWidth = 0
+        c.drawRect(view.bounds)
 
 proc drawSubviews(view: View) {.inline.} =
     # Assume current coordinate system is view
