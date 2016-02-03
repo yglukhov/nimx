@@ -414,11 +414,11 @@ proc vertexAttribPointer*(gl: GL, index: GLuint, size: GLint, normalized: GLbool
     when defined js:
         asm """
         var buf = null;
-        if (typeof(`vertexAttribPointer`.__nimxSharedBuffers) == "undefined")
+        if (`vertexAttribPointer`.__nimxSharedBuffers === undefined)
         {
             `vertexAttribPointer`.__nimxSharedBuffers = {};
         }
-        if (typeof(`vertexAttribPointer`.__nimxSharedBuffers[`index`]) == "undefined")
+        if (`vertexAttribPointer`.__nimxSharedBuffers[`index`] === undefined)
         {
             buf = `gl`.createBuffer();
             `vertexAttribPointer`.__nimxSharedBuffers[`index`] = buf;
@@ -429,7 +429,8 @@ proc vertexAttribPointer*(gl: GL, index: GLuint, size: GLint, normalized: GLbool
         }
 
         `gl`.bindBuffer(`gl`.ARRAY_BUFFER, buf);
-        `gl`.bufferData(`gl`.ARRAY_BUFFER, new Float32Array(`data`), `gl`.DYNAMIC_DRAW);
+        if (`data`.buffer === undefined) `data` = new Float32Array(`data`);
+        `gl`.bufferData(`gl`.ARRAY_BUFFER, `data`, `gl`.DYNAMIC_DRAW);
         """
         gl.vertexAttribPointer(index, size, gl.FLOAT, normalized, stride, 0)
     else:

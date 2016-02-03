@@ -338,11 +338,12 @@ template draw*(comp: var Composition, r: Rect, code: untyped): stmt =
     if comp.program == 0:
         gl.compileComposition(comp)
     gl.useProgram(comp.program)
-    var vertexex : array[8, GLfloat]
-    let points = [r.minX, r.minY,
-                r.minX, r.maxY,
-                r.maxX, r.maxY,
-                r.maxX, r.minY]
+    var points : array[8, GLfloat]
+    points[0] = r.minX; points[1] = r.minY
+    points[2] = r.minX; points[3] = r.maxY
+    points[4] = r.maxX; points[5] = r.maxY
+    points[6] = r.maxX; points[7] = r.minY
+
     let componentCount : GLint= 2
     gl.enableVertexAttribArray(posAttr)
     gl.vertexAttribPointer(posAttr, componentCount, false, 0, points)
