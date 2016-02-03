@@ -133,7 +133,7 @@ template currentContext*(): GraphicsContext = gCurrentContext
 proc setTransformUniform*(c: GraphicsContext, program: GLuint) =
     c.gl.uniformMatrix4fv(c.gl.getUniformLocation(program, "modelViewProjectionMatrix"), false, c.transform)
 
-proc setColorUniform*(c: GraphicsContext, loc: GLint, color: Color) =
+proc setColorUniform*(c: GraphicsContext, loc: UniformLocation, color: Color) =
     when defined js:
         c.gl.uniform4fv(loc, [color.r, color.g, color.b, color.a * c.alpha])
     else:
@@ -146,7 +146,7 @@ proc setColorUniform*(c: GraphicsContext, program: GLuint, name: cstring, color:
 template setFillColorUniform(c: GraphicsContext, program: GLuint) =
     c.setColorUniform(program, "fillColor", c.fillColor)
 
-proc setRectUniform*(c: GraphicsContext, loc: GLint, r: Rect) =
+proc setRectUniform*(c: GraphicsContext, loc: UniformLocation, r: Rect) =
     when defined js:
         c.gl.uniform4fv(loc, [r.x, r.y, r.width, r.height])
     else:
@@ -155,7 +155,7 @@ proc setRectUniform*(c: GraphicsContext, loc: GLint, r: Rect) =
 template setRectUniform*(c: GraphicsContext, prog: GLuint, name: cstring, r: Rect) =
     c.setRectUniform(c.gl.getUniformLocation(prog, name), r)
 
-proc setPointUniform*(c: GraphicsContext, loc: GLint, r: Point) =
+proc setPointUniform*(c: GraphicsContext, loc: UniformLocation, r: Point) =
     when defined js:
         c.gl.uniform2fv(loc, [r.x, r.y])
     else:

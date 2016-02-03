@@ -249,7 +249,7 @@ const vertexShaderCode = getGLSLVertexShader(vertexShader)
 type Composition* = object
     program*: GLuint
     definition, fragShader: string
-    uniformLocations: array[10, GLint]
+    uniformLocations: array[10, UniformLocation]
 
 const posAttr : GLuint = 0
 
@@ -295,7 +295,9 @@ proc newComposition*(definition: static[string]): Composition =
     result.definition = preprocessedDefinition
 
 proc compileComposition*(gl: GL, comp: var Composition) =
-    for i in 0 ..< comp.uniformLocations.len: comp.uniformLocations[i] = -1
+    when not defined(js):
+        for i in 0 ..< comp.uniformLocations.len:
+            comp.uniformLocations[i] = invalidUniformLocation
 
     var fragmentShaderCode = comp.fragShader
     if fragmentShaderCode.len == 0:
@@ -346,9 +348,9 @@ template draw*(comp: var Composition, r: Rect, code: untyped): stmt =
     gl.vertexAttribPointer(posAttr, componentCount, false, 0, points)
     var iUniform = -1
 
-    template uniformLocation(name: string): GLint =
+    template uniformLocation(name: string): UniformLocation =
         inc iUniform
-        if comp.uniformLocations[iUniform] == -1:
+        if comp.uniformLocations[iUniform] == invalidUniformLocation:
             comp.uniformLocations[iUniform] = gl.getUniformLocation(comp.program, name)
         comp.uniformLocations[iUniform]
 

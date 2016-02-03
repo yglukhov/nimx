@@ -15,6 +15,9 @@ when defined js:
         TextureRef* = ref TextureObj
         TextureObj {.importc.} = object
 
+        UniformLocation* = ref UniformLocationObj
+        UniformLocationObj {.importc.} = object
+
         GL* = ref GLObj
         GLObj {.importc.} = object
             VERTEX_SHADER* : GLenum
@@ -55,6 +58,8 @@ when defined js:
 
             CULL_FACE*, FRONT*, BACK*, FRONT_AND_BACK* : GLenum
 
+    const invalidUniformLocation* : UniformLocation = nil
+
     {.push importcpp.}
 
     proc compileShader*(gl: GL, shader: GLuint)
@@ -79,7 +84,7 @@ when defined js:
     proc bindAttribLocation*(gl: GL, program, index: GLuint, name: cstring)
     proc enableVertexAttribArray*(gl: GL, attrib: GLuint)
     proc disableVertexAttribArray*(gl: GL, attrib: GLuint)
-    proc getUniformLocation*(gl: GL, prog: GLuint, name: cstring): GLint
+    proc getUniformLocation*(gl: GL, prog: GLuint, name: cstring): UniformLocation
     proc useProgram*(gl: GL, prog: GLuint)
     proc enable*(gl: GL, flag: GLenum)
     proc disable*(gl: GL, flag: GLenum)
@@ -92,13 +97,13 @@ when defined js:
     proc bindRenderbuffer*(gl: GL, target: GLenum, name: RenderbufferRef)
     proc bindBuffer*(gl: GL, target: GLenum, name: GLuint)
 
-    proc uniform1fv*(gl: GL, location: GLint, data: openarray[GLfloat])
-    proc uniform2fv*(gl: GL, location: GLint, data: openarray[GLfloat])
-    proc uniform4fv*(gl: GL, location: GLint, data: openarray[GLfloat])
-    proc uniform1f*(gl: GL, location: GLint, data: GLfloat)
-    proc uniform1i*(gl: GL, location: GLint, data: GLint)
-    proc uniformMatrix4fv*(gl: GL, location: GLint, transpose: GLboolean, data: array[16, GLfloat])
-    proc uniformMatrix3fv*(gl: GL, location: GLint, transpose: GLboolean, data: array[9, GLfloat])
+    proc uniform1fv*(gl: GL, location: UniformLocation, data: openarray[GLfloat])
+    proc uniform2fv*(gl: GL, location: UniformLocation, data: openarray[GLfloat])
+    proc uniform4fv*(gl: GL, location: UniformLocation, data: openarray[GLfloat])
+    proc uniform1f*(gl: GL, location: UniformLocation, data: GLfloat)
+    proc uniform1i*(gl: GL, location: UniformLocation, data: GLint)
+    proc uniformMatrix4fv*(gl: GL, location: UniformLocation, transpose: GLboolean, data: array[16, GLfloat])
+    proc uniformMatrix3fv*(gl: GL, location: UniformLocation, transpose: GLboolean, data: array[9, GLfloat])
 
     proc clearColor*(gl: GL, r, g, b, a: GLfloat)
     proc clearStencil*(gl: GL, s: GLint)
@@ -133,6 +138,10 @@ else:
         FramebufferRef* = GLuint
         RenderbufferRef* = GLuint
         TextureRef* = GLuint
+        UniformLocation* = GLint
+
+    const invalidUniformLocation* : UniformLocation = -1
+
     template VERTEX_SHADER*(gl: GL): GLenum = GL_VERTEX_SHADER
     template FRAGMENT_SHADER*(gl: GL): GLenum = GL_FRAGMENT_SHADER
     template TEXTURE_2D*(gl: GL): GLenum = GL_TEXTURE_2D
@@ -241,7 +250,7 @@ else:
     template bindAttribLocation*(gl: GL, program, index: GLuint, name: cstring) = glBindAttribLocation(program, index, name)
     template enableVertexAttribArray*(gl: GL, attrib: GLuint) = glEnableVertexAttribArray(attrib)
     template disableVertexAttribArray*(gl: GL, attrib: GLuint) = glDisableVertexAttribArray(attrib)
-    template getUniformLocation*(gl: GL, prog: GLuint, name: cstring): GLint = glGetUniformLocation(prog, name)
+    template getUniformLocation*(gl: GL, prog: GLuint, name: cstring): UniformLocation = glGetUniformLocation(prog, name)
     template useProgram*(gl: GL, prog: GLuint) = glUseProgram(prog)
     template enable*(gl: GL, flag: GLenum) = glEnable(flag)
     template disable*(gl: GL, flag: GLenum) = glDisable(flag)
@@ -254,16 +263,16 @@ else:
     template bindRenderbuffer*(gl: GL, target: GLenum, name: RenderbufferRef) = glBindRenderbuffer(target, name)
     template bindBuffer*(gl: GL, target: GLenum, name: GLuint) = glBindBuffer(target, name)
 
-    template uniform1f*(gl: GL, location: GLint, data: GLfloat) = glUniform1f(location, data)
-    template uniform1i*(gl: GL, location: GLint, data: GLint) = glUniform1i(location, data)
-    template uniform2fv*(gl: GL, location: GLint, data: openarray[GLfloat]) = glUniform2fv(location, GLSizei(data.len / 2), unsafeAddr data[0])
-    template uniform2fv*(gl: GL, location: GLint, length: GLsizei, data: ptr GLfloat) = glUniform2fv(location, length, data)
-    template uniform4fv*(gl: GL, location: GLint, data: openarray[GLfloat]) = glUniform4fv(location, GLsizei(data.len / 4), unsafeAddr data[0])
-    template uniform1fv*(gl: GL, location: GLint, data: openarray[GLfloat]) = glUniform1fv(location, GLsizei(data.len), unsafeAddr data[0])
-    template uniform1fv*(gl: GL, location: GLint, length: GLsizei, data: ptr GLfloat) = glUniform1fv(location, length, data)
-    proc uniformMatrix4fv*(gl: GL, location: GLint, transpose: GLboolean, data: array[16, GLfloat]) {.inline.} =
+    template uniform1f*(gl: GL, location: UniformLocation, data: GLfloat) = glUniform1f(location, data)
+    template uniform1i*(gl: GL, location: UniformLocation, data: GLint) = glUniform1i(location, data)
+    template uniform2fv*(gl: GL, location: UniformLocation, data: openarray[GLfloat]) = glUniform2fv(location, GLSizei(data.len / 2), unsafeAddr data[0])
+    template uniform2fv*(gl: GL, location: UniformLocation, length: GLsizei, data: ptr GLfloat) = glUniform2fv(location, length, data)
+    template uniform4fv*(gl: GL, location: UniformLocation, data: openarray[GLfloat]) = glUniform4fv(location, GLsizei(data.len / 4), unsafeAddr data[0])
+    template uniform1fv*(gl: GL, location: UniformLocation, data: openarray[GLfloat]) = glUniform1fv(location, GLsizei(data.len), unsafeAddr data[0])
+    template uniform1fv*(gl: GL, location: UniformLocation, length: GLsizei, data: ptr GLfloat) = glUniform1fv(location, length, data)
+    proc uniformMatrix4fv*(gl: GL, location: UniformLocation, transpose: GLboolean, data: array[16, GLfloat]) {.inline.} =
         glUniformMatrix4fv(location, 1, transpose, unsafeAddr data[0])
-    proc uniformMatrix3fv*(gl: GL, location: GLint, transpose: GLboolean, data: array[9, GLfloat]) {.inline.} =
+    proc uniformMatrix3fv*(gl: GL, location: UniformLocation, transpose: GLboolean, data: array[9, GLfloat]) {.inline.} =
         glUniformMatrix3fv(location, 1, transpose, unsafeAddr data[0])
 
     template clearColor*(gl: GL, r, g, b, a: GLfloat) = glClearColor(r, g, b, a)
