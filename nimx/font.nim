@@ -23,7 +23,7 @@ import private.simple_table
 import opengl
 import portable_gl
 
-const charChunkLength = 96
+const charChunkLength = 200
 
 type BackedCharComponent = enum
     compX = 0
