@@ -247,7 +247,7 @@ proc vertexShader(aPosition: vec2, uModelViewProjectionMatrix: mat4, vPos: var v
 const vertexShaderCode = getGLSLVertexShader(vertexShader)
 
 type Composition* = object
-    program*: GLuint
+    program*: ProgramRef
     definition, fragShader: string
     uniformLocations: array[10, UniformLocation]
 
@@ -335,7 +335,7 @@ proc unwrapPointArray(a: openarray[Point]): seq[GLfloat] =
 template draw*(comp: var Composition, r: Rect, code: untyped): stmt =
     let ctx = currentContext()
     let gl = ctx.gl
-    if comp.program == 0:
+    if comp.program == invalidProgram:
         gl.compileComposition(comp)
     gl.useProgram(comp.program)
     var points : array[8, GLfloat]

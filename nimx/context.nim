@@ -17,9 +17,9 @@ type ShaderAttribute = enum
 type Transform3D* = Matrix4
 
 
-proc loadShader(gl: GL, shaderSrc: string, kind: GLenum): GLuint =
+proc loadShader(gl: GL, shaderSrc: string, kind: GLenum): ShaderRef =
     result = gl.createShader(kind)
-    if result == 0:
+    if result == invalidShader:
         return
 
     # Load the shader source
@@ -37,20 +37,20 @@ proc loadShader(gl: GL, shaderSrc: string, kind: GLenum): GLuint =
         logi "Shader compile log: ", info
 
 proc newShaderProgram*(gl: GL, vs, fs: string,
-        attributes: openarray[tuple[index: GLuint, name: string]]): GLuint =
+        attributes: openarray[tuple[index: GLuint, name: string]]): ProgramRef =
     result = gl.createProgram()
-    if result == 0:
+    if result == invalidProgram:
         logi "Could not create program: ", gl.getError().int
         return
     let vShader = gl.loadShader(vs, gl.VERTEX_SHADER)
-    if vShader == 0:
+    if vShader == invalidShader:
         gl.deleteProgram(result)
-        return 0
+        return invalidProgram
     gl.attachShader(result, vShader)
     let fShader = gl.loadShader(fs, gl.FRAGMENT_SHADER)
-    if fShader == 0:
+    if fShader == invalidShader:
         gl.deleteProgram(result)
-        return 0
+        return invalidProgram
     gl.attachShader(result, fShader)
 
     for a in attributes:
@@ -64,11 +64,11 @@ proc newShaderProgram*(gl: GL, vs, fs: string,
     let info = gl.programInfoLog(result)
     if not linked:
         logi "Could not link: ", info
-        result = 0
+        result = invalidProgram
     elif info.len > 0:
         logi "Program linked: ", info
 
-proc newShaderProgram(gl: GL, vs, fs: string): GLuint {.inline.} = # Deprecated. kinda.
+proc newShaderProgram(gl: GL, vs, fs: string): ProgramRef {.inline.} = # Deprecated. kinda.
     gl.newShaderProgram(vs, fs, [(saPosition.GLuint, "position")])
 
 include shaders
@@ -84,8 +84,8 @@ type GraphicsContext* = ref object of RootObj
     fillColor*: Color
     strokeColor*: Color
     strokeWidth*: Coord
-    fontShaderProgram: GLuint
-    testPolyShaderProgram: GLuint
+    fontShaderProgram: ProgramRef
+    testPolyShaderProgram: ProgramRef
     debugClipColor: Color
     alpha*: Coord
     quadIndexBuffer: GLuint
@@ -153,7 +153,7 @@ proc setCurrentContext*(c: GraphicsContext): GraphicsContext {.discardable.} =
 
 template currentContext*(): GraphicsContext = gCurrentContext
 
-proc setTransformUniform*(c: GraphicsContext, program: GLuint) =
+proc setTransformUniform*(c: GraphicsContext, program: ProgramRef) =
     c.gl.uniformMatrix4fv(c.gl.getUniformLocation(program, "modelViewProjectionMatrix"), false, c.transform)
 
 proc setColorUniform*(c: GraphicsContext, loc: UniformLocation, color: Color) =
@@ -163,10 +163,10 @@ proc setColorUniform*(c: GraphicsContext, loc: UniformLocation, color: Color) =
         var arr = [color.r, color.g, color.b, color.a * c.alpha]
         glUniform4fv(loc, 1, addr arr[0]);
 
-proc setColorUniform*(c: GraphicsContext, program: GLuint, name: cstring, color: Color) =
+proc setColorUniform*(c: GraphicsContext, program: ProgramRef, name: cstring, color: Color) =
     c.setColorUniform(c.gl.getUniformLocation(program, name), color)
 
-template setFillColorUniform(c: GraphicsContext, program: GLuint) =
+template setFillColorUniform(c: GraphicsContext, program: ProgramRef) =
     c.setColorUniform(program, "fillColor", c.fillColor)
 
 proc setRectUniform*(c: GraphicsContext, loc: UniformLocation, r: Rect) =
@@ -175,7 +175,7 @@ proc setRectUniform*(c: GraphicsContext, loc: UniformLocation, r: Rect) =
     else:
         glUniform4fv(loc, 1, cast[ptr GLfloat](unsafeAddr r));
 
-template setRectUniform*(c: GraphicsContext, prog: GLuint, name: cstring, r: Rect) =
+template setRectUniform*(c: GraphicsContext, prog: ProgramRef, name: cstring, r: Rect) =
     c.setRectUniform(c.gl.getUniformLocation(prog, name), r)
 
 proc setPointUniform*(c: GraphicsContext, loc: UniformLocation, r: Point) =
@@ -184,7 +184,7 @@ proc setPointUniform*(c: GraphicsContext, loc: UniformLocation, r: Point) =
     else:
         glUniform2fv(loc, 1, cast[ptr GLfloat](unsafeAddr r));
 
-template setPointUniform*(c: GraphicsContext, prog: GLuint, name: cstring, r: Point) =
+template setPointUniform*(c: GraphicsContext, prog: ProgramRef, name: cstring, r: Point) =
     c.setPointUniform(c.gl.getUniformLocation(prog, name), r)
 
 import composition

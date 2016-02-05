@@ -18,6 +18,12 @@ when defined js:
         UniformLocation* = ref UniformLocationObj
         UniformLocationObj {.importc.} = object
 
+        ProgramRef* = ref ProgramObj
+        ProgramObj {.importc.} = object
+
+        ShaderRef* = ref ShaderObj
+        ShaderObj {.importc.} = object
+
         GL* = ref GLObj
         GLObj {.importc.} = object
             VERTEX_SHADER* : GLenum
@@ -59,20 +65,22 @@ when defined js:
             CULL_FACE*, FRONT*, BACK*, FRONT_AND_BACK* : GLenum
 
     const invalidUniformLocation* : UniformLocation = nil
+    const invalidProgram* : ProgramRef = nil
+    const invalidShader* : ShaderRef = nil
 
     {.push importcpp.}
 
-    proc compileShader*(gl: GL, shader: GLuint)
-    proc deleteShader*(gl: GL, shader: GLuint)
-    proc deleteProgram*(gl: GL, prog: GLuint)
-    proc attachShader*(gl: GL, prog, shader: GLuint)
-    proc detachShader*(gl: GL, prog, shader: GLuint)
+    proc compileShader*(gl: GL, shader: ShaderRef)
+    proc deleteShader*(gl: GL, shader: ShaderRef)
+    proc deleteProgram*(gl: GL, prog: ProgramRef)
+    proc attachShader*(gl: GL, prog: ProgramRef, shader: ShaderRef)
+    proc detachShader*(gl: GL, prog: ProgramRef, shader: ShaderRef)
 
-    proc linkProgram*(gl: GL, prog: GLuint)
+    proc linkProgram*(gl: GL, prog: ProgramRef)
     proc drawArrays*(gl: GL, mode: GLenum, first: GLint, count: GLsizei)
     proc drawElements*(gl: GL, mode: GLenum, count: GLsizei, typ: GLenum, alwaysZeroOffset: int = 0)
-    proc createShader*(gl: GL, shaderType: GLenum): GLuint
-    proc createProgram*(gl: GL): GLuint
+    proc createShader*(gl: GL, shaderType: GLenum): ShaderRef
+    proc createProgram*(gl: GL): ProgramRef
     proc createTexture*(gl: GL): TextureRef
     proc createFramebuffer*(gl: GL): FramebufferRef
     proc createRenderbuffer*(gl: GL): RenderbufferRef
@@ -81,11 +89,11 @@ when defined js:
     proc deleteFramebuffer*(gl: GL, name: GLuint)
     proc deleteRenderbuffer*(gl: GL, name: GLuint)
 
-    proc bindAttribLocation*(gl: GL, program, index: GLuint, name: cstring)
+    proc bindAttribLocation*(gl: GL, program: ProgramRef, index: GLuint, name: cstring)
     proc enableVertexAttribArray*(gl: GL, attrib: GLuint)
     proc disableVertexAttribArray*(gl: GL, attrib: GLuint)
-    proc getUniformLocation*(gl: GL, prog: GLuint, name: cstring): UniformLocation
-    proc useProgram*(gl: GL, prog: GLuint)
+    proc getUniformLocation*(gl: GL, prog: ProgramRef, name: cstring): UniformLocation
+    proc useProgram*(gl: GL, prog: ProgramRef)
     proc enable*(gl: GL, flag: GLenum)
     proc disable*(gl: GL, flag: GLenum)
     proc isEnabled*(gl: GL, flag: GLenum): bool
@@ -139,8 +147,12 @@ else:
         RenderbufferRef* = GLuint
         TextureRef* = GLuint
         UniformLocation* = GLint
+        ProgramRef* = GLuint
+        ShaderRef* = GLuint
 
     const invalidUniformLocation* : UniformLocation = -1
+    const invalidProgram* : ProgramRef = 0
+    const invalidShader* : ShaderRef = 0
 
     template VERTEX_SHADER*(gl: GL): GLenum = GL_VERTEX_SHADER
     template FRAGMENT_SHADER*(gl: GL): GLenum = GL_FRAGMENT_SHADER
@@ -221,19 +233,19 @@ else:
     template BACK*(gl: GL) : GLenum = GL_BACK
     template FRONT_AND_BACK*(gl: GL) : GLenum = GL_FRONT_AND_BACK
 
-    template compileShader*(gl: GL, shader: GLuint) = glCompileShader(shader)
-    template deleteShader*(gl: GL, shader: GLuint) = glDeleteShader(shader)
-    template deleteProgram*(gl: GL, prog: GLuint) = glDeleteProgram(prog)
-    template attachShader*(gl: GL, prog, shader: GLuint) = glAttachShader(prog, shader)
-    template detachShader*(gl: GL, prog, shader: GLuint) = glDetachShader(prog, shader)
+    template compileShader*(gl: GL, shader: ShaderRef) = glCompileShader(shader)
+    template deleteShader*(gl: GL, shader: ShaderRef) = glDeleteShader(shader)
+    template deleteProgram*(gl: GL, prog: ProgramRef) = glDeleteProgram(prog)
+    template attachShader*(gl: GL, prog: ProgramRef, shader: ShaderRef) = glAttachShader(prog, shader)
+    template detachShader*(gl: GL, prog: ProgramRef, shader: ShaderRef) = glDetachShader(prog, shader)
 
 
-    template linkProgram*(gl: GL, prog: GLuint) = glLinkProgram(prog)
+    template linkProgram*(gl: GL, prog: ProgramRef) = glLinkProgram(prog)
 
     template drawArrays*(gl: GL, mode: GLenum, first: GLint, count: GLsizei) = glDrawArrays(mode, first, count)
     template drawElements*(gl: GL, mode: GLenum, count: GLsizei, typ: GLenum) = glDrawElements(mode, count, typ, nil)
-    template createShader*(gl: GL, shaderType: GLenum): GLuint = glCreateShader(shaderType)
-    template createProgram*(gl: GL): GLuint = glCreateProgram()
+    template createShader*(gl: GL, shaderType: GLenum): ShaderRef = glCreateShader(shaderType)
+    template createProgram*(gl: GL): ProgramRef = glCreateProgram()
     proc createTexture*(gl: GL): GLuint = glGenTextures(1, addr result)
     proc createFramebuffer*(gl: GL): GLuint {.inline.} = glGenFramebuffers(1, addr result)
     proc createRenderbuffer*(gl: GL): GLuint {.inline.} = glGenRenderbuffers(1, addr result)
@@ -247,11 +259,11 @@ else:
         var n = name
         glDeleteRenderbuffers(1, addr n)
 
-    template bindAttribLocation*(gl: GL, program, index: GLuint, name: cstring) = glBindAttribLocation(program, index, name)
+    template bindAttribLocation*(gl: GL, program: ProgramRef, index: GLuint, name: cstring) = glBindAttribLocation(program, index, name)
     template enableVertexAttribArray*(gl: GL, attrib: GLuint) = glEnableVertexAttribArray(attrib)
     template disableVertexAttribArray*(gl: GL, attrib: GLuint) = glDisableVertexAttribArray(attrib)
-    template getUniformLocation*(gl: GL, prog: GLuint, name: cstring): UniformLocation = glGetUniformLocation(prog, name)
-    template useProgram*(gl: GL, prog: GLuint) = glUseProgram(prog)
+    template getUniformLocation*(gl: GL, prog: ProgramRef, name: cstring): UniformLocation = glGetUniformLocation(prog, name)
+    template useProgram*(gl: GL, prog: ProgramRef) = glUseProgram(prog)
     template enable*(gl: GL, flag: GLenum) = glEnable(flag)
     template disable*(gl: GL, flag: GLenum) = glDisable(flag)
     template isEnabled*(gl: GL, flag: GLenum): bool = glIsEnabled(flag)
@@ -335,7 +347,7 @@ proc newGL*(canvas: ref RootObj): GL =
 
 proc sharedGL*(): GL = globalGL
 
-proc shaderInfoLog*(gl: GL, s: GLuint): string =
+proc shaderInfoLog*(gl: GL, s: ShaderRef): string =
     when defined js:
         var m: cstring
         asm """
@@ -352,7 +364,7 @@ proc shaderInfoLog*(gl: GL, s: GLuint): string =
             result = $infoLog
             dealloc(infoLog)
 
-proc programInfoLog*(gl: GL, s: GLuint): string =
+proc programInfoLog*(gl: GL, s: ProgramRef): string =
     when defined js:
         var m: cstring
         asm "`m` = `gl`.getProgramInfoLog(`s`);"
@@ -367,14 +379,14 @@ proc programInfoLog*(gl: GL, s: GLuint): string =
             result = $infoLog
             dealloc(infoLog)
 
-proc shaderSource*(gl: GL, s: GLuint, src: cstring) =
+proc shaderSource*(gl: GL, s: ShaderRef, src: cstring) =
     when defined js:
         asm "`gl`.shaderSource(`s`, `src`);"
     else:
         var srcArray = [src]
         glShaderSource(s, 1, cast[cstringArray](addr srcArray), nil)
 
-proc isShaderCompiled*(gl: GL, shader: GLuint): bool {.inline.} =
+proc isShaderCompiled*(gl: GL, shader: ShaderRef): bool {.inline.} =
     when defined js:
         asm "`result` = `gl`.getShaderParameter(`shader`, `gl`.COMPILE_STATUS);"
     else:
@@ -382,7 +394,7 @@ proc isShaderCompiled*(gl: GL, shader: GLuint): bool {.inline.} =
         glGetShaderiv(shader, GL_COMPILE_STATUS, addr compiled)
         result = if compiled == GL_TRUE: true else: false
 
-proc isProgramLinked*(gl: GL, prog: GLuint): bool {.inline.} =
+proc isProgramLinked*(gl: GL, prog: ProgramRef): bool {.inline.} =
     when defined js:
         asm "`result` = `gl`.getProgramParameter(`prog`, `gl`.LINK_STATUS);"
     else:
