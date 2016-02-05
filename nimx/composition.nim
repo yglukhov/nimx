@@ -2,7 +2,7 @@ import context
 import types
 import portable_gl
 import image
-import strutils
+import strutils, tables, hashes
 import nimsl.nimsl
 
 export portable_gl
@@ -246,11 +246,25 @@ proc vertexShader(aPosition: vec2, uModelViewProjectionMatrix: mat4, vPos: var v
 
 const vertexShaderCode = getGLSLVertexShader(vertexShader)
 
+type
+    PostEffect* = ref object
+        source*: string
+        setupProc*: proc(cc: CompiledComposition)
+        mainProcName*: string
+        id*: int
+
+    CompiledComposition = ref object
+        program*: ProgramRef
+        uniformLocations: seq[UniformLocation]
+        iTexIndex*: GLint
+        iUniform*: int
+
+var programCache = initTable[Hash, CompiledComposition]()
+
 type Composition* = object
-    program*: ProgramRef
     definition: string
     requiresPrequel: bool
-    uniformLocations: array[10, UniformLocation]
+    id*: int
 
 const posAttr : GLuint = 0
 
@@ -260,6 +274,7 @@ proc replaceSymbolsInLine(syms: openarray[string], ln: string): string {.compile
         result = result.replaceWord(s & ".tex", s & "_tex")
         result = result.replaceWord(s & ".texCoords", s & "_texCoords")
 
+#[
 proc uniforNamesFromShaderCode(code: string): seq[string] =
     result = newSeq[string]()
     var loc = 0
@@ -275,6 +290,7 @@ proc uniforNamesFromShaderCode(code: string): seq[string] =
         if e < 0: break
         result.add(code.substr(loc, e - 1))
         loc = e
+]#
 
 proc preprocessDefinition(definition: string): string {.compileTime.} =
     result = ""
@@ -288,19 +304,27 @@ proc preprocessDefinition(definition: string): string {.compileTime.} =
         else:
             result &= "\L" & replaceSymbolsInLine(symbolsToReplace, ln)
 
+proc newPostEffect*(definition: static[string], mainProcName: string): PostEffect =
+    const preprocessedDefinition = preprocessDefinition(definition)
+    result.new()
+    result.source = preprocessedDefinition
+    result.mainProcName = mainProcName
+    result.id = hash(preprocessedDefinition)
+
 proc newComposition*(definition: static[string], requiresPrequel: bool = true): Composition =
     const preprocessedDefinition = preprocessDefinition(definition)
     result.definition = preprocessedDefinition
     result.requiresPrequel = requiresPrequel
+    result.id = hash(preprocessedDefinition)
 
 template newCompositionWithNimsl*(mainProc: typed): Composition =
     newComposition(getGLSLFragmentShader(mainProc, "compose"), false)
 
-proc compileComposition*(gl: GL, comp: var Composition) =
-    when not defined(js):
-        for i in 0 ..< comp.uniformLocations.len:
-            comp.uniformLocations[i] = invalidUniformLocation
+var postEffectStack = newSeq[PostEffect]()
+var postEffectIdStack = newSeq[Hash]()
 
+proc compileComposition*(gl: GL, comp: var Composition, cchash: Hash): CompiledComposition =
+    echo "composition: ", cchash
     var fragmentShaderCode = ""
     if comp.requiresPrequel:
         fragmentShaderCode = """
@@ -319,11 +343,20 @@ uniform vec4 bounds;
 
     fragmentShaderCode &= comp.definition
 
-    fragmentShaderCode &= """
-    void main() { gl_FragColor = vec4(0.0); compose(); }
-    """
-    comp.definition = nil
-    comp.program = gl.newShaderProgram(vertexShaderCode, fragmentShaderCode, [(posAttr, "aPosition")])
+    for pe in postEffectStack:
+        fragmentShaderCode &= pe.source
+
+    fragmentShaderCode &= """void main() { gl_FragColor = vec4(0.0); compose(); """
+    var i = postEffectStack.len - 1
+    while i >= 0:
+        fragmentShaderCode &= postEffectStack[i].mainProcName & "();"
+        dec i
+    fragmentShaderCode &= "}"
+
+    result.new()
+    result.program = gl.newShaderProgram(vertexShaderCode, fragmentShaderCode, [(posAttr, "aPosition")])
+    result.uniformLocations = newSeq[UniformLocation]()
+    programCache[cchash] = result
 
 proc unwrapPointArray(a: openarray[Point]): seq[GLfloat] =
     result = newSeq[GLfloat](a.len * 2)
@@ -334,34 +367,14 @@ proc unwrapPointArray(a: openarray[Point]): seq[GLfloat] =
         result[i] = p.y
         inc i
 
-template draw*(comp: var Composition, r: Rect, code: untyped): stmt =
-    let ctx = currentContext()
-    let gl = ctx.gl
-    if comp.program == invalidProgram:
-        gl.compileComposition(comp)
-    gl.useProgram(comp.program)
-    var points : array[8, GLfloat]
-    points[0] = r.minX; points[1] = r.minY
-    points[2] = r.minX; points[3] = r.maxY
-    points[4] = r.maxX; points[5] = r.maxY
-    points[6] = r.maxX; points[7] = r.minY
+var texQuad : array[4, GLfloat]
 
-    let componentCount : GLint= 2
-    gl.enableVertexAttribArray(posAttr)
-    gl.vertexAttribPointer(posAttr, componentCount, false, 0, points)
-    var iUniform = -1
-
+template compositionDrawingDefinitions(cc: CompiledComposition, ctx: GraphicsContext, gl: GL) =
     template uniformLocation(name: string): UniformLocation =
-        inc iUniform
-        if comp.uniformLocations[iUniform] == invalidUniformLocation:
-            comp.uniformLocations[iUniform] = gl.getUniformLocation(comp.program, name)
-        comp.uniformLocations[iUniform]
-
-    gl.uniformMatrix4fv(uniformLocation("uModelViewProjectionMatrix"), false, ctx.transform)
-
-    # Do we need it here?
-    #gl.enable(c.gl.BLEND)
-    #gl.blendFunc(c.gl.SRC_ALPHA, c.gl.ONE_MINUS_SRC_ALPHA)
+        inc cc.iUniform
+        if cc.uniformLocations.len - 1 < cc.iUniform:
+            cc.uniformLocations.add(gl.getUniformLocation(cc.program, name))
+        cc.uniformLocations[cc.iUniform]
 
     template setUniform(name: string, v: Rect) {.hint[XDeclaredButNotUsed]: off.} =
         ctx.setRectUniform(uniformLocation(name), v)
@@ -387,17 +400,58 @@ template draw*(comp: var Composition, r: Rect, code: untyped): stmt =
     template setUniform(name: string, v: GLint) {.hint[XDeclaredButNotUsed]: off.}  =
         gl.uniform1i(uniformLocation(name), v)
 
-    var texIndex : GLint
-    var theQuad {.noinit.}: array[4, GLfloat]
-
     template setUniform(name: string, i: Image) {.hint[XDeclaredButNotUsed]: off.} =
-        gl.activeTexture(gl.TEXTURE0 + texIndex.GLenum)
-        gl.bindTexture(gl.TEXTURE_2D, getTextureQuad(i, gl, theQuad))
-        gl.uniform4fv(uniformLocation(name & "_texCoords"), theQuad)
-        gl.uniform1i(uniformLocation(name & "_tex"), texIndex)
-        inc texIndex
+        gl.activeTexture(gl.TEXTURE0 + cc.iTexIndex.GLenum)
+        gl.bindTexture(gl.TEXTURE_2D, getTextureQuad(i, gl, texQuad))
+        gl.uniform4fv(uniformLocation(name & "_texCoords"), texQuad)
+        gl.uniform1i(uniformLocation(name & "_tex"), cc.iTexIndex)
+        inc cc.iTexIndex
+
+template pushPostEffect*(pe: PostEffect, body: untyped) =
+    pe.setupProc = proc(cc: CompiledComposition) =
+        let ctx = currentContext()
+        let gl = ctx.gl
+        compositionDrawingDefinitions(cc, ctx, gl)
+        body
+
+    postEffectStack.add(pe)
+    let oh = if postEffectIdStack.len > 0: postEffectIdStack[^1] else: 0
+    postEffectIdStack.add(oh !& pe.id)
+
+template popPostEffect*() =
+    postEffectStack.setLen(postEffectStack.len - 1)
+    postEffectIdStack.setLen(postEffectIdStack.len - 1)
+
+template draw*(comp: var Composition, r: Rect, code: untyped): stmt =
+    let ctx = currentContext()
+    let gl = ctx.gl
+    let pehash = if postEffectIdStack.len > 0: postEffectIdStack[^1] else: 0
+    let cchash = !$(pehash !& comp.id)
+
+    var cc = programCache.getOrDefault(cchash)
+    if cc.isNil:
+        cc = gl.compileComposition(comp, cchash)
+    gl.useProgram(cc.program)
+    var points : array[8, GLfloat]
+    points[0] = r.minX; points[1] = r.minY
+    points[2] = r.minX; points[3] = r.maxY
+    points[4] = r.maxX; points[5] = r.maxY
+    points[6] = r.maxX; points[7] = r.minY
+
+    const componentCount : GLint = 2
+    gl.enableVertexAttribArray(posAttr)
+    gl.vertexAttribPointer(posAttr, componentCount, false, 0, points)
+    cc.iUniform = -1
+    cc.iTexIndex = 0
+
+    compositionDrawingDefinitions(cc, ctx, gl)
+
+    gl.uniformMatrix4fv(uniformLocation("uModelViewProjectionMatrix"), false, ctx.transform)
 
     setUniform("bounds", r)
+
+    for pe in postEffectStack:
+        pe.setupProc(cc)
 
     block:
         code
