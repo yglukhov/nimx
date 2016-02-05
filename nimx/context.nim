@@ -214,7 +214,7 @@ proc drawRect(bounds, uFillColor, uStrokeColor: vec4,
     result.drawShape(sdRect(vPos, bounds), uStrokeColor);
     result.drawShape(sdRect(vPos, insetRect(bounds, uStrokeWidth)), uFillColor);
 
-var rectComposition = newCompositionWithFragShader(getGLSLFragmentShader(drawRect))
+var rectComposition = newCompositionWithNimsl(drawRect)
 
 proc drawRect*(c: GraphicsContext, r: Rect) =
     rectComposition.draw r:
@@ -228,7 +228,7 @@ proc drawEllipse(bounds, uFillColor, uStrokeColor: vec4,
     result.drawShape(sdEllipseInRect(vPos, bounds), uStrokeColor);
     result.drawShape(sdEllipseInRect(vPos, insetRect(bounds, uStrokeWidth)), uFillColor);
 
-var ellipseComposition = newCompositionWithFragShader(getGLSLFragmentShader(drawEllipse))
+var ellipseComposition = newCompositionWithNimsl(drawEllipse)
 
 proc drawEllipseInRect*(c: GraphicsContext, r: Rect) =
     ellipseComposition.draw r:

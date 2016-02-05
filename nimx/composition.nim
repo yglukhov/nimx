@@ -248,7 +248,8 @@ const vertexShaderCode = getGLSLVertexShader(vertexShader)
 
 type Composition* = object
     program*: ProgramRef
-    definition, fragShader: string
+    definition: string
+    requiresPrequel: bool
     uniformLocations: array[10, UniformLocation]
 
 const posAttr : GLuint = 0
@@ -287,20 +288,21 @@ proc preprocessDefinition(definition: string): string {.compileTime.} =
         else:
             result &= "\L" & replaceSymbolsInLine(symbolsToReplace, ln)
 
-proc newCompositionWithFragShader*(s: string): Composition =
-    result.fragShader = s
-
-proc newComposition*(definition: static[string]): Composition =
+proc newComposition*(definition: static[string], requiresPrequel: bool = true): Composition =
     const preprocessedDefinition = preprocessDefinition(definition)
     result.definition = preprocessedDefinition
+    result.requiresPrequel = requiresPrequel
+
+template newCompositionWithNimsl*(mainProc: typed): Composition =
+    newComposition(getGLSLFragmentShader(mainProc, "compose"), false)
 
 proc compileComposition*(gl: GL, comp: var Composition) =
     when not defined(js):
         for i in 0 ..< comp.uniformLocations.len:
             comp.uniformLocations[i] = invalidUniformLocation
 
-    var fragmentShaderCode = comp.fragShader
-    if fragmentShaderCode.len == 0:
+    var fragmentShaderCode = ""
+    if comp.requiresPrequel:
         fragmentShaderCode = """
 #ifdef GL_ES
 #extension GL_OES_standard_derivatives : enable
@@ -314,13 +316,13 @@ uniform vec4 bounds;
             distanceFunctions &
             compositionFragmentFunctions &
             colorOperations
-        fragmentShaderCode &= comp.definition
 
-        fragmentShaderCode &= """
+    fragmentShaderCode &= comp.definition
+
+    fragmentShaderCode &= """
     void main() { gl_FragColor = vec4(0.0); compose(); }
     """
     comp.definition = nil
-    comp.fragShader = nil
     comp.program = gl.newShaderProgram(vertexShaderCode, fragmentShaderCode, [(posAttr, "aPosition")])
 
 proc unwrapPointArray(a: openarray[Point]): seq[GLfloat] =
