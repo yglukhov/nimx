@@ -11,13 +11,12 @@ task tests, "Build and run autotests for current platform":
 
 task docs, "Build documentation":
     withDir "doc":
-        when false:
-            for t, f in walkDir "../nimx":
-                if f.endsWith(".nim"):
-                    try:
-                        exec "nim doc2 -d:js " & f
-                    except:
-                        discard
+        for t, f in walkDir "../nimx":
+            if f.endsWith(".nim"):
+                try:
+                    exec "nim doc2 -d:js " & f
+                except:
+                    discard
         cpFile "../test/main.html", "./main.html"
         cpDir "../test/res", "./res"
         mkDir "./nimcache"
