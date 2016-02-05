@@ -40,5 +40,6 @@ proc screenScaleFactor*(): float =
         let dm = DisplayMetrics.new()
         act.getWindowManager().getDefaultDisplay().getMetrics(dm)
         result = dm.density
+        result = 1.0 # TODO: Take care of this
     else:
         result = 1.0
