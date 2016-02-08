@@ -324,7 +324,6 @@ var postEffectStack = newSeq[PostEffect]()
 var postEffectIdStack = newSeq[Hash]()
 
 proc compileComposition*(gl: GL, comp: var Composition, cchash: Hash): CompiledComposition =
-    echo "composition: ", cchash
     var fragmentShaderCode = ""
     if comp.requiresPrequel:
         fragmentShaderCode = """
