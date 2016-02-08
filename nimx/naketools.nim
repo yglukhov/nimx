@@ -6,13 +6,22 @@ let appName = "MyGame"
 let bundleId = "com.mycompany.MyGame"
 let javaPackageId = "com.mycompany.MyGame"
 
-let androidSdk = "~/Library/Android/sdk"
-let androidNdk = "~/Library/Android/sdk/ndk-bundle"
-let sdlRoot = "~/Projects/SDL"
+when defined(windows):
+    let androidSdk = "D:\\Android\\android-sdk"
+    let androidNdk = "D:\\Android\\android-ndk-r10e"
+    let sdlRoot = "D:\\Android\\SDL2-2.0.3"
 
-# This should point to the Nim include dir, where nimbase.h resides.
-# Needed for android only
-let nimIncludeDir = "~/Projects/nim/lib"
+    # This should point to the Nim include dir, where nimbase.h resides.
+    # Needed for android only
+    let nimIncludeDir = "C:\\Nim\\lib"
+else:
+    let androidSdk = "~/Library/Android/sdk"
+    let androidNdk = "~/Library/Android/sdk/ndk-bundle"
+    let sdlRoot = "~/Projects/SDL"
+
+    # This should point to the Nim include dir, where nimbase.h resides.
+    # Needed for android only
+    let nimIncludeDir = "~/Projects/nim/lib"
 
 let macOSSDKVersion = "10.11"
 let macOSMinVersion = "10.6"
@@ -70,6 +79,7 @@ proc trySymLink(src, dest: string) =
     try:
         createSymlink(expandTilde(src), dest)
     except:
+        echo "ERROR: Could not create symlink from ", src, " to ", dest
         discard
 
 proc runAppInSimulator() =
@@ -114,8 +124,12 @@ proc makeAndroidBuildDir(): string =
     let buildDir = "android"/javaPackageId
     if not dirExists buildDir:
         copyDir "android/template", buildDir
-        trySymLink(sdlRoot/"src", buildDir/"jni/SDL/src")
-        trySymLink(sdlRoot/"include", buildDir/"jni/SDL/include")
+        when defined(windows):
+            copyDir sdlRoot/"src", buildDir/"jni"/"SDL"/"src"
+            copyDir sdlRoot/"include", buildDir/"jni"/"SDL"/"include"
+        else:
+            trySymLink(sdlRoot/"src", buildDir/"jni"/"SDL"/"src")
+            trySymLink(sdlRoot/"include", buildDir/"jni"/"SDL"/"include")
 
         let mainActivityPath = javaPackageId.replace(".", "/")
         createDir(buildDir/"src"/mainActivityPath)
@@ -196,12 +210,12 @@ task "droid", "Build for android and install on the connected device":
     runNim "--compileOnly", "--cpu:arm", "--os:linux", "-d:android", "-d:SDL_Static", "--nimcache:" & droidSrcDir
 
     # Copy resources. TODO: This is a quick mock of how it should work.
-    direShell "mkdir", "-p", buildDir / "assets"
-    direShell "cp", "-vR", "res/*", buildDir / "assets"
+    createDir buildDir / "assets"
+    try: copyDir "res", buildDir / "assets" except: discard
 
     cd buildDir
     putEnv "NIM_INCLUDE_DIR", expandTilde(nimIncludeDir)
-    direShell androidSdk/"tools/android", "update", "project", "-p", ".", "-t", "android-22"
+    direShell androidSdk/"tools/android", "update", "project", "-p", ".", "-t", "android-22" # try with android-16
     direShell androidNdk/"ndk-build"
     #putEnv "ANDROID_SERIAL", "12345" # Target specific device
     direShell "ant", "debug", "install"
@@ -213,5 +227,6 @@ task "js", "Create Javascript version.":
         let settings = newSettings(staticDir = getCurrentDir())
         routes:
             get "/": redirect "main.html"
-        openDefaultBrowser "http://localhost:5000"
+        when not defined(windows):
+            openDefaultBrowser "http://localhost:5000"
         runForever()
