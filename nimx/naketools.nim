@@ -72,13 +72,6 @@ proc trySymLink(src, dest: string) =
     except:
         discard
 
-proc createSDLIncludeLink(dir: string, preferInstalledSDL: bool) =
-    createDir dir
-    if preferInstalledSDL and dirExists("/usr/local/include/SDL2"):
-        trySymLink("/usr/local/include/SDL2", dir/"SDL2")
-    else:
-        trySymLink(sdlRoot/"include", dir/"SDL2")
-
 proc runAppInSimulator() =
     var waitForDebugger = "--wait-for-debugger"
     waitForDebugger = ""
@@ -123,7 +116,6 @@ proc makeAndroidBuildDir(): string =
         copyDir "android/template", buildDir
         trySymLink(sdlRoot/"src", buildDir/"jni/SDL/src")
         trySymLink(sdlRoot/"include", buildDir/"jni/SDL/include")
-        createSDLIncludeLink(buildDir/"jni/src", false)
 
         let mainActivityPath = javaPackageId.replace(".", "/")
         createDir(buildDir/"src"/mainActivityPath)
@@ -152,7 +144,6 @@ proc runNim(arguments: varargs[string]) =
     direShell args
 
 task defaultTask, "Build and run":
-    createSDLIncludeLink("nimcache", true)
     when defined(macosx):
         if not dirExists(macOSSDK):
             echo "MacOSX SDK not found: ", macOSSDK
@@ -178,7 +169,6 @@ task "ios-sim", "Build and run in iOS simulator":
     if not dirExists(iOSSimulatorSDK):
         echo "iOS Simulator SDK not found: ", iOSSimulatorSDK
         return
-    createSDLIncludeLink("nimcache", false)
     runNim "--passC:-Inimcache", "--cpu:amd64", "--os:macosx", "-d:ios", "-d:iPhone", "-d:simulator", "-d:SDL_Static",
         "--passC:-isysroot", "--passC:" & iOSSimulatorSDK, "--passL:-isysroot", "--passL:" & iOSSimulatorSDK,
         "--passL:-L" & buildSDLForIOS(true), "--passL:-lSDL2",
@@ -192,7 +182,6 @@ task "ios", "Build for iOS":
         echo "iOS SDK not found: ", iOSSDK
         return
 
-    createSDLIncludeLink("nimcache", false)
     runNim "--passC:-Inimcache", "--cpu:arm", "--os:macosx", "-d:ios", "-d:iPhone", "-d:SDL_Static",
         "--passC:-isysroot", "--passC:" & iOSSDK, "--passL:-isysroot", "--passL:" & iOSSDK,
         "--passL:-L" & buildSDLForIOS(false), "--passL:-lSDL2",
