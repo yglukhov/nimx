@@ -139,3 +139,7 @@ proc centerInRect*(s: Size, r: Rect): Point =
     # The result may be outside of rect r, if s is bigger than size of r.
     result.x = r.origin.x + (r.width - s.width) / 2
     result.y = r.origin.y + (r.height - s.height) / 2
+
+proc intersect*(r: Rect, c: Rect): bool =
+    if r.minX < c.maxX and c.minX < r.maxX and r.minY < c.maxY and c.minY < r.maxY:
+        result = true
