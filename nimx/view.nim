@@ -254,7 +254,3 @@ proc isDescendantOf*(subView, superview: View): bool =
         if vi == superview:
             return true
         vi = vi.superview
-
-method translate*(v: View, p : Point) {.base.} =
-    v.frame.origin.x += p.x
-    v.frame.origin.y += p.y
