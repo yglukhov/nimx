@@ -84,7 +84,6 @@ type GraphicsContext* = ref object of RootObj
     fillColor*: Color
     strokeColor*: Color
     strokeWidth*: Coord
-    fontShaderProgram: ProgramRef
     testPolyShaderProgram: ProgramRef
     debugClipColor: Color
     alpha*: Coord
@@ -134,7 +133,6 @@ proc newGraphicsContext*(canvas: ref RootObj = nil): GraphicsContext =
     when not defined(ios) and not defined(android) and not defined(js):
         loadExtensions()
 
-    result.fontShaderProgram = result.gl.newShaderProgram(fontVertexShader, fontFragmentShader)
     #result.testPolyShaderProgram = result.gl.newShaderProgram(testPolygonVertexShader, testPolygonFragmentShader)
     result.gl.clearColor(0.93, 0.93, 0.93, 0.0)
     result.alpha = 1.0
@@ -236,19 +234,57 @@ proc drawEllipseInRect*(c: GraphicsContext, r: Rect) =
         setUniform("uStrokeColor", if c.strokeWidth == 0: c.fillColor else: c.strokeColor)
         setUniform("uStrokeWidth", c.strokeWidth)
 
+let fontComposition = newComposition("""
+attribute vec4 position;
+
+uniform mat4 uModelViewProjectionMatrix;
+
+varying vec2 vTexCoord;
+
+void main() {
+    vTexCoord = position.zw;
+    gl_Position = uModelViewProjectionMatrix * vec4(position.xy, 0, 1);
+}
+""",
+"""
+#ifdef GL_ES
+#extension GL_OES_standard_derivatives : enable
+precision mediump float;
+#endif
+
+uniform sampler2D texUnit;
+uniform vec4 fillColor;
+uniform float uGamma;
+uniform float uBase;
+
+varying vec2 vTexCoord;
+
+void compose() {
+	float dist = texture2D(texUnit, vTexCoord).a;
+	float alpha = smoothstep(uBase - uGamma, uBase + uGamma, dist);
+	gl_FragColor = vec4(fillColor.rgb, alpha * fillColor.a);
+}
+""", false)
+
 proc drawText*(c: GraphicsContext, font: Font, pt: var Point, text: string) =
     # assume orthographic projection with units = screen pixels, origin at top left
     let gl = c.gl
-    gl.useProgram(c.fontShaderProgram)
-    c.setFillColorUniform(c.fontShaderProgram)
-    gl.activeTexture(gl.TEXTURE0)
+    let cc = gl.getCompiledComposition(fontComposition)
+    gl.useProgram(cc.program)
+
+    compositionDrawingDefinitions(cc, c, gl)
+    setUniform("fillColor", c.fillColor)
+    setUniform("uGamma", font.gamma.GLfloat)
+    setUniform("uBase", font.base.GLfloat)
+    gl.uniformMatrix4fv(uniformLocation("uModelViewProjectionMatrix"), false, c.transform)
+    setupPosteffectUniforms(cc)
+
+    gl.activeTexture(gl.TEXTURE0 + cc.iTexIndex.GLenum)
+    gl.uniform1i(uniformLocation("texUnit"), cc.iTexIndex)
 
     gl.enableVertexAttribArray(saPosition.GLuint)
-    c.setTransformUniform(c.fontShaderProgram)
-    gl.uniform1f(gl.getUniformLocation(c.fontShaderProgram, "uGamma"), font.gamma.GLfloat)
-    gl.uniform1f(gl.getUniformLocation(c.fontShaderProgram, "uBase"), font.base.GLfloat)
-    gl.enable(gl.BLEND)
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+#    gl.enable(gl.BLEND)
+#    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, c.quadIndexBuffer)
 

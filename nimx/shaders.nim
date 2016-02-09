@@ -1,38 +1,4 @@
 
-
-const fontVertexShader = """
-attribute vec4 position;
-
-uniform mat4 modelViewProjectionMatrix;
-
-varying vec2 vTexCoord;
-
-void main() {
-    vTexCoord = position.zw;
-    gl_Position = modelViewProjectionMatrix * vec4(position.xy, 0, 1);
-}
-"""
-
-const fontFragmentShader = """
-#ifdef GL_ES
-#extension GL_OES_standard_derivatives : enable
-precision mediump float;
-#endif
-
-uniform sampler2D texUnit;
-uniform vec4 fillColor;
-uniform float uGamma;
-uniform float uBase;
-
-varying vec2 vTexCoord;
-
-void main() {
-	float dist = texture2D(texUnit, vTexCoord).a;
-	float alpha = smoothstep(uBase - uGamma, uBase + uGamma, dist);
-	gl_FragColor = vec4(fillColor.rgb, alpha * fillColor.a);
-}
-"""
-
 # this is a fragment shader, using distance function in polygon.
 # TODO: research later
 discard """
