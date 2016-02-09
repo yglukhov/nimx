@@ -17,9 +17,9 @@ type ShaderAttribute = enum
 type Transform3D* = Matrix4
 
 
-proc loadShader(gl: GL, shaderSrc: string, kind: GLenum): GLuint =
+proc loadShader(gl: GL, shaderSrc: string, kind: GLenum): ShaderRef =
     result = gl.createShader(kind)
-    if result == 0:
+    if result == invalidShader:
         return
 
     # Load the shader source
@@ -37,20 +37,20 @@ proc loadShader(gl: GL, shaderSrc: string, kind: GLenum): GLuint =
         logi "Shader compile log: ", info
 
 proc newShaderProgram*(gl: GL, vs, fs: string,
-        attributes: openarray[tuple[index: GLuint, name: string]]): GLuint =
+        attributes: openarray[tuple[index: GLuint, name: string]]): ProgramRef =
     result = gl.createProgram()
-    if result == 0:
+    if result == invalidProgram:
         logi "Could not create program: ", gl.getError().int
         return
     let vShader = gl.loadShader(vs, gl.VERTEX_SHADER)
-    if vShader == 0:
+    if vShader == invalidShader:
         gl.deleteProgram(result)
-        return 0
+        return invalidProgram
     gl.attachShader(result, vShader)
     let fShader = gl.loadShader(fs, gl.FRAGMENT_SHADER)
-    if fShader == 0:
+    if fShader == invalidShader:
         gl.deleteProgram(result)
-        return 0
+        return invalidProgram
     gl.attachShader(result, fShader)
 
     for a in attributes:
@@ -64,11 +64,11 @@ proc newShaderProgram*(gl: GL, vs, fs: string,
     let info = gl.programInfoLog(result)
     if not linked:
         logi "Could not link: ", info
-        result = 0
+        result = invalidProgram
     elif info.len > 0:
         logi "Program linked: ", info
 
-proc newShaderProgram(gl: GL, vs, fs: string): GLuint {.inline.} = # Deprecated. kinda.
+proc newShaderProgram(gl: GL, vs, fs: string): ProgramRef {.inline.} = # Deprecated. kinda.
     gl.newShaderProgram(vs, fs, [(saPosition.GLuint, "position")])
 
 include shaders
@@ -84,10 +84,12 @@ type GraphicsContext* = ref object of RootObj
     fillColor*: Color
     strokeColor*: Color
     strokeWidth*: Coord
-    fontShaderProgram: GLuint
-    testPolyShaderProgram: GLuint
+    fontShaderProgram: ProgramRef
+    testPolyShaderProgram: ProgramRef
     debugClipColor: Color
     alpha*: Coord
+    quadIndexBuffer: GLuint
+    vertexes: array[4 * 4 * 128, Coord]
 
 var gCurrentContext: GraphicsContext
 
@@ -107,6 +109,25 @@ template withTransform*(c: GraphicsContext, t: Transform3D, body: stmt) = c.with
 
 template transform*(c: GraphicsContext): var Transform3D = c.pTransform[]
 
+proc createQuadIndexBuffer(c: GraphicsContext) =
+    c.quadIndexBuffer = c.gl.createBuffer()
+    c.gl.bindBuffer(c.gl.ELEMENT_ARRAY_BUFFER, c.quadIndexBuffer)
+
+    var indexData : array[128 * 6, GLushort]
+    var i : GLushort
+    while i < 128:
+        let id = i * 6
+        let vd = i * 4
+        indexData[id + 0] = vd + 0
+        indexData[id + 1] = vd + 1
+        indexData[id + 2] = vd + 2
+        indexData[id + 3] = vd + 2
+        indexData[id + 4] = vd + 3
+        indexData[id + 5] = vd + 0
+        inc i
+
+    c.gl.bufferData(c.gl.ELEMENT_ARRAY_BUFFER, indexData, c.gl.STATIC_DRAW)
+
 proc newGraphicsContext*(canvas: ref RootObj = nil): GraphicsContext =
     result.new()
     result.gl = newGL(canvas)
@@ -124,44 +145,46 @@ proc newGraphicsContext*(canvas: ref RootObj = nil): GraphicsContext =
     #result.gl.enable(result.gl.CULL_FACE)
     #result.gl.cullFace(result.gl.BACK)
 
+    result.createQuadIndexBuffer()
+
 proc setCurrentContext*(c: GraphicsContext): GraphicsContext {.discardable.} =
     result = gCurrentContext
     gCurrentContext = c
 
 template currentContext*(): GraphicsContext = gCurrentContext
 
-proc setTransformUniform*(c: GraphicsContext, program: GLuint) =
+proc setTransformUniform*(c: GraphicsContext, program: ProgramRef) =
     c.gl.uniformMatrix4fv(c.gl.getUniformLocation(program, "modelViewProjectionMatrix"), false, c.transform)
 
-proc setColorUniform*(c: GraphicsContext, loc: GLint, color: Color) =
+proc setColorUniform*(c: GraphicsContext, loc: UniformLocation, color: Color) =
     when defined js:
         c.gl.uniform4fv(loc, [color.r, color.g, color.b, color.a * c.alpha])
     else:
         var arr = [color.r, color.g, color.b, color.a * c.alpha]
         glUniform4fv(loc, 1, addr arr[0]);
 
-proc setColorUniform*(c: GraphicsContext, program: GLuint, name: cstring, color: Color) =
+proc setColorUniform*(c: GraphicsContext, program: ProgramRef, name: cstring, color: Color) =
     c.setColorUniform(c.gl.getUniformLocation(program, name), color)
 
-template setFillColorUniform(c: GraphicsContext, program: GLuint) =
+template setFillColorUniform(c: GraphicsContext, program: ProgramRef) =
     c.setColorUniform(program, "fillColor", c.fillColor)
 
-proc setRectUniform*(c: GraphicsContext, loc: GLint, r: Rect) =
+proc setRectUniform*(c: GraphicsContext, loc: UniformLocation, r: Rect) =
     when defined js:
         c.gl.uniform4fv(loc, [r.x, r.y, r.width, r.height])
     else:
         glUniform4fv(loc, 1, cast[ptr GLfloat](unsafeAddr r));
 
-template setRectUniform*(c: GraphicsContext, prog: GLuint, name: cstring, r: Rect) =
+template setRectUniform*(c: GraphicsContext, prog: ProgramRef, name: cstring, r: Rect) =
     c.setRectUniform(c.gl.getUniformLocation(prog, name), r)
 
-proc setPointUniform*(c: GraphicsContext, loc: GLint, r: Point) =
+proc setPointUniform*(c: GraphicsContext, loc: UniformLocation, r: Point) =
     when defined js:
         c.gl.uniform2fv(loc, [r.x, r.y])
     else:
         glUniform2fv(loc, 1, cast[ptr GLfloat](unsafeAddr r));
 
-template setPointUniform*(c: GraphicsContext, prog: GLuint, name: cstring, r: Point) =
+template setPointUniform*(c: GraphicsContext, prog: ProgramRef, name: cstring, r: Point) =
     c.setPointUniform(c.gl.getUniformLocation(prog, name), r)
 
 import composition
@@ -191,7 +214,7 @@ proc drawRect(bounds, uFillColor, uStrokeColor: vec4,
     result.drawShape(sdRect(vPos, bounds), uStrokeColor);
     result.drawShape(sdRect(vPos, insetRect(bounds, uStrokeWidth)), uFillColor);
 
-var rectComposition = newCompositionWithFragShader(getGLSLFragmentShader(drawRect))
+var rectComposition = newCompositionWithNimsl(drawRect)
 
 proc drawRect*(c: GraphicsContext, r: Rect) =
     rectComposition.draw r:
@@ -205,7 +228,7 @@ proc drawEllipse(bounds, uFillColor, uStrokeColor: vec4,
     result.drawShape(sdEllipseInRect(vPos, bounds), uStrokeColor);
     result.drawShape(sdEllipseInRect(vPos, insetRect(bounds, uStrokeWidth)), uFillColor);
 
-var ellipseComposition = newCompositionWithFragShader(getGLSLFragmentShader(drawEllipse))
+var ellipseComposition = newCompositionWithNimsl(drawEllipse)
 
 proc drawEllipseInRect*(c: GraphicsContext, r: Rect) =
     ellipseComposition.draw r:
@@ -215,30 +238,48 @@ proc drawEllipseInRect*(c: GraphicsContext, r: Rect) =
 
 proc drawText*(c: GraphicsContext, font: Font, pt: var Point, text: string) =
     # assume orthographic projection with units = screen pixels, origin at top left
-    c.gl.useProgram(c.fontShaderProgram)
+    let gl = c.gl
+    gl.useProgram(c.fontShaderProgram)
     c.setFillColorUniform(c.fontShaderProgram)
-    c.gl.activeTexture(c.gl.TEXTURE0)
+    gl.activeTexture(gl.TEXTURE0)
 
-    c.gl.enableVertexAttribArray(saPosition.GLuint)
+    gl.enableVertexAttribArray(saPosition.GLuint)
     c.setTransformUniform(c.fontShaderProgram)
-    c.gl.uniform1f(c.gl.getUniformLocation(c.fontShaderProgram, "uGamma"), font.gamma.GLfloat)
-    c.gl.uniform1f(c.gl.getUniformLocation(c.fontShaderProgram, "uBase"), font.base.GLfloat)
-    c.gl.enable(c.gl.BLEND)
-    c.gl.blendFunc(c.gl.SRC_ALPHA, c.gl.ONE_MINUS_SRC_ALPHA)
+    gl.uniform1f(gl.getUniformLocation(c.fontShaderProgram, "uGamma"), font.gamma.GLfloat)
+    gl.uniform1f(gl.getUniformLocation(c.fontShaderProgram, "uBase"), font.base.GLfloat)
+    gl.enable(gl.BLEND)
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 
-    var vertexes: array[4 * 4, Coord]
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, c.quadIndexBuffer)
 
     var texture: TextureRef
     var newTexture: TextureRef
 
+    var n : GLint = 0
+
+    template flush() =
+        gl.vertexAttribPointer(saPosition.GLuint, 4, false, 0, c.vertexes)
+        gl.drawElements(gl.TRIANGLES, n * 6, gl.UNSIGNED_SHORT)
+
     for ch in text.runes:
-        font.getQuadDataForRune(ch, vertexes, newTexture, pt)
+        if n > 127:
+            flush()
+            n = 0
+
+        let off = n * 16
+        font.getQuadDataForRune(ch, c.vertexes, off, newTexture, pt)
         if texture != newTexture:
+            if n > 0:
+                flush()
+                for i in 0 ..< 16: c.vertexes[i] = c.vertexes[i + off]
+                n = 0
+
             texture = newTexture
-            c.gl.bindTexture(c.gl.TEXTURE_2D, texture)
-        c.gl.vertexAttribPointer(saPosition.GLuint, 4, false, 0, vertexes)
-        c.gl.drawArrays(c.gl.TRIANGLE_FAN, 0, 4)
+            gl.bindTexture(gl.TEXTURE_2D, texture)
+        inc n
         pt.x += font.horizontalSpacing
+
+    if n > 0: flush()
 
 proc drawText*(c: GraphicsContext, font: Font, pt: Point, text: string) =
     var p = pt

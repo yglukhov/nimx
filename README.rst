@@ -13,7 +13,7 @@ nimx |travis| |semaphore| |nimble|
 
 Cross-platform GUI framework in `Nim <https://github.com/nim-lang/nim>`_.
 
-`Live demo in WebGL <http://yglukhov.github.io/nimx/test/main.html>`_
+`Live demo in WebGL <http://yglukhov.github.io/nimx/main.html>`_
 
 
 .. image:: ./doc/sample-screenshot.png
