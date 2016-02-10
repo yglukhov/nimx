@@ -29,6 +29,7 @@ type
         cleared : seq[ViewWrapper]
         dirty : bool
         dirtyBoundsOrigin : Point
+        itemClick: proc(pos : int)
 
 proc newViewWrapper(view : View, pos: int): ViewWrapper =
     result.new
@@ -38,19 +39,14 @@ proc newViewWrapper(view : View, pos: int): ViewWrapper =
 method getCount*(a : Adapter): int {.base.} = discard
 method getView*(a: Adapter, position: int, convertView : View): View {.base.} = discard
 
+method setItemClickListener*(v: HorizontalListView, lis : proc(pos : int)) {.base.} =
+    v.itemClick = lis
+
 proc newHorListView*(r: Rect): HorizontalListView =
     result.new()
     result.items = @[]
     result.cleared = @[]
     result.init(r)
-
-method init*(v: HorizontalListView, r: Rect) =
-    procCall v.View.init(r)
-    v.backgroundColor = newGrayColor(0.89)
-    var sl : ListScrollListener
-    new(sl)
-    sl.view = v
-    v.addGestureDetector(newScrollGestureDetector(sl))
 
 var offs = newPoint(0,0)
 
@@ -174,6 +170,7 @@ method setAdapter*(v : HorizontalListView, a : Adapter) {.base.} =
 
 method onMouseDown*(v: HorizontalListView, e: var Event): bool =
     e.kind = etTouch
+    e.pointerId = 0
     result = v.handleTouchEvent(e)
 
 method draw*(view: HorizontalListView, rect: Rect) =
@@ -195,4 +192,22 @@ method onScrollProgress*(lis: ListScrollListener, dx, dy : float32, e : var Even
     lis.view.setNeedsDisplay()
 
 method onTapUp*(lis: ListScrollListener, dx, dy : float32, e : var Event) =
-    echo "list onTapUp "
+    discard
+
+proc checkItemClick(v : HorizontalListView, p : Point) =
+    let real = v.convertPointFromWindow(p) + v.bounds.origin
+    for wrap in v.items:
+        if real.inRect(wrap.v.frame):
+            if not v.itemClick.isNil:
+                v.itemClick(wrap.pos)
+
+method init*(v: HorizontalListView, r: Rect) =
+    procCall v.View.init(r)
+    v.backgroundColor = newGrayColor(0.89)
+    var sl : ListScrollListener
+    new(sl)
+    sl.view = v
+    v.addGestureDetector(newScrollGestureDetector(sl))
+    v.addGestureDetector(newTapGestureDetector do(tapPoint : Point):
+        v.checkItemClick(tapPoint)
+        )

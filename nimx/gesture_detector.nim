@@ -31,6 +31,7 @@ type
         tapListener* : OnTapListener
         down_timestamp: uint32
         down_position: Point
+        fired : bool
 
     OnZoomListener* = ref object of RootObj
     ZoomGestureDetector* = ref object of BaseGestureDetector
@@ -171,6 +172,7 @@ method handleGesEvent*(d: TapGestureDetector, e: var Event, c: var EventFilterCo
         if e.isButtonDownEvent():
             d.down_position = e.position
             d.down_timestamp = e.timestamp
+            d.fired = false
         else:
             let timedelta = cast[int](e.timestamp - d.down_timestamp)
             if timedelta > 200:
@@ -180,8 +182,9 @@ method handleGesEvent*(d: TapGestureDetector, e: var Event, c: var EventFilterCo
                     c = efcBreak
                     if not d.tapListener.isNil:
                         let dist = d.down_position.distanceTo(e.position)
-                        if dist < 20:
+                        if dist < 20 and (not d.fired):
                             d.tapListener(e.position)
+                            d.fired = true
 
 proc checkZoom(d: ZoomGestureDetector) =
     if d.pointers.len > 1:
