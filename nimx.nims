@@ -20,6 +20,13 @@ task docs, "Build documentation":
                     exec "nim doc2 -d:js " & f
                 except:
                     discard
+        for t, f in walkDir ".":
+            if f.endsWith(".rst"):
+                try:
+                    exec "nim rst2html " & f
+                except:
+                    discard
+
         cpFile "../test/main.html", "./main.html"
         cpDir "../test/res", "./res"
         mkDir "./nimcache"
