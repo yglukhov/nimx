@@ -32,6 +32,8 @@ var
     iOSSimulatorDeviceId* = "18BE8493-7EFB-4570-BF2B-5F5ACBCCB82B"
 
     preprocessResources* : proc(originalPath, preprocessedPath: string)
+    beforeBuild*: proc(platform: string)
+    afterBuild*: proc(platform: string)
 
     nimVerbosity* = 0
     nimParallelBuild* = 1
@@ -198,6 +200,8 @@ proc performBuildForPlatform(platform: string) =
     executablePath = buildRoot / appName
     resourcePath = buildRoot / "res"
 
+    if not beforeBuild.isNil: beforeBuild(platform)
+
     nimFlags = @[]
     linkerFlags = @[]
     compilerFlags = @[]
@@ -295,6 +299,9 @@ proc performBuildForPlatform(platform: string) =
     args.add(nimFlags)
     args.add "main"
     direShell args
+
+    if not afterBuild.isNil: afterBuild(platform)
+
 
 task defaultTask, "Build and run":
     when defined(macosx):
