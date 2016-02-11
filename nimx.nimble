@@ -14,6 +14,7 @@ Requires: "nimsl"
 Requires: "jnim" # For android target
 Requires: "nake"
 Requires: "closure_compiler"
+Requires: "plists"
 
 # Jester is required to run a web server from the nakefile to serve WebGL variant
 Requires: "jester"
