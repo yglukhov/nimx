@@ -106,6 +106,7 @@ proc makeMacOsBundle() =
     plist["CFBundleName"] = %appName
     plist["CFBundleIdentifier"] = %bundleId
     plist["CFBundleExecutable"] = %appName
+    plist["NSHighResolutionCapable"] = %true
     plist.writePlist(bundlePath / "Contents" / "Info.plist")
 
 proc trySymLink(src, dest: string) =
@@ -294,6 +295,7 @@ proc performBuildForPlatform(platform: string) =
 
     let command = if platform == "js": "js" else: "c"
 
+    putEnv("NIMX_RES_PATH", resourcePath)
     # Run Nim
     var args = @[nimExe, command]
     args.add(nimFlags)
