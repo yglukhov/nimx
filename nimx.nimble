@@ -1,22 +1,26 @@
-[Package]
-name = "nimx"
-version = "0.1"
-author = "Yuriy Glukhov"
+# Package
+
+version     = "0.1"
+author      = "Yuriy Glukhov"
 description = "GUI framework"
-license = "BSD"
+license     = "BSD"
 
-SkipDirs = "test/android/com.mycompany.MyGame"
+# Directory configuration
 
-[Dependencies]
-Requires: "sdl2"
-Requires: "opengl"
-Requires: "nimsl"
-Requires: "jnim" # For android target
-Requires: "nake"
-Requires: "closure_compiler"
-Requires: "plists"
+skipDirs    = @["test/android/com.mycompany.MyGame"]
+
+# Dependencies
+
+requires "sdl2"
+requires "opengl"
+requires "nimsl"
+requires "jnim" # For android target
+requires "nake"
+requires "closure_compiler"
+requires "plists"
 
 # Jester is required to run a web server from the nakefile to serve WebGL variant
-Requires: "jester"
-Requires: "https://github.com/yglukhov/ttf"
-Requires: "https://github.com/yglukhov/async_http_request"
+
+requires "jester"
+requires "https://github.com/yglukhov/ttf"
+requires "https://github.com/yglukhov/async_http_request"
