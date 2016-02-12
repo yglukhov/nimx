@@ -251,11 +251,12 @@ type
         source*: string
         setupProc*: proc(cc: CompiledComposition)
         mainProcName*: string
+        seenFlag: bool # Used on compilation phase, should not be used elsewhere.
         id*: int
 
     CompiledComposition = ref object
         program*: ProgramRef
-        uniformLocations: seq[UniformLocation]
+        uniformLocations*: seq[UniformLocation]
         iTexIndex*: GLint
         iUniform*: int
 
@@ -263,6 +264,7 @@ var programCache = initTable[Hash, CompiledComposition]()
 
 type Composition* = object
     definition: string
+    vsDefinition: string # Vertex shader source code
     requiresPrequel: bool
     id*: int
 
@@ -311,19 +313,27 @@ proc newPostEffect*(definition: static[string], mainProcName: string): PostEffec
     result.mainProcName = mainProcName
     result.id = hash(preprocessedDefinition)
 
-proc newComposition*(definition: static[string], requiresPrequel: bool = true): Composition =
-    const preprocessedDefinition = preprocessDefinition(definition)
+proc newComposition*(vsDef, fsDef: static[string], requiresPrequel: bool = true): Composition =
+    const preprocessedDefinition = preprocessDefinition(fsDef)
     result.definition = preprocessedDefinition
+    result.vsDefinition = vsDef
     result.requiresPrequel = requiresPrequel
     result.id = hash(preprocessedDefinition)
+
+template newComposition*(definition: static[string], requiresPrequel: bool = true): Composition =
+    newComposition(nil, definition, requiresPrequel)
 
 template newCompositionWithNimsl*(mainProc: typed): Composition =
     newComposition(getGLSLFragmentShader(mainProc, "compose"), false)
 
-var postEffectStack = newSeq[PostEffect]()
+type PostEffectStackElem = object
+    postEffect: PostEffect
+    setupProc*: proc(cc: CompiledComposition)
+
+var postEffectStack = newSeq[PostEffectStackElem]()
 var postEffectIdStack = newSeq[Hash]()
 
-proc compileComposition*(gl: GL, comp: var Composition, cchash: Hash): CompiledComposition =
+proc compileComposition*(gl: GL, comp: Composition, cchash: Hash): CompiledComposition =
     var fragmentShaderCode = ""
     if comp.requiresPrequel:
         fragmentShaderCode = """
@@ -342,18 +352,29 @@ uniform vec4 bounds;
 
     fragmentShaderCode &= comp.definition
 
-    for pe in postEffectStack:
-        fragmentShaderCode &= pe.source
+    let ln = postEffectStack.len
+    var i = 0
+    while i < ln:
+        let pe = postEffectStack[i].postEffect
+        if not pe.seenFlag:
+            fragmentShaderCode &= pe.source
+            pe.seenFlag = true
+        inc i
+
+    i = 0
+    while i < ln:
+        postEffectStack[i].postEffect.seenFlag = false
+        inc i
 
     fragmentShaderCode &= """void main() { gl_FragColor = vec4(0.0); compose(); """
-    var i = postEffectStack.len - 1
+    i = postEffectStack.len - 1
     while i >= 0:
-        fragmentShaderCode &= postEffectStack[i].mainProcName & "();"
+        fragmentShaderCode &= postEffectStack[i].postEffect.mainProcName & "();"
         dec i
     fragmentShaderCode &= "}"
 
     result.new()
-    result.program = gl.newShaderProgram(vertexShaderCode, fragmentShaderCode, [(posAttr, "aPosition")])
+    result.program = gl.newShaderProgram(if comp.vsDefinition.isNil: vertexShaderCode else: comp.vsDefinition, fragmentShaderCode, [(posAttr, "aPosition")])
     result.uniformLocations = newSeq[UniformLocation]()
     programCache[cchash] = result
 
@@ -368,7 +389,7 @@ proc unwrapPointArray(a: openarray[Point]): seq[GLfloat] =
 
 var texQuad : array[4, GLfloat]
 
-template compositionDrawingDefinitions(cc: CompiledComposition, ctx: GraphicsContext, gl: GL) =
+template compositionDrawingDefinitions*(cc: CompiledComposition, ctx: GraphicsContext, gl: GL) =
     template uniformLocation(name: string): UniformLocation =
         inc cc.iUniform
         if cc.uniformLocations.len - 1 < cc.iUniform:
@@ -407,13 +428,13 @@ template compositionDrawingDefinitions(cc: CompiledComposition, ctx: GraphicsCon
         inc cc.iTexIndex
 
 template pushPostEffect*(pe: PostEffect, body: untyped) =
-    pe.setupProc = proc(cc: CompiledComposition) =
+    postEffectStack.add(PostEffectStackElem(postEffect: pe, setupProc: proc(cc: CompiledComposition) =
         let ctx = currentContext()
         let gl = ctx.gl
         compositionDrawingDefinitions(cc, ctx, gl)
         body
+    ))
 
-    postEffectStack.add(pe)
     let oh = if postEffectIdStack.len > 0: postEffectIdStack[^1] else: 0
     postEffectIdStack.add(oh !& pe.id)
 
@@ -421,15 +442,24 @@ template popPostEffect*() =
     postEffectStack.setLen(postEffectStack.len - 1)
     postEffectIdStack.setLen(postEffectIdStack.len - 1)
 
-template draw*(comp: var Composition, r: Rect, code: untyped): stmt =
-    let ctx = currentContext()
-    let gl = ctx.gl
+template getCompiledComposition*(gl: GL, comp: Composition): CompiledComposition =
     let pehash = if postEffectIdStack.len > 0: postEffectIdStack[^1] else: 0
     let cchash = !$(pehash !& comp.id)
-
     var cc = programCache.getOrDefault(cchash)
     if cc.isNil:
         cc = gl.compileComposition(comp, cchash)
+    cc.iUniform = -1
+    cc.iTexIndex = 0
+    cc
+
+template setupPosteffectUniforms*(cc: CompiledComposition) =
+    for pe in postEffectStack:
+        pe.setupProc(cc)
+
+template draw*(comp: var Composition, r: Rect, code: untyped): stmt =
+    let ctx = currentContext()
+    let gl = ctx.gl
+    let cc = gl.getCompiledComposition(comp)
     gl.useProgram(cc.program)
     var points : array[8, GLfloat]
     points[0] = r.minX; points[1] = r.minY
@@ -440,8 +470,6 @@ template draw*(comp: var Composition, r: Rect, code: untyped): stmt =
     const componentCount : GLint = 2
     gl.enableVertexAttribArray(posAttr)
     gl.vertexAttribPointer(posAttr, componentCount, false, 0, points)
-    cc.iUniform = -1
-    cc.iTexIndex = 0
 
     compositionDrawingDefinitions(cc, ctx, gl)
 
@@ -449,8 +477,7 @@ template draw*(comp: var Composition, r: Rect, code: untyped): stmt =
 
     setUniform("bounds", r)
 
-    for pe in postEffectStack:
-        pe.setupProc(cc)
+    setupPosteffectUniforms(cc)
 
     block:
         code

@@ -89,9 +89,29 @@ proc isHiddenFile(path: string): bool =
     elif lastSlash != path.len - 1:
         result = path[lastSlash + 1] == '.'
 
+proc getEnvCt(k: string): string {.compileTime.} =
+    when defined(buildOnWindows): # This should be defined by the naketools.nim
+        result = staticExec("echo %" & k & "%")
+    else:
+        result = staticExec("echo $" & k)
+    if result == "": result = nil
+
 proc getResourceNames*(path: string = ""): seq[string] {.compileTime.} =
+    ## Collects file names inside resource folder in compile time.
+    ## Path to resource folder should be provided by `NIMX_RES_PATH` environment
+    ## variable. If no `NIMX_RES_PATH` is set, a compile time warning is emitted
+    ## and "./res" is used as resource folder path.
+    ## Returns a seq of file names which can then be used as an argument to
+    ## `preloadResources`
     result = newSeq[string]()
-    const prefix = "res/"
-    for f in walkDirRec(prefix & path):
+
+    var prefix = getEnvCt("NIMX_RES_PATH")
+    if prefix.isNil:
+        prefix = "res/"
+        echo "WARNING: NIMX_RES_PATH environment variable not set"
+    else:
+        prefix &= "/"
+
+    for f in oswalkdir.walkDirRec(prefix & path):
         if not isHiddenFile(f):
             result.add(f.substr(prefix.len))

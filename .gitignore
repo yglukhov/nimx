@@ -1,3 +1,4 @@
 nimcache
 nakefile
 test/main
+doc/*.html
