@@ -5,69 +5,112 @@ import tables, osproc, strutils
 import jester, asyncdispatch, browsers, closure_compiler # Stuff needed for JS target
 import plists
 
-var
-    appName* = "MyGame"
-    bundleId* = "com.mycompany.MyGame"
-    javaPackageId* = "com.mycompany.MyGame"
+type Builder* = ref object
+    platform*: string
 
-    disableClosureCompiler* = false
+    appName* : string
+    bundleId* : string
+    javaPackageId* : string
+    disableClosureCompiler* : bool
 
-    androidSdk* = "~/Library/Android/sdk"
-    androidNdk* = "~/Library/Android/sdk/ndk-bundle"
-    sdlRoot* = "~/Projects/SDL"
+    androidSdk* : string
+    androidNdk* : string
+    sdlRoot* : string
 
-    # This should point to the Nim include dir, where nimbase.h resides.
-    # Needed for android only
-    nimIncludeDir* = "~/Projects/nim/lib"
+    nimIncludeDir* : string
 
-    macOSSDKVersion* = "10.11"
-    macOSMinVersion* = "10.6"
+    macOSSDKVersion* : string
+    macOSMinVersion* : string
 
-    iOSSDKVersion* = "9.1"
-    iOSMinVersion* = iOSSDKVersion
+    iOSSDKVersion* : string
+    iOSMinVersion* : string
 
     # Simulator device identifier should be set to run the simulator.
     # Available simulators can be listed with the command:
     # $ xcrun simctl list
-    iOSSimulatorDeviceId* = "18BE8493-7EFB-4570-BF2B-5F5ACBCCB82B"
+    iOSSimulatorDeviceId* : string
 
-    preprocessResources* : proc(originalPath, preprocessedPath: string)
-    beforeBuild*: proc(platform: string)
-    afterBuild*: proc(platform: string)
+    nimVerbosity* : int
+    nimParallelBuild* : int
+    debugMode* : bool
 
-    nimVerbosity* = 0
-    nimParallelBuild* = 1
-    debugMode* = true
+    additionalNimFlags*: seq[string]
+    additionalLinkerFlags*: seq[string]
+    additionalCompilerFlags*: seq[string]
 
-    additionalNimFlags*: seq[string] = @[]
-    additionalLinkerFlags*: seq[string] = @[]
-    additionalCompilerFlags*: seq[string] = @[]
+    runAfterBuild* : bool
+    targetArchitectures* : seq[string]
 
-    runAfterBuild* = true
-    targetArchitectures* = @["armeabi", "armeabi-v7a", "x86"]
+    bundleName : string
 
-# Build env vars
-var
-    buildRoot = "build"
+    buildRoot : string
     executablePath : string
     nimcachePath : string
-    resourcePath : string
+    resourcePath* : string
+    originalResourcePath*: string
     nimFlags : seq[string]
     compilerFlags: seq[string]
     linkerFlags: seq[string]
 
-when defined(windows):
-    androidSdk = "D:\\Android\\android-sdk"
-    androidNdk = "D:\\Android\\android-ndk-r10e"
-    sdlRoot = "D:\\Android\\SDL2-2.0.3"
-    nimIncludeDir = "C:\\Nim\\lib"
+proc newBuilder(platform: string): Builder =
+    result.new()
+    let b = result
 
-let bundleName = appName & ".app"
-let xCodeApp = "/Applications/Xcode.app"
+    b.platform = platform
 
-let macOSSDK = xCodeApp/"Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX" & macOSSDKVersion & ".sdk"
-let iOSSDK = xCodeApp/"Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS" & iOSSDKVersion & ".sdk"
-let iOSSimulatorSDK = xCodeApp/"Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator" & iOSSDKVersion & ".sdk"
+    b.appName = "MyGame"
+    b.bundleId = "com.mycompany.MyGame"
+    b.javaPackageId = "com.mycompany.MyGame"
+
+    b.disableClosureCompiler = false
+
+    when defined(windows):
+        b.androidSdk = "D:\\Android\\android-sdk"
+        b.androidNdk = "D:\\Android\\android-ndk-r10e"
+        b.sdlRoot = "D:\\Android\\SDL2-2.0.3"
+        b.nimIncludeDir = "C:\\Nim\\lib"
+    else:
+        b.androidSdk = "~/Library/Android/sdk"
+        b.androidNdk = "~/Library/Android/sdk/ndk-bundle"
+        b.sdlRoot = "~/Projects/SDL"
+        b.nimIncludeDir = "~/Projects/nim/lib"
+
+    b.macOSSDKVersion = "10.11"
+    b.macOSMinVersion = "10.6"
+
+    b.iOSSDKVersion = "9.1"
+    b.iOSMinVersion = b.iOSSDKVersion
+
+    # Simulator device identifier should be set to run the simulator.
+    # Available simulators can be listed with the command:
+    # $ xcrun simctl list
+    b.iOSSimulatorDeviceId = "18BE8493-7EFB-4570-BF2B-5F5ACBCCB82B"
+
+    b.nimVerbosity = 0
+    b.nimParallelBuild = 1
+    b.debugMode = true
+
+    b.additionalNimFlags = @[]
+    b.additionalLinkerFlags = @[]
+    b.additionalCompilerFlags = @[]
+
+    b.runAfterBuild = true
+    b.targetArchitectures = @["armeabi", "armeabi-v7a", "x86"]
+
+    b.buildRoot = "build"
+
+proc newBuilderForCurrentPlatform(): Builder =
+    when defined(macosx):
+        newBuilder("macosx")
+    elif defined(windows):
+        newBuilder("windows")
+    else:
+        newBuilder("linux")
+
+var
+    preprocessResources* : proc(b: Builder)
+    beforeBuild*: proc(b: Builder)
+    afterBuild*: proc(b: Builder)
 
 when defined(Windows):
     const silenceStdout = "2>nul"
@@ -78,12 +121,12 @@ if dirExists("../.git"): # Install nimx
     withDir "..":
         direShell "nimble", "-y", "install", silenceStdout
 
-proc preprocessResourcesAux(toPath: string) =
+proc preprocessResourcesAux(b: Builder) =
     if preprocessResources.isNil:
-        copyDir("res", toPath)
+        copyDir("res", b.resourcePath)
     else:
-        createDir(toPath)
-        preprocessResources("res", toPath)
+        createDir(b.resourcePath)
+        preprocessResources(b)
 
 proc infoPlistSetValueForKey(path, value, key: string) =
     direShell "defaults", "write", path, key, value
@@ -91,21 +134,22 @@ proc infoPlistSetValueForKey(path, value, key: string) =
 proc absPath(path: string): string =
     if path.isAbsolute(): path else: getCurrentDir() / path
 
-proc makeIosBundle() =
-    removeDir bundleName
-    createDir bundleName
-    let infoPlistPath = absPath(bundleName / "Info")
-    infoPlistSetValueForKey(infoPlistPath, appName, "CFBundleName")
-    infoPlistSetValueForKey(infoPlistPath, bundleId, "CFBundleIdentifier")
+proc makeIosBundle(b: Builder) =
+    let bundlePath = b.buildRoot / b.bundleName
+    removeDir bundlePath
+    createDir bundlePath
+    let infoPlistPath = absPath(bundlePath / "Info")
+    infoPlistSetValueForKey(infoPlistPath, b.appName, "CFBundleName")
+    infoPlistSetValueForKey(infoPlistPath, b.bundleId, "CFBundleIdentifier")
 
-proc makeMacOsBundle() =
-    let bundlePath = buildRoot / bundleName
+proc makeMacOsBundle(b: Builder) =
+    let bundlePath = b.buildRoot / b.bundleName
     createDir(bundlePath / "Contents")
 
     let plist = newJObject()
-    plist["CFBundleName"] = %appName
-    plist["CFBundleIdentifier"] = %bundleId
-    plist["CFBundleExecutable"] = %appName
+    plist["CFBundleName"] = %b.appName
+    plist["CFBundleIdentifier"] = %b.bundleId
+    plist["CFBundleExecutable"] = %b.appName
     plist["NSHighResolutionCapable"] = %true
     plist.writePlist(bundlePath / "Contents" / "Info.plist")
 
@@ -116,13 +160,13 @@ proc trySymLink(src, dest: string) =
         echo "ERROR: Could not create symlink from ", src, " to ", dest
         discard
 
-proc runAppInSimulator() =
+proc runAppInSimulator(b: Builder) =
     var waitForDebugger = "--wait-for-debugger"
     waitForDebugger = ""
     direShell "open", "-b", "com.apple.iphonesimulator"
-    shell "xcrun", "simctl", "uninstall", iOSSimulatorDeviceId, bundleId
-    direShell "xcrun", "simctl", "install", iOSSimulatorDeviceId, buildRoot / bundleName
-    direShell "xcrun", "simctl", "launch", waitForDebugger, iOSSimulatorDeviceId, bundleId
+    shell "xcrun", "simctl", "uninstall", b.iOSSimulatorDeviceId, b.bundleId
+    direShell "xcrun", "simctl", "install", b.iOSSimulatorDeviceId, b.buildRoot / b.bundleName
+    direShell "xcrun", "simctl", "launch", waitForDebugger, b.iOSSimulatorDeviceId, b.bundleId
 
 proc replaceVarsInFile(file: string, vars: Table[string, string]) =
     var content = readFile(file)
@@ -130,63 +174,63 @@ proc replaceVarsInFile(file: string, vars: Table[string, string]) =
         content = content.replace("$(" & k & ")", v)
     writeFile(file, content)
 
-proc buildSDLForDesktop(): string =
+proc buildSDLForDesktop(b: Builder): string =
     when defined(linux):
         result = "/usr/lib"
     elif defined(macosx):
         if fileExists("/usr/local/lib/libSDL2.a") or fileExists("/usr/local/lib/libSDL2.dylib"):
             result = "/usr/local/lib"
         else:
-            let xcodeProjDir = expandTilde(sdlRoot)/"Xcode/SDL"
+            let xcodeProjDir = expandTilde(b.sdlRoot)/"Xcode/SDL"
             let libDir = xcodeProjDir/"build/Release"
             if not fileExists libDir/"libSDL2.a":
-                direShell "xcodebuild", "-project", xcodeProjDir/"SDL.xcodeproj", "-target", "Static\\ Library", "-configuration", "Release", "-sdk", "macosx"&macOSSDKVersion, "SYMROOT=build"
+                direShell "xcodebuild", "-project", xcodeProjDir/"SDL.xcodeproj", "-target", "Static\\ Library", "-configuration", "Release", "-sdk", "macosx"&b.macOSSDKVersion, "SYMROOT=build"
             result = libDir
     else:
         assert(false, "Don't know where to find SDL")
 
-proc buildSDLForIOS(forSimulator: bool = false): string =
+proc buildSDLForIOS(b: Builder, forSimulator: bool = false): string =
     let entity = if forSimulator: "iphonesimulator" else: "iphoneos"
-    let xcodeProjDir = expandTilde(sdlRoot)/"Xcode-iOS/SDL"
+    let xcodeProjDir = expandTilde(b.sdlRoot)/"Xcode-iOS/SDL"
     result = xcodeProjDir/"build/Release-" & entity
     if not fileExists result/"libSDL2.a":
-        direShell "xcodebuild", "-project", xcodeProjDir/"SDL.xcodeproj", "-configuration", "Release", "-sdk", entity&iOSSDKVersion, "SYMROOT=build", "ARCHS=\"i386 x86_64\""
+        direShell "xcodebuild", "-project", xcodeProjDir/"SDL.xcodeproj", "-configuration", "Release", "-sdk", entity&b.iOSSDKVersion, "SYMROOT=build", "ARCHS=\"i386 x86_64\""
 
-proc makeAndroidBuildDir(): string =
-    let buildDir = buildRoot / javaPackageId
+proc makeAndroidBuildDir(b: Builder): string =
+    let buildDir = b.buildRoot / b.javaPackageId
     if not dirExists buildDir:
         var (nimbleNimxDir, errC) = execCmdEx("nimble path nimx")
-        nimbleNimxDir = nimbleNimxDir.strip()
         doAssert(errC == 0, "Error: nimx does not seem to be installed with nimble!")
+        nimbleNimxDir = nimbleNimxDir.strip()
         createDir(buildDir)
         let templateDir = nimbleNimxDir / "test" / "android" / "template"
         echo "Using Android app template: ", templateDir
         copyDir templateDir, buildDir
 
         when defined(windows):
-            copyDir sdlRoot/"src", buildDir/"jni"/"SDL"/"src"
-            copyDir sdlRoot/"include", buildDir/"jni"/"SDL"/"include"
+            copyDir b.sdlRoot/"src", buildDir/"jni"/"SDL"/"src"
+            copyDir b.sdlRoot/"include", buildDir/"jni"/"SDL"/"include"
         else:
-            trySymLink(sdlRoot/"src", buildDir/"jni"/"SDL"/"src")
-            trySymLink(sdlRoot/"include", buildDir/"jni"/"SDL"/"include")
+            trySymLink(b.sdlRoot/"src", buildDir/"jni"/"SDL"/"src")
+            trySymLink(b.sdlRoot/"include", buildDir/"jni"/"SDL"/"include")
 
-        let mainActivityPath = javaPackageId.replace(".", "/")
+        let mainActivityPath = b.javaPackageId.replace(".", "/")
         createDir(buildDir/"src"/mainActivityPath)
         let mainActivityJava = """
-        package """ & javaPackageId & """;
+        package """ & b.javaPackageId & """;
         import org.libsdl.app.SDLActivity;
         public class MainActivity extends SDLActivity {}
         """
         writeFile(buildDir/"src"/mainActivityPath/"MainActivity.java", mainActivityJava)
 
         var linkerFlags = ""
-        for f in additionalLinkerFlags: linkerFlags &= " " & f
+        for f in b.additionalLinkerFlags: linkerFlags &= " " & f
 
         let vars = {
-            "PACKAGE_ID" : javaPackageId,
-            "APP_NAME" : appName,
+            "PACKAGE_ID" : b.javaPackageId,
+            "APP_NAME" : b.appName,
             "ADDITIONAL_LINKER_FLAGS": linkerFlags,
-            "TARGET_ARCHITECTURES": targetArchitectures.join(" ")
+            "TARGET_ARCHITECTURES": b.targetArchitectures.join(" ")
             }.toTable()
 
         replaceVarsInFile buildDir/"AndroidManifest.xml", vars
@@ -195,159 +239,173 @@ proc makeAndroidBuildDir(): string =
         replaceVarsInFile buildDir/"jni/Application.mk", vars
     buildDir
 
-proc performBuildForPlatform(platform: string) =
-    buildRoot = buildRoot / platform
-    nimcachePath = buildRoot / "nimcache"
-    executablePath = buildRoot / appName
-    resourcePath = buildRoot / "res"
+proc build(b: Builder) =
+    b.buildRoot = b.buildRoot / b.platform
+    b.nimcachePath = b.buildRoot / "nimcache"
+    b.resourcePath = b.buildRoot / "res"
+    b.originalResourcePath = "res"
 
-    if not beforeBuild.isNil: beforeBuild(platform)
+    if not beforeBuild.isNil: beforeBuild(b)
 
-    nimFlags = @[]
-    linkerFlags = @[]
-    compilerFlags = @[]
+    b.executablePath = b.buildRoot / b.appName
+    b.bundleName = b.appName & ".app"
+
+    b.nimFlags = @[]
+    b.linkerFlags = @[]
+    b.compilerFlags = @[]
 
     template addCAndLFlags(f: openarray[string]) =
-        linkerFlags.add(f)
-        compilerFlags.add(f)
+        b.linkerFlags.add(f)
+        b.compilerFlags.add(f)
 
-    if platform == "macosx":
-        makeMacOsBundle()
-        executablePath = buildRoot / bundleName / "Contents" / "MacOS" / appName
-        resourcePath = buildRoot / bundleName / "Contents" / "Resources"
-        addCAndLFlags(["-isysroot", macOSSDK, "-mmacosx-version-min=" & macOSMinVersion])
-        linkerFlags.add(["-fobjc-link-runtime", "-L" & buildSDLForDesktop()])
-        nimFlags.add("-d:SDL_Static")
+    let xCodeApp = "/Applications/Xcode.app"
 
-    elif platform == "ios" or platform == "ios-sim":
-        makeIosBundle()
-        executablePath = buildRoot / bundleName / appName
-        resourcePath = buildRoot / bundleName
+    let macOSSDK = xCodeApp/"Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX" & b.macOSSDKVersion & ".sdk"
+    let iOSSDK = xCodeApp/"Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS" & b.iOSSDKVersion & ".sdk"
+    let iOSSimulatorSDK = xCodeApp/"Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator" & b.iOSSDKVersion & ".sdk"
 
-        nimFlags.add(["--os:macosx", "-d:ios", "-d:iPhone", "-d:SDL_Static"])
+    case b.platform
+    of "macosx":
+        b.makeMacOsBundle()
+        b.executablePath = b.buildRoot / b.bundleName / "Contents" / "MacOS" / b.appName
+        b.resourcePath = b.buildRoot / b.bundleName / "Contents" / "Resources"
+        addCAndLFlags(["-isysroot", macOSSDK, "-mmacosx-version-min=" & b.macOSMinVersion])
+        b.linkerFlags.add(["-fobjc-link-runtime", "-L" & b.buildSDLForDesktop()])
+        b.nimFlags.add("-d:SDL_Static")
+
+    of "ios", "ios-sim":
+        b.makeIosBundle()
+        b.executablePath = b.buildRoot / b.bundleName / b.appName
+        b.resourcePath = b.buildRoot / b.bundleName
+
+        b.nimFlags.add(["--os:macosx", "-d:ios", "-d:iPhone", "-d:SDL_Static"])
 
         var sdkPath : string
         var sdlLibDir : string
-        if platform == "ios":
+        if b.platform == "ios":
             sdkPath = iOSSDK
-            sdlLibDir = buildSDLForIOS(false)
-            nimFlags.add("--cpu:arm")
-            addCAndLFlags(["-mios-version-min=" & iOSMinVersion])
+            sdlLibDir = b.buildSDLForIOS(false)
+            b.nimFlags.add("--cpu:arm")
+            addCAndLFlags(["-mios-version-min=" & b.iOSMinVersion])
         else:
             sdkPath = iOSSimulatorSDK
-            sdlLibDir = buildSDLForIOS(true)
-            nimFlags.add("--cpu:amd64")
-            nimFlags.add("-d:simulator")
-            addCAndLFlags(["-mios-simulator-version-min=" & iOSMinVersion])
+            sdlLibDir = b.buildSDLForIOS(true)
+            b.nimFlags.add("--cpu:amd64")
+            b.nimFlags.add("-d:simulator")
+            addCAndLFlags(["-mios-simulator-version-min=" & b.iOSMinVersion])
 
-        linkerFlags.add(["-fobjc-link-runtime", "-L" & sdlLibDir])
+        b.linkerFlags.add(["-fobjc-link-runtime", "-L" & sdlLibDir])
         addCAndLFlags(["-isysroot", sdkPath])
 
-    elif platform == "android":
-        let buildDir = makeAndroidBuildDir()
-        nimcachePath = buildDir / "jni/src"
-        resourcePath = buildDir / "assets"
-        nimFlags.add(["--compileOnly", "--cpu:arm", "--os:linux", "-d:android", "-d:SDL_Static"])
+    of "android":
+        let buildDir = b.makeAndroidBuildDir()
+        b.nimcachePath = buildDir / "jni/src"
+        b.resourcePath = buildDir / "assets"
+        b.nimFlags.add(["--compileOnly", "--cpu:arm", "--os:linux", "-d:android", "-d:SDL_Static"])
 
-    elif platform == "js":
-        executablePath = buildRoot / "main.js"
-    elif platform == "linux":
-        linkerFlags.add(["-L/usr/local/lib", "-Wl,-rpath,/usr/local/lib", "-lpthread"])
-    elif platform == "windows":
-        executablePath &= ".exe"
+    of "js":
+        b.executablePath = b.buildRoot / "main.js"
+    of "linux":
+        b.linkerFlags.add(["-L/usr/local/lib", "-Wl,-rpath,/usr/local/lib", "-lpthread"])
+    of "windows":
+        b.executablePath &= ".exe"
+    else: discard
 
-    if platform != "js":
-        linkerFlags.add("-lSDL2")
-        nimFlags.add("--threads:on")
+    if b.platform != "js":
+        b.nimFlags.add("--threads:on")
+        if b.platform != "windows":
+            b.linkerFlags.add("-lSDL2")
 
-    if runAfterBuild and platform != "android" and platform != "ios" and
-            platform != "ios-sim" and platform != "js":
-        nimFlags.add("--run")
+    if b.runAfterBuild and b.platform != "android" and b.platform != "ios" and
+            b.platform != "ios-sim" and b.platform != "js":
+        b.nimFlags.add("--run")
 
-    nimFlags.add(["--warning[LockLevel]:off", "--verbosity:" & $nimVerbosity,
-                "--parallelBuild:" & $nimParallelBuild, "--out:" & executablePath,
-                "--nimcache:" & nimcachePath])
+    b.nimFlags.add(["--warning[LockLevel]:off", "--verbosity:" & $b.nimVerbosity,
+                "--parallelBuild:" & $b.nimParallelBuild, "--out:" & b.executablePath,
+                "--nimcache:" & b.nimcachePath])
 
-    if platform != "windows":
-        nimFlags.add("--noMain")
+    if b.platform != "windows":
+        b.nimFlags.add("--noMain")
 
-    if debugMode:
-        nimFlags.add(["-d:debug"])
-        if platform != "js":
-            nimFlags.add(["--stackTrace:on", "--lineTrace:on"])
+    if b.debugMode:
+        b.nimFlags.add(["-d:debug"])
+        if b.platform != "js":
+            b.nimFlags.add(["--stackTrace:on", "--lineTrace:on"])
     else:
-        nimFlags.add(["-d:release", "--opt:speed"])
+        b.nimFlags.add(["-d:release", "--opt:speed"])
 
     when defined(windows):
-        nimFlags.add("-d:buildOnWindows") # Workaround for JS getEnv in nimx
+        b.nimFlags.add("-d:buildOnWindows") # Workaround for JS getEnv in nimx
 
-    nimFlags.add(additionalNimFlags)
+    b.nimFlags.add(b.additionalNimFlags)
 
-    for f in linkerFlags: nimFlags.add("--passL:" & f)
-    for f in additionalLinkerFlags: nimFlags.add("--passL:" & f)
+    for f in b.linkerFlags: b.nimFlags.add("--passL:" & f)
+    for f in b.additionalLinkerFlags: b.nimFlags.add("--passL:" & f)
 
-    for f in compilerFlags: nimFlags.add("--passC:" & f)
-    for f in additionalCompilerFlags: nimFlags.add("--passC:" & f)
+    for f in b.compilerFlags: b.nimFlags.add("--passC:" & f)
+    for f in b.additionalCompilerFlags: b.nimFlags.add("--passC:" & f)
 
-    preprocessResourcesAux(resourcePath)
+    preprocessResourcesAux(b)
 
-    createDir(parentDir(executablePath))
+    createDir(parentDir(b.executablePath))
 
-    let command = if platform == "js": "js" else: "c"
+    let command = if b.platform == "js": "js" else: "c"
 
-    putEnv("NIMX_RES_PATH", resourcePath)
+    putEnv("NIMX_RES_PATH", b.resourcePath)
     # Run Nim
     var args = @[nimExe, command]
-    args.add(nimFlags)
+    args.add(b.nimFlags)
     args.add "main"
     direShell args
 
-    if not afterBuild.isNil: afterBuild(platform)
+    if not afterBuild.isNil: afterBuild(b)
 
-
-task defaultTask, "Build and run":
-    when defined(macosx):
-        performBuildForPlatform("macosx")
-    elif defined(windows):
-        performBuildForPlatform("windows")
-    else:
-        performBuildForPlatform("linux")
-
-task "build", "Build and don't run":
-    runAfterBuild = false
-    runTask defaultTask
-
-task "ios-sim", "Build and run in iOS simulator":
-    performBuildForPlatform("ios-sim")
-    if runAfterBuild: runAppInSimulator()
-
-task "ios", "Build for iOS":
-    performBuildForPlatform("ios")
-
-task "droid", "Build for android and install on the connected device":
-    performBuildForPlatform("android")
-
-    withDir(buildRoot / javaPackageId):
-        putEnv "NIM_INCLUDE_DIR", expandTilde(nimIncludeDir)
-        direShell androidSdk/"tools/android", "update", "project", "-p", ".", "-t", "android-22" # try with android-16
-        direShell androidNdk/"ndk-build"
-        #putEnv "ANDROID_SERIAL", "12345" # Target specific device
-        direShell "ant", "debug", "install"
-
-task "js", "Create Javascript version and run in browser.":
-    performBuildForPlatform("js")
-
-    if not disableClosureCompiler:
-        closure_compiler.compileFileAndRewrite(buildRoot / "main.js", ADVANCED_OPTIMIZATIONS)
-    copyFile("main.html", buildRoot / "main.html")
-    if runAfterBuild:
-        let settings = newSettings(staticDir = buildRoot)
+proc jsPostBuild(b: Builder) =
+    if not b.disableClosureCompiler:
+        closure_compiler.compileFileAndRewrite(b.buildRoot / "main.js", ADVANCED_OPTIMIZATIONS)
+    copyFile("main.html", b.buildRoot / "main.html")
+    if b.runAfterBuild:
+        let settings = newSettings(staticDir = b.buildRoot)
         routes:
             get "/": redirect "main.html"
         when not defined(windows):
             openDefaultBrowser "http://localhost:5000"
         runForever()
 
+task defaultTask, "Build and run":
+    newBuilderForCurrentPlatform().build()
+
+task "build", "Build and don't run":
+    let b = newBuilderForCurrentPlatform()
+    b.runAfterBuild = false
+    b.build()
+
+task "ios-sim", "Build and run in iOS simulator":
+    let b = newBuilder("ios-sim")
+    b.build()
+    if b.runAfterBuild: b.runAppInSimulator()
+
+task "ios", "Build for iOS":
+    newBuilder("ios").build()
+
+task "droid", "Build for android and install on the connected device":
+    let b = newBuilder("android")
+    b.build()
+
+    withDir(b.buildRoot / b.javaPackageId):
+        putEnv "NIM_INCLUDE_DIR", expandTilde(b.nimIncludeDir)
+        direShell b.androidSdk/"tools/android", "update", "project", "-p", ".", "-t", "android-22" # try with android-16
+        direShell b.androidNdk/"ndk-build"
+        #putEnv "ANDROID_SERIAL", "12345" # Target specific device
+        direShell "ant", "debug", "install"
+
+task "js", "Create Javascript version and run in browser.":
+    let b = newBuilder("js")
+    b.build()
+    b.jsPostBuild()
+
 task "build-js", "Create Javascript version.":
-    runAfterBuild = false
-    runTask "js"
+    let b = newBuilder("js")
+    b.runAfterBuild = false
+    b.build()
+    b.jsPostBuild()
