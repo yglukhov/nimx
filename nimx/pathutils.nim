@@ -3,7 +3,7 @@ import strutils
 proc relativePathToPath*(path, toPath: string): string =
     # Returns a relative path to `toPath` which is equivalent of absolute `path`
     # E.g. given `path` = "/a/b/c/d/e" and `toPath` = "/a/b/c/f/g"
-    # result = ""
+    # result = "../../f/g"
 
     let pc = path.split('/')
     let tpc = toPath.split('/')
@@ -63,3 +63,6 @@ proc normalizePath*(path: var string) =
             inc j
             inc i
     path.setLen(j)
+
+when isMainModule:
+    doAssert(relativePathToPath("/a/b/c/d/e", "/a/b/c/f/g") == "../../f/g")
