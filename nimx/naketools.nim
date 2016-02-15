@@ -1,7 +1,7 @@
 import nake
 export nake
 
-import tables, osproc, strutils
+import tables, osproc, strutils, times
 import jester, asyncdispatch, browsers, closure_compiler # Stuff needed for JS target
 import plists
 
@@ -121,9 +121,33 @@ if dirExists("../.git"): # Install nimx
     withDir "..":
         direShell "nimble", "-y", "install", silenceStdout
 
+proc copyResourceAsIs*(b: Builder, path: string) =
+    let destPath = b.resourcePath / path
+    let fromPath = b.originalResourcePath / path
+    if not fileExists(destPath) or fileNewer(fromPath, destPath):
+        echo "Copying resource: ", path
+        createDir(parentDir(destPath))
+        copyFile(fromPath, destPath)
+
+proc convertResource*(b: Builder, origPath, destExtension: string, conv : proc(fromPath, toPath: string)) =
+    let op = b.originalResourcePath / origPath
+    let sp = origPath.splitFile()
+    let dp = b.resourcePath / sp.dir / sp.name & "." & destExtension
+    if not fileExists(dp) or fileNewer(op, dp):
+        echo "Converting resource: ", op
+        createDir(parentDir(dp))
+        conv(op, dp)
+
+proc forEachResource*(b: Builder, p: proc(path: string)) =
+    for i in walkDirRec(b.originalResourcePath):
+        p(i.substr(b.originalResourcePath.len + 1))
+
+proc copyResources*(b: Builder) =
+    copyDir(b.originalResourcePath, b.resourcePath)
+
 proc preprocessResourcesAux(b: Builder) =
     if preprocessResources.isNil:
-        copyDir("res", b.resourcePath)
+        b.copyResources()
     else:
         createDir(b.resourcePath)
         preprocessResources(b)
@@ -351,7 +375,7 @@ proc build(b: Builder) =
 
     let command = if b.platform == "js": "js" else: "c"
 
-    putEnv("NIMX_RES_PATH", b.resourcePath)
+    b.nimFlags.add("--putEnv:NIMX_RES_PATH=" & b.resourcePath)
     # Run Nim
     var args = @[nimExe, command]
     args.add(b.nimFlags)

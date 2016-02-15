@@ -7,7 +7,7 @@ license     = "BSD"
 
 # Directory configuration
 
-skipDirs    = @["test/android/com.mycompany.MyGame"]
+skipDirs    = @["test/build"]
 
 # Dependencies
 
