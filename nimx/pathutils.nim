@@ -5,8 +5,8 @@ proc relativePathToPath*(path, toPath: string): string =
     # E.g. given `path` = "/a/b/c/d/e" and `toPath` = "/a/b/c/f/g"
     # result = "../../f/g"
 
-    let pc = path.split('/')
-    let tpc = toPath.split('/')
+    let pc = path.split({'/', '\\'})
+    let tpc = toPath.split({'/', '\\'})
 
     let ln = min(pc.len, tpc.len)
     var cp = 0
