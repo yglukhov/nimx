@@ -9,7 +9,7 @@ then
     git config user.email "yuriy.glukhov@gmail.com"
 
     git add .
-    git add nimcache || true
+    git add livedemo
     git commit -m "Deploy to GitHub Pages"
 
     git push --force --quiet "https://$GH_KEY@github.com/$TRAVIS_REPO_SLUG" master:gh-pages > /dev/null 2>&1
