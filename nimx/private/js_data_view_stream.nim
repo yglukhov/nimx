@@ -93,28 +93,10 @@ proc abReadData(st: Stream, buffer: pointer, bufLen: int): int =
     """.}
     s.pos = pos
 
-proc growDataViewSize(dataView: DataView, to: int): DataView =
-    result = dataView
-    {.emit: """
-    var len = `dataView`.byteLength;
-    if (len < to) {
-        do {
-            len *= 2;
-        } while(len < to);
-        var newBuf = new ArrayBuffer(len);
-        var newView = new Int32Array(newBuf);
-        var oldView = new Int32Array(`dataView`.buffer);
-        var oldLen = oldView.length;
-        for (var i = 0; i < oldLen; ++ i) newView[i] = oldView[i];
-        `result` = new DataView(newBuf);
-    }
-    """.}
-
 proc abWriteData(st: Stream; buffer: pointer; bufLen: int) =
     let s = DataViewStream(st)
     let pos = s.pos
     var view = s.view
-    var newPos = pos
     {.emit: """
     var ok = false;
     if (`bufLen` === 0) {
@@ -216,6 +198,7 @@ proc newStreamWithDataView*(v: DataView): Stream =
     r.view = v
     r.readDataImpl = abReadData
     r.atEndImpl = abAtEnd
+    r.getPositionImpl = abGetPos
     result = r
 
 proc makeDataView(): DataView =
@@ -226,4 +209,5 @@ proc newDataViewWriteStream*(): Stream =
     r.view = makeDataView()
     r.readDataImpl = abReadData
     r.writeDataImpl = abWriteData
+    r.getPositionImpl = abGetPos
     result = r

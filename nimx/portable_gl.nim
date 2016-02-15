@@ -9,7 +9,7 @@ when defined js:
         FramebufferRef* = ref FramebufferObj
         FramebufferObj {.importc.} = object
 
-        RenderbufferRef* = ref FramebufferObj
+        RenderbufferRef* = ref RenderbufferObj
         RenderbufferObj {.importc.} = object
 
         TextureRef* = ref TextureObj
