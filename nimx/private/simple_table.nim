@@ -8,6 +8,8 @@ when not defined(js):
     template newSimpleTable*(TKey, TVal: typedesc): SimpleTable[TKey, TVal] = newTable[TKey, TVal]()
 else:
     type SimpleTable*[TKey, TVal] = ref object
+        dummyk: TKey
+        dummyv: TVal
     proc newSimpleTable*(TKey, TVal: typedesc): SimpleTable[TKey, TVal] {.importc: "new Object".}
 
     {.push stackTrace: off.}

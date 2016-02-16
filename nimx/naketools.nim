@@ -182,21 +182,21 @@ proc makeMacOsBundle(b: Builder) =
 
 proc makeWindowsResource(b: Builder) =
     let
-        rcPath = b.buildRoot / "res" / (b.appName & ".rc")
+        rcPath = b.nimcachePath / (b.appName & ".rc")
         rcO = b.nimcachePath / (b.appName & "_res.o")
     var createResource: bool = false
 
     shell "type", "nul", ">", rcPath
 
     if not isNil(b.appIconName):
-        let appIconPath = b.resourcePath / (b.appIconName)
+        let appIconPath = b.originalResourcePath / (b.appIconName)
 
         if fileExists(absPath(appIconPath)):
             shell "echo", "AppIcon ICON \"$#\"" % [b.appIconName], ">>", rcPath
             shell "windres", "-i", rcPath, "-o", rcO
             createResource = true
         else:
-            echo "Warning: icon was not found: $#" % [appIconPath]
+            echo "Warning: icon was not found: $#", appIconPath
     else:
         echo "Info: you can set your application icon by setting `builder.appIconName` property."
 
