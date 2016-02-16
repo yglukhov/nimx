@@ -25,6 +25,8 @@ type Builder* = ref object
     iOSSDKVersion* : string
     iOSMinVersion* : string
 
+    appIconName : string
+
     # Simulator device identifier should be set to run the simulator.
     # Available simulators can be listed with the command:
     # $ xcrun simctl list
@@ -69,6 +71,7 @@ proc newBuilder(platform: string): Builder =
         b.androidNdk = "D:\\Android\\android-ndk-r10e"
         b.sdlRoot = "D:\\Android\\SDL2-2.0.3"
         b.nimIncludeDir = "C:\\Nim\\lib"
+        b.appIconName = "MyGame.ico"
     else:
         b.androidSdk = "~/Library/Android/sdk"
         b.androidNdk = "~/Library/Android/sdk/ndk-bundle"
@@ -176,6 +179,29 @@ proc makeMacOsBundle(b: Builder) =
     plist["CFBundleExecutable"] = %b.appName
     plist["NSHighResolutionCapable"] = %true
     plist.writePlist(bundlePath / "Contents" / "Info.plist")
+
+proc makeWindowsResource(b: Builder) =
+    let
+        rcPath = b.buildRoot / "res" / (b.appName & ".rc")
+        rcO = b.nimcachePath / (b.appName & "_res.o")
+    var createResource: bool = false
+
+    shell "type", "nul", ">", rcPath
+
+    if not isNil(b.appIconName):
+        let appIconPath = b.resourcePath / (b.appIconName)
+
+        if fileExists(absPath(appIconPath)):
+            shell "echo", "AppIcon ICON \"$#\"" % [b.appIconName], ">>", rcPath
+            shell "windres", "-i", rcPath, "-o", rcO
+            createResource = true
+        else:
+            echo "Warning: icon was not found: $#" % [appIconPath]
+    else:
+        echo "Info: you can set your application icon by setting `builder.appIconName` property."
+
+    if createResource:
+        b.additionalLinkerFlags.add(absPath(rcO))
 
 proc trySymLink(src, dest: string) =
     try:
@@ -333,6 +359,7 @@ proc build(b: Builder) =
         b.linkerFlags.add(["-L/usr/local/lib", "-Wl,-rpath,/usr/local/lib", "-lpthread"])
     of "windows":
         b.executablePath &= ".exe"
+        b.makeWindowsResource()
     else: discard
 
     if b.platform != "js":
