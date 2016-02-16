@@ -148,7 +148,7 @@ proc bakeChars(f: Font, start: int32): CharInfo =
     when defined js:
         let fName : cstring = f.filePath
         let fontName : cstring = $fSize.int & "px " & f.filePath
-        let canvas = document.createElement("canvas").Element
+        let canvas = document.createElement("canvas")
         var ascent, descent: int32
         {.emit: """
         var ctx = `canvas`.getContext('2d');
@@ -332,25 +332,26 @@ const preferredFonts = when defined(js) or defined(windows):
             "DejaVuSans"
         ]
 
-const fontSearchPaths = when defined(macosx):
-        [
-            "/Library/Fonts"
-        ]
-    elif defined(android):
-        [
-            "/system/fonts"
-        ]
-    elif defined(windows):
-        [
-            r"c:\Windows\Fonts" #todo: system will not always in the c disk
-        ]
-    else:
-        [
-            "/usr/share/fonts/truetype",
-            "/usr/share/fonts/truetype/ubuntu-font-family",
-            "/usr/share/fonts/TTF",
-            "/usr/share/fonts/truetype/dejavu"
-        ]
+when not defined(js):
+    const fontSearchPaths = when defined(macosx):
+            [
+                "/Library/Fonts"
+            ]
+        elif defined(android):
+            [
+                "/system/fonts"
+            ]
+        elif defined(windows):
+            [
+                r"c:\Windows\Fonts" #todo: system will not always in the c disk
+            ]
+        else:
+            [
+                "/usr/share/fonts/truetype",
+                "/usr/share/fonts/truetype/ubuntu-font-family",
+                "/usr/share/fonts/TTF",
+                "/usr/share/fonts/truetype/dejavu"
+            ]
 
 when not defined js:
     proc findFontFileForFace(face: string): string =
