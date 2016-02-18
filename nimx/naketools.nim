@@ -40,6 +40,7 @@ type Builder* = ref object
 
     runAfterBuild* : bool
     targetArchitectures* : seq[string]
+    androidPermissions*: seq[string]
 
     mainFile*: string
 
@@ -100,6 +101,7 @@ proc newBuilder(platform: string): Builder =
 
     b.runAfterBuild = true
     b.targetArchitectures = @["armeabi", "armeabi-v7a", "x86"]
+    b.androidPermissions = @[]
 
     b.buildRoot = "build"
     b.originalResourcePath = "res"
@@ -274,12 +276,22 @@ proc makeAndroidBuildDir(b: Builder): string =
 
         var linkerFlags = ""
         for f in b.additionalLinkerFlags: linkerFlags &= " " & f
+        var compilerFlags = ""
+        for f in b.additionalCompilerFlags: compilerFlags &= " " & f
+        var permissions = ""
+        for p in b.androidPermissions: permissions &= "<uses-permission android:name=\"android.permission." & p & "\"/>\L"
+        var debuggable = ""
+        if b.debugMode:
+            debuggable = "android:debuggable=\"true\""
 
         let vars = {
             "PACKAGE_ID" : b.javaPackageId,
             "APP_NAME" : b.appName,
             "ADDITIONAL_LINKER_FLAGS": linkerFlags,
-            "TARGET_ARCHITECTURES": b.targetArchitectures.join(" ")
+            "ADDITIONAL_COMPILER_FLAGS": compilerFlags,
+            "TARGET_ARCHITECTURES": b.targetArchitectures.join(" "),
+            "ANDROID_PERMISSIONS": permissions,
+            "ANDROID_DEBUGGABLE": debuggable
             }.toTable()
 
         replaceVarsInFile buildDir/"AndroidManifest.xml", vars
@@ -448,7 +460,11 @@ task "droid", "Build for android and install on the connected device":
     withDir(b.buildRoot / b.javaPackageId):
         putEnv "NIM_INCLUDE_DIR", expandTilde(b.nimIncludeDir)
         direShell b.androidSdk/"tools/android", "update", "project", "-p", ".", "-t", "android-22" # try with android-16
-        direShell b.androidNdk/"ndk-build"
+
+        var args = @[b.androidNdk/"ndk-build", "V=1"]
+        if b.debugMode:
+            args.add("NDK_DEBUG=1")
+        direShell args
         #putEnv "ANDROID_SERIAL", "12345" # Target specific device
         direShell "ant", "debug", "install"
 
