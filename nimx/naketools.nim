@@ -463,7 +463,9 @@ task "droid", "Build for android and install on the connected device":
 
         var args = @[b.androidNdk/"ndk-build", "V=1"]
         if b.debugMode:
-            args.add("NDK_DEBUG=1")
+            args.add(["NDK_DEBUG=1", "APP_OPTIM=debug"])
+        else:
+            args.add("APP_OPTIM=release")
         direShell args
         #putEnv "ANDROID_SERIAL", "12345" # Target specific device
         direShell "ant", "debug", "install"
