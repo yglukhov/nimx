@@ -1,10 +1,7 @@
 import types
 import opengl
-import math
+import math, strutils, tables, json, streams
 import portable_gl
-import tables
-import json
-import streams
 import resource
 import resource_cache
 import system_logger
@@ -44,6 +41,9 @@ template setupTexParams(gl: GL) =
         gl.generateMipmap(gl.TEXTURE_2D)
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST)
+
+when not defined(js):
+    include private.image_pvr
 
 when not defined js:
     template offset(p: pointer, off: int): pointer =
@@ -113,12 +113,15 @@ proc initWithResource*(i: SelfContainedImage, name: string) =
         let s = streamForResourceWithName(name)
         var data = s.readAll()
         s.close()
-        var x, y, comp: cint
+        if name.endsWith(".pvr"):
+            i.initWithPVR(data)
+        else:
+            var x, y, comp: cint
 
-        var bitmap = stbi_load_from_memory(cast[ptr uint8](addr data[0]),
-            data.len.cint, addr x, addr y, addr comp, 0)
-        i.initWithBitmap(bitmap, x, y, comp)
-        stbi_image_free(bitmap)
+            var bitmap = stbi_load_from_memory(cast[ptr uint8](addr data[0]),
+                data.len.cint, addr x, addr y, addr comp, 0)
+            i.initWithBitmap(bitmap, x, y, comp)
+            stbi_image_free(bitmap)
 
 proc imageWithResource*(name: string): SelfContainedImage =
     result = SelfContainedImage(imageCache.get(name))
@@ -327,7 +330,7 @@ proc writeToPNGFile*(i: Image, path: string) = i.writeToFile(path, png)
 proc writeToTGAFile*(i: Image, path: string) = i.writeToFile(path, tga)
 #proc writeToHDRFile*(i: Image, path: string) = i.writeToFile(path, hdr) # Crashes...
 
-registerResourcePreloader(["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga"], proc(name: string, callback: proc()) =
+registerResourcePreloader(["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga", "pvr"], proc(name: string, callback: proc()) =
     when defined(js):
         proc handler(r: ref RootObj) =
             var onImLoad = proc (im: ref RootObj) =
