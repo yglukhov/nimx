@@ -8,14 +8,7 @@ then
     git config user.name "Travis CI"
     git config user.email "yuriy.glukhov@gmail.com"
 
-    echo ls
-    ls -la
-
     git add .
-    git add livedemo
-
-    echo ls livedemo
-    ls -la livedemo
 
     git commit -m "Deploy to GitHub Pages"
 
