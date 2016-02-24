@@ -1,7 +1,7 @@
 import nake
 export nake
 
-import tables, osproc, strutils, times
+import tables, osproc, strutils, times, parseopt2
 import jester, asyncdispatch, browsers, closure_compiler # Stuff needed for JS target
 import plists
 
@@ -42,6 +42,9 @@ type Builder* = ref object
 
     runAfterBuild* : bool
     targetArchitectures* : seq[string]
+    androidPermissions*: seq[string]
+
+    mainFile*: string
 
     bundleName : string
 
@@ -50,7 +53,7 @@ type Builder* = ref object
     nimcachePath : string
     resourcePath* : string
     originalResourcePath*: string
-    nimFlags : seq[string]
+    nimFlags: seq[string]
     compilerFlags: seq[string]
     linkerFlags: seq[string]
 
@@ -97,10 +100,21 @@ proc newBuilder(platform: string): Builder =
     b.additionalLinkerFlags = @[]
     b.additionalCompilerFlags = @[]
 
+    b.mainFile = "main"
+
     b.runAfterBuild = true
     b.targetArchitectures = @["armeabi", "armeabi-v7a", "x86"]
+    b.androidPermissions = @[]
 
     b.buildRoot = "build"
+    b.originalResourcePath = "res"
+
+proc nimblePath(package: string): string =
+    var (nimbleNimxDir, err) = execCmdEx("nimble path " & package)
+    if err == 0:
+        let lines = nimbleNimxDir.splitLines()
+        if lines.len > 1:
+            result = lines[^2]
 
 proc newBuilderForCurrentPlatform(): Builder =
     when defined(macosx):
@@ -109,6 +123,20 @@ proc newBuilderForCurrentPlatform(): Builder =
         newBuilder("windows")
     else:
         newBuilder("linux")
+
+proc newBuilder*(): Builder =
+    result = newBuilderForCurrentPlatform()
+    for kind, key, val in getopt():
+        case kind
+        of cmdLongOption, cmdShortOption:
+            case key
+            of "define", "d":
+                if val in ["js", "android", "ios", "ios-sim"]:
+                    result.platform = val
+            of "norun":
+                result.runAfterBuild = false
+            else: discard
+        else: discard
 
 var
     preprocessResources* : proc(b: Builder)
@@ -249,9 +277,8 @@ proc buildSDLForIOS(b: Builder, forSimulator: bool = false): string =
 proc makeAndroidBuildDir(b: Builder): string =
     let buildDir = b.buildRoot / b.javaPackageId
     if not dirExists buildDir:
-        var (nimbleNimxDir, errC) = execCmdEx("nimble path nimx")
-        doAssert(errC == 0, "Error: nimx does not seem to be installed with nimble!")
-        nimbleNimxDir = nimbleNimxDir.strip()
+        let nimbleNimxDir = nimblePath("nimx")
+        doAssert(not nimbleNimxDir.isNil, "Error: nimx does not seem to be installed with nimble!")
         createDir(buildDir)
         let templateDir = nimbleNimxDir / "test" / "android" / "template"
         echo "Using Android app template: ", templateDir
@@ -275,12 +302,22 @@ proc makeAndroidBuildDir(b: Builder): string =
 
         var linkerFlags = ""
         for f in b.additionalLinkerFlags: linkerFlags &= " " & f
+        var compilerFlags = ""
+        for f in b.additionalCompilerFlags: compilerFlags &= " " & f
+        var permissions = ""
+        for p in b.androidPermissions: permissions &= "<uses-permission android:name=\"android.permission." & p & "\"/>\L"
+        var debuggable = ""
+        if b.debugMode:
+            debuggable = "android:debuggable=\"true\""
 
         let vars = {
             "PACKAGE_ID" : b.javaPackageId,
             "APP_NAME" : b.appName,
             "ADDITIONAL_LINKER_FLAGS": linkerFlags,
-            "TARGET_ARCHITECTURES": b.targetArchitectures.join(" ")
+            "ADDITIONAL_COMPILER_FLAGS": compilerFlags,
+            "TARGET_ARCHITECTURES": b.targetArchitectures.join(" "),
+            "ANDROID_PERMISSIONS": permissions,
+            "ANDROID_DEBUGGABLE": debuggable
             }.toTable()
 
         replaceVarsInFile buildDir/"AndroidManifest.xml", vars
@@ -289,11 +326,24 @@ proc makeAndroidBuildDir(b: Builder): string =
         replaceVarsInFile buildDir/"jni/Application.mk", vars
     buildDir
 
-proc build(b: Builder) =
+proc jsPostBuild(b: Builder) =
+    if not b.disableClosureCompiler:
+        closure_compiler.compileFileAndRewrite(b.buildRoot / "main.js", ADVANCED_OPTIMIZATIONS)
+
+    let sf = splitFile(b.mainFile)
+    copyFile(sf.dir / sf.name & ".html", b.buildRoot / "main.html")
+    if b.runAfterBuild:
+        let settings = newSettings(staticDir = b.buildRoot)
+        routes:
+            get "/": redirect "main.html"
+        when not defined(windows):
+            openDefaultBrowser "http://localhost:5000"
+        runForever()
+
+proc build*(b: Builder) =
     b.buildRoot = b.buildRoot / b.platform
     b.nimcachePath = b.buildRoot / "nimcache"
     b.resourcePath = b.buildRoot / "res"
-    b.originalResourcePath = "res"
 
     if not beforeBuild.isNil: beforeBuild(b)
 
@@ -406,22 +456,13 @@ proc build(b: Builder) =
     # Run Nim
     var args = @[nimExe, command]
     args.add(b.nimFlags)
-    args.add "main"
+    args.add b.mainFile
     direShell args
 
-    if not afterBuild.isNil: afterBuild(b)
+    if b.platform == "js":
+        b.jsPostBuild()
 
-proc jsPostBuild(b: Builder) =
-    if not b.disableClosureCompiler:
-        closure_compiler.compileFileAndRewrite(b.buildRoot / "main.js", ADVANCED_OPTIMIZATIONS)
-    copyFile("main.html", b.buildRoot / "main.html")
-    if b.runAfterBuild:
-        let settings = newSettings(staticDir = b.buildRoot)
-        routes:
-            get "/": redirect "main.html"
-        when not defined(windows):
-            openDefaultBrowser "http://localhost:5000"
-        runForever()
+    if not afterBuild.isNil: afterBuild(b)
 
 task defaultTask, "Build and run":
     newBuilderForCurrentPlatform().build()
@@ -446,17 +487,15 @@ task "droid", "Build for android and install on the connected device":
     withDir(b.buildRoot / b.javaPackageId):
         putEnv "NIM_INCLUDE_DIR", expandTilde(b.nimIncludeDir)
         direShell b.androidSdk/"tools/android", "update", "project", "-p", ".", "-t", "android-22" # try with android-16
-        direShell b.androidNdk/"ndk-build"
+
+        var args = @[b.androidNdk/"ndk-build", "V=1"]
+        if b.debugMode:
+            args.add(["NDK_DEBUG=1", "APP_OPTIM=debug"])
+        else:
+            args.add("APP_OPTIM=release")
+        direShell args
         #putEnv "ANDROID_SERIAL", "12345" # Target specific device
         direShell "ant", "debug", "install"
 
 task "js", "Create Javascript version and run in browser.":
-    let b = newBuilder("js")
-    b.build()
-    b.jsPostBuild()
-
-task "build-js", "Create Javascript version.":
-    let b = newBuilder("js")
-    b.runAfterBuild = false
-    b.build()
-    b.jsPostBuild()
+    newBuilder("js").build()
