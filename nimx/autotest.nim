@@ -11,6 +11,11 @@ type UITestSuiteStep* = tuple
 
 type UITestSuite* = seq[UITestSuiteStep]
 
+type TestRunnerContext = ref object
+    curTest: int
+    curTimeout: float
+
+var testRunnerContext : TestRunnerContext
 var registeredTests : seq[UITestSuite]
 
 proc registerTest*(ts: UITestSuite) =
@@ -54,6 +59,9 @@ when true:
         else:
             quit()
 
+    template waitUntil*(e: bool): stmt =
+        if not e: dec testRunnerContext.curTest
+
 when false:
     macro dump(b: typed): stmt =
         echo treeRepr(b)
@@ -73,29 +81,35 @@ when false:
     registerTest(myTest)
 
 proc startTest*(t: UITestSuite) =
-    var curTest = 0
+    testRunnerContext.new()
+    testRunnerContext.curTimeout = 0.5
+
     var tim : Timer
     tim = setInterval(0.5, proc() =
         logi "RUNNING"
-        logi t[curTest].astrepr
-        t[curTest].code()
-        inc curTest
-        if curTest == t.len:
+        logi t[testRunnerContext.curTest].astrepr
+        t[testRunnerContext.curTest].code()
+        inc testRunnerContext.curTest
+        if testRunnerContext.curTest == t.len:
             tim.clear()
+            testRunnerContext = nil
         )
 
 proc startRegisteredTests*() =
+    testRunnerContext.new()
+    testRunnerContext.curTimeout = 0.5
+
     var curTestSuite = 0
-    var curTest = 0
     var tim : Timer
     tim = setInterval(0.5, proc() =
         logi "RUNNING"
-        logi registeredTests[curTestSuite][curTest].astrepr
-        registeredTests[curTestSuite][curTest].code()
-        inc curTest
-        if curTest == registeredTests[curTestSuite].len:
+        logi registeredTests[curTestSuite][testRunnerContext.curTest].astrepr
+        registeredTests[curTestSuite][testRunnerContext.curTest].code()
+        inc testRunnerContext.curTest
+        if testRunnerContext.curTest == registeredTests[curTestSuite].len:
             inc curTestSuite
-            curTest = 0
+            testRunnerContext.curTest = 0
             if curTestSuite == registeredTests.len:
                 tim.clear()
+                testRunnerContext = nil
     )
