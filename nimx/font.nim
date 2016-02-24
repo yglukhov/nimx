@@ -354,12 +354,14 @@ when not defined(js):
             ]
 
 when not defined js:
-    proc findFontFileForFace(face: string): string =
+    iterator potentialFontFilesForFace(face: string): string =
         for sp in fontSearchPaths:
-            let f = sp / face & ".ttf"
+            yield sp / face & ".ttf"
+
+    proc findFontFileForFace(face: string): string =
+        for f in potentialFontFilesForFace(face):
             if fileExists(f):
                 return f
-            logi "Tried font '", f, "' with no luck"
 
 proc newFontWithFace*(face: string, size: float): Font =
     when defined js:
@@ -371,6 +373,10 @@ proc newFontWithFace*(face: string, size: float): Font =
         let path = findFontFileForFace(face)
         if path != nil:
             result = newFontWithFile(path, size)
+        else:
+            logi "Could not find font with face: ", face
+            for f in potentialFontFilesForFace(face):
+                logi "Tried path '", f, "'"
 
 proc systemFontSize*(): float = 16
 
