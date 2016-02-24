@@ -447,6 +447,13 @@ proc build*(b: Builder) =
 
     if not afterBuild.isNil: afterBuild(b)
 
+proc runAutotestsInFirefox*(pathToMainHTML: string) =
+    let nimxPath = nimblePath("nimx")
+    direShell nimxPath / "run_test_firefox.sh", pathToMainHTML
+
+proc runAutotestsInFirefox*(b: Builder) =
+    runAutotestsInFirefox(b.buildRoot / "main.html")
+
 task defaultTask, "Build and run":
     newBuilder().build()
 

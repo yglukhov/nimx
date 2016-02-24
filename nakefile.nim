@@ -19,7 +19,7 @@ task "tests", "Build and run autotests":
     b.build()
 
     if b.platform == "js":
-        direShell "./run_test_firefox.sh ./build/js/main.html"
+        b.runAutotestsInFirefox()
 
 task "docs", "Build documentation":
     withDir "./doc":
