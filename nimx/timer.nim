@@ -31,6 +31,7 @@ when not defined(js):
     proc timeoutCallback(data: pointer) {.cdecl, gcsafe.} =
         let t = cast[Timer](data)
         if t.timer != 0:
+            echo "timer fire: ", repr(cast[pointer](t))
             #doAssert(not isNil(t.callback))
             t.callback()
             if not t.isPeriodic:
