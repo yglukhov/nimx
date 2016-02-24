@@ -452,7 +452,7 @@ proc build*(b: Builder) =
 
 proc runAutotestsInFirefox*(pathToMainHTML: string) =
     let nimxPath = nimblePath("nimx")
-    direShell nimxPath / "run_test_firefox.sh", pathToMainHTML
+    direShell "sh", nimxPath / "run_test_firefox.sh", pathToMainHTML
 
 proc runAutotestsInFirefox*(b: Builder) =
     runAutotestsInFirefox(b.buildRoot / "main.html")
