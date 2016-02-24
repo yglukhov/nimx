@@ -23,7 +23,7 @@ proc clear*(t: Timer) =
         else:
             if t.timer != 0:
                 discard removeTimer(t.timer)
-                echo "unref timer: ", repr(cast[pointer](t))
+                echo "unref timer1: ", repr(cast[pointer](t))
                 GC_unref(t)
                 t.timer = 0
 
@@ -37,7 +37,7 @@ when not defined(js):
             if not t.isPeriodic:
                 discard removeTimer(t.timer)
                 t.timer = 0
-                echo "unref timer: ", repr(cast[pointer](t))
+                echo "unref timer2: ", repr(cast[pointer](t))
                 GC_unref(t)
 
     # Nim is hostile when it's callbacks are called from an "unknown" thread.
@@ -66,8 +66,8 @@ proc newTimer*(interval: float, repeat: bool, callback: proc()): Timer =
 
         result.new(finalizeTimer)
         result.callback = callback
-        result.timer = addTimer(uint32(interval * 1000), timeoutThreadCallback, cast[pointer](result))
         result.isPeriodic = repeat
+        result.timer = addTimer(uint32(interval * 1000), timeoutThreadCallback, cast[pointer](result))
         echo "ref timer: ", repr(cast[pointer](result))
         GC_ref(result)
 
