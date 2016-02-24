@@ -108,6 +108,23 @@ method onMouseDown*(t: TextField, e: var Event): bool =
         else:
             systemFont().getClosestCursorPositionToPointInString(t.text, pt, cursorPos, cursorOffset)
 
+method onTouchEv(t: TextField, e: var Event): bool =
+    result = false
+    case e.buttonState
+    of bsDown:
+        if t.editable:
+            result = t.makeFirstResponder()
+            var pt = e.localPosition
+            pt.x += leftMargin
+            if t.text.isNil:
+                cursorPos = 0
+                cursorOffset = 0
+            else:
+                systemFont().getClosestCursorPositionToPointInString(t.text, pt, cursorPos, cursorOffset)
+    of bsUp:
+        result = false
+    else: discard
+
 proc updateCursorOffset(t: TextField) =
     cursorOffset = systemFont().cursorOffsetForPositionInString(t.text, cursorPos)
 
