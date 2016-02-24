@@ -41,6 +41,7 @@ type Builder* = ref object
     runAfterBuild* : bool
     targetArchitectures* : seq[string]
     androidPermissions*: seq[string]
+    screenOrientation*: string
 
     mainFile*: string
 
@@ -90,7 +91,7 @@ proc newBuilder(platform: string): Builder =
     b.iOSSimulatorDeviceId = "18BE8493-7EFB-4570-BF2B-5F5ACBCCB82B"
 
     b.nimVerbosity = 0
-    b.nimParallelBuild = 1
+    b.nimParallelBuild = 0
     b.debugMode = true
 
     b.additionalNimFlags = @[]
@@ -130,8 +131,12 @@ proc newBuilder*(): Builder =
             of "define", "d":
                 if val in ["js", "android", "ios", "ios-sim"]:
                     result.platform = val
+                if val == "release":
+                    result.debugMode = false
             of "norun":
                 result.runAfterBuild = false
+            of "parallelBuild":
+                result.nimParallelBuild = parseInt(val)
             else: discard
         else: discard
 
@@ -284,6 +289,10 @@ proc makeAndroidBuildDir(b: Builder): string =
         if b.debugMode:
             debuggable = "android:debuggable=\"true\""
 
+        var screenOrientation = ""
+        if not b.screenOrientation.isNil:
+            screenOrientation = "android:screenOrientation=\"" & b.screenOrientation & "\""
+
         let vars = {
             "PACKAGE_ID" : b.javaPackageId,
             "APP_NAME" : b.appName,
@@ -291,7 +300,8 @@ proc makeAndroidBuildDir(b: Builder): string =
             "ADDITIONAL_COMPILER_FLAGS": compilerFlags,
             "TARGET_ARCHITECTURES": b.targetArchitectures.join(" "),
             "ANDROID_PERMISSIONS": permissions,
-            "ANDROID_DEBUGGABLE": debuggable
+            "ANDROID_DEBUGGABLE": debuggable,
+            "SCREEN_ORIENTATION": screenOrientation
             }.toTable()
 
         replaceVarsInFile buildDir/"AndroidManifest.xml", vars
@@ -438,7 +448,7 @@ proc build*(b: Builder) =
     if not afterBuild.isNil: afterBuild(b)
 
 task defaultTask, "Build and run":
-    newBuilderForCurrentPlatform().build()
+    newBuilder().build()
 
 task "build", "Build and don't run":
     let b = newBuilderForCurrentPlatform()
