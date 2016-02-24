@@ -2,6 +2,7 @@ import view
 export view
 
 import view_event_handling
+import view_event_handling_new
 import event
 import context
 import clip_view
@@ -37,6 +38,9 @@ type TableView* = ref object of View
     visibleRect: Rect
     selectionMode*: SelectionMode
     selectedRows*: IntSet
+
+    rows : array[1, int]
+    initiallyClickedRow: int
 
 proc `createCell=`*(v: TableView, p: proc(): TableViewCell) =
   v.mCreateCell = proc(c: int): TableViewCell =
@@ -254,3 +258,23 @@ method onMouseDown(b: TableView, e: var Event): bool =
                         b.getRowsAtHeights([e.localPosition.y], newRows)
                         if newRows[0] != initiallyClickedRow:
                             c = efcBreak
+
+method onTouchEv(b: TableView, e: var Event): bool =
+    result = true
+    case e.buttonState
+      of bsDown:
+        if b.selectionMode == smSingleSelection:
+            let initialPos = e.localPosition
+            b.rows[0] = -1
+            b.getRowsAtHeights([initialPos.y], b.rows)
+            if b.rows[0] != -1:
+              b.initiallyClickedRow = b.rows[0]
+      of bsUnknown:
+        e.localPosition = b.convertPointFromWindow(e.position)
+        var newRows: array[1, int]
+        b.getRowsAtHeights([e.localPosition.y], newRows)
+        if newRows[0] != b.initiallyClickedRow:
+            result = false
+      of bsUp:
+          b.selectRow(b.rows[0])
+          result = false
