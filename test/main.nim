@@ -92,3 +92,4 @@ else:
     except:
         logi "Exception caught: ", getCurrentExceptionMsg()
         logi getCurrentException().getStackTrace()
+        quit 1
