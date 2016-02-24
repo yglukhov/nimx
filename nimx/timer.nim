@@ -7,7 +7,7 @@ else:
         timer: TimerID
         callback: proc()
         isPeriodic: bool
-
+        cancelled: bool
 
 proc clear*(t: Timer) =
     if not t.isNil:
@@ -21,35 +21,37 @@ proc clear*(t: Timer) =
             }
             """
         else:
-            if t.timer != 0:
-                discard removeTimer(t.timer)
-                echo "unref timer1: ", repr(cast[pointer](t))
-                GC_unref(t)
-                t.timer = 0
+            t.cancelled = true
 
 when not defined(js):
-    proc timeoutCallback(data: pointer) {.cdecl, gcsafe.} =
+    proc finalizeCallback(data: pointer) {.cdecl.} =
         let t = cast[Timer](data)
-        if t.timer != 0:
-            echo "timer fire: ", repr(cast[pointer](t))
-            #doAssert(not isNil(t.callback))
+        GC_unref(t)
+
+    proc fireAndFinalizeCallback(data: pointer) {.cdecl.} =
+        let t = cast[Timer](data)
+        if not t.cancelled:
             t.callback()
-            if not t.isPeriodic:
-                discard removeTimer(t.timer)
-                t.timer = 0
-                echo "unref timer2: ", repr(cast[pointer](t))
-                GC_unref(t)
+        GC_unref(t)
+
+    proc fireCallback(data: pointer) {.cdecl, gcsafe.} =
+        let t = cast[Timer](data)
+        if not t.cancelled:
+            t.callback()
 
     # Nim is hostile when it's callbacks are called from an "unknown" thread.
     # The following function can not use nim's stack trace and GC.
     {.push stack_trace:off.}
     proc timeoutThreadCallback(interval: uint32, data: pointer): uint32 {.cdecl, thread.} =
-        performOnMainThread(timeoutCallback, data)
-        result = interval
+        let t = cast[Timer](data)
+        if t.cancelled:
+            performOnMainThread(finalizeCallback, data)
+        elif t.isPeriodic:
+            performOnMainThread(fireCallback, data)
+            result = interval
+        else:
+            performOnMainThread(fireAndFinalizeCallback, data)
     {.pop.}
-
-proc finalizeTimer(t: Timer) =
-    echo "finalizing timer: ", repr(cast[pointer](t))
 
 proc newTimer*(interval: float, repeat: bool, callback: proc()): Timer =
     doAssert(not callback.isNil)
@@ -64,11 +66,10 @@ proc newTimer*(interval: float, repeat: bool, callback: proc()): Timer =
             sdl2.init(INIT_TIMER)
             sdlInitialized = true
 
-        result.new(finalizeTimer)
+        result.new()
         result.callback = callback
         result.isPeriodic = repeat
         result.timer = addTimer(uint32(interval * 1000), timeoutThreadCallback, cast[pointer](result))
-        echo "ref timer: ", repr(cast[pointer](result))
         GC_ref(result)
 
 proc setTimeout*(interval: float, callback: proc()): Timer {.discardable.} =
