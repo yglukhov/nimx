@@ -62,3 +62,7 @@ proc drawWindows*(a: Application) =
 
 proc runAnimations*(a: Application) =
     for w in a.windows: w.runAnimations()
+
+proc keyWindow*(a: Application): Window =
+    if a.windows.len > 0:
+        result = a.windows[^1]
