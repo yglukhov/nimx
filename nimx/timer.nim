@@ -29,7 +29,6 @@ proc clear*(t: Timer) =
 when not defined(js):
     proc timeoutCallback(data: pointer) {.cdecl.} =
         let t = cast[Timer](data)
-        # Referring to t may be unsafe here
         if t.timer != 0:
             t.callback()
             if not t.isPeriodic:
@@ -46,6 +45,7 @@ when not defined(js):
     {.pop.}
 
 proc newTimer*(interval: float, repeat: bool, callback: proc()): Timer =
+    doAssert(not callback.isNil)
     when defined(js):
         asm """
         `result` = `repeat` ? setInterval(`callback`, `interval` * 1000) : setTimeout(`callback`, `interval` * 1000);
