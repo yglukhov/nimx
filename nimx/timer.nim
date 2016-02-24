@@ -23,17 +23,20 @@ proc clear*(t: Timer) =
         else:
             if t.timer != 0:
                 discard removeTimer(t.timer)
+                echo "unref timer: ", repr(cast[pointer](t))
                 GC_unref(t)
                 t.timer = 0
 
 when not defined(js):
-    proc timeoutCallback(data: pointer) {.cdecl.} =
+    proc timeoutCallback(data: pointer) {.cdecl, gcsafe.} =
         let t = cast[Timer](data)
         if t.timer != 0:
+            #doAssert(not isNil(t.callback))
             t.callback()
             if not t.isPeriodic:
                 discard removeTimer(t.timer)
                 t.timer = 0
+                echo "unref timer: ", repr(cast[pointer](t))
                 GC_unref(t)
 
     # Nim is hostile when it's callbacks are called from an "unknown" thread.
@@ -43,6 +46,9 @@ when not defined(js):
         performOnMainThread(timeoutCallback, data)
         result = interval
     {.pop.}
+
+proc finalizeTimer(t: Timer) =
+    echo "finalizing timer: ", repr(cast[pointer](t))
 
 proc newTimer*(interval: float, repeat: bool, callback: proc()): Timer =
     doAssert(not callback.isNil)
@@ -57,10 +63,11 @@ proc newTimer*(interval: float, repeat: bool, callback: proc()): Timer =
             sdl2.init(INIT_TIMER)
             sdlInitialized = true
 
-        result.new()
+        result.new(finalizeTimer)
         result.callback = callback
         result.timer = addTimer(uint32(interval * 1000), timeoutThreadCallback, cast[pointer](result))
         result.isPeriodic = repeat
+        echo "ref timer: ", repr(cast[pointer](result))
         GC_ref(result)
 
 proc setTimeout*(interval: float, callback: proc()): Timer {.discardable.} =
