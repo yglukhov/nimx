@@ -373,18 +373,19 @@ proc newFontWithFace*(face: string, size: float): Font =
         let path = findFontFileForFace(face)
         if path != nil:
             result = newFontWithFile(path, size)
-        else:
-            logi "Could not find font with face: ", face
-            for f in potentialFontFilesForFace(face):
-                logi "Tried path '", f, "'"
 
 proc systemFontSize*(): float = 16
 
 proc systemFontOfSize*(size: float): Font =
     for f in preferredFonts:
         result = newFontWithFace(f, size)
-        if result != nil:
-            break
+        if result != nil: return
+
+    when not defined(js):
+        logi "ERROR: Could not find system font:"
+        for face in preferredFonts:
+            for f in potentialFontFilesForFace(face):
+                logi "Tried path '", f, "'"
 
 proc systemFont*(): Font =
     if sysFont == nil:
