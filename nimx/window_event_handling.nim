@@ -2,6 +2,7 @@ import types
 import abstract_window
 import event
 import view_event_handling
+import view_event_handling_new
 import system_logger
 
 proc canPassEventToFirstResponder(w: Window): bool =
@@ -21,10 +22,11 @@ method onTextInput*(w: Window, s: string): bool =
 
 method handleEvent*(w: Window, e: var Event): bool {.base.} =
     case e.kind:
-        of etTouch:
-            result = w.handleTouchEvent(e)
-        of etMouse, etScroll:
-            result = w.recursiveHandleMouseEvent(e)
+        of etTouch, etMouse:
+            # result = w.handleTouchEvent(e)
+            result = w.processTouchEvent(e)
+        # of etMouse, etScroll:
+        #     result = w.recursiveHandleMouseEvent(e)
         of etKeyboard:
             if e.buttonState == bsDown:
                 result = w.onKeyDown(e)
