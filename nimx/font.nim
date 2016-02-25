@@ -265,13 +265,13 @@ proc bakeChars(f: Font, start: int32): CharInfo =
                 let (x, y) = rectPacker.packAndGrow(gw + glyphMargin * 2, gh + glyphMargin * 2)
 
                 let c = charOff(i - startChar)
-                result.bakedChars.charOffComp(c, compX) = (x0.cfloat + lsb.cfloat * scale + glyphMargin).int16
-                result.bakedChars.charOffComp(c, compY) = (y0.cfloat + ascent.cfloat * scale + glyphMargin).int16
+                result.bakedChars.charOffComp(c, compX) = (x0.cfloat + lsb.cfloat * scale - glyphMargin).int16
+                result.bakedChars.charOffComp(c, compY) = (y0.cfloat + ascent.cfloat * scale - descent.cfloat * scale - glyphMargin).int16
                 result.bakedChars.charOffComp(c, compAdvance) = (scale * advance.cfloat).int16
                 result.bakedChars.charOffComp(c, compTexX) = (x + glyphMargin).int16
                 result.bakedChars.charOffComp(c, compTexY) = (y + glyphMargin).int16
-                result.bakedChars.charOffComp(c, compWidth) = gw.int16
-                result.bakedChars.charOffComp(c, compHeight) = gh.int16
+                result.bakedChars.charOffComp(c, compWidth) = (gw + glyphMargin).int16
+                result.bakedChars.charOffComp(c, compHeight) = (gh + glyphMargin).int16
 
         let width = rectPacker.width
         let height = rectPacker.height
