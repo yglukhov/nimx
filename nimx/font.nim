@@ -342,7 +342,7 @@ when not defined(js):
             ]
         elif defined(windows):
             [
-                r"c:\Windows\Fonts" #todo: system will not always in the c disk
+                if getEnv("WINDIR") == "": r"C:\Windows\Fonts" else: getEnv("WINDIR") & "Fonts"
             ]
         else:
             [
