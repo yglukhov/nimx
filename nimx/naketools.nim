@@ -1,7 +1,7 @@
 import nake
 export nake
 
-import tables, osproc, strutils, times, parseopt2
+import tables, osproc, strutils, times, parseopt2, streams
 import jester, asyncdispatch, browsers, closure_compiler # Stuff needed for JS target
 import plists
 
@@ -478,8 +478,26 @@ proc build*(b: Builder) =
     if not afterBuild.isNil: afterBuild(b)
 
 proc runAutotestsInFirefox*(pathToMainHTML: string) =
-    let nimxPath = nimblePath("nimx")
-    direShell "sh", nimxPath / "run_test_firefox.sh", pathToMainHTML
+    let ffbin = when defined(macosx):
+            "/Applications/Firefox.app/Contents/MacOS/firefox"
+        else:
+            "firefox"
+    createDir("tempprofile")
+    writeFile("tempprofile/user.js", """
+    pref("browser.shell.checkDefaultBrowser", false);
+    pref("browser.dom.window.dump.enabled", true);""")
+    let ffp = startProcess(ffbin, args = ["-profile", "./tempprofile", pathToMainHTML])
+    let so = ffp.outputStream
+    var line = ""
+    var ok = true
+    while so.readLine(line):
+        if line == "---AUTO-TEST-QUIT---":
+            break
+        elif line == "---AUTO-TEST-FAIL---":
+            ok = false
+    ffp.kill()
+    removeDir("tempprofile")
+    doAssert(ok, "Firefox autotest failed")
 
 proc runAutotestsInFirefox*(b: Builder) =
     runAutotestsInFirefox(b.buildRoot / "main.html")
