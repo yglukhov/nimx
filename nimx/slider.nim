@@ -4,6 +4,7 @@ export control
 import composition
 import context
 import view_event_handling
+import view_event_handling_new
 import app
 
 type Slider* = ref object of Control
@@ -89,3 +90,23 @@ method onMouseDown(s: Slider, e: var Event): bool =
 method onMouseUp(s: Slider, e: var Event): bool =
     result = true
     s.sendAction(e)
+
+method onTouchEv(s: Slider, e: var Event): bool =
+    result = true
+    discard procCall s.View.onTouchEv(e)
+    case e.buttonState
+    of bsDown:
+        if s.isHorizontal:
+            s.value = e.localPosition.x / s.bounds.width
+        else:
+            s.value = e.localPosition.y / s.bounds.height
+    of bsUnknown:
+        if s.isHorizontal:
+            s.value = e.localPosition.x / s.bounds.width
+        else:
+            s.value = e.localPosition.y / s.bounds.height
+        s.setNeedsDisplay()
+        s.sendAction(e)
+    of bsUp:
+        s.sendAction(e)
+        result = false

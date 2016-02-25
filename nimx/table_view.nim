@@ -276,5 +276,6 @@ method onTouchEv(b: TableView, e: var Event): bool =
             if newRows[0] != b.initiallyClickedRow:
                 result = false
         of bsUp:
-            b.selectRow(b.rows[0])
-            result = false
+            if b.rows[0] != -1:
+                b.selectRow(b.rows[0])
+                result = false

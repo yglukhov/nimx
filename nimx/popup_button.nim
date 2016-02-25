@@ -90,3 +90,13 @@ method onMouseDown(b: PopupButton, e: var Event): bool =
     menu.new()
     menu.items = b.mItems
     menu.popupAtPoint(b, newPoint(0, -b.mSelectedItem.Coord * 20.0))
+
+method onTouchEv(b: PopupButton, e: var Event): bool =
+    result = true
+    case e.buttonState
+    of bsDown:
+        var menu : Menu
+        menu.new()
+        menu.items = b.mItems
+        menu.popupAtPoint(b, newPoint(0, -b.mSelectedItem.Coord * 20.0))
+    else: discard
