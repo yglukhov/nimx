@@ -25,6 +25,8 @@ type Builder* = ref object
     iOSSDKVersion* : string
     iOSMinVersion* : string
 
+    appIconName : string
+
     # Simulator device identifier should be set to run the simulator.
     # Available simulators can be listed with the command:
     # $ xcrun simctl list
@@ -41,6 +43,7 @@ type Builder* = ref object
     runAfterBuild* : bool
     targetArchitectures* : seq[string]
     androidPermissions*: seq[string]
+    screenOrientation*: string
 
     mainFile*: string
 
@@ -72,6 +75,7 @@ proc newBuilder(platform: string): Builder =
         b.androidNdk = "D:\\Android\\android-ndk-r10e"
         b.sdlRoot = "D:\\Android\\SDL2-2.0.3"
         b.nimIncludeDir = "C:\\Nim\\lib"
+        b.appIconName = "MyGame.ico"
     else:
         b.androidSdk = "~/Library/Android/sdk"
         b.androidNdk = "~/Library/Android/sdk/ndk-bundle"
@@ -90,7 +94,7 @@ proc newBuilder(platform: string): Builder =
     b.iOSSimulatorDeviceId = "18BE8493-7EFB-4570-BF2B-5F5ACBCCB82B"
 
     b.nimVerbosity = 0
-    b.nimParallelBuild = 1
+    b.nimParallelBuild = 0
     b.debugMode = true
 
     b.additionalNimFlags = @[]
@@ -107,7 +111,10 @@ proc newBuilder(platform: string): Builder =
     b.originalResourcePath = "res"
 
 proc nimblePath(package: string): string =
-    var (nimbleNimxDir, err) = execCmdEx("nimble path " & package)
+    var nimblecmd = "nimble"
+    when defined(windows):
+        nimblecmd &= ".cmd"
+    var (nimbleNimxDir, err) = execCmdEx(nimblecmd & " path " & package)
     if err == 0:
         let lines = nimbleNimxDir.splitLines()
         if lines.len > 1:
@@ -130,8 +137,12 @@ proc newBuilder*(): Builder =
             of "define", "d":
                 if val in ["js", "android", "ios", "ios-sim"]:
                     result.platform = val
+                if val == "release":
+                    result.debugMode = false
             of "norun":
                 result.runAfterBuild = false
+            of "parallelBuild":
+                result.nimParallelBuild = parseInt(val)
             else: discard
         else: discard
 
@@ -204,6 +215,29 @@ proc makeMacOsBundle(b: Builder) =
     plist["CFBundleExecutable"] = %b.appName
     plist["NSHighResolutionCapable"] = %true
     plist.writePlist(bundlePath / "Contents" / "Info.plist")
+
+proc makeWindowsResource(b: Builder) =
+    let
+        rcPath = b.buildRoot / "res" / (b.appName & ".rc")
+        rcO = b.nimcachePath / (b.appName & "_res.o")
+    var createResource: bool = false
+
+    shell "type", "nul", ">", rcPath
+
+    if not isNil(b.appIconName):
+        let appIconPath = b.resourcePath / (b.appIconName)
+
+        if fileExists(absPath(appIconPath)):
+            shell "echo", "AppIcon ICON \"$#\"" % [b.appIconName], ">>", rcPath
+            shell "windres", "-i", rcPath, "-o", rcO
+            createResource = true
+        else:
+            echo "Warning: icon was not found: $#" % [appIconPath]
+    else:
+        echo "Info: you can set your application icon by setting `builder.appIconName` property."
+
+    if createResource:
+        b.additionalLinkerFlags.add(absPath(rcO))
 
 proc trySymLink(src, dest: string) =
     try:
@@ -284,6 +318,10 @@ proc makeAndroidBuildDir(b: Builder): string =
         if b.debugMode:
             debuggable = "android:debuggable=\"true\""
 
+        var screenOrientation = ""
+        if not b.screenOrientation.isNil:
+            screenOrientation = "android:screenOrientation=\"" & b.screenOrientation & "\""
+
         let vars = {
             "PACKAGE_ID" : b.javaPackageId,
             "APP_NAME" : b.appName,
@@ -291,7 +329,8 @@ proc makeAndroidBuildDir(b: Builder): string =
             "ADDITIONAL_COMPILER_FLAGS": compilerFlags,
             "TARGET_ARCHITECTURES": b.targetArchitectures.join(" "),
             "ANDROID_PERMISSIONS": permissions,
-            "ANDROID_DEBUGGABLE": debuggable
+            "ANDROID_DEBUGGABLE": debuggable,
+            "SCREEN_ORIENTATION": screenOrientation
             }.toTable()
 
         replaceVarsInFile buildDir/"AndroidManifest.xml", vars
@@ -383,6 +422,7 @@ proc build*(b: Builder) =
         b.linkerFlags.add(["-L/usr/local/lib", "-Wl,-rpath,/usr/local/lib", "-lpthread"])
     of "windows":
         b.executablePath &= ".exe"
+        b.makeWindowsResource()
     else: discard
 
     if b.platform != "js":
@@ -437,8 +477,15 @@ proc build*(b: Builder) =
 
     if not afterBuild.isNil: afterBuild(b)
 
+proc runAutotestsInFirefox*(pathToMainHTML: string) =
+    let nimxPath = nimblePath("nimx")
+    direShell "sh", nimxPath / "run_test_firefox.sh", pathToMainHTML
+
+proc runAutotestsInFirefox*(b: Builder) =
+    runAutotestsInFirefox(b.buildRoot / "main.html")
+
 task defaultTask, "Build and run":
-    newBuilderForCurrentPlatform().build()
+    newBuilder().build()
 
 task "build", "Build and don't run":
     let b = newBuilderForCurrentPlatform()

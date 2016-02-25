@@ -52,7 +52,7 @@ when defined js:
             DEPTH24_STENCIL8* : GLenum
             FRAMEBUFFER_BINDING : GLenum
             RENDERBUFFER_BINDING : GLenum
-            STENCIL_TEST*, DEPTH_TEST* : GLenum
+            STENCIL_TEST*, DEPTH_TEST*, SCISSOR_TEST* : GLenum
             NEVER*, LESS*, LEQUAL*, GREATER*, GEQUAL*, EQUAL*, NOTEQUAL*, ALWAYS*: GLenum
             KEEP*, ZERO*, REPLACE*, INCR*, INCR_WRAP*, DECR*, DECR_WRAP*, INVERT*: GLenum
 
@@ -131,6 +131,7 @@ when defined js:
     proc depthMask*(gl: GL, d: bool)
     proc stencilMask*(gl: GL, m: GLuint)
     proc cullFace*(gl: GL, mode: GLenum)
+    proc scissor*(gl: GL, x, y: GLint, width, height: GLsizei)
 
     proc getError*(gl: GL): GLenum
 
@@ -194,6 +195,7 @@ else:
     template RENDERBUFFER_BINDING(gl: GL): GLenum = GL_RENDERBUFFER_BINDING
     template STENCIL_TEST*(gl: GL): GLenum = GL_STENCIL_TEST
     template DEPTH_TEST*(gl: GL): GLenum = GL_DEPTH_TEST
+    template SCISSOR_TEST*(gl: GL): GLenum = GL_SCISSOR_TEST
 
     template NEVER*(gl: GL): GLenum = GL_NEVER
     template LESS*(gl: GL): GLenum = GL_LESS
@@ -310,6 +312,7 @@ else:
     template depthMask*(gl: GL, d: bool) = glDepthMask(d)
     template stencilMask*(gl: GL, m: GLuint) = glStencilMask(m)
     template cullFace*(gl: GL, mode: GLenum) = glCullFace(mode)
+    template scissor*(gl: GL, x, y: GLint, width, height: GLsizei) = glScissor(x, y, width, height)
 
     template getError*(gl: GL): GLenum = glGetError()
 

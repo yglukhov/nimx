@@ -22,8 +22,6 @@ import sample05_fonts
 
 const isMobile = defined(ios) or defined(android)
 
-template c*(a: string) = discard
-
 proc startApplication() =
     var mainWindow : Window
 
@@ -94,3 +92,4 @@ else:
     except:
         logi "Exception caught: ", getCurrentExceptionMsg()
         logi getCurrentException().getStackTrace()
+        quit 1

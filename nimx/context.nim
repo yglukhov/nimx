@@ -235,15 +235,15 @@ proc drawEllipseInRect*(c: GraphicsContext, r: Rect) =
         setUniform("uStrokeWidth", c.strokeWidth)
 
 let fontComposition = newComposition("""
-attribute vec4 position;
+attribute vec4 aPosition;
 
 uniform mat4 uModelViewProjectionMatrix;
 
 varying vec2 vTexCoord;
 
 void main() {
-    vTexCoord = position.zw;
-    gl_Position = uModelViewProjectionMatrix * vec4(position.xy, 0, 1);
+    vTexCoord = aPosition.zw;
+    gl_Position = uModelViewProjectionMatrix * vec4(aPosition.xy, 0, 1);
 }
 """,
 """
