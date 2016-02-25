@@ -481,7 +481,7 @@ proc runAutotestsInFirefox*(pathToMainHTML: string) =
     let ffbin = when defined(macosx):
             "/Applications/Firefox.app/Contents/MacOS/firefox"
         else:
-            "firefox"
+            findExe("firefox")
     createDir("tempprofile")
     writeFile("tempprofile/user.js", """
     pref("browser.shell.checkDefaultBrowser", false);
