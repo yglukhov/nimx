@@ -2,3 +2,5 @@ nimcache
 nakefile
 test/main
 doc/*.html
+*.exe
+build/

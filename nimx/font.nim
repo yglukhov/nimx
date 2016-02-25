@@ -1,3 +1,4 @@
+import math
 import types
 import system_logger
 import unicode
@@ -247,18 +248,16 @@ proc bakeChars(f: Font, start: int32): CharInfo =
         let scale = stbtt_ScaleForPixelHeight(fontinfo, fSize)
         var ascent, descent, lineGap : cint
         stbtt_GetFontVMetrics(fontinfo, ascent, descent, lineGap)
-        ascent = cint(ascent.cfloat * scale)
-        descent = cint(descent.cfloat * scale)
 
         var glyphIndexes: array[charChunkLength, cint]
 
-        const glyphMargin = 2
+        const glyphMargin = 5
 
         for i in startChar .. < endChar:
             if isPrintableCodePoint(i):
                 let g = stbtt_FindGlyphIndex(fontinfo, i) # g > 0 when found
                 glyphIndexes[i - startChar] = g
-                var advance, lsb, x0,y0,x1,y1: cint
+                var advance, lsb, x0, y0, x1, y1: cint
                 stbtt_GetGlyphHMetrics(fontinfo, g, advance, lsb)
                 stbtt_GetGlyphBitmapBox(fontinfo, g, scale, scale, x0, y0, x1, y1)
                 let gw = x1 - x0
@@ -266,8 +265,8 @@ proc bakeChars(f: Font, start: int32): CharInfo =
                 let (x, y) = rectPacker.packAndGrow(gw + glyphMargin * 2, gh + glyphMargin * 2)
 
                 let c = charOff(i - startChar)
-                result.bakedChars.charOffComp(c, compX) = x0.int16
-                result.bakedChars.charOffComp(c, compY) = (ascent + y0).int16
+                result.bakedChars.charOffComp(c, compX) = (x0.cfloat + lsb.cfloat * scale + glyphMargin).int16
+                result.bakedChars.charOffComp(c, compY) = (y0.cfloat + ascent.cfloat * scale + glyphMargin).int16
                 result.bakedChars.charOffComp(c, compAdvance) = (scale * advance.cfloat).int16
                 result.bakedChars.charOffComp(c, compTexX) = (x + glyphMargin).int16
                 result.bakedChars.charOffComp(c, compTexY) = (y + glyphMargin).int16
