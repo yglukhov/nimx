@@ -265,13 +265,13 @@ proc bakeChars(f: Font, start: int32): CharInfo =
                 let (x, y) = rectPacker.packAndGrow(gw + glyphMargin * 2, gh + glyphMargin * 2)
 
                 let c = charOff(i - startChar)
-                result.bakedChars.charOffComp(c, compX) = (x0.cfloat + lsb.cfloat * scale + glyphMargin).int16
-                result.bakedChars.charOffComp(c, compY) = (y0.cfloat + ascent.cfloat * scale + glyphMargin).int16
+                result.bakedChars.charOffComp(c, compX) = (x0.cfloat + lsb.cfloat * scale - glyphMargin.float / 2).int16
+                result.bakedChars.charOffComp(c, compY) = (y0.cfloat + ascent.cfloat * scale - glyphMargin.float / 2).int16
                 result.bakedChars.charOffComp(c, compAdvance) = (scale * advance.cfloat).int16
                 result.bakedChars.charOffComp(c, compTexX) = (x + glyphMargin).int16
                 result.bakedChars.charOffComp(c, compTexY) = (y + glyphMargin).int16
-                result.bakedChars.charOffComp(c, compWidth) = gw.int16
-                result.bakedChars.charOffComp(c, compHeight) = gh.int16
+                result.bakedChars.charOffComp(c, compWidth) = (gw + glyphMargin).int16
+                result.bakedChars.charOffComp(c, compHeight) = (gh + glyphMargin).int16
 
         let width = rectPacker.width
         let height = rectPacker.height
@@ -283,8 +283,8 @@ proc bakeChars(f: Font, start: int32): CharInfo =
             if isPrintableCodePoint(i):
                 let c = charOff(i - startChar)
                 if result.bakedChars.charOffComp(c, compAdvance) > 0:
-                    let x = result.bakedChars.charOffComp(c, compTexX).int
-                    let y = result.bakedChars.charOffComp(c, compTexY).int
+                    let x = result.bakedChars.charOffComp(c, compTexX).int + (glyphMargin.float / 2).int
+                    let y = result.bakedChars.charOffComp(c, compTexY).int + (glyphMargin.float / 2).int
                     let w = result.bakedChars.charOffComp(c, compWidth).cint
                     let h = result.bakedChars.charOffComp(c, compHeight).cint
                     stbtt_MakeGlyphBitmap(fontinfo, addr temp_bitmap[x + y * width.int], w, h, width.cint, scale, scale, glyphIndexes[i - startChar])
