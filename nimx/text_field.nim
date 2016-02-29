@@ -15,6 +15,7 @@ type TextField* = ref object of Control
     text*: string
     editable*: bool
     selectable*: bool
+    textColor*: Color
 
 var cursorPos = 0
 var cursorVisible = true
@@ -27,6 +28,7 @@ const leftMargin = 3.0
 proc newTextField*(r: Rect): TextField =
     result.new()
     result.init(r)
+    result.textColor = newGrayColor(0.0)
 
 proc newTextField*(parent: View = nil, position: Point = newPoint(0, 0), size: Size = newSize(100, 20), text: string = ""): TextField =
     result = newTextField(newRect(position.x, position.y, size.width, size.height))
@@ -90,7 +92,7 @@ method draw*(t: TextField, r: Rect) =
         if not cell.isNil and cell.selected:
             c.fillColor = whiteColor()
         else:
-            c.fillColor = blackColor()
+            c.fillColor = t.textColor
         c.drawText(systemFont(), pt, t.text)
 
     if t.isEditing:
