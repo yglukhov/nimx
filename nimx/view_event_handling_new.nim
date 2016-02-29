@@ -26,17 +26,22 @@ proc isMainWindow(v: View, e : var Event): bool =
 proc processTouchEvent*(v: View, e : var Event): bool =
     if e.buttonState == bsDown and e.pointerId == 0:
         v.interceptEvents = false
+        v.touchTarget = nil
         if v.subviews.isNil or v.subviews.len == 0:
+            # echo v.name()," subs is nil"
             result = v.onTouchEv(e)
         else:
             if v.onInterceptTouchEv(e):
+                # echo v.name()," intercepted events"
                 v.interceptEvents = true
                 result = v.onTouchEv(e)
             else:
-                var localPosition = e.localPosition
+                let localPosition = e.localPosition
                 for i in countdown(v.subviews.len - 1, 0):
                     let s = v.subviews[i]
                     e.localPosition = localPosition - s.frame.origin + s.bounds.origin
+                    # echo "local position = ",e.localPosition
+                    # echo s.name()," s.bounds is :",s.bounds," frame is ",s.frame
                     if e.localPosition.inRect(s.bounds):
                         result = s.processTouchEvent(e)
                         if result:

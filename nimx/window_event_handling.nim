@@ -20,13 +20,20 @@ method onTextInput*(w: Window, s: string): bool =
     if w.canPassEventToFirstResponder:
         result = w.firstResponder.onTextInput(s)
 
+let newTouch : bool = true
+
 method handleEvent*(w: Window, e: var Event): bool {.base.} =
     case e.kind:
-        of etTouch, etMouse:
-            # result = w.handleTouchEvent(e)
-            result = w.processTouchEvent(e)
-        # of etMouse, etScroll:
-        #     result = w.recursiveHandleMouseEvent(e)
+        of etTouch:
+            if newTouch:
+                result = w.processTouchEvent(e)
+            else:
+                result = w.handleTouchEvent(e)
+        of etMouse, etScroll:
+            if newTouch and e.kind == etMouse:
+                result = w.processTouchEvent(e)
+            else:
+                result = w.recursiveHandleMouseEvent(e)
         of etKeyboard:
             if e.buttonState == bsDown:
                 result = w.onKeyDown(e)
