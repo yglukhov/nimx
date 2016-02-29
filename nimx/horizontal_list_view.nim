@@ -2,7 +2,9 @@ import view
 export view
 
 import view_event_handling
+import view_event_handling_new
 import nimx.gesture_detector
+import nimx.gesture_detector_newtouch
 import types
 import event
 import context
@@ -168,11 +170,6 @@ method setAdapter*(v : HorizontalListView, a : Adapter) {.base.} =
     v.adapter = a
     v.syncAdapterOnView
 
-method onMouseDown*(v: HorizontalListView, e: var Event): bool =
-    e.kind = etTouch
-    e.pointerId = 0
-    result = v.handleTouchEvent(e)
-
 method draw*(view: HorizontalListView, rect: Rect) =
     procCall view.View.draw(rect)
     if view.dirty:
@@ -211,3 +208,6 @@ method init*(v: HorizontalListView, r: Rect) =
     v.addGestureDetector(newTapGestureDetector do(tapPoint : Point):
         v.checkItemClick(tapPoint)
         )
+
+method name*(v: HorizontalListView): string =
+    result = "HorizontalListView"

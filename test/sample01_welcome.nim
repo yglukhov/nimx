@@ -8,6 +8,8 @@ import nimx.composition
 import nimx.button
 import nimx.autotest
 
+import nimx.gesture_detector_newtouch
+
 const welcomeMessage = "Welcome to nimX"
 
 type WelcomeView = ref object of View
@@ -16,10 +18,23 @@ type WelcomeView = ref object of View
 method init(v: WelcomeView, r: Rect) =
     procCall v.View.init(r)
     let autoTestButton = newButton(newRect(20, 20, 150, 20))
+    let secondTestButton = newButton(newRect(20, 50, 150, 20))
     autoTestButton.title = "Start Auto Tests"
+    secondTestButton.title = "Second button"
+    let tapd = newTapGestureDetector do(tapPoint : Point):
+        echo "tap on second button"
+        discard
+    secondTestButton.addGestureDetector(tapd)
     autoTestButton.onAction do():
         startRegisteredTests()
+    secondTestButton.onAction do():
+        echo "second click"
     v.addSubview(autoTestButton)
+    v.addSubview(secondTestButton)
+    let vtapd = newTapGestureDetector do(tapPoint : Point):
+        echo "tap on welcome view"
+        discard
+    v.addGestureDetector(vtapd)
 
 var gradientComposition = newComposition """
 void compose() {

@@ -7,6 +7,7 @@ import event
 import font
 import app
 import view_event_handling
+import view_event_handling_new
 import composition
 
 export control
@@ -220,3 +221,28 @@ method onMouseUp(b: Button, e: var Event): bool =
         if b.behavior == bbToggle:
             b.value = toggleValue(b.value)
         b.sendAction(e)
+
+method name(b: Button): string =
+    result = "Button"
+
+method onTouchEv(b: Button, e: var Event): bool =
+    discard procCall b.View.onTouchEv(e)
+    case e.buttonState
+    of bsDown:
+        b.setState(bsDown)
+        if b.behavior == bbMomentaryLight:
+            b.value = 1
+    of bsUnknown:
+        if e.localPosition.inRect(b.bounds):
+            b.setState(bsDown)
+        else:
+            b.setState(bsUp)
+    of bsUp:
+        b.setState(bsUp)
+        if b.behavior == bbMomentaryLight:
+            b.value = 0
+        if e.localPosition.inRect(b.bounds):
+            if b.behavior == bbToggle:
+                b.value = toggleValue(b.value)
+            b.sendAction(e)
+    result = true

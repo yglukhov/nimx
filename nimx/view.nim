@@ -29,6 +29,8 @@ type
         autoresizingMask*: set[AutoresizingFlag]
         backgroundColor*: Color
         gestureDetectors*: seq[GestureDetector]
+        touchTarget*: View
+        interceptEvents*: bool
 
     Window* = ref object of View
         firstResponder*: View

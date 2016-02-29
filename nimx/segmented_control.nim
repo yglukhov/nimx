@@ -5,6 +5,7 @@ import composition
 import context
 import font
 import view_event_handling
+import view_event_handling_new
 import app
 
 type SegmentedControl* = ref object of Control
@@ -16,6 +17,8 @@ type SegmentedControl* = ref object of Control
     mSelectedSegment: int
     trackedSegment: int
     widthsValid: bool
+    clickedSegmentRect: Rect
+    clickedSegment: int
 
 var scComposition = newComposition """
 uniform vec4 uSelectedRect;
@@ -150,3 +153,30 @@ method onMouseUp(s: SegmentedControl, e: var Event): bool =
 method setBoundsSize*(v: SegmentedControl, s: Size) =
     procCall v.Control.setBoundsSize(s)
     v.widthsValid = false
+
+method onTouchEv(s: SegmentedControl, e: var Event): bool =
+    result = true
+    case e.buttonState
+    of bsDown:
+        s.clickedSegment = -1
+        s.clickedSegmentRect = ((0'f32,0'f32),(0'f32,0'f32))
+        s.clickedSegment = s.segmentAtPoint(e.localPosition, s.clickedSegmentRect)
+        if s.clickedSegment >= 0:
+            s.trackedSegment = s.clickedSegment
+            s.trackedSegmentOffset = s.clickedSegmentRect.x
+            s.setNeedsDisplay()
+    of bsUnknown:
+        if e.localPosition.inRect(s.clickedSegmentRect):
+            s.trackedSegment = s.clickedSegment
+            s.trackedSegmentOffset = s.clickedSegmentRect.x
+        else:
+            s.trackedSegment = s.mSelectedSegment
+            s.trackedSegmentOffset = s.selectedSegmentOffset
+        s.setNeedsDisplay()
+    of bsUp:
+        if s.trackedSegment >= 0:
+            s.mSelectedSegment = s.trackedSegment
+            s.selectedSegmentOffset = s.trackedSegmentOffset
+            s.setNeedsDisplay()
+            s.sendAction(e)
+        result = false
