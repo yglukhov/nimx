@@ -51,17 +51,16 @@ method startTextInput*(w: Window, r: Rect) {.base.} = discard
 method stopTextInput*(w: Window) {.base.} = discard
 
 proc runAnimations*(w: Window) =
-    let t = epochTime()
-    var i = 0
-    w.needsDisplay = w.needsDisplay or w.animations.len > 0
-
     # New animations can be added while in the following loop. They will
     # have to be ticked on the next frame.
     let count = w.animations.len
     var finishedAnimations = 0
-    for i in 0 ..< count:
-        w.animations[i].tick(t)
-        if w.animations[i].finished: inc finishedAnimations
+    if w.animations.len > 0:
+        let t = epochTime()
+        w.needsDisplay = true
+        for i in 0 ..< count:
+            w.animations[i].tick(t)
+            if w.animations[i].finished: inc finishedAnimations
 
     # Delete animations that have finished
     if finishedAnimations > 0:
