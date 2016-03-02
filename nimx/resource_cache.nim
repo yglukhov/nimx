@@ -79,8 +79,11 @@ proc preloadResources*(ld: ResourceLoader, resourceNames: openarray[string]) =
     ld.itemsToLoad += resourceNames.len
     when debugResCache:
         ld.resourcesToLoad = @resourceNames
+    let oldWarn = warnWhenResourceNotCached
+    warnWhenResourceNotCached = false
     for i in resourceNames:
         ld.startPreloadingResource(i)
+    warnWhenResourceNotCached = oldWarn
 
 proc isHiddenFile(path: string): bool =
     let lastSlash = path.rfind("/")
