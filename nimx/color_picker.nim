@@ -10,6 +10,8 @@ import types
 import portable_gl
 import popup_button
 import text_field
+import view_event_handling
+import view_event_handling_new
 
 const
     margin = 6
@@ -17,6 +19,9 @@ const
 type
     ColorPickerPalette* {.pure.} = enum
         HSV
+
+    ColorView* = ref object of View
+        ## Color quad that reacts to outer world
 
     ColorPickerCircle* = ref object of View
         radius: Coord
@@ -32,13 +37,10 @@ type
     ColorPickerV* = ref object of View
         ## Value tuning widget
 
-    ColorView* = ref object of View
-        ## Color quad that reacts to outer world
-
     ColorPickerView* = ref object of View
         ## Complex Widget that allows to pick color using HSV palette
         palette:         ColorPickerPalette  ## Palette (RGB, HSV, HSL, etc.)
-        colorHistory:    seq[Color]          ## History of chosen colors
+        colorHistory:    seq[ColorView]      ## History of chosen colors
 
         circle*:         ColorPickerCircle   ## Color picking circle
         paletteChooser:  PopupButton         ## Palette choser popup
@@ -224,17 +226,20 @@ method draw*(cpc: ColorPickerCircle, r: Rect) =
 
 method onTouchEv*(cpc: ColorPickerCircle, e: var Event): bool =
     ## Choose color
-    let radius = cpc.frame.width / 2.0
-    let center = newPoint(cpc.frame.width / 2.0, cpc.frame.height / 2.0)
+    if e.buttonState == bsUp:
+        let radius = cpc.frame.width / 2.0
+        let center = newPoint(cpc.frame.width / 2.0, cpc.frame.height / 2.0)
 
-    let h = (arctan2(e.localPosition.y - center.y, center.x - e.localPosition.x) / 3.1415 + 1.0) / 2.0
-    let v = 1.0
-    let s = sqrt(pow(e.localPosition.x - center.x, 2) + pow(e.localPosition.y - center.y, 2)) / radius
+        let h = (arctan2(e.localPosition.y - center.y, center.x - e.localPosition.x) / 3.1415 + 1.0) / 2.0
+        let v = 1.0
+        let s = sqrt(pow(e.localPosition.x - center.x, 2) + pow(e.localPosition.y - center.y, 2)) / radius
 
-    if s < 1.0 and s > 0.5:
-        cpc.currentColor = (h, s, v)
-        ColorPickerView(cpc.superview).chosenColorView.backgroundColor = hsvToRGB(cpc.currentColor.h, cpc.currentColor.s, cpc.currentColor.v)
-        cpc.superview.setNeedsDisplay()
+        if s < 1.0 and s > 0.5:
+            cpc.currentColor = (h, s, v)
+            ColorPickerView(cpc.superview).chosenColorView.backgroundColor = hsvToRGB(cpc.currentColor.h, cpc.currentColor.s, cpc.currentColor.v)
+            cpc.superview.setNeedsDisplay()
+
+    return true
 
 # ColorView
 
@@ -248,13 +253,16 @@ method init(cv: ColorView, r: Rect) =
     procCall cv.View.init(r)
     cv.backgroundColor = newGrayColor(1.0)
 
-method onTouchEv*(cv: ColorView, e: var Event): bool =
+method onTouchEv(cv: ColorView, e: var Event): bool =
     ## React on click
-    echo "UP!!! ", e.buttonState
+    discard procCall cv.View.onTouchEv(e)
+
     if e.buttonState == bsUp:
         if not isNil(cv.superview):
             if not isNil(ColorPickerView(cv.superview).onColorSelected):
                 ColorPickerView(cv.superview).onColorSelected(cv.backgroundColor)
+
+    return true
 
 # ColorPickerView
 
@@ -299,6 +307,20 @@ method init*(cpv: ColorPickerView, r: Rect) =
     cpv.addSubview(cpv.chosenColorView)
 
     let coff = r.height - (20 * 3 + margin * 4)
+
+    # Color history views
+    let historyPixelSize = cpv.rightMargin - margin - margin - r.height / 4.0 - 20
+    let historySize = (historyPixelSize.int / (r.height / 8.0 + margin.float).int).int
+
+    for hitem in 0 ..< historySize:
+        let newItem = newColorView(newRect(
+            20 + margin * 3.0 + r.height / 4.0 + r.height / 8.0 * hitem.float + (margin * hitem + 1).float,
+            margin * 2.0 + r.height / 8.0,
+            r.height / 8.0,
+            r.height / 8.0
+        ), newGrayColor(1.0))
+        cpv.addSubview(newItem)
+
 
     # HSV Components
     # HSV Components Labels

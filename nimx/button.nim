@@ -226,6 +226,7 @@ method name(b: Button): string =
     result = "Button"
 
 method onTouchEv(b: Button, e: var Event): bool =
+    echo e.buttonState
     discard procCall b.View.onTouchEv(e)
     case e.buttonState
     of bsDown:
