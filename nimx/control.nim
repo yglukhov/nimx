@@ -3,9 +3,11 @@ import view
 export view
 
 import event
+import view_event_handling_new
 
 type Control* = ref object of View
     actionHandler: proc(e: Event)
+    clickable*: bool
 
 method sendAction*(c: Control, e: Event) {. base .} =
     if c.actionHandler != nil:
@@ -21,3 +23,13 @@ proc onAction*(c: Control, handler: proc(e: Event)) =
 proc onAction*(c: Control, handler: proc()) =
     c.onAction do (e: Event):
         handler()
+
+method onTouchEv*(b: Control, e: var Event): bool =
+    discard procCall b.View.onTouchEv(e)
+    if b.clickable:
+        case e.buttonState
+        of bsUp:
+            if e.localPosition.inRect(b.bounds):
+                b.sendAction(e)
+        else: discard
+        result = true

@@ -15,6 +15,8 @@ const welcomeMessage = "Welcome to nimX"
 type WelcomeView = ref object of View
     welcomeFont: Font
 
+type CustomControl* = ref object of Control
+
 method init(v: WelcomeView, r: Rect) =
     procCall v.View.init(r)
     let autoTestButton = newButton(newRect(20, 20, 150, 20))
@@ -35,6 +37,14 @@ method init(v: WelcomeView, r: Rect) =
         echo "tap on welcome view"
         discard
     v.addGestureDetector(vtapd)
+    var cc: CustomControl
+    cc.new
+    cc.init(newRect(20, 80, 150, 20))
+    cc.clickable = true
+    cc.backgroundColor = newColor(1.0,0.0,0.0,1.0)
+    cc.onAction do():
+        echo "custom control clicked"
+    v.addSubview(cc)
 
 var gradientComposition = newComposition """
 void compose() {

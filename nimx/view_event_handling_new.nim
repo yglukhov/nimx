@@ -14,10 +14,11 @@ method onTouchEv*(v: View, e: var Event): bool {.base.} =
         for d in v.gestureDetectors:
             let r = d.onGestEvent(e)
             result = result or r
-    echo v.name(), " onTouchEv ",e.buttonState," ",e.localPosition
+    # echo v.name(), " onTouchEv ",e.buttonState," ",e.localPosition
 
 method onInterceptTouchEv*(v: View, e: var Event): bool {.base.} =
-    echo v.name(), " onInterceptTouchEv ",e.localPosition
+    # echo v.name(), " onInterceptTouchEv ",e.localPosition
+    discard
 
 proc isMainWindow(v: View, e : var Event): bool =
     # echo v.superview.isNil
