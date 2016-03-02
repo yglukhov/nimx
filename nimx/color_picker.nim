@@ -84,7 +84,14 @@ var hsvCircleComposition = newComposition """
         float h = (atan(vPos.y - c.y, c.x - vPos.x) / 3.1415 + 1.0) / 2.0;
         float s = distance(vPos, c) / r;
         float v = uHsvValue;
-        return vec4(hsv2rgb(vec3(h, s, v)), 1.0);
+
+        float diff = abs(uChosenH - h);
+
+        if (diff <= 0.005) {
+            return vec4(0.0, 0.0, 0.0, 1.0 - smoothstep(0.001, 0.005, diff));
+        } else {
+            return vec4(hsv2rgb(vec3(h, s, v)), 1.0);
+        }
     }
 
     void compose() {
