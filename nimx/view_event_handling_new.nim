@@ -14,6 +14,10 @@ method onTouchEv*(v: View, e: var Event): bool {.base.} =
         for d in v.gestureDetectors:
             let r = d.onGestEvent(e)
             result = result or r
+    if not result:
+        if e.buttonState == bsDown:
+            if v.acceptsFirstResponder:
+                result = v.makeFirstResponder()
     # echo v.name(), " onTouchEv ",e.buttonState," ",e.localPosition
 
 method onInterceptTouchEv*(v: View, e: var Event): bool {.base.} =
