@@ -11,7 +11,8 @@ import portable_gl
 import popup_button
 import text_field
 
-const margin = 6
+const
+    margin = 6
 
 type
     ColorPickerPalette* {.pure.} = enum
@@ -22,16 +23,123 @@ type
         currentColor: tuple[h: float, s: float, v: float]
         palette: ColorPickerPalette
 
-    ColorPickerView* = ref object of View
-        palette: ColorPickerPalette
-        colorHistory: seq[Color]
+    ColorPickerH* = ref object of View
+        ## Hue tuning widget
 
-        circle: ColorPickerCircle
-        paletteChooser: PopupButton
-        chosenColorView: View
+    ColorPickerS* = ref object of View
+        ## Saturation tuning widget
+
+    ColorPickerV* = ref object of View
+        ## Value tuning widget
+
+    ColorView* = ref object of View
+        ## Color quad that reacts to outer world
+
+    ColorPickerView* = ref object of View
+        ## Complex Widget that allows to pick color using HSV palette
+        palette:         ColorPickerPalette  ## Palette (RGB, HSV, HSL, etc.)
+        colorHistory:    seq[Color]          ## History of chosen colors
+
+        circle*:         ColorPickerCircle   ## Color picking circle
+        paletteChooser:  PopupButton         ## Palette choser popup
+        chosenColorView: View                ## Quad that shows current color
+
+        cpH: ColorPickerH                    ## Hue tuning widget
+        cpS: ColorPickerS                    ## Saturation tuning widget
+        cpV: ColorPickerV                    ## Value tuning widget
 
         # Graphics metrics
-        rightMargin: Coord
+        rightMargin:     Coord               ## Circle offset (layout-helper)
+
+        # Callbacks
+        onColorSelected*: proc(c: Color)
+
+# ColorPickerH
+
+proc newColorPickerH(r: Rect): ColorPickerH =
+    ## Hue picker constructor
+    result.new
+    result.init(r)
+
+method init(cph: ColorPickerH, r: Rect) =
+    procCall cph.View.init(r)
+
+var cpHComposition = newComposition """
+    vec4 cHQuad() {
+        return vec4(hsv2rgb(vec3(smoothstep(0.0, bounds.z, vPos.x), 1.0, 1.0)), 1.0);
+    }
+
+    void compose() {
+        drawShape(sdRect(bounds), cHQuad());
+    }
+"""
+
+method draw(cph: ColorPickerH, r: Rect) =
+    ## Drawing Hue picker
+    let c = currentContext()
+    let cc = ColorPickerView(cph.superview).circle.currentColor
+
+    cpHComposition.draw r
+
+# ColorPickerS
+
+proc newColorPickerS(r: Rect): ColorPickerS =
+    ## Saturation picker constructor
+    result.new
+    result.init(r)
+
+method init(cps: ColorPickerS, r: Rect) =
+    procCall cps.View.init(r)
+
+var cpSComposition = newComposition """
+uniform float uHcps;
+
+vec4 cSQuad() {
+    return vec4(hsv2rgb(vec3(uHcps, smoothstep(0.0, bounds.z, vPos.x), 1.0)), 1.0);
+}
+
+void compose() {
+    drawShape(sdRect(bounds), cSQuad());
+}
+"""
+
+method draw(cps: ColorPickerS, r: Rect) =
+    ## Drawing Hue picker
+    let c = currentContext()
+    let cc = ColorPickerView(cps.superview).circle.currentColor
+
+    cpSComposition.draw r:
+        setUniform("uHcps", cc.h)
+
+# ColorPickerV
+
+proc newColorPickerV(r: Rect): ColorPickerV =
+    ## Saturation picker constructor
+    result.new
+    result.init(r)
+
+method init(cpv: ColorPickerV, r: Rect) =
+    procCall cpv.View.init(r)
+
+var cpVComposition = newComposition """
+uniform float uHcpv;
+
+vec4 cVQuad() {
+    return vec4(hsv2rgb(vec3(uHcpv, 1.0, smoothstep(0.0, bounds.z, vPos.x))), 1.0);
+}
+
+void compose() {
+    drawShape(sdRect(bounds), cVQuad());
+}
+"""
+
+method draw(cpv: ColorPickerV, r: Rect) =
+    ## Drawing Hue picker
+    let c = currentContext()
+    let cc = ColorPickerView(cpv.superview).circle.currentColor
+
+    cpVComposition.draw r:
+        setUniform("uHcpv", cc.h)
 
 # ColorPickerCircle
 
@@ -128,6 +236,26 @@ method onTouchEv*(cpc: ColorPickerCircle, e: var Event): bool =
         ColorPickerView(cpc.superview).chosenColorView.backgroundColor = hsvToRGB(cpc.currentColor.h, cpc.currentColor.s, cpc.currentColor.v)
         cpc.superview.setNeedsDisplay()
 
+# ColorView
+
+proc newColorView*(r: Rect, color: Color): ColorView =
+    ## Reactable Color quad constructor
+    result.new
+    result.init(r)
+    result.backgroundColor = color
+
+method init(cv: ColorView, r: Rect) =
+    procCall cv.View.init(r)
+    cv.backgroundColor = newGrayColor(1.0)
+
+method onTouchEv*(cv: ColorView, e: var Event): bool =
+    ## React on click
+    echo "UP!!! ", e.buttonState
+    if e.buttonState == bsUp:
+        if not isNil(cv.superview):
+            if not isNil(ColorPickerView(cv.superview).onColorSelected):
+                ColorPickerView(cv.superview).onColorSelected(cv.backgroundColor)
+
 # ColorPickerView
 
 proc newColorPickerView*(r: Rect, defaultPalette = ColorPickerPalette.HSV, backgroundColor: Color = newGrayColor(0.35, 0.6)): ColorPickerView =
@@ -167,14 +295,25 @@ method init*(cpv: ColorPickerView, r: Rect) =
     )
 
     # Current Chosen Color Quad
-    cpv.chosenColorView = newView(newRect(margin, margin, r.height / 4.0, r.height / 4.0))
-    cpv.chosenColorView.backgroundColor = cpv.currentColor()
+    cpv.chosenColorView = newColorView(newRect(margin * 2.0 + 20, margin * 2.0, r.height / 4.0, r.height / 4.0), newGrayColor(1.0))
     cpv.addSubview(cpv.chosenColorView)
 
     let coff = r.height - (20 * 3 + margin * 4)
 
-    let hLabel = newTextField(cpv, newPoint(margin, coff + margin), newSize(20, 20), "H:")
-    let sLabel = newTextField(cpv, newPoint(margin, coff + margin * 2 + 20), newSize(20, 20), "S:")
-    let vLabel = newTextField(cpv, newPoint(margin, coff + margin * 3 + 40), newSize(20, 20), "V:")
+    # HSV Components
+    # HSV Components Labels
+    let hLabel = newLabel(cpv, newPoint(margin, coff + margin), newSize(20, 20), "H:")
+    let sLabel = newLabel(cpv, newPoint(margin, coff + margin * 2 + 20), newSize(20, 20), "S:")
+    let vLabel = newLabel(cpv, newPoint(margin, coff + margin * 3 + 40), newSize(20, 20), "V:")
 
-    # HSV Components Views
+    # H Component View
+    cpv.cpH = newColorPickerH(newRect(margin + 20 + margin, coff + margin, r.width - rightSize - margin * 3.0 - 20, 20))
+    cpv.addSubview(cpv.cpH)
+
+    # S Component View
+    cpv.cpS = newColorPickerS(newRect(margin + 20 + margin, coff + margin * 2 + 20, r.width - rightSize - margin * 3.0 - 20, 20))
+    cpv.addSubview(cpv.cpS)
+
+    # V Component View
+    cpv.cpV = newColorPickerV(newRect(margin + 20 + margin, coff + margin * 3 + 40, r.width - rightSize - margin * 3.0 - 20, 20))
+    cpv.addSubview(cpv.cpV)
