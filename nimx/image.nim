@@ -348,9 +348,6 @@ registerResourcePreloader(["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga", "p
 
         loadJSResourceAsync(name, "blob", nil, nil, handler)
     else:
-        let oldWarn = warnWhenResourceNotCached
-        warnWhenResourceNotCached = false
         imageCache.registerResource(name, imageWithResource(name))
-        warnWhenResourceNotCached = oldWarn
         callback()
 )
