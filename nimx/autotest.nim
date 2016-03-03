@@ -43,6 +43,13 @@ macro registeredUiTest*(name: untyped, body: typed): stmt =
     result.add(testSuiteDefinitionWithNameAndBody(name, body))
     result.add(newCall(bindsym "registerTest", name))
 
+proc dump(s: string) =
+    when defined(js):
+        let cs : cstring = s
+        {.emit: "if ('dump' in window) window.dump(`cs` + '\\n');".}
+    else:
+        logi s
+
 when true:
     proc sendMouseEvent*(wnd: Window, p: Point, bs: ButtonState) =
         var evt = newMouseButtonEvent(p, VirtualKey.MouseButtonPrimary, bs)
@@ -55,7 +62,7 @@ when true:
     proc quitApplication*() =
         when defined(js):
             # Hopefully we're using nimx automated testing in Firefox
-            {.emit: """if ('dump' in window) window.dump("---AUTO-TEST-QUIT---\n");""".}
+            dump("---AUTO-TEST-QUIT---")
         else:
             quit()
 
@@ -63,10 +70,10 @@ when true:
         if not e: dec testRunnerContext.curTest
 
 when false:
-    macro dump(b: typed): stmt =
+    macro tdump(b: typed): stmt =
         echo treeRepr(b)
 
-    dump:
+    tdump:
         let ts : UITestSuite = @[
             (
                 (proc() {.closure.} = echo "hi"),
@@ -86,8 +93,8 @@ proc startTest*(t: UITestSuite) =
 
     var tim : Timer
     tim = setInterval(0.5, proc() =
-        logi "RUNNING"
-        logi t[testRunnerContext.curTest].astrepr
+        dump "RUNNING"
+        dump t[testRunnerContext.curTest].astrepr
         t[testRunnerContext.curTest].code()
         inc testRunnerContext.curTest
         if testRunnerContext.curTest == t.len:
@@ -102,8 +109,8 @@ proc startRegisteredTests*() =
     var curTestSuite = 0
     var tim : Timer
     tim = setInterval(0.5, proc() =
-        logi "RUNNING"
-        logi registeredTests[curTestSuite][testRunnerContext.curTest].astrepr
+        dump "RUNNING"
+        dump registeredTests[curTestSuite][testRunnerContext.curTest].astrepr
         registeredTests[curTestSuite][testRunnerContext.curTest].code()
         inc testRunnerContext.curTest
         if testRunnerContext.curTest == registeredTests[curTestSuite].len:
