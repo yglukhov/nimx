@@ -22,23 +22,25 @@ when not defined(js):
         s.close()
 
     proc sendRequest*(meth, url, body: string, headers: openarray[(string, string)], handler: Handler) =
-        type SdlHandlerContext = object
+        type SdlHandlerContext = ref object
             handler: Handler
             data: pointer
 
-        let ctx = cast[ptr SdlHandlerContext](allocShared(sizeof(SdlHandlerContext)))
+        var ctx: SdlHandlerContext
+        ctx.new()
         ctx.handler = handler
+        GC_ref(ctx)
 
         proc callHandler(c: pointer) {.cdecl.} =
-            let ctx = cast[ptr SdlHandlerContext](c)
+            let ctx = cast[SdlHandlerContext](c)
             var r: Response
             readFromSharedBuffer(ctx.data, r)
             deallocShared(ctx.data)
             ctx.handler(r)
-            deallocShared(ctx)
+            GC_unref(ctx)
 
         proc sdlThreadSafeHandler(r: Response, ctx: pointer) {.nimcall.} =
-            cast[ptr SdlHandlerContext](ctx).data = storeToSharedBuffer(r)
+            cast[SdlHandlerContext](ctx).data = storeToSharedBuffer(r)
             performOnMainThread(callHandler, ctx)
 
-        sendRequestThreaded(meth, url, body, headers, sdlThreadSafeHandler, ctx)
+        sendRequestThreaded(meth, url, body, headers, sdlThreadSafeHandler, cast[pointer](ctx))
