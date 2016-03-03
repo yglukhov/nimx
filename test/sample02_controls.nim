@@ -2,6 +2,7 @@ import sample_registry
 
 import nimx.view
 import nimx.segmented_control
+import nimx.color_picker
 import nimx.button
 import nimx.image
 import nimx.text_field
@@ -90,5 +91,11 @@ method init(v: ControlsSampleView, r: Rect) =
     v.addSubview(tfLabel)
     v.addSubview(tf1)
     v.addSubview(tf2)
+
+    let cp = newColorPickerView(newRect(0, 0, 400, 170))
+    cp.setFrameOrigin(newPoint(10, 200))
+    cp.onColorSelected = proc(c: Color) =
+        discard
+    v.addSubview(cp)
 
 registerSample "Controls", ControlsSampleView.new(newRect(0, 0, 100, 100))
