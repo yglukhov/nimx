@@ -17,6 +17,8 @@ type TextField* = ref object of Control
     selectable*: bool
     textColor*: Color
 
+    textSelection: tuple[selected: bool, inselection: bool, startIndex: int, endIndex: int]
+
 var cursorPos = 0
 var cursorVisible = true
 var cursorUpdateTimer : Timer
@@ -52,6 +54,7 @@ method init*(t: TextField, r: Rect) =
     procCall t.Control.init(r)
     t.editable = true
     t.selectable = true
+    t.textSelection = (false, false, -1, -1)
 
 proc isEditing*(t: TextField): bool =
     t.editable and t.isFirstResponder
@@ -86,6 +89,22 @@ method draw*(t: TextField, r: Rect) =
 
     var textY = (t.bounds.height - font.size) / 2
 
+    if t.textSelection.selected:
+        if t.textSelection.startIndex != -1 and t.textSelection.endIndex != -1:
+            c.fillColor = newColor(0.0, 0.0, 1.0, 0.5)
+            let
+                startPoint = font.cursorOffsetForPositionInString(t.text, t.textSelection.startIndex)
+                endPoint = font.cursorOffsetForPositionInString(t.text, t.textSelection.endIndex)
+
+            echo t.textSelection, " ", startPoint, " ", endPoint
+
+            if startPoint < endPoint:
+                c.drawRect(newRect(leftMargin + startPoint, 2, endPoint - startPoint, font.size))
+            else:
+                c.drawRect(newRect(leftMargin + endPoint, 2, startPoint - endPoint, font.size))
+
+            t.setNeedsDisplay()
+
     if t.text != nil:
         var pt = newPoint(leftMargin, textY)
         let cell = t.enclosingTableViewCell()
@@ -112,20 +131,49 @@ method onMouseDown*(t: TextField, e: var Event): bool =
 
 method onTouchEv(t: TextField, e: var Event): bool =
     result = false
+    var pt = e.localPosition
     case e.buttonState
     of bsDown:
         if t.editable:
             result = t.makeFirstResponder()
-            var pt = e.localPosition
             pt.x += leftMargin
             if t.text.isNil:
                 cursorPos = 0
                 cursorOffset = 0
             else:
                 systemFont().getClosestCursorPositionToPointInString(t.text, pt, cursorPos, cursorOffset)
+
+            t.textSelection = (true, true, cursorPos, -1)
+
+            echo "SELECTION START: ", t.textSelection
+
     of bsUp:
+        if not t.textSelection.selected:
+            discard
+        else:
+
+            t.textSelection.inSelection = false
+            systemFont().getClosestCursorPositionToPointInString(t.text, pt, cursorPos, cursorOffset)
+            t.textSelection.endIndex = cursorPos
+
+            if (t.textSelection.endIndex - t.textSelection.startIndex == 0) or t.textSelection.endIndex == -1:
+                t.textSelection = (false, false, -1, -1)
+
+            t.setNeedsDisplay()
+
+            echo "SELECTION STOP: ", t.textSelection
+
         result = false
-    else: discard
+
+    of bsUnknown:
+        if t.textSelection.inSelection:
+            systemFont().getClosestCursorPositionToPointInString(t.text, pt, cursorPos, cursorOffset)
+            t.textSelection.endIndex = cursorPos
+            t.setNeedsDisplay()
+
+        echo "SELECTION CHANGE: ", t.textSelection
+
+        result = false
 
 proc updateCursorOffset(t: TextField) =
     cursorOffset = systemFont().cursorOffsetForPositionInString(t.text, cursorPos)
