@@ -95,7 +95,7 @@ method init(v: ControlsSampleView, r: Rect) =
     let cp = newColorPickerView(newRect(0, 0, 400, 170))
     cp.setFrameOrigin(newPoint(10, 200))
     cp.onColorSelected = proc(c: Color) =
-        echo(c)
+        discard
     v.addSubview(cp)
 
 registerSample "Controls", ControlsSampleView.new(newRect(0, 0, 100, 100))
