@@ -8,13 +8,13 @@ import unistring
 import unicode
 import timer
 import table_view_cell
+import window_event_handling
 
 export control
 
 type TextField* = ref object of Control
     text*: string
     editable*: bool
-    selectable*: bool
     textColor*: Color
 
     textSelection: tuple[selected: bool, inselection: bool, startIndex: int, endIndex: int]
@@ -53,7 +53,6 @@ proc newLabel*(parent: View = nil, position: Point = newPoint(0, 0), size: Size 
 method init*(t: TextField, r: Rect) =
     procCall t.Control.init(r)
     t.editable = true
-    t.selectable = true
     t.textSelection = (false, false, -1, -1)
 
 proc isEditing*(t: TextField): bool =
@@ -96,8 +95,6 @@ method draw*(t: TextField, r: Rect) =
                 startPoint = font.cursorOffsetForPositionInString(t.text, t.textSelection.startIndex)
                 endPoint = font.cursorOffsetForPositionInString(t.text, t.textSelection.endIndex)
 
-            echo t.textSelection, " ", startPoint, " ", endPoint
-
             if startPoint < endPoint:
                 c.drawRect(newRect(leftMargin + startPoint, 2, endPoint - startPoint, font.size))
             else:
@@ -118,17 +115,6 @@ method draw*(t: TextField, r: Rect) =
         t.drawFocusRing()
         drawCursorWithRect(newRect(leftMargin + cursorOffset, textY + 3, 2, font.size))
 
-method onMouseDown*(t: TextField, e: var Event): bool =
-    if t.editable:
-        result = t.makeFirstResponder()
-        var pt = e.localPosition
-        pt.x += leftMargin
-        if t.text.isNil:
-            cursorPos = 0
-            cursorOffset = 0
-        else:
-            systemFont().getClosestCursorPositionToPointInString(t.text, pt, cursorPos, cursorOffset)
-
 method onTouchEv(t: TextField, e: var Event): bool =
     result = false
     var pt = e.localPosition
@@ -136,7 +122,6 @@ method onTouchEv(t: TextField, e: var Event): bool =
     of bsDown:
         if t.editable:
             result = t.makeFirstResponder()
-            pt.x += leftMargin
             if t.text.isNil:
                 cursorPos = 0
                 cursorOffset = 0
@@ -145,75 +130,133 @@ method onTouchEv(t: TextField, e: var Event): bool =
 
             t.textSelection = (true, true, cursorPos, -1)
 
-            echo "SELECTION START: ", t.textSelection
-
     of bsUp:
-        if not t.textSelection.selected:
-            discard
-        else:
+        if t.editable:
+            if not t.textSelection.selected:
+                discard
+            else:
 
-            t.textSelection.inSelection = false
-            systemFont().getClosestCursorPositionToPointInString(t.text, pt, cursorPos, cursorOffset)
-            t.textSelection.endIndex = cursorPos
+                t.textSelection.inSelection = false
+                systemFont().getClosestCursorPositionToPointInString(t.text, pt, cursorPos, cursorOffset)
 
-            if (t.textSelection.endIndex - t.textSelection.startIndex == 0) or t.textSelection.endIndex == -1:
-                t.textSelection = (false, false, -1, -1)
+                t.textSelection.endIndex = cursorPos
+                if (t.textSelection.endIndex - t.textSelection.startIndex == 0) or t.textSelection.endIndex == -1:
+                    t.textSelection = (false, false, -1, -1)
 
-            t.setNeedsDisplay()
-
-            echo "SELECTION STOP: ", t.textSelection
+                t.setNeedsDisplay()
 
         result = false
 
     of bsUnknown:
-        if t.textSelection.inSelection:
-            systemFont().getClosestCursorPositionToPointInString(t.text, pt, cursorPos, cursorOffset)
-            t.textSelection.endIndex = cursorPos
-            t.setNeedsDisplay()
+        if t.editable:
+            if t.textSelection.inSelection:
+                systemFont().getClosestCursorPositionToPointInString(t.text, pt, cursorPos, cursorOffset)
+                t.textSelection.endIndex = cursorPos
+                t.setNeedsDisplay()
 
-        echo "SELECTION CHANGE: ", t.textSelection
-
-        result = false
+            result = false
 
 proc updateCursorOffset(t: TextField) =
     cursorOffset = systemFont().cursorOffsetForPositionInString(t.text, cursorPos)
 
+proc clearSelection(t: TextField) =
+    # Clears selected text
+    if t.textSelection.startIndex < t.textSelection.endIndex:
+        t.text.uniDelete(t.textSelection.startIndex, t.textSelection.endIndex - 1)
+        cursorPos = t.textSelection.startIndex
+        t.updateCursorOffset()
+    else:
+        t.text.uniDelete(t.textSelection.endIndex, t.textSelection.startIndex - 1)
+        cursorPos = t.textSelection.endIndex
+        t.updateCursorOffset()
+
+    t.textSelection = (false, false, -1, -1)
+
 method onKeyDown*(t: TextField, e: var Event): bool =
-    if e.keyCode == VirtualKey.Backspace and cursorPos > 0:
+    if e.keyCode == VirtualKey.Backspace:
         result = true
-        t.text.uniDelete(cursorPos - 1, cursorPos - 1)
-        dec cursorPos
+        if t.textSelection.selected: t.clearSelection()
+        elif cursorPos > 0:
+            t.text.uniDelete(cursorPos - 1, cursorPos - 1)
+            dec cursorPos
         t.updateCursorOffset()
         t.bumpCursorVisibility()
-    elif e.keyCode == VirtualKey.Delete and not t.text.isNil and cursorPos < t.text.runeLen:
-        t.text.uniDelete(cursorPos, cursorPos)
+    elif e.keyCode == VirtualKey.Delete and not t.text.isNil:
+        if t.textSelection.selected: t.clearSelection()
+        elif cursorPos < t.text.runeLen:
+            t.text.uniDelete(cursorPos, cursorPos)
         t.bumpCursorVisibility()
     elif e.keyCode == VirtualKey.Left:
         dec cursorPos
         if cursorPos < 0: cursorPos = 0
+
+        if (alsoPressed(VirtualKey.LeftShift) or alsoPressed(VirtualKey.RightShift)) and t.text != "" and t.text != nil:
+            if t.textSelection.selected: t.textSelection.endIndex = cursorPos
+            else: t.textSelection = (true, false, cursorPos + 1, cursorPos)
+        else:
+            t.textSelection = (false, false, -1 , -1)
         t.updateCursorOffset()
         t.bumpCursorVisibility()
     elif e.keyCode == VirtualKey.Right:
         inc cursorPos
         let textLen = t.text.runeLen
         if cursorPos > textLen: cursorPos = textLen
+
+        if (alsoPressed(VirtualKey.LeftShift) or alsoPressed(VirtualKey.RightShift)) and t.text != "" and t.text != nil:
+            if t.textSelection.selected: t.textSelection.endIndex = cursorPos
+            else: t.textSelection = (true, false, cursorPos - 1, cursorPos)
+        else:
+            t.textSelection = (false, false, -1, -1)
+
         t.updateCursorOffset()
         t.bumpCursorVisibility()
     elif e.keyCode == VirtualKey.Return:
         t.sendAction()
+        t.textSelection = (false, false, -1 , -1)
+    elif e.keyCode == VirtualKey.Home:
+        if alsoPressed(VirtualKey.LeftShift) or alsoPressed(VirtualKey.RightShift):
+            if t.textSelection.selected:
+                t.textSelection.endIndex = 0
+            else:
+                t.textSelection = (true, false, cursorPos, 0)
+        else:
+            t.textSelection = (false, false, -1, -1)
+
+        cursorPos = 0
+        t.updateCursorOffset()
+        t.bumpCursorVisibility()
+    elif e.keyCode == VirtualKey.End:
+        if alsoPressed(VirtualKey.LeftShift) or alsoPressed(VirtualKey.RightShift):
+            if t.textSelection.selected:
+                t.textSelection.endIndex = t.text.runeLen
+            else:
+                t.textSelection = (true, false, cursorPos, t.text.runeLen)
+        else:
+            t.textSelection = (false, false, -1, -1)
+
+        cursorPos = t.text.runeLen
+        t.updateCursorOffset()
+        t.bumpCursorVisibility()
 
 method onTextInput*(t: TextField, s: string): bool =
     result = true
     if t.text.isNil: t.text = ""
+
+    if t.textSelection.selected:
+        t.clearSelection()
+        return procCall onTextInput(t, s)
+
     t.text.insert(cursorPos, s)
     cursorPos += s.runeLen
     t.updateCursorOffset()
     t.bumpCursorVisibility()
 
+
 method viewShouldResignFirstResponder*(v: TextField, newFirstResponder: View): bool =
     result = true
     cursorUpdateTimer.clear()
     cursorVisible = false
+    v.textSelection = (false, false, -1, -1)
     v.sendAction()
 
 method viewDidBecomeFirstResponder*(t: TextField) =
