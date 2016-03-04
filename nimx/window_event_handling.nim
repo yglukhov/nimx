@@ -3,6 +3,7 @@ import abstract_window
 import event
 import view_event_handling
 import view_event_handling_new
+import sets
 import system_logger
 
 proc canPassEventToFirstResponder(w: Window): bool =
@@ -22,6 +23,11 @@ method onTextInput*(w: Window, s: string): bool =
 
 let newTouch : bool = true
 
+var keyboardState: set[VirtualKey] = {}
+
+proc alsoPressed*(vk: VirtualKey): bool =
+    return vk in keyboardState
+
 method handleEvent*(w: Window, e: var Event): bool {.base.} =
     case e.kind:
         of etTouch:
@@ -36,9 +42,11 @@ method handleEvent*(w: Window, e: var Event): bool {.base.} =
                 result = w.recursiveHandleMouseEvent(e)
         of etKeyboard:
             if e.buttonState == bsDown:
+                keyboardState.incl(e.keyCode)
                 result = w.onKeyDown(e)
             else:
                 result = w.onKeyUp(e)
+                keyboardState.excl(e.keyCode)
         of etTextInput:
             result = w.onTextInput(e.text)
         of etWindowResized:
