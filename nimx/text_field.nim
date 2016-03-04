@@ -188,16 +188,19 @@ method onKeyDown*(t: TextField, e: var Event): bool =
     elif e.keyCode == VirtualKey.Left:
         dec cursorPos
         if cursorPos < 0: cursorPos = 0
+        t.textSelection = (false, false, -1 , -1)
         t.updateCursorOffset()
         t.bumpCursorVisibility()
     elif e.keyCode == VirtualKey.Right:
         inc cursorPos
         let textLen = t.text.runeLen
         if cursorPos > textLen: cursorPos = textLen
+        t.textSelection = (false, false, -1 , -1)
         t.updateCursorOffset()
         t.bumpCursorVisibility()
     elif e.keyCode == VirtualKey.Return:
         t.sendAction()
+        t.textSelection = (false, false, -1 , -1)
 
 method onTextInput*(t: TextField, s: string): bool =
     result = true
