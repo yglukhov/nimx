@@ -191,27 +191,20 @@ method onKeyDown*(t: TextField, e: var Event): bool =
         if cursorPos < 0: cursorPos = 0
 
         if (alsoPressed(VirtualKey.LeftShift) or alsoPressed(VirtualKey.RightShift)) and t.text != "" and t.text != nil:
-            if t.textSelection.selected:
-                if t.textSelection.endIndex > t.textSelection.startIndex: dec(t.textSelection.startIndex)
-                elif t.textSelection.endIndex < t.textSelection.startIndex: dec(t.textSelection.endIndex)
-            else:
-                t.textSelection = (true, false, cursorPos + 1, cursorPos)
+            if t.textSelection.selected: t.textSelection.endIndex = cursorPos
+            else: t.textSelection = (true, false, cursorPos + 1, cursorPos)
         else:
             t.textSelection = (false, false, -1 , -1)
         t.updateCursorOffset()
         t.bumpCursorVisibility()
-        t.setNeedsDisplay()
     elif e.keyCode == VirtualKey.Right:
         inc cursorPos
         let textLen = t.text.runeLen
         if cursorPos > textLen: cursorPos = textLen
 
         if (alsoPressed(VirtualKey.LeftShift) or alsoPressed(VirtualKey.RightShift)) and t.text != "" and t.text != nil:
-            if t.textSelection.selected:
-                if t.textSelection.endIndex >= t.textSelection.startIndex: inc(t.textSelection.endIndex)
-                else: inc(t.textSelection.startIndex)
-            else:
-                t.textSelection = (true, false, cursorPos - 1, cursorPos)
+            if t.textSelection.selected: t.textSelection.endIndex = cursorPos
+            else: t.textSelection = (true, false, cursorPos - 1, cursorPos)
         else:
             t.textSelection = (false, false, -1, -1)
 
@@ -220,6 +213,30 @@ method onKeyDown*(t: TextField, e: var Event): bool =
     elif e.keyCode == VirtualKey.Return:
         t.sendAction()
         t.textSelection = (false, false, -1 , -1)
+    elif e.keyCode == VirtualKey.Home:
+        if alsoPressed(VirtualKey.LeftShift) or alsoPressed(VirtualKey.RightShift):
+            if t.textSelection.selected:
+                t.textSelection.endIndex = 0
+            else:
+                t.textSelection = (true, false, cursorPos, 0)
+        else:
+            t.textSelection = (false, false, -1, -1)
+
+        cursorPos = 0
+        t.updateCursorOffset()
+        t.bumpCursorVisibility()
+    elif e.keyCode == VirtualKey.End:
+        if alsoPressed(VirtualKey.LeftShift) or alsoPressed(VirtualKey.RightShift):
+            if t.textSelection.selected:
+                t.textSelection.endIndex = t.text.runeLen
+            else:
+                t.textSelection = (true, false, cursorPos, t.text.runeLen)
+        else:
+            t.textSelection = (false, false, -1, -1)
+
+        cursorPos = t.text.runeLen
+        t.updateCursorOffset()
+        t.bumpCursorVisibility()
 
 method onTextInput*(t: TextField, s: string): bool =
     result = true
