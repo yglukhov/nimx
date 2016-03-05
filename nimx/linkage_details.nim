@@ -4,6 +4,9 @@ when not defined(windows):
     when not compileOption("noMain"):
         {.error: "Please run Nim with --noMain flag.".}
 
+    when defined(ios):
+        {.emit: "#define __IPHONEOS__".}
+
     {.emit: """
 // The following piece of code is a copy-paste from SDL/SDL_main.h
 // It is required to avoid dependency on SDL headers
