@@ -49,6 +49,9 @@ type Builder* = ref object
 
     bundleName : string
 
+    codesignIdentity*: string
+    teamId*: string
+
     buildRoot : string
     executablePath : string
     nimcachePath : string
@@ -65,7 +68,7 @@ proc newBuilder(platform: string): Builder =
     b.platform = platform
 
     b.appName = "MyGame"
-    b.bundleId = "com.mycompany.MyGame"
+    b.bundleId = "com.kromtech.testgame1"
     b.javaPackageId = "com.mycompany.MyGame"
 
     b.disableClosureCompiler = false
@@ -85,7 +88,7 @@ proc newBuilder(platform: string): Builder =
     b.macOSSDKVersion = "10.11"
     b.macOSMinVersion = "10.6"
 
-    b.iOSSDKVersion = "9.1"
+    b.iOSSDKVersion = "9.2"
     b.iOSMinVersion = b.iOSSDKVersion
 
     # Simulator device identifier should be set to run the simulator.
@@ -199,11 +202,11 @@ proc absPath(path: string): string =
 
 proc makeIosBundle(b: Builder) =
     let bundlePath = b.buildRoot / b.bundleName
-    removeDir bundlePath
     createDir bundlePath
     let infoPlistPath = absPath(bundlePath / "Info")
     infoPlistSetValueForKey(infoPlistPath, b.appName, "CFBundleName")
     infoPlistSetValueForKey(infoPlistPath, b.bundleId, "CFBundleIdentifier")
+    infoPlistSetValueForKey(infoPlistPath, b.appName, "CFBundleExecutable")
 
 proc makeMacOsBundle(b: Builder) =
     let bundlePath = b.buildRoot / b.bundleName
@@ -280,7 +283,12 @@ proc buildSDLForIOS(b: Builder, forSimulator: bool = false): string =
     let xcodeProjDir = expandTilde(b.sdlRoot)/"Xcode-iOS/SDL"
     result = xcodeProjDir/"build/Release-" & entity
     if not fileExists result/"libSDL2.a":
-        direShell "xcodebuild", "-project", xcodeProjDir/"SDL.xcodeproj", "-configuration", "Release", "-sdk", entity&b.iOSSDKVersion, "SYMROOT=build", "ARCHS=\"i386 x86_64\""
+        var args = @["xcodebuild", "-project", xcodeProjDir/"SDL.xcodeproj", "-configuration", "Release", "-sdk", entity&b.iOSSDKVersion, "SYMROOT=build"]
+        if forSimulator:
+            args.add("ARCHS=\"i386 x86_64\"")
+        else:
+            args.add("ARCHS=\"arm64 armv7\"")
+        direShell args
 
 proc makeAndroidBuildDir(b: Builder): string =
     let buildDir = b.buildRoot / b.javaPackageId
@@ -474,6 +482,19 @@ proc build*(b: Builder) =
 
     if b.platform == "js":
         b.jsPostBuild()
+    elif b.platform == "ios":
+        if not b.codesignIdentity.isNil:
+            let e = newJObject() # Entitlements
+            let entPath = b.buildRoot / "entitlements.plist"
+            let appID = b.teamId & "." & b.bundleId
+
+            e["application-identifier"] = %appID
+            e["com.apple.developer.team-identifier"] = %b.teamId
+            e["get-task-allow"] = %b.debugMode
+            e["keychain-access-groups"] = %*[appID]
+
+            e.writePlist(entPath)
+            direShell(["codesign", "-s", "\"" & b.codesignIdentity & "\"", "--force", "--entitlements", entPath, b.buildRoot / b.bundleName])
 
     if not afterBuild.isNil: afterBuild(b)
 
