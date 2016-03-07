@@ -28,13 +28,11 @@ float radius = 5.0;
 
 void compose() {
     vec4 strokeColor = newGrayColor(0.78);
-    float stroke = sdRoundedRect(bounds, radius);
-    float fill = sdRoundedRect(insetRect(bounds, 1.0), radius - 1.0);
-    drawShape(stroke, strokeColor);
+    float stroke = sdRoundedRect(insetRect(bounds, 1.0), radius - 1.0);
+    float fill = sdRoundedRect(insetRect(bounds, 2.0), radius - 2.0);
+    drawInitialShape(stroke, strokeColor);
     drawShape(fill, vec4(1.0, 1, 1, 1));
-
     drawShape(sdAnd(sdRect(uTrackedRect), stroke), strokeColor);
-
     vec4 selectionColor = gradient(smoothstep(bounds.y, bounds.y + bounds.w, vPos.y),
         vec4(0.31, 0.60, 0.98, 1.0),
         vec4(0.09, 0.42, 0.88, 1.0));
@@ -93,6 +91,8 @@ method draw*(s: SegmentedControl, r: Rect) =
             c.fillColor = newGrayColor(0.78)
             c.drawRect(newRect(r.origin.x - 1, 1, 1, r.height - 2))
         r.origin.x += r.size.width
+
+    c.drawLine(newPoint(s.bounds.x + 4.0, r.height - 1.0), newPoint(s.bounds.width - 4.0, r.height - 1.0))
 
 proc `segments=`*(s: SegmentedControl, segs: seq[string]) =
     s.segments = segs

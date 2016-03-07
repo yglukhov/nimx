@@ -206,15 +206,21 @@ vec4 composeDistanceFuncDebug(float dist) {
     return result;
 }
 
+// Draw shape depending on underlying fragments
 void drawShape(float dist, vec4 color) {
     gl_FragColor = mix(gl_FragColor, color, fillAlpha(dist));
+}
+
+// Draw shape without taking underlying fragments in account
+void drawInitialShape(float dist, vec4 color) {
+    gl_FragColor = color;
+    gl_FragColor.w = fillAlpha(dist);
 }
 
 // Same as drawShape, but respects source alpha
 void blendShape(float dist, vec4 color) {
     gl_FragColor = mix(gl_FragColor, color, fillAlpha(dist) * color.a);
 }
-
 """
 
 proc fillAlpha*(dist: float32): float32 =

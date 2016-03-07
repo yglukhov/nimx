@@ -24,7 +24,7 @@ method init(v: ControlsSampleView, r: Rect) =
     v.addSubview(label)
     v.addSubview(textField)
 
-    let button = newButton(newRect(10, 40, 100, 20))
+    let button = newButton(newRect(10, 40, 100, 22))
     button.title = "Button"
     button.onAction do():
         if textField.text.isNil: textField.text = ""
@@ -32,7 +32,7 @@ method init(v: ControlsSampleView, r: Rect) =
         textField.setNeedsDisplay()
     v.addSubview(button)
 
-    let sc = SegmentedControl.new(newRect(120, 40, v.bounds.width - 130, 20))
+    let sc = SegmentedControl.new(newRect(120, 40, v.bounds.width - 130, 22))
     sc.segments = @["This", "is", "a", "segmented", "control"]
     sc.autoresizingMask = { afFlexibleWidth, afFlexibleMaxY }
     sc.onAction do():
