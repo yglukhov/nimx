@@ -119,13 +119,16 @@ when not defined(js):
         result.readDataImpl = cast[type(result.readDataImpl)](rwReadData)
         result.writeDataImpl = cast[type(result.writeDataImpl)](rwWriteData)
 
-    proc streamForResourceWithName*(name: string): Stream =
+    proc streamForResourceWithPath*(path: string): Stream =
         when defined(android):
-            result = newStreamWithRWops(rwFromFile(pathForResource(name), "rb"))
+            result = newStreamWithRWops(rwFromFile(path, "rb"))
         else:
-            result = newFileStream(pathForResource(name), fmRead)
+            result = newFileStream(path, fmRead)
         if result.isNil:
-            logi "WARNING: Resource not found: ", name
+            logi "WARNING: Resource not found: ", path
+
+    proc streamForResourceWithName*(name: string): Stream =
+        streamForResourceWithPath(pathForResource(name))
 
 when defined(js):
     import private.js_data_view_stream
