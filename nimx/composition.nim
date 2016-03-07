@@ -8,6 +8,8 @@ import nimsl.nimsl
 export portable_gl
 export context
 
+const enableGraphicsProfiling* = not defined(release)
+
 const commonDefinitions = """
 #define PI 3.14159265359
 #define TWO_PI 6.28318530718
@@ -456,6 +458,22 @@ template setupPosteffectUniforms*(cc: CompiledComposition) =
     for pe in postEffectStack:
         pe.setupProc(cc)
 
+
+when enableGraphicsProfiling:
+    var overdrawValue = 0
+    proc GetOverdrawValue*() : int =
+        return int(overdrawValue.float32 / 1000.float32)
+
+    proc ResetOverdrawValue*() =
+         overdrawValue = 0
+
+    var DIPValue = 0
+    proc GetDIPValue*() : int =
+        return DIPValue
+
+    proc ResetDIPValue*() =
+         DIPValue = 0
+
 template draw*(comp: var Composition, r: Rect, code: untyped): stmt =
     let ctx = currentContext()
     let gl = ctx.gl
@@ -466,6 +484,10 @@ template draw*(comp: var Composition, r: Rect, code: untyped): stmt =
     points[2] = r.minX; points[3] = r.maxY
     points[4] = r.maxX; points[5] = r.maxY
     points[6] = r.maxX; points[7] = r.minY
+
+    when enableGraphicsProfiling:
+        overdrawValue += int(r.size.width * r.size.height)
+        DIPValue += 1
 
     const componentCount : GLint = 2
     gl.enableVertexAttribArray(posAttr)

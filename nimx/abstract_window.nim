@@ -5,6 +5,8 @@ import times
 import context
 import font
 
+import composition
+
 export view
 
 # Window type is defined in view module
@@ -43,7 +45,15 @@ method drawWindow*(w: Window) {.base.} =
     let c = currentContext()
     var pt = newPoint(w.frame.width - 80, 2)
     c.fillColor = newColor(1, 0, 0, 1)
-    c.drawText(systemFont(), pt, "FPS: " & $fps())
+
+    when enableGraphicsProfiling:
+        var pt2 = newPoint(w.frame.width - 150, 2 + 30)
+        var pt3 = newPoint(w.frame.width - 150, 2 + 60)
+        c.drawText(systemFont(), pt, "FPS: " & $fps())
+        c.drawText(systemFont(), pt2, "Overdraw: " & $GetOverdrawValue())
+        c.drawText(systemFont(), pt3, "DIPs: " & $GetDIPValue())
+        ResetOverdrawValue()
+        ResetDIPValue()
 
 method enableAnimation*(w: Window, flag: bool) {.base.} = discard
 
