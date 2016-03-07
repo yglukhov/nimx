@@ -49,23 +49,23 @@ when not defined js:
     template offset(p: pointer, off: int): pointer =
         cast[pointer](cast[int](p) + off)
 
-    proc initWithBitmap*(i: SelfContainedImage, data: ptr uint8, x, y, comp: int) =
-        glGenTextures(1, addr i.texture)
-        glBindTexture(GL_TEXTURE_2D, i.texture)
+    proc loadBitmapToTexture(data: ptr uint8, x, y, comp: int, texture: var TextureRef, size: var Size, texCoords: var array[4, GLfloat]) =
+        glGenTextures(1, addr texture)
+        glBindTexture(GL_TEXTURE_2D, texture)
         let format : GLint = case comp:
             of 1: GL_ALPHA
             of 2: GL_LUMINANCE_ALPHA
             of 3: GL_RGB
             of 4: GL_RGBA
             else: 0
-        i.mSize = newSize(x.Coord, y.Coord)
+        size = newSize(x.Coord, y.Coord)
         let texWidth = if isPowerOfTwo(x): x.int else: nextPowerOfTwo(x)
         let texHeight = if isPowerOfTwo(y): y.int else: nextPowerOfTwo(y)
 
         var pixelData = data
 
-        i.texCoords[2] = 1.0
-        i.texCoords[3] = 1.0
+        texCoords[2] = 1.0
+        texCoords[3] = 1.0
 
         if texWidth != x or texHeight != y:
             let texRowWidth = texWidth * comp
@@ -74,18 +74,21 @@ when not defined js:
             for row in 0 .. <y:
                 copyMem(offset(newData, row * texRowWidth), offset(data, row * rowWidth), rowWidth)
             pixelData = cast[ptr uint8](newData)
-            i.texCoords[2] = x.Coord / texWidth.Coord
-            i.texCoords[3] = y.Coord / texHeight.Coord
+            texCoords[2] = x.Coord / texWidth.Coord
+            texCoords[3] = y.Coord / texHeight.Coord
 
         glTexImage2D(GL_TEXTURE_2D, 0, format.cint, texWidth.GLsizei, texHeight.GLsizei, 0, format.GLenum, GL_UNSIGNED_BYTE, cast[pointer] (pixelData))
         setupTexParams(nil)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
 
-        i.mSize.width = x.Coord
-        i.mSize.height = y.Coord
+        size.width = x.Coord
+        size.height = y.Coord
         if data != pixelData:
             dealloc(pixelData)
+
+    proc initWithBitmap*(i: SelfContainedImage, data: ptr uint8, x, y, comp: int) =
+        loadBitmapToTexture(data, x, y, comp, i.texture, i.mSize, i.texCoords)
 
     proc initWithContentsOfFile*(i: SelfContainedImage, path: string) =
         var x, y, comp: cint
@@ -330,6 +333,64 @@ proc writeToPNGFile*(i: Image, path: string) = i.writeToFile(path, png)
 proc writeToTGAFile*(i: Image, path: string) = i.writeToFile(path, tga)
 #proc writeToHDRFile*(i: Image, path: string) = i.writeToFile(path, hdr) # Crashes...
 
+const asyncResourceLoad = not defined(js) and not defined(android)
+
+when asyncResourceLoad:
+    import threadpool, sdl_perform_on_main_thread, sdl2
+    import private.worker_queue
+
+    var threadCtx : GlContextPtr
+    var loadingQueue: WorkerQueue
+
+    type ImageLoadingCtx = ref object
+        path, name: string
+        completionCallback: proc()
+        texture: TextureRef
+        texCoords: array[4, GLfloat]
+        size: Size
+        glCtx: GlContextPtr
+        wnd: WindowPtr
+
+    proc loadComplete(ctx: pointer) {.cdecl.} =
+        let c = cast[ImageLoadingCtx](ctx)
+        GC_unref(c)
+        var i : SelfContainedImage
+        i.new()
+        i.texture = c.texture
+        i.texCoords = c.texCoords
+        i.mSize = c.size
+        imageCache.registerResource(c.name, i)
+        c.completionCallback()
+
+    var ctxIsCurrent = false
+
+    proc loadResourceThreaded(ctx: pointer) {.cdecl.} =
+        let c = cast[ImageLoadingCtx](ctx)
+        if not ctxIsCurrent:
+            if glMakeCurrent(c.wnd, c.glCtx) != 0:
+                logi "Error in glMakeCurrent: ", getError()
+            ctxIsCurrent = true
+        let s = streamForResourceWithPath(c.path)
+        var data = s.readAll()
+        s.close()
+        if c.name.endsWith(".pvr"):
+            loadPVRDataToTexture(data, c.texture, c.size, c.texCoords)
+        else:
+            var x, y, comp: cint
+            var bitmap = stbi_load_from_memory(cast[ptr uint8](addr data[0]),
+                data.len.cint, addr x, addr y, addr comp, 0)
+            loadBitmapToTexture(bitmap, x, y, comp, c.texture, c.size, c.texCoords)
+            stbi_image_free(bitmap)
+
+        #let fenceId = glFenceSync( GL_SYNC_GPU_COMMANDS_COMPLETE, 0 );
+        #while true:
+        #   let res = glClientWaitSync(fenceId, GL_SYNC_FLUSH_COMMANDS_BIT, GLuint64(5000000000)); # 5 Second timeout
+        #   if res != GL_TIMEOUT_EXPIRED: break  # we ignore timeouts and wait until all OpenGL commands are processed!
+
+        #discard glMakeCurrent(c.wnd, nil)
+        let p = cast[pointer](loadComplete)
+        performOnMainThread(cast[proc(data: pointer){.cdecl, gcsafe.}](p), ctx)
+
 registerResourcePreloader(["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga", "pvr"], proc(name: string, callback: proc()) =
     when defined(js):
         proc handler(r: ref RootObj) =
@@ -347,6 +408,27 @@ registerResourcePreloader(["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga", "p
             """.}
 
         loadJSResourceAsync(name, "blob", nil, nil, handler)
+    elif asyncResourceLoad:
+        var ctx: ImageLoadingCtx
+        ctx.new()
+        ctx.name = name
+        ctx.path = pathForResource(name)
+        ctx.completionCallback = callback
+        let curWnd = glGetCurrentWindow()
+        if threadCtx.isNil:
+            let curCtx = glGetCurrentContext()
+            threadCtx = glCreateContext(curWnd)
+            discard glMakeCurrent(curWnd, curCtx)
+
+        ctx.glCtx = threadCtx
+        doAssert(not ctx.glCtx.isNil)
+        ctx.wnd = curWnd
+        GC_ref(ctx)
+
+        if loadingQueue.isNil:
+            loadingQueue = newWorkerQueue(1)
+
+        loadingQueue.addTask(loadResourceThreaded, cast[pointer](ctx))
     else:
         imageCache.registerResource(name, imageWithResource(name))
         callback()
