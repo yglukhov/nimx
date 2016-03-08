@@ -61,16 +61,31 @@ type Builder* = ref object
     compilerFlags: seq[string]
     linkerFlags: seq[string]
 
+proc setBuilderSettings(b: Builder) =
+    for kind, key, val in getopt():
+        case kind
+        of cmdLongOption, cmdShortOption:
+            case key
+            of "define", "d":
+                if val in ["js", "android", "ios", "ios-sim"]:
+                    b.platform = val
+                if val == "release":
+                    b.debugMode = false
+            of "norun":
+                b.runAfterBuild = false
+            of "parallelBuild":
+                b.nimParallelBuild = parseInt(val)
+            else: discard
+        else: discard
+
 proc newBuilder(platform: string): Builder =
     result.new()
     let b = result
 
     b.platform = platform
-
     b.appName = "MyGame"
     b.bundleId = "com.kromtech.testgame1"
     b.javaPackageId = "com.mycompany.MyGame"
-
     b.disableClosureCompiler = false
 
     when defined(windows):
@@ -112,6 +127,7 @@ proc newBuilder(platform: string): Builder =
 
     b.buildRoot = "build"
     b.originalResourcePath = "res"
+    b.setBuilderSettings()
 
 proc nimblePath(package: string): string =
     var nimblecmd = "nimble"
@@ -133,21 +149,6 @@ proc newBuilderForCurrentPlatform(): Builder =
 
 proc newBuilder*(): Builder =
     result = newBuilderForCurrentPlatform()
-    for kind, key, val in getopt():
-        case kind
-        of cmdLongOption, cmdShortOption:
-            case key
-            of "define", "d":
-                if val in ["js", "android", "ios", "ios-sim"]:
-                    result.platform = val
-                if val == "release":
-                    result.debugMode = false
-            of "norun":
-                result.runAfterBuild = false
-            of "parallelBuild":
-                result.nimParallelBuild = parseInt(val)
-            else: discard
-        else: discard
 
 var
     preprocessResources* : proc(b: Builder)
