@@ -44,12 +44,15 @@ type ePVR3Format* = enum
     PVR3_EAC_RG11_U = 27,
     PVR3_EAC_RG11_S = 28,
 
-proc initWithPVR(i: SelfContainedImage, data: string) =
+proc loadPVRDataToTexture(data: string, texture: var TextureRef, size: var Size, texCoords: var array[4, GLfloat]) =
     let header = cast[ptr PVRTextureHeaderV3](unsafeAddr data[0])
+
+    texCoords[2] = 1.0
+    texCoords[3] = 1.0
 
     # dimensions
     let width = header.width
-    let height = header.height;
+    let height = header.height
     #self.size = CGSizeMake((float)width/self.scale, (float)height/self.scale);
     #self.textureSize = CGSizeMake(width, height);
     #self.clipRect = CGRectMake(0.0f, 0.0f, width, height);
@@ -60,6 +63,9 @@ proc initWithPVR(i: SelfContainedImage, data: string) =
 
     #alpha
     #self.premultipliedAlpha = YES;
+
+    size.width = Coord(width)
+    size.height = Coord(height)
 
     # format
     var compressed = false
@@ -78,8 +84,8 @@ proc initWithPVR(i: SelfContainedImage, data: string) =
         raise newException(Exception, "Unsupported format: " & $pf)
 
     # create texture
-    glGenTextures(1, addr i.texture)
-    glBindTexture(GL_TEXTURE_2D, i.texture)
+    glGenTextures(1, addr texture)
+    glBindTexture(GL_TEXTURE_2D, texture)
     let filter = GLint(if header.numMipmaps == 1: GL_LINEAR else: GL_LINEAR_MIPMAP_LINEAR)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
@@ -99,3 +105,7 @@ proc initWithPVR(i: SelfContainedImage, data: string) =
                          0, format, typ, unsafeAddr data[offset])
         offset += pixelBytes
         inc i
+
+
+proc initWithPVR(i: SelfContainedImage, data: string) =
+    loadPVRDataToTexture(data, i.texture, i.mSize, i.texCoords)

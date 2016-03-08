@@ -18,11 +18,11 @@ export abstract_window
 proc initSDLIfNeeded() =
     var sdlInitialized {.global.} = false
     if not sdlInitialized:
-        sdl2.init(INIT_VIDEO)
+        if sdl2.init(INIT_VIDEO) != SdlSuccess:
+            logi "Error: sdl2.init(INIT_VIDEO): ", getError()
         sdlInitialized = true
-        let r = glSetAttribute(SDL_GL_STENCIL_SIZE, 8)
-        if r != 0:
-            logi "Error: could not set stencil size: ", r
+        if glSetAttribute(SDL_GL_STENCIL_SIZE, 8) != 0:
+            logi "Error: could not set stencil size: ", getError()
 
         when defined(ios) or defined(android):
             discard glSetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, 0x0004)
@@ -61,6 +61,7 @@ proc initCommon(w: SdlWindow, r: view.Rect) =
     if defaultWindow.isNil:
         defaultWindow = w
     procCall init(w.Window, r)
+    discard glSetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 1)
     w.sdlGlContext = w.impl.glCreateContext()
     if w.sdlGlContext == nil:
         logi "Could not create context!"

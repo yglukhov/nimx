@@ -92,11 +92,11 @@ uniform vec4 uFillColorEnd;
 float radius = 5.0;
 
 void compose() {
+    drawInitialShape(sdRoundedRect(insetRect(bounds, 1.0), radius), uStrokeColor);
     vec4 fc = gradient(smoothstep(bounds.y, bounds.y + bounds.w, vPos.y),
         uFillColorStart,
         uFillColorEnd);
-    drawShape(sdRoundedRect(bounds, radius), uStrokeColor);
-    drawShape(sdRoundedRect(insetRect(bounds, 1.0), radius - 1.0), fc);
+    drawShape(sdRoundedRect(insetRect(bounds, 2.0), radius - 1.0), fc);
 }
 """
 
@@ -111,38 +111,88 @@ proc drawRegularStyle(b: Button, r: Rect) {.inline.} =
                 setUniform("uStrokeColor", newColor(0.18, 0.50, 0.98))
                 setUniform("uFillColorStart", newColor(0.31, 0.60, 0.98))
                 setUniform("uFillColorEnd", newColor(0.09, 0.42, 0.88))
+    if b.state == bsUp:
+        let c = currentContext
+        c.strokeColor = newGrayColor(0.78, 0.7)
+        c.strokeWidth = 1.0
+        c.drawLine(newPoint(r.x + 4.0, r.height - 1.0), newPoint(r.width - 4.0, r.height - 1.0))
     b.drawTitle(0)
 
+var checkButtonComposition = newComposition """
+uniform vec4 uStrokeColor;
+uniform vec4 uFillColor;
+
+float radius = 4.0;
+
+void compose() {
+    drawInitialShape(sdRoundedRect(insetRect(bounds, 1.0), radius), uStrokeColor);
+    drawShape(sdRoundedRect(insetRect(bounds, 2.0), radius - 1.0), uFillColor);
+}
+"""
+
 proc drawCheckboxStyle(b: Button, r: Rect) =
-    let bezelRect = newRect(0, 0, b.bounds.height, b.bounds.height)
-    let c = currentContext()
-    c.fillColor = whiteColor()
-    c.strokeColor = newGrayColor(0.78)
-    c.strokeWidth = 1
-    c.drawRoundedRect(bezelRect, 2)
+    let
+        size = b.bounds.height
+        bezelRect = newRect(0, 0, size, size)
+        c = currentContext()
 
     if b.value != 0:
-        let insetVal = bezelRect.height * 0.18
-        let checkMarkRect = bezelRect.inset(insetVal, insetVal)
-        c.strokeWidth = 0
-        c.fillColor = selectionColor
-        c.drawRoundedRect(checkMarkRect, 1)
+        checkButtonComposition.draw bezelRect:
+            setUniform("uStrokeColor", selectionColor)
+            setUniform("uFillColor", selectionColor)
+            setUniform("uRadius", 4.0)
+
+        c.strokeWidth = 2.0
+
+        c.fillColor = newGrayColor(0.7)
+        c.strokeColor = newGrayColor(0.7)
+        c.drawLine(newPoint(size / 4.0, size * 1.0 / 2.0 + 1.0), newPoint(size / 4.0 * 2.0, size * 1.0 / 2.0 + size / 5.0 - c.strokeWidth / 2.0 + 1.0))
+        c.drawLine(newPoint(size / 4.0 * 2.0 - c.strokeWidth / 2.0, size * 1.0 / 2.0 + size / 5.0 + 1.0), newPoint(size / 4.0 * 3.0 - c.strokeWidth / 2.0, size / 4.0 + 1.0))
+
+        c.fillColor = whiteColor()
+        c.strokeColor = whiteColor()
+        c.drawLine(newPoint(size / 4.0, size * 1.0 / 2.0), newPoint(size / 4.0 * 2.0, size * 1.0 / 2.0 + size / 5.0 - c.strokeWidth / 2.0))
+        c.drawLine(newPoint(size / 4.0 * 2.0 - c.strokeWidth / 2.0, size * 1.0 / 2.0 + size / 5.0), newPoint(size / 4.0 * 3.0 - c.strokeWidth / 2.0, size / 4.0))
+    else:
+        checkButtonComposition.draw bezelRect:
+            setUniform("uStrokeColor", newGrayColor(0.78))
+            setUniform("uFillColor", whiteColor())
+            setUniform("uRadius", 4.0)
+
     b.drawTitle(bezelRect.width + 1)
+
+var radioButtonComposition = newComposition """
+uniform vec4 uStrokeColor;
+uniform vec4 uFillColor;
+uniform float uRadioValue;
+uniform float uStrokeWidth;
+
+void compose() {
+    vec4 outer = vec4(bounds.xy + 1.0, bounds.zw - 2.0);
+    drawInitialShape(sdRoundedRect(outer, bounds.w / 2.0 - 1.0), uStrokeColor);
+    vec4 inner = insetRect(outer, uRadioValue);
+    drawShape(sdEllipseInRect(vec4(inner.x, inner.y + 1.0, inner.zw)), vec4(0.7));
+    drawShape(sdEllipseInRect(inner), vec4(1.0));
+}
+"""
 
 proc drawRadioboxStyle(b: Button, r: Rect) =
     let bezelRect = newRect(0, 0, b.bounds.height, b.bounds.height)
-    let c = currentContext()
-    c.fillColor = whiteColor()
-    c.strokeColor = newGrayColor(0.78)
-    c.strokeWidth = 1
-    c.drawRoundedRect(bezelRect, bezelRect.height / 2)
 
+    # Selected
     if b.value != 0:
-        let insetVal = bezelRect.height * 0.18
-        let checkMarkRect = bezelRect.inset(insetVal, insetVal)
-        c.strokeWidth = 0
-        c.fillColor = selectionColor
-        c.drawRoundedRect(checkMarkRect, checkMarkRect.height / 2)
+        radioButtonComposition.draw bezelRect:
+            setUniform("uStrokeColor", selectionColor)
+            setUniform("uFillColor", selectionColor)
+            setUniform("uRadioValue", bezelRect.height * 0.3)
+            setUniform("uStrokeWidth", 0.0)
+    else:
+        radioButtonComposition.draw bezelRect:
+            setUniform("uStrokeColor", newGrayColor(0.78))
+            setUniform("uFillColor", whiteColor())
+            setUniform("uRadioValue", 1.0)
+            setUniform("uStrokeWidth", 0.0)
+
     b.drawTitle(bezelRect.width + 1)
 
 proc drawImageStyle(b: Button, r: Rect) =

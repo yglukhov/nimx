@@ -61,7 +61,7 @@ proc isEditing*(t: TextField): bool =
 proc drawCursorWithRect(r: Rect) =
     if cursorVisible:
         let c = currentContext()
-        c.fillColor = blackColor()
+        c.fillColor = newGrayColor(0.28)
         c.strokeWidth = 0
         c.drawRect(r)
 
@@ -113,7 +113,7 @@ method draw*(t: TextField, r: Rect) =
 
     if t.isEditing:
         t.drawFocusRing()
-        drawCursorWithRect(newRect(leftMargin + cursorOffset, textY + 3, 2, font.size))
+        drawCursorWithRect(newRect(leftMargin + cursorOffset, textY, 2, font.size))
 
 method onTouchEv(t: TextField, e: var Event): bool =
     result = false
