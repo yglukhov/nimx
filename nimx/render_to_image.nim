@@ -51,7 +51,7 @@ proc draw*(i: Image, drawProc: proc()) =
     gl.viewport(0, 0, i.size.width.GLsizei, i.size.height.GLsizei)
     gl.stencilMask(0xFF) # Android requires setting stencil mask to clear
     gl.clearColor(0, 0, 0, 0)
-    gl.clear(gl.COLOR_BUFFER_BIT or gl.STENCIL_BUFFER_BIT)
+    gl.clear(gl.COLOR_BUFFER_BIT or gl.DEPTH_BUFFER_BIT or gl.STENCIL_BUFFER_BIT)
     gl.stencilMask(0x00) # Android requires setting stencil mask to clear
 
     gl.disable(gl.STENCIL_TEST)
