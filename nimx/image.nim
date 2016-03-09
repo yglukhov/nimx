@@ -382,10 +382,10 @@ when asyncResourceLoad:
             loadBitmapToTexture(bitmap, x, y, comp, c.texture, c.size, c.texCoords)
             stbi_image_free(bitmap)
 
-        #let fenceId = glFenceSync( GL_SYNC_GPU_COMMANDS_COMPLETE, 0 );
-        #while true:
-        #   let res = glClientWaitSync(fenceId, GL_SYNC_FLUSH_COMMANDS_BIT, GLuint64(5000000000)); # 5 Second timeout
-        #   if res != GL_TIMEOUT_EXPIRED: break  # we ignore timeouts and wait until all OpenGL commands are processed!
+        let fenceId = glFenceSync( GL_SYNC_GPU_COMMANDS_COMPLETE, 0 );
+        while true:
+          let res = glClientWaitSync(fenceId, GL_SYNC_FLUSH_COMMANDS_BIT, GLuint64(5000000000)); # 5 Second timeout
+          if res != GL_TIMEOUT_EXPIRED: break  # we ignore timeouts and wait until all OpenGL commands are processed!
 
         #discard glMakeCurrent(c.wnd, nil)
         let p = cast[pointer](loadComplete)
