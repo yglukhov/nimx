@@ -30,13 +30,8 @@ proc alsoPressed*(vk: VirtualKey): bool =
 
 method handleEvent*(w: Window, e: var Event): bool {.base.} =
     case e.kind:
-        of etTouch:
+        of etMouse, etScroll, etTouch:
             if newTouch:
-                result = w.processTouchEvent(e)
-            else:
-                result = w.handleTouchEvent(e)
-        of etMouse, etScroll:
-            if newTouch and e.kind == etMouse:
                 result = w.processTouchEvent(e)
             else:
                 result = w.recursiveHandleMouseEvent(e)
