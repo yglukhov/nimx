@@ -9,6 +9,8 @@ import nimx.button
 import nimx.autotest
 
 import nimx.gesture_detector_newtouch
+import nimx.view_event_handling_new
+import nimx.event
 
 const welcomeMessage = "Welcome to nimX"
 
@@ -16,6 +18,10 @@ type WelcomeView = ref object of View
     welcomeFont: Font
 
 type CustomControl* = ref object of Control
+
+method onScroll*(v: CustomControl, e: var Event): bool =
+    echo "custom scroll ", e.offset
+    result = true
 
 method init(v: WelcomeView, r: Rect) =
     procCall v.View.init(r)

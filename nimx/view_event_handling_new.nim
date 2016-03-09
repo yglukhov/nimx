@@ -5,6 +5,7 @@ import system_logger
 import typetraits
 
 method onGestEvent*(d: GestureDetector, e: var Event) : bool {.base.} = discard
+method onScroll*(v: View, e: var Event): bool = discard
 
 method name*(v: View): string {.base.} =
     result = "View"
@@ -28,7 +29,9 @@ proc isMainWindow(v: View, e : var Event): bool =
     # echo v.superview.isNil
     result = v == e.window
 
-proc processTouchEvent*(v: View, e : var Event): bool =
+proc processTouchEvent*(v: View, e : var Event): bool
+
+proc processOnlyTouchEvents(v: View, e : var Event): bool =
     if e.buttonState == bsDown and e.pointerId == 0:
         v.interceptEvents = false
         v.touchTarget = nil
@@ -82,3 +85,26 @@ proc processTouchEvent*(v: View, e : var Event): bool =
     if e.buttonState == bsUp and e.pointerId == 0 and v.isMainWindow(e):
         v.touchTarget = nil
         v.interceptEvents = false
+
+proc processMouseWheelPrivate(v: View, e : var Event): bool =
+    # echo "scroll ", e.position, " ",e.buttonState," ",e.offset
+    let localPosition = e.localPosition
+    for i in countdown(v.subviews.len - 1, 0):
+        let s = v.subviews[i]
+        e.localPosition = localPosition - s.frame.origin + s.bounds.origin
+        # echo "local position = ",e.localPosition
+        # echo s.name()," s.bounds is :",s.bounds," frame is ",s.frame
+        if e.localPosition.inRect(s.bounds):
+            result = s.processTouchEvent(e)
+            if result:
+                break
+    if not result:
+        e.localPosition = localPosition
+        result = v.onScroll(e)
+
+proc processTouchEvent*(v: View, e : var Event): bool =
+    case e.kind
+    of etScroll:
+        result = processMouseWheelPrivate(v,e)
+    else:
+        result = processOnlyTouchEvents(v,e)
