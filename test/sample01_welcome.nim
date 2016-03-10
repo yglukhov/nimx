@@ -50,6 +50,16 @@ method init(v: WelcomeView, r: Rect) =
     cc.backgroundColor = newColor(1.0,0.0,0.0,1.0)
     cc.onAction do():
         echo "custom control clicked"
+    let lis = newBaseScrollListener do(e : var Event):
+        echo "tap down at: ",e.position
+    do(dx, dy : float32, e : var Event):
+        echo "scroll: ",e.position
+    do(dx, dy : float32, e : var Event):
+        echo "scroll end at: ",e.position
+    let flingLis = newBaseFlingListener do(vx, vy: float):
+        echo "flinged with velo: ",vx, " ",vy
+    cc.addGestureDetector(newScrollGestureDetector(lis))
+    cc.addGestureDetector(newFlingGestureDetector(flingLis))
     v.addSubview(cc)
 
 var gradientComposition = newComposition """

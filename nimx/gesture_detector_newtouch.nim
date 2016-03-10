@@ -8,6 +8,10 @@ type
     BaseGestureDetector* = ref object of GestureDetector
 
     OnScrollListener* = ref object of RootObj
+    BaseScrollListener* = ref object of OnScrollListener
+        tapDownDelegate*:           proc(e : var Event)
+        scrollProgressDelegate*:    proc(dx, dy : float32, e : var Event)
+        tapUpDelegate*:             proc(dx, dy : float32, e : var Event)
     ScrollDetector* = ref object of BaseGestureDetector
         listener* : OnScrollListener
         tap_down : Point
@@ -43,6 +47,8 @@ type
         angle_offset : float32
 
     OnFlingListener* = ref object of RootObj
+    BaseFlingListener* = ref object of OnFlingListener
+        flingDelegate*: proc(vx, vy: float)
     FlingGestureDetector* = ref object of BaseGestureDetector
         flingListener* : OnFlingListener
         prev_ev, this_ev: Event
@@ -75,9 +81,39 @@ proc newScrollGestureDetector*(listener : OnScrollListener) : ScrollDetector =
     result.last_fired_dy = 0.0'f32
     result.firing = false
 
+method onTapDown*(ls: BaseScrollListener, e : var Event) =
+    if not ls.tapDownDelegate.isNil:
+        ls.tapDownDelegate(e)
+
+method onScrollProgress*(ls: BaseScrollListener, dx, dy : float32, e : var Event) =
+    if not ls.scrollProgressDelegate.isNil:
+        ls.scrollProgressDelegate(dx,dy,e)
+
+method onTapUp*(ls: BaseScrollListener, dx, dy : float32, e : var Event) =
+    if not ls.tapUpDelegate.isNil:
+        ls.tapUpDelegate(dx,dy,e)
+
+proc newBaseScrollListener*(
+        tapD : proc(e : var Event),
+        scrollD: proc(dx, dy : float32, e : var Event),
+        tapUpD: proc(dx, dy : float32, e : var Event)
+        ): BaseScrollListener =
+    result.new
+    result.tapDownDelegate = tapD
+    result.scrollProgressDelegate = scrollD
+    result.tapUpDelegate = tapUpD
+
 proc newFlingGestureDetector*(listener : OnFlingListener) : FlingGestureDetector =
     new(result)
     result.flingListener = listener
+
+method onFling*(ls : BaseFlingListener, vx, vy: float) =
+    if not ls.flingDelegate.isNil:
+        ls.flingDelegate(vx,vy)
+
+proc newBaseFlingListener*(delegate: proc(vx, vy: float)): BaseFlingListener =
+    result.new
+    result.flingDelegate = delegate
 
 proc newZoomGestureDetector*(listener : OnZoomListener) : ZoomGestureDetector =
     new(result)
