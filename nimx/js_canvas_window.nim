@@ -17,6 +17,11 @@ type JSCanvasWindow* = ref object of Window
 
 export abstract_window
 
+template buttonStateFromKeyEvent(evt: dom.Event): ButtonState =
+    if evt.`type` == "keyup": bsUp
+    elif evt.`type` == "keydown": bsDown
+    else: bsUnknown
+
 proc setupWebGL() =
     asm """
         window.requestAnimFrame = (function() {
@@ -29,7 +34,31 @@ proc setupWebGL() =
                 window.setTimeout(callback, 1000/60);
         };
     })();
+
+    window.__nimx_focused_canvas = null;
+
+    document.addEventListener('mousedown', function(event) {
+        window.__nimx_focused_canvas = event.target;
+    }, false);
     """
+
+    proc onkey(evt: dom.Event) =
+        var wnd : JSCanvasWindow
+        {.emit: """
+        if (window.__nimx_focused_canvas !== null && window.__nimx_focused_canvas.__nimx_window !== undefined) {
+            `wnd` = window.__nimx_focused_canvas.__nimx_window;
+        }
+        """.}
+        if not wnd.isNil:
+            # TODO: Complete this!
+            var e = newKeyboardEvent(virtualKeyFromNative(evt.keyCode), buttonStateFromKeyEvent(evt), false)
+            #result.rune = keyEv.keysym.unicode.Rune
+            e.window = wnd
+            discard mainApplication().handleEvent(e)
+
+    document.addEventListener("keydown", onkey, false)
+    document.addEventListener("keyup", onkey, false)
+
 
 setupWebGL()
 
@@ -124,6 +153,7 @@ proc initWithCanvas*(w: JSCanvasWindow, canvas: Element) =
     {.emit: """
     `width` = `canvas`.width;
     `height` = `canvas`.height;
+    `canvas`.__nimx_window = `w`;
     var pixelRatio = 'devicePixelRatio' in window ? window.devicePixelRatio : 1;
     if (pixelRatio > 1 && !`canvas`.scaled) {
         `canvas`.style.width = `canvas`.width + 'px';
@@ -215,39 +245,21 @@ proc sendInputEvent(wnd: JSCanvasWindow, evt: dom.Event) =
     e.text = $s
     discard mainApplication().handleEvent(e)
 
-template buttonStateFromKeyEvent(evt: dom.Event): ButtonState =
-    if evt.`type` == "keyup": bsUp
-    elif evt.`type` == "keydown": bsDown
-    else: bsUnknown
-
-proc sendKeyEvent(wnd: JSCanvasWindow, evt: dom.Event) =
-    # TODO: Complete this!
-    var e = newKeyboardEvent(virtualKeyFromNative(evt.keyCode), buttonStateFromKeyEvent(evt), false)
-    #result.rune = keyEv.keysym.unicode.Rune
-    e.window = wnd
-    discard mainApplication().handleEvent(e)
-
 method startTextInput*(wnd: JSCanvasWindow, r: Rect) =
     let canvas = wnd.canvas
 
     let oninput = proc(evt: dom.Event) =
         wnd.sendInputEvent(evt)
 
-    let onkey = proc(evt: dom.Event) =
-        wnd.sendKeyEvent(evt)
-
     {.emit: """
-    if (window.__nimx_textinput === undefined)
-    {
+    if (window.__nimx_textinput === undefined) {
         var i = window.__nimx_textinput = document.createElement('input');
         i.type = 'text';
+        i.style.position = 'absolute';
+        i.style.top = '-99999px';
+        document.body.appendChild(i);
     }
     window.__nimx_textinput.oninput = `oninput`;
-    window.__nimx_textinput.onkeydown = `onkey`;
-    window.__nimx_textinput.onkeyup = `onkey`;
-    window.__nimx_textinput.style.position = 'absolute';
-    window.__nimx_textinput.style.top = '-99999px';
-    document.body.appendChild(window.__nimx_textinput);
     setTimeout(function(){ window.__nimx_textinput.focus(); }, 1);
     """.}
 

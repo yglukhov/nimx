@@ -9,6 +9,8 @@ import nimx.button
 import nimx.autotest
 
 import nimx.gesture_detector_newtouch
+import nimx.view_event_handling_new
+import nimx.event
 
 const welcomeMessage = "Welcome to nimX"
 
@@ -16,6 +18,10 @@ type WelcomeView = ref object of View
     welcomeFont: Font
 
 type CustomControl* = ref object of Control
+
+method onScroll*(v: CustomControl, e: var Event): bool =
+    echo "custom scroll ", e.offset
+    result = true
 
 method init(v: WelcomeView, r: Rect) =
     procCall v.View.init(r)
@@ -44,6 +50,16 @@ method init(v: WelcomeView, r: Rect) =
     cc.backgroundColor = newColor(1.0,0.0,0.0,1.0)
     cc.onAction do():
         echo "custom control clicked"
+    let lis = newBaseScrollListener do(e : var Event):
+        echo "tap down at: ",e.position
+    do(dx, dy : float32, e : var Event):
+        echo "scroll: ",e.position
+    do(dx, dy : float32, e : var Event):
+        echo "scroll end at: ",e.position
+    let flingLis = newBaseFlingListener do(vx, vy: float):
+        echo "flinged with velo: ",vx, " ",vy
+    cc.addGestureDetector(newScrollGestureDetector(lis))
+    cc.addGestureDetector(newFlingGestureDetector(flingLis))
     v.addSubview(cc)
 
 var gradientComposition = newComposition """

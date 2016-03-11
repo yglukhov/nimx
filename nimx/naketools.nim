@@ -362,12 +362,28 @@ proc jsPostBuild(b: Builder) =
             openDefaultBrowser "http://localhost:5000"
         runForever()
 
-proc build*(b: Builder) =
+proc signIosBundle(b: Builder) =
+    let e = newJObject() # Entitlements
+    let entPath = b.buildRoot / "entitlements.plist"
+    let appID = b.teamId & "." & b.bundleId
+
+    e["application-identifier"] = %appID
+    e["com.apple.developer.team-identifier"] = %b.teamId
+    e["get-task-allow"] = %b.debugMode
+    e["keychain-access-groups"] = %*[appID]
+
+    e.writePlist(entPath)
+    direShell(["codesign", "-s", "\"" & b.codesignIdentity & "\"", "--force", "--entitlements", entPath, b.buildRoot / b.bundleName])
+
+proc preconfigure(b: Builder) =
     b.buildRoot = b.buildRoot / b.platform
     b.nimcachePath = b.buildRoot / "nimcache"
     b.resourcePath = b.buildRoot / "res"
 
     if not beforeBuild.isNil: beforeBuild(b)
+
+proc build*(b: Builder) =
+    b.preconfigure()
 
     b.executablePath = b.buildRoot / b.appName
     b.bundleName = b.appName & ".app"
@@ -485,17 +501,7 @@ proc build*(b: Builder) =
         b.jsPostBuild()
     elif b.platform == "ios":
         if not b.codesignIdentity.isNil:
-            let e = newJObject() # Entitlements
-            let entPath = b.buildRoot / "entitlements.plist"
-            let appID = b.teamId & "." & b.bundleId
-
-            e["application-identifier"] = %appID
-            e["com.apple.developer.team-identifier"] = %b.teamId
-            e["get-task-allow"] = %b.debugMode
-            e["keychain-access-groups"] = %*[appID]
-
-            e.writePlist(entPath)
-            direShell(["codesign", "-s", "\"" & b.codesignIdentity & "\"", "--force", "--entitlements", entPath, b.buildRoot / b.bundleName])
+            b.signIosBundle()
 
     if not afterBuild.isNil: afterBuild(b)
 
@@ -558,6 +564,14 @@ task "droid", "Build for android and install on the connected device":
         direShell args
         #putEnv "ANDROID_SERIAL", "12345" # Target specific device
         direShell "ant", "debug", "install"
+
+task "droid-debug", "Start application on Android device and connect with debugger":
+    let b = newBuilder("android")
+    b.preconfigure()
+    withDir b.buildRoot / b.javaPackageId:
+        if not fileExists("libs/gdb.setup"):
+            copyFile("libs/armeabi/gdb.setup", "libs/gdb.setup")
+        direShell([b.androidNdk / "ndk-gdb", "--adb=" & expandTilde(b.androidSdk) / "platform-tools" / "adb", "--force", "--start"])
 
 task "js", "Create Javascript version and run in browser.":
     newBuilder("js").build()
