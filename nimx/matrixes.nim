@@ -846,6 +846,81 @@ proc lookAt*(dest: var Matrix4, eye, center, up: Vector3) =
     dest[14] = -(z0 * eyex + z1 * eyey + z2 * eyez);
     dest[15] = 1;
 
+proc tryGetTranslationFromModel*(mat: Matrix4, translation: var Vector3): bool =
+    if mat[15] == 0: return false
+    translation = newVector3(mat[3], mat[7], mat[11]) / mat[15]
+    return true
+
+proc tryGetScaleRotationFromModel*(mat: Matrix4, scale: var Vector3, rotation: var Vector4): bool =
+    if mat[15] == 0: return false
+
+    var
+        row0 = newVector3(mat[0], mat[4], mat[8]) / mat[15]
+        row1 = newVector3(mat[1], mat[5], mat[9]) / mat[15]
+        row2 = newVector3(mat[2], mat[6], mat[10]) / mat[15]
+
+    # scale skew
+    scale[0] = row0.length()
+    row0.normalize()
+
+    var skewXY = dot(row0, row1)
+    row1 = row1 - row0 * skewXY
+
+    scale[1] = row1.length()
+    row1.normalize()
+    skewXY /= scale[1]
+
+    var skewXZ = dot(row0, row2)
+    row2 = row2 - row0 * skewXZ
+
+    var skewYZ = dot(row1, row2)
+    row2 = row2 - row1 * skewYZ
+
+    scale[2] = row2.length()
+    row2.normalize()
+    skewXZ /= scale[2]
+    skewYZ /= scale[2]
+
+    if dot(row0, cross(row1, row2)) < 0:
+        scale[0] *= -1
+        row0 *= -1
+        row1 *= -1
+        row2 *= -1
+
+    # rotation
+    var s, t, x, y, z, w: float64
+
+    t = row0[0] + row1[1] + row2[2] + 1.0
+
+    if t > 0.0001:
+        s = 0.5 / sqrt(t)
+        w = 0.25 / s
+        x = (row2[1] - row1[2]) * s
+        y = (row0[2] - row2[0]) * s
+        z = (row1[0] - row0[1]) * s
+    elif row0[0] > row1[1] and row0[0] > row2[2]:
+        s = sqrt(1.0 + row0[0] - row1[1] - row2[2]) * 2.0
+        x = 0.25 * s
+        y = (row0[1] + row1[0]) / s
+        z = (row0[2] + row2[0]) / s
+        w = (row2[1] - row1[2]) / s
+    elif row1[1] > row2[2]:
+        s = sqrt (1.0 + row1[1] - row0[0] - row2[2]) * 2.0
+        x = (row0[1] + row1[0]) / s
+        y = 0.25 * s
+        z = (row1[2] + row2[1]) / s
+        w = (row0[2] - row2[0]) / s
+    else :
+        s = sqrt(1.0 + row2[2] - row0[0] - row1[1]) * 2.0
+        x = (row0[2] + row2[0]) / s
+        y = (row1[2] + row2[1]) / s
+        z = 0.25 * s
+        w = (row1[0] - row0[1]) / s
+
+    rotation = newVector4(x, y, z, w)
+
+    return true
+
 discard """
 mat4_t mat4_fromRotationTranslation(quat_t quat, vec3_t vec, mat4_t dest) {
     if (!dest) { dest = mat4_create(NULL); }
