@@ -2,6 +2,7 @@ import math
 import macros
 import algorithm
 import system_logger
+import times
 
 type LoopPattern* = enum
     lpStartToEndToStart
@@ -19,6 +20,7 @@ type ProgressHandler = object
 
 type Animation* = ref object of RootObj
     startTime*: float
+    pauseTime*: float
     loopDuration*: float
     loopPattern*: LoopPattern
     numberOfLoops*: int
@@ -89,6 +91,7 @@ proc processRemainingHandlersInLoop(handlers: openarray[ProgressHandler], it: va
     it = 0
 
 proc tick*(a: Animation, curTime: float) =
+    if a.pauseTime != 0: return
     let duration = curTime - a.startTime
     let currentLoop = a.currentLoopForTotalDuration(duration)
     var loopProgress = (duration mod a.loopDuration) / a.loopDuration
@@ -202,6 +205,15 @@ proc chainOnAnimate*(a: Animation, oa: proc(p: float)) =
         a.onAnimate = proc(p: float) =
             oldProc(p)
             oa(p)
+
+proc pause*(a: Animation) =
+    if a.pauseTime == 0:
+        a.pauseTime = epochTime()
+
+proc resume*(a: Animation) =
+    if a.pauseTime != 0:
+        a.startTime += epochTime() - a.pauseTime
+        a.pauseTime = 0
 
 when isMainModule:
     proc emulateAnimationRun(a: Animation, startTime, endTime, fps: float): float =

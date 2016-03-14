@@ -35,7 +35,19 @@ method init*(v: AnimationSampleView, r: Rect) =
         startStopButton.title = "Start"
     #v.animation.numberOfLoops = 2
 
-    let progressBar = ProgressIndicator.new(newRect(90, 20, 90, 20))
+    let playPauseButton = newButton(newRect(80, 20, 70, 50))
+    playPauseButton.title = "Pause"
+    playPauseButton.onAction do():
+        if playPauseButton.title == "Pause":
+            v.animation.pause()
+            playPauseButton.title = "Resume"
+        else:
+            v.animation.resume()
+            playPauseButton.title = "Pause"
+    v.addSubview(playPauseButton)
+
+
+    let progressBar = ProgressIndicator.new(newRect(160, 20, 90, 20))
     v.addSubview(progressBar)
 
     # Loop progress handlers are called when animation reaches specified loop progress.
