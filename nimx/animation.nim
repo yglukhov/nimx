@@ -29,6 +29,7 @@ type Animation* = ref object of RootObj
     finished*: bool
     cancelLoop: int # Loop at which animation was cancelled. -1 if not cancelled
     curLoop*: int
+    tag*: string
 
     continueUntilEndOfLoopOnCancel*: bool
     loopProgressHandlers: seq[ProgressHandler]
