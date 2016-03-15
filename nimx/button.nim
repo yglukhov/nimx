@@ -111,11 +111,11 @@ proc drawRegularStyle(b: Button, r: Rect) {.inline.} =
                 setUniform("uStrokeColor", newColor(0.18, 0.50, 0.98))
                 setUniform("uFillColorStart", newColor(0.31, 0.60, 0.98))
                 setUniform("uFillColorEnd", newColor(0.09, 0.42, 0.88))
-    if b.state == bsUp:
-        let c = currentContext
-        c.strokeColor = newGrayColor(0.78, 0.7)
-        c.strokeWidth = 1.0
-        c.drawLine(newPoint(r.x + 4.0, r.height - 1.0), newPoint(r.width - 4.0, r.height - 1.0))
+        if b.state == bsUp:
+            let c = currentContext
+            c.strokeColor = newGrayColor(0.78, 0.7)
+            c.strokeWidth = 1.0
+            c.drawLine(newPoint(r.x + 4.0, r.height - 1.0), newPoint(r.width - 4.0, r.height - 1.0))
     b.drawTitle(0)
 
 var checkButtonComposition = newComposition """
