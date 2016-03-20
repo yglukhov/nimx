@@ -88,6 +88,7 @@ when defined js:
 
     proc deleteFramebuffer*(gl: GL, name: GLuint)
     proc deleteRenderbuffer*(gl: GL, name: GLuint)
+    proc deleteBuffer*(gl: GL, name: GLuint)
 
     proc bindAttribLocation*(gl: GL, program: ProgramRef, index: GLuint, name: cstring)
     proc enableVertexAttribArray*(gl: GL, attrib: GLuint)
@@ -262,6 +263,10 @@ else:
         var n = name
         glDeleteRenderbuffers(1, addr n)
 
+    proc deleteBuffer*(gl: GL, name: GLuint) {.inline.} =
+        var n = name
+        glDeleteBuffers(1, addr n)
+
     template bindAttribLocation*(gl: GL, program: ProgramRef, index: GLuint, name: cstring) = glBindAttribLocation(program, index, name)
     template enableVertexAttribArray*(gl: GL, attrib: GLuint) = glEnableVertexAttribArray(attrib)
     template disableVertexAttribArray*(gl: GL, attrib: GLuint) = glDisableVertexAttribArray(attrib)
@@ -417,6 +422,27 @@ proc bufferData*(gl: GL, target: GLenum, data: openarray[GLushort], usage: GLenu
         asm "`gl`.bufferData(`target`, new Uint16Array(`data`), `usage`);"
     else:
         glBufferData(target, GLsizei(data.len * sizeof(GLushort)), cast[pointer](data), usage);
+
+proc bufferData*(gl: GL, target: GLenum, size: int32, usage: GLenum) {.inline.} =
+    when defined(js):
+        if target == gl.ARRAY_BUFFER:
+            asm "`gl`.bufferData(`target`, new Float32Array(`size`), `usage`);"
+        if target == gl.ELEMENT_ARRAY_BUFFER:
+            asm "`gl`.bufferData(`target`, new Uint16Array(`size`), `usage`);"
+    else:
+        glBufferData(target, size, nil, usage);
+
+proc bufferSubData*(gl: GL, target: GLenum, offset: int32, data: openarray[GLfloat]) {.inline.} =
+    when defined(js):
+        asm "`gl`.bufferSubData(`target`, `offset`, new Float32Array(`data`));"
+    else:
+        glBufferSubData(target, offset, GLsizei(data.len * sizeof(GLfloat)), cast[pointer](data));
+
+proc bufferSubData*(gl: GL, target: GLenum, offset: int32, data: openarray[GLushort]) {.inline.} =
+    when defined(js):
+        asm "`gl`.bufferSubData(`target`, `offset`, new Uint16Array(`data`));"
+    else:
+        glBufferSubData(target, offset, GLsizei(data.len * sizeof(GLushort)), cast[pointer](data));
 
 proc vertexAttribPointer*(gl: GL, index: GLuint, size: GLint, typ: GLenum, normalized: GLboolean,
                         stride: GLsizei, offset: int) {.inline.} =
