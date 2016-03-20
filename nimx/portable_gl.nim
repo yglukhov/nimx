@@ -418,6 +418,12 @@ proc bufferData*(gl: GL, target: GLenum, data: openarray[GLushort], usage: GLenu
     else:
         glBufferData(target, GLsizei(data.len * sizeof(GLushort)), cast[pointer](data), usage);
 
+proc bufferData*(gl: GL, target: GLenum, data: openarray[GLubyte], usage: GLenum) {.inline.} =
+    when defined(js):
+        asm "`gl`.bufferData(`target`, new Uint8Array(`data`), `usage`);"
+    else:
+        glBufferData(target, GLsizei(data.len * sizeof(GLubyte)), cast[pointer](data), usage);
+
 proc vertexAttribPointer*(gl: GL, index: GLuint, size: GLint, typ: GLenum, normalized: GLboolean,
                         stride: GLsizei, offset: int) {.inline.} =
     when defined(js):
