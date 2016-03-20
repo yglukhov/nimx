@@ -46,7 +46,9 @@ macro registeredUiTest*(name: untyped, body: typed): stmt =
 proc dump(s: string) =
     when defined(js):
         let cs : cstring = s
-        {.emit: "if ('dump' in window) window.dump(`cs` + '\\n');".}
+        # The following ['dump'] is required this way because otherwise
+        # it will be stripped away by closure compiler as not a standard function.
+        {.emit: "if ('dump' in window) window['dump'](`cs` + '\\n');".}
     else:
         logi s
 
