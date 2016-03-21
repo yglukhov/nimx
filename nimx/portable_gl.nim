@@ -107,6 +107,8 @@ when defined js:
 
     proc uniform1fv*(gl: GL, location: UniformLocation, data: openarray[GLfloat])
     proc uniform2fv*(gl: GL, location: UniformLocation, data: openarray[GLfloat])
+    proc uniform3fv*(gl: GL, location: UniformLocation, data: openarray[GLfloat])
+    proc uniform3iv*(gl: GL, location: UniformLocation, data: openarray[GLint])
     proc uniform4fv*(gl: GL, location: UniformLocation, data: openarray[GLfloat])
     proc uniform1f*(gl: GL, location: UniformLocation, data: GLfloat)
     proc uniform1i*(gl: GL, location: UniformLocation, data: GLint)
@@ -282,6 +284,8 @@ else:
     template uniform1i*(gl: GL, location: UniformLocation, data: GLint) = glUniform1i(location, data)
     template uniform2fv*(gl: GL, location: UniformLocation, data: openarray[GLfloat]) = glUniform2fv(location, GLSizei(data.len / 2), unsafeAddr data[0])
     template uniform2fv*(gl: GL, location: UniformLocation, length: GLsizei, data: ptr GLfloat) = glUniform2fv(location, length, data)
+    template uniform3fv*(gl: GL, location: UniformLocation, data: openarray[GLfloat]) = glUniform3fv(location, GLSizei(data.len / 3), unsafeAddr data[0])
+    template uniform3iv*(gl: GL, location: UniformLocation, data: openarray[GLint]) = glUniform3iv(location, GLSizei(data.len / 3), unsafeAddr data[0])
     template uniform4fv*(gl: GL, location: UniformLocation, data: openarray[GLfloat]) = glUniform4fv(location, GLsizei(data.len / 4), unsafeAddr data[0])
     template uniform1fv*(gl: GL, location: UniformLocation, data: openarray[GLfloat]) = glUniform1fv(location, GLsizei(data.len), unsafeAddr data[0])
     template uniform1fv*(gl: GL, location: UniformLocation, length: GLsizei, data: ptr GLfloat) = glUniform1fv(location, length, data)
