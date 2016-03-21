@@ -40,10 +40,24 @@ proc setupWebGL() =
     document.addEventListener('mousedown', function(event) {
         window.__nimx_focused_canvas = event.target;
     }, false);
+
+    window.__nimx_keys_down = {};
     """
 
     proc onkey(evt: dom.Event) =
         var wnd : JSCanvasWindow
+        var repeat = false
+        let bs = buttonStateFromKeyEvent(evt)
+        if bs == bsDown:
+            {.emit: """
+            `repeat` = `evt`.keyCode in window.__nimx_keys_down;
+            window.__nimx_keys_down[`evt`.keyCode] = true;
+            """.}
+        elif bs == bsUp:
+            {.emit: """
+            delete window.__nimx_keys_down[`evt`.keyCode];
+            """.}
+
         {.emit: """
         if (window.__nimx_focused_canvas !== null && window.__nimx_focused_canvas.__nimx_window !== undefined) {
             `wnd` = window.__nimx_focused_canvas.__nimx_window;
@@ -51,7 +65,8 @@ proc setupWebGL() =
         """.}
         if not wnd.isNil:
             # TODO: Complete this!
-            var e = newKeyboardEvent(virtualKeyFromNative(evt.keyCode), buttonStateFromKeyEvent(evt), false)
+            var e = newKeyboardEvent(virtualKeyFromNative(evt.keyCode), bs, repeat)
+
             #result.rune = keyEv.keysym.unicode.Rune
             e.window = wnd
             discard mainApplication().handleEvent(e)
