@@ -94,7 +94,8 @@ proc isHiddenFile(path: string): bool =
 
 proc getEnvCt(k: string): string {.compileTime.} =
     when defined(buildOnWindows): # This should be defined by the naketools.nim
-        result = staticExec("echo %" & k & "%")
+        result = staticExec("cmd /c \"echo %NIMX_RES_PATH%\"")
+        result.removeSuffix()
     else:
         result = staticExec("echo $" & k)
     if result == "": result = nil

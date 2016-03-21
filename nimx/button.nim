@@ -89,6 +89,7 @@ var regularButtonComposition = newComposition """
 uniform vec4 uStrokeColor;
 uniform vec4 uFillColorStart;
 uniform vec4 uFillColorEnd;
+uniform float uShadowOffset;
 float radius = 5.0;
 
 void compose() {
@@ -96,7 +97,7 @@ void compose() {
     vec4 fc = gradient(smoothstep(bounds.y, bounds.y + bounds.w, vPos.y),
         uFillColorStart,
         uFillColorEnd);
-    drawShape(sdRoundedRect(insetRect(bounds, 2.0), radius - 1.0), fc);
+    drawShape(sdRoundedRect(insetRect(bounds, 2.0) + vec4(0.0, uShadowOffset, 0.0, uShadowOffset), radius - 1.0), fc);
 }
 """
 
@@ -107,15 +108,12 @@ proc drawRegularStyle(b: Button, r: Rect) {.inline.} =
                 setUniform("uStrokeColor", newGrayColor(0.78))
                 setUniform("uFillColorStart", if b.enabled: b.backgroundColor else: grayColor())
                 setUniform("uFillColorEnd", if b.enabled: b.backgroundColor else: grayColor())
+                setUniform("uShadowOffset", -0.5'f32)
             else:
                 setUniform("uStrokeColor", newColor(0.18, 0.50, 0.98))
                 setUniform("uFillColorStart", newColor(0.31, 0.60, 0.98))
                 setUniform("uFillColorEnd", newColor(0.09, 0.42, 0.88))
-        if b.state == bsUp:
-            let c = currentContext
-            c.strokeColor = newGrayColor(0.78, 0.7)
-            c.strokeWidth = 1.0
-            c.drawLine(newPoint(r.x + 4.0, r.height - 1.0), newPoint(r.width - 4.0, r.height - 1.0))
+                setUniform("uShadowOffset", 0.0'f32)
     b.drawTitle(0)
 
 var checkButtonComposition = newComposition """
