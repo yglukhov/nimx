@@ -43,13 +43,13 @@ method drawWindow*(w: Window) {.base.} =
 
     w.recursiveDrawSubviews()
     let c = currentContext()
-    var pt = newPoint(w.frame.width - 80, 2)
+    var pt = newPoint(w.frame.width - 100, 2)
     c.fillColor = newColor(1, 0, 0, 1)
+    c.drawText(systemFont(), pt, "FPS: " & $fps())
 
     when enableGraphicsProfiling:
-        var pt2 = newPoint(w.frame.width - 150, 2 + 30)
-        var pt3 = newPoint(w.frame.width - 150, 2 + 60)
-        c.drawText(systemFont(), pt, "FPS: " & $fps())
+        var pt2 = newPoint(w.frame.width - 100, 22)
+        var pt3 = newPoint(w.frame.width - 100, 42)
         c.drawText(systemFont(), pt2, "Overdraw: " & $GetOverdrawValue())
         c.drawText(systemFont(), pt3, "DIPs: " & $GetDIPValue())
         ResetOverdrawValue()
