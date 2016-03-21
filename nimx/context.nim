@@ -87,7 +87,7 @@ type GraphicsContext* = ref object of RootObj
     testPolyShaderProgram: ProgramRef
     debugClipColor: Color
     alpha*: Coord
-    quadIndexBuffer: GLuint
+    quadIndexBuffer: BufferRef
     vertexes: array[4 * 4 * 128, Coord]
 
 var gCurrentContext: GraphicsContext

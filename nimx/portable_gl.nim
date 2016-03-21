@@ -24,6 +24,9 @@ when defined js:
         ShaderRef* = ref ShaderObj
         ShaderObj {.importc.} = object
 
+        BufferRef* = ref BufferObj
+        BufferObj {.importc.} = object
+
         GL* = ref GLObj
         GLObj {.importc.} = object
             VERTEX_SHADER* : GLenum
@@ -67,6 +70,7 @@ when defined js:
     const invalidUniformLocation* : UniformLocation = nil
     const invalidProgram* : ProgramRef = nil
     const invalidShader* : ShaderRef = nil
+    const invalidBuffer* : BufferRef = nil
 
     {.push importcpp.}
 
@@ -84,11 +88,11 @@ when defined js:
     proc createTexture*(gl: GL): TextureRef
     proc createFramebuffer*(gl: GL): FramebufferRef
     proc createRenderbuffer*(gl: GL): RenderbufferRef
-    proc createBuffer*(gl: GL): GLuint
+    proc createBuffer*(gl: GL): BufferRef
 
-    proc deleteFramebuffer*(gl: GL, name: GLuint)
-    proc deleteRenderbuffer*(gl: GL, name: GLuint)
-    proc deleteBuffer*(gl: GL, name: GLuint)
+    proc deleteFramebuffer*(gl: GL, name: FramebufferRef)
+    proc deleteRenderbuffer*(gl: GL, name: RenderbufferRef)
+    proc deleteBuffer*(gl: GL, name: BufferRef)
 
     proc bindAttribLocation*(gl: GL, program: ProgramRef, index: GLuint, name: cstring)
     proc enableVertexAttribArray*(gl: GL, attrib: GLuint)
@@ -104,7 +108,7 @@ when defined js:
     proc bindTexture*(gl: GL, target: GLenum, name: TextureRef)
     proc bindFramebuffer*(gl: GL, target: GLenum, name: FramebufferRef)
     proc bindRenderbuffer*(gl: GL, target: GLenum, name: RenderbufferRef)
-    proc bindBuffer*(gl: GL, target: GLenum, name: GLuint)
+    proc bindBuffer*(gl: GL, target: GLenum, name: BufferRef)
 
     proc uniform1fv*(gl: GL, location: UniformLocation, data: openarray[GLfloat])
     proc uniform2fv*(gl: GL, location: UniformLocation, data: openarray[GLfloat])
@@ -149,6 +153,7 @@ else:
         GL* = ref object
         FramebufferRef* = GLuint
         RenderbufferRef* = GLuint
+        BufferRef* = GLuint
         TextureRef* = GLuint
         UniformLocation* = GLint
         ProgramRef* = GLuint
@@ -157,6 +162,7 @@ else:
     const invalidUniformLocation* : UniformLocation = -1
     const invalidProgram* : ProgramRef = 0
     const invalidShader* : ShaderRef = 0
+    const invalidBuffer* : BufferRef = 0
 
     template VERTEX_SHADER*(gl: GL): GLenum = GL_VERTEX_SHADER
     template FRAGMENT_SHADER*(gl: GL): GLenum = GL_FRAGMENT_SHADER
@@ -257,17 +263,14 @@ else:
     proc createRenderbuffer*(gl: GL): GLuint {.inline.} = glGenRenderbuffers(1, addr result)
     proc createBuffer*(gl: GL): GLuint {.inline.} = glGenBuffers(1, addr result)
 
-    proc deleteFramebuffer*(gl: GL, name: GLuint) {.inline.} =
-        var n = name
-        glDeleteFramebuffers(1, addr n)
+    proc deleteFramebuffer*(gl: GL, name: FramebufferRef) {.inline.} =
+        glDeleteFramebuffers(1, unsafeAddr name)
 
-    proc deleteRenderbuffer*(gl: GL, name: GLuint) {.inline.} =
-        var n = name
-        glDeleteRenderbuffers(1, addr n)
+    proc deleteRenderbuffer*(gl: GL, name: RenderbufferRef) {.inline.} =
+        glDeleteRenderbuffers(1, unsafeAddr name)
 
-    proc deleteBuffer*(gl: GL, name: GLuint) {.inline.} =
-        var n = name
-        glDeleteBuffers(1, addr n)
+    proc deleteBuffer*(gl: GL, name: BufferRef) {.inline.} =
+        glDeleteBuffers(1, unsafeAddr name)
 
     template bindAttribLocation*(gl: GL, program: ProgramRef, index: GLuint, name: cstring) = glBindAttribLocation(program, index, name)
     template enableVertexAttribArray*(gl: GL, attrib: GLuint) = glEnableVertexAttribArray(attrib)
@@ -283,7 +286,7 @@ else:
     template bindTexture*(gl: GL, target: GLenum, name: TextureRef) = glBindTexture(target, name)
     template bindFramebuffer*(gl: GL, target: GLenum, name: FramebufferRef) = glBindFramebuffer(target, name)
     template bindRenderbuffer*(gl: GL, target: GLenum, name: RenderbufferRef) = glBindRenderbuffer(target, name)
-    template bindBuffer*(gl: GL, target: GLenum, name: GLuint) = glBindBuffer(target, name)
+    template bindBuffer*(gl: GL, target: GLenum, name: BufferRef) = glBindBuffer(target, name)
 
     template uniform1f*(gl: GL, location: UniformLocation, data: GLfloat) = glUniform1f(location, data)
     template uniform1i*(gl: GL, location: UniformLocation, data: GLint) = glUniform1i(location, data)
