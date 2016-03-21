@@ -19,10 +19,10 @@ method init*(w: Window, frame: Rect) =
     w.window = w
     w.animations = @[]
     w.needsDisplay = true
+    w.mouseOverListeners = @[]
 
 method `title=`*(w: Window, t: string) {.base.} = discard
 method title*(w: Window): string {.base.} = ""
-
 
 method onResize*(w: Window, newSize: Size) {.base.} =
     procCall w.View.setFrameSize(newSize)

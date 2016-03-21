@@ -61,6 +61,7 @@ method init(v: WelcomeView, r: Rect) =
     cc.addGestureDetector(newScrollGestureDetector(lis))
     cc.addGestureDetector(newFlingGestureDetector(flingLis))
     v.addSubview(cc)
+    cc.trackMouseOver(true)
 
 var gradientComposition = newComposition """
 void compose() {
