@@ -31,11 +31,14 @@ type
         gestureDetectors*: seq[GestureDetector]
         touchTarget*: View
         interceptEvents*: bool
+        mouseInside*: bool
+        handleMouseOver: bool
 
     Window* = ref object of View
         firstResponder*: View
         animations*: seq[Animation]
         needsDisplay*: bool
+        mouseOverListeners*: seq[View]
 
 
 
@@ -45,6 +48,30 @@ method init*(v: View, frame: Rect) {.base.} =
     v.subviews = @[]
     v.gestureDetectors = @[]
     v.autoresizingMask = { afFlexibleMaxX, afFlexibleMaxY }
+
+proc addMouseOverListener(w: Window, v: View) =
+    var found = false
+    for i in 0..<w.mouseOverListeners.len():
+        if w.mouseOverListeners[i] == v:
+            found = true
+            break
+    if not found:
+        w.mouseOverListeners.add(v)
+
+proc removeMouseOverListener(w: Window, v: View) =
+    for i in 0..<w.mouseOverListeners.len():
+        if w.mouseOverListeners[i] == v:
+            w.mouseOverListeners.del(i)
+            break
+
+proc trackMouseOver*(v: View, val: bool) =
+    v.handleMouseOver = val
+    if not v.window.isNil:
+        if val:
+            v.window.addMouseOverListener(v)
+        else:
+            v.window.removeMouseOverListener(v)
+
 
 proc addGestureDetector*(v: View, d: GestureDetector) = v.gestureDetectors.add(d)
 
@@ -106,8 +133,14 @@ template isFirstResponder*(v: View): bool =
 ####
 method viewWillMoveToSuperview*(v: View, s: View) {.base.} = discard
 method viewWillMoveToWindow*(v: View, w: Window) {.base.} =
-    if not v.window.isNil and v.window.firstResponder == v and w != v.window:
-        discard v.window.makeFirstResponder(nil)
+    if not v.window.isNil:
+        v.window.removeMouseOverListener(v)
+        if v.window.firstResponder == v and w != v.window:
+            discard v.window.makeFirstResponder(nil)
+
+    if v.handleMouseOver:
+        if not w.isNil:
+            w.addMouseOverListener(v)
 
     for s in v.subviews:
         s.window = v.window
