@@ -12,6 +12,7 @@ type Builder* = ref object
     bundleId* : string
     javaPackageId* : string
     disableClosureCompiler* : bool
+    enableClosureCompilerSourceMap*: bool
 
     androidSdk* : string
     androidNdk* : string
@@ -350,7 +351,7 @@ proc makeAndroidBuildDir(b: Builder): string =
 
 proc jsPostBuild(b: Builder) =
     if not b.disableClosureCompiler:
-        closure_compiler.compileFileAndRewrite(b.buildRoot / "main.js", ADVANCED_OPTIMIZATIONS)
+        closure_compiler.compileFileAndRewrite(b.buildRoot / "main.js", ADVANCED_OPTIMIZATIONS, b.enableClosureCompilerSourceMap)
 
     let sf = splitFile(b.mainFile)
     copyFile(sf.dir / sf.name & ".html", b.buildRoot / "main.html")
