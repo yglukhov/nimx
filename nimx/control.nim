@@ -10,7 +10,7 @@ type Control* = ref object of View
     clickable*: bool
 
 method sendAction*(c: Control, e: Event) {. base .} =
-    if c.actionHandler != nil:
+    if not c.actionHandler.isNil:
         c.actionHandler(e)
 
 proc sendAction*(c: Control) =
@@ -21,8 +21,11 @@ proc onAction*(c: Control, handler: proc(e: Event)) =
     c.actionHandler = handler
 
 proc onAction*(c: Control, handler: proc()) =
-    c.onAction do (e: Event):
-        handler()
+    if handler.isNil:
+        c.actionHandler = nil
+    else:
+        c.onAction do (e: Event):
+            handler()
 
 method onTouchEv*(b: Control, e: var Event): bool =
     discard procCall b.View.onTouchEv(e)
