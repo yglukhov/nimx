@@ -1,11 +1,13 @@
 import nimx.naketools
 import osproc
 
-task "samples", "Build and run samples":
-    let b = newBuilder()
+beforeBuild = proc(b: Builder) =
+    b.disableClosureCompiler = false
     b.mainFile = "test/main"
     b.originalResourcePath = "test/res"
-    b.build()
+
+task "samples", "Build and run samples":
+    newBuilder().build()
 
 task "tests", "Build and run autotests":
     let b = newBuilder()
@@ -14,8 +16,6 @@ task "tests", "Build and run autotests":
         b.runAfterBuild = false
 
     b.additionalNimFlags.add "-d:runAutoTests"
-    b.mainFile = "test/main"
-    b.originalResourcePath = "test/res"
     b.build()
 
     if b.platform == "js":
