@@ -175,7 +175,7 @@ method onTextInput(ccf: ColorComponentTextField, s: string): bool =
 method onTouchEv(cph: ColorPickerH, e: var Event): bool =
     let cpv = ColorPickerView(cph.superView)
 
-    if e.buttonState == bsUp:
+    if e.buttonState == bsUp or true:
         cpv.circle.currentColor.h = e.localPosition.x / cph.frame.width
         procCall cpv.colorHasChanged(cpv.circle.currentColor)
 
@@ -219,7 +219,7 @@ method draw(cps: ColorPickerS, r: Rect) =
 method onTouchEv(cps: ColorPickerS, e: var Event): bool =
     let cpv = ColorPickerView(cps.superView)
 
-    if e.buttonState == bsUp:
+    if e.buttonState == bsUp or true:
         cpv.circle.currentColor.s = e.localPosition.x / cps.frame.width
         cpv.colorHasChanged(cpv.circle.currentColor)
 
@@ -263,7 +263,7 @@ method draw(cpv: ColorPickerV, r: Rect) =
 method onTouchEv(cpva: ColorPickerV, e: var Event): bool =
     let cpv = ColorPickerView(cpva.superView)
 
-    if e.buttonState == bsUp:
+    if e.buttonState == bsUp or true:
         cpv.circle.currentColor.v = e.localPosition.x / cpva.frame.width
         cpv.colorHasChanged(cpv.circle.currentColor)
 
@@ -326,7 +326,7 @@ method draw*(cpc: ColorPickerCircle, r: Rect) =
 
 method onTouchEv*(cpc: ColorPickerCircle, e: var Event): bool =
     ## Choose color
-    if e.buttonState == bsUp:
+    if e.buttonState == bsUp or true:
         let radius = cpc.frame.width / 2.0
         let center = newPoint(cpc.frame.width / 2.0, cpc.frame.height / 2.0)
 
