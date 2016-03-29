@@ -118,4 +118,7 @@ proc getResourceNames*(path: string = ""): seq[string] {.compileTime.} =
 
     for f in oswalkdir.walkDirRec(prefix & path):
         if not isHiddenFile(f):
-            result.add(f.substr(prefix.len))
+            var str = f.substr(prefix.len)
+            when defined(buildOnWindows):
+                str = str.replace('\\', '/')
+            result.add(str)
