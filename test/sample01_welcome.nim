@@ -7,6 +7,7 @@ import nimx.context
 import nimx.composition
 import nimx.button
 import nimx.autotest
+import nimx.linear_layout
 
 import nimx.gesture_detector_newtouch
 import nimx.view_event_handling_new
@@ -62,6 +63,26 @@ method init(v: WelcomeView, r: Rect) =
     cc.addGestureDetector(newFlingGestureDetector(flingLis))
     v.addSubview(cc)
     cc.trackMouseOver(true)
+    var linlay: LinearLayout
+    linlay.new
+    linlay.init(newRect(20, 120, 300, 300))
+    linlay.backgroundColor = newColor(0.0,1.0,0.0,1.0)
+    v.addSubview(linlay)
+    let bt1 = newButton(newRect(0, 0, 100, 50))
+    bt1.layoutParams = newLinearLayoutParams(2)
+    bt1.title = "LAY test button 1"
+    let bt2 = newButton(newRect(0, 60, 100, 50))
+    bt2.layoutParams = newLinearLayoutParams(3)
+    bt2.title = "LAY test button 2"
+    linlay.addSubview(bt1)
+    linlay.addSubview(bt2)
+    linlay.layout()
+    secondTestButton.onAction do():
+        linlay.setFrameSize(newSize(linlay.frame.size.width+20,linlay.frame.size.height))
+        linlay.layout()
+    cc.onAction do():
+        linlay.setFrameSize(newSize(linlay.frame.size.width-20,linlay.frame.size.height))
+        linlay.layout()
 
 var gradientComposition = newComposition """
 void compose() {

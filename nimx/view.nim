@@ -20,6 +20,12 @@ type ClipType* = enum
 type
     GestureDetector* = ref object of RootObj
 
+    LayoutParams* = ref object of RootObj
+        leftMargin* : int
+        topMargin* : int
+        rightMargin* : int
+        bottomMargin* : int
+
     View* = ref object of RootObj
         window*: Window
         frame: Rect
@@ -33,6 +39,7 @@ type
         interceptEvents*: bool
         mouseInside*: bool
         handleMouseOver: bool
+        layoutParams*: LayoutParams
 
     Window* = ref object of View
         firstResponder*: View
@@ -111,6 +118,7 @@ proc convertRectFromWindow*(v: View, r: Rect): Rect =
 method acceptsFirstResponder*(v: View): bool {.base.} = false
 method viewShouldResignFirstResponder*(v, newFirstResponder: View): bool {.base.} = true
 method viewDidBecomeFirstResponder*(v: View) {.base.} = discard
+method layout*(v: View) {.base.} = discard
 
 proc makeFirstResponder*(w: Window, responder: View): bool =
     var shouldChange = true
