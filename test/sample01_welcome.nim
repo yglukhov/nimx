@@ -63,9 +63,7 @@ method init(v: WelcomeView, r: Rect) =
     cc.addGestureDetector(newFlingGestureDetector(flingLis))
     v.addSubview(cc)
     cc.trackMouseOver(true)
-    var linlay: LinearLayout
-    linlay.new
-    linlay.init(newRect(20, 120, 300, 300))
+    var linlay = newLinearLayout(newRect(20, 120, 300, 300), LinearLyoutOrientation.horizontal)
     linlay.backgroundColor = newColor(0.0,1.0,0.0,1.0)
     v.addSubview(linlay)
     let bt1 = newButton(newRect(0, 0, 100, 50))
@@ -78,10 +76,10 @@ method init(v: WelcomeView, r: Rect) =
     linlay.addSubview(bt2)
     linlay.layout()
     secondTestButton.onAction do():
-        linlay.setFrameSize(newSize(linlay.frame.size.width+20,linlay.frame.size.height))
+        linlay.setFrameSize(newSize(linlay.frame.size.width+20,linlay.frame.size.height+20))
         linlay.layout()
     cc.onAction do():
-        linlay.setFrameSize(newSize(linlay.frame.size.width-20,linlay.frame.size.height))
+        linlay.setFrameSize(newSize(linlay.frame.size.width-20,linlay.frame.size.height-20))
         linlay.layout()
 
 var gradientComposition = newComposition """
