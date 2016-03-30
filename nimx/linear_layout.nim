@@ -26,8 +26,10 @@ method layout*(lay: Linearlayout) =
             let params = v.layoutParams
             let mp = LinearLayoutParams(params)
             if not mp.isNil:
+                let viewSize = v.frame.size
+                var newWidth = viewSize.width
+                var newHeight = viewSize.height
                 if mp.weight > 0:
-                    let viewSize = v.frame.size
-                    let newWidth = mysize.width * (mp.weight/weightsum)
-                    v.setFrame(newRect(cur, newSize(newWidth, viewSize.height)))
-                    cur = newPoint(cur.x + newWidth,cur.y)
+                    newWidth = mysize.width * (mp.weight/weightsum)
+                v.setFrame(newRect(cur, newSize(newWidth, newHeight)))
+                cur = newPoint(cur.x + newWidth,cur.y)

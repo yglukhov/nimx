@@ -69,7 +69,7 @@ method init(v: WelcomeView, r: Rect) =
     linlay.backgroundColor = newColor(0.0,1.0,0.0,1.0)
     v.addSubview(linlay)
     let bt1 = newButton(newRect(0, 0, 100, 50))
-    bt1.layoutParams = newLinearLayoutParams(2)
+    bt1.layoutParams = newLinearLayoutParams(1)
     bt1.title = "LAY test button 1"
     let bt2 = newButton(newRect(0, 60, 100, 50))
     bt2.layoutParams = newLinearLayoutParams(3)
