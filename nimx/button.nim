@@ -294,3 +294,23 @@ method onTouchEv(b: Button, e: var Event): bool =
                 b.value = toggleValue(b.value)
             b.sendAction(e)
     result = true
+
+method measure*(b: Button, mWidth, mHeight: int) =
+    var w,h : int
+    case b.layoutParams.width
+    of WRAP_CONTENT:
+        w = b.title.len*10
+    of MATCH_PARENT:
+        w = mWidth
+    else:
+        w = b.layoutParams.width
+    case b.layoutParams.height
+    of WRAP_CONTENT:
+        h = 40
+    of MATCH_PARENT:
+        h = mHeight
+    else:
+        h = b.layoutParams.height
+    b.measuredWidth = w
+    b.measuredHeight = h
+    echo "measure set to ",w," X ",h,"  ",mWidth

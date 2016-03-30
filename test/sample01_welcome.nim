@@ -64,22 +64,28 @@ method init(v: WelcomeView, r: Rect) =
     v.addSubview(cc)
     cc.trackMouseOver(true)
     var linlay = newLinearLayout(newRect(20, 120, 300, 300), LinearLyoutOrientation.horizontal)
+    linlay.layoutParams = newLinearLayoutParams(0,WRAP_CONTENT,WRAP_CONTENT)
     linlay.backgroundColor = newColor(0.0,1.0,0.0,1.0)
     v.addSubview(linlay)
     let bt1 = newButton(newRect(0, 0, 100, 50))
-    bt1.layoutParams = newLinearLayoutParams(1)
+    bt1.layoutParams = newLinearLayoutParams(WRAP_CONTENT,WRAP_CONTENT)
+    bt1.layoutParams.layoutGravity = LayoutGravity.lgBottom
     bt1.title = "LAY test button 1"
     let bt2 = newButton(newRect(0, 60, 100, 50))
-    bt2.layoutParams = newLinearLayoutParams(3)
-    bt2.title = "LAY test button 2"
+    bt2.layoutParams = newLinearLayoutParams(MATCH_PARENT,WRAP_CONTENT)
+    bt2.title = "LAY test button 2 brrrr"
     linlay.addSubview(bt1)
     linlay.addSubview(bt2)
     linlay.layout()
     secondTestButton.onAction do():
-        linlay.setFrameSize(newSize(linlay.frame.size.width+20,linlay.frame.size.height+20))
+        let nsize = newSize(linlay.frame.size.width+20,linlay.frame.size.height+20)
+        linlay.setFrameSize(nsize)
+        linlay.measure(int(nsize.width),int(nsize.height))
         linlay.layout()
     cc.onAction do():
-        linlay.setFrameSize(newSize(linlay.frame.size.width-20,linlay.frame.size.height-20))
+        let nsize = newSize(linlay.frame.size.width-20,linlay.frame.size.height-20)
+        linlay.setFrameSize(nsize)
+        linlay.measure(int(nsize.width),int(nsize.height))
         linlay.layout()
 
 var gradientComposition = newComposition """

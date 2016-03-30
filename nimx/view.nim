@@ -17,14 +17,30 @@ type ClipType* = enum
     ctNone
     ctDefaultClip
 
+type LayoutGravity* = enum
+    lgDefault
+    lgLeft
+    lgRight
+    lgTop
+    lgBottom
+    lgCenterVertical
+    lgCenterHorizontal
+
+const
+    WRAP_CONTENT* = -1
+    MATCH_PARENT* = -2
+
 type
     GestureDetector* = ref object of RootObj
 
     LayoutParams* = ref object of RootObj
+        width*: int
+        height*: int
         leftMargin* : int
         topMargin* : int
         rightMargin* : int
         bottomMargin* : int
+        layoutGravity*: LayoutGravity
 
     View* = ref object of RootObj
         window*: Window
@@ -40,14 +56,14 @@ type
         mouseInside*: bool
         handleMouseOver: bool
         layoutParams*: LayoutParams
+        measuredWidth*: int
+        measuredHeight*: int
 
     Window* = ref object of View
         firstResponder*: View
         animations*: seq[Animation]
         needsDisplay*: bool
         mouseOverListeners*: seq[View]
-
-
 
 method init*(v: View, frame: Rect) {.base.} =
     v.frame = frame
@@ -119,6 +135,9 @@ method acceptsFirstResponder*(v: View): bool {.base.} = false
 method viewShouldResignFirstResponder*(v, newFirstResponder: View): bool {.base.} = true
 method viewDidBecomeFirstResponder*(v: View) {.base.} = discard
 method layout*(v: View) {.base.} = discard
+method measure*(v: View, mWidth, mHeight: int) {.base.} =
+    v.measuredWidth = int(v.frame.size.width)
+    v.measuredHeight = int(v.frame.size.height)
 
 proc makeFirstResponder*(w: Window, responder: View): bool =
     var shouldChange = true
