@@ -19,14 +19,11 @@ method onTouchEv*(v: View, e: var Event): bool {.base.} =
         if e.buttonState == bsDown:
             if v.acceptsFirstResponder:
                 discard v.makeFirstResponder()
-    # echo v.name(), " onTouchEv ",e.buttonState," ",e.localPosition
 
 method onInterceptTouchEv*(v: View, e: var Event): bool {.base.} =
-    # echo v.name(), " onInterceptTouchEv ",e.localPosition
     discard
 
 proc isMainWindow(v: View, e : var Event): bool =
-    # echo v.superview.isNil
     result = v == e.window
 
 proc processTouchEvent*(v: View, e : var Event): bool
@@ -34,15 +31,12 @@ proc processTouchEvent*(v: View, e : var Event): bool
 var pointers = 0
 
 method onMouseIn*(v: View, e: var Event) {.base.} =
-    # echo "enter inside"
     discard
 
 method onMouseOver*(v: View, e: var Event) {.base.} =
-    # echo "move inside ", e.localPosition
     discard
 
 method onMouseOut*(v: View, e: var Event) {.base.} =
-    # echo "left out"
     discard
 
 proc handleMouseOverEvent(v: View, e : var Event) =
@@ -69,11 +63,9 @@ proc processOnlyTouchEvents(v: View, e : var Event): bool =
             v.interceptEvents = false
             v.touchTarget = nil
             if v.subviews.isNil or v.subviews.len == 0:
-                # echo v.name()," subs is nil"
                 result = v.onTouchEv(e)
             else:
                 if v.onInterceptTouchEv(e):
-                    # echo v.name()," intercepted events"
                     v.interceptEvents = true
                     result = v.onTouchEv(e)
                 else:
@@ -81,8 +73,6 @@ proc processOnlyTouchEvents(v: View, e : var Event): bool =
                     for i in countdown(v.subviews.len - 1, 0):
                         let s = v.subviews[i]
                         e.localPosition = localPosition - s.frame.origin + s.bounds.origin
-                        # echo "local position = ",e.localPosition
-                        # echo s.name()," s.bounds is :",s.bounds," frame is ",s.frame
                         if e.localPosition.inRect(s.bounds):
                             result = s.processTouchEvent(e)
                             if result:
@@ -123,18 +113,14 @@ proc processOnlyTouchEvents(v: View, e : var Event): bool =
         if v.isMainWindow(e):
             pointers = pointers - 1
         if pointers == 0:
-            # echo "Last UP"
             v.touchTarget = nil
             v.interceptEvents = false
 
 proc processMouseWheelPrivate(v: View, e : var Event): bool =
-    # echo "scroll ", e.position, " ",e.buttonState," ",e.offset
     let localPosition = e.localPosition
     for i in countdown(v.subviews.len - 1, 0):
         let s = v.subviews[i]
         e.localPosition = localPosition - s.frame.origin + s.bounds.origin
-        # echo "local position = ",e.localPosition
-        # echo s.name()," s.bounds is :",s.bounds," frame is ",s.frame
         if e.localPosition.inRect(s.bounds):
             result = s.processTouchEvent(e)
             if result:
@@ -144,7 +130,6 @@ proc processMouseWheelPrivate(v: View, e : var Event): bool =
         result = v.onScroll(e)
 
 proc processTouchEvent*(v: View, e : var Event): bool =
-    # echo "kind ", e.kind, " buttonstate ", e.buttonState
     case e.kind
     of etScroll:
         result = processMouseWheelPrivate(v,e)

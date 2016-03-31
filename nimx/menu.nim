@@ -40,40 +40,39 @@ proc newViewWithMenuItems(items: seq[MenuItem]): MenuView =
         result.addSubview(cell)
         yOff += menuItemHeight
 
-proc startTrackingMouse(v: MenuView) =
-    var currentMenuView = v
-    var highlightedRow = -1
-    mainApplication().pushEventFilter do(e: var Event, c: var EventFilterControl) -> bool:
-        result = true
-        if e.isPointingEvent():
-            e.localPosition = currentMenuView.convertPointFromWindow(e.position)
-            var newHighlightedRow = -1
-            if e.localPosition.inRect(currentMenuView.bounds):
-                newHighlightedRow = int(e.localPosition.y / menuItemHeight)
-            if newHighlightedRow != highlightedRow:
-                if highlightedRow >= 0 and highlightedRow < currentMenuView.subviews.len:
-                    TableViewCell(currentMenuView.subviews[highlightedRow]).selected = false
-                if newHighlightedRow >= 0 and newHighlightedRow < currentMenuView.subviews.len:
-                    TableViewCell(currentMenuView.subviews[newHighlightedRow]).selected = true
-                currentMenuView.setNeedsDisplay()
-                highlightedRow = newHighlightedRow
-
-            if e.isButtonDownEvent():
-                if highlightedRow >= 0 and highlightedRow < currentMenuView.subviews.len:
-                    let item = currentMenuView.menuItems[highlightedRow]
-                    if not item.action.isNil:
-                        item.action()
-                currentMenuView.removeFromSuperview()
-                c = efcBreak
-
 method draw(v: MenuView, r: Rect) =
     let c = currentContext()
     c.fillColor = newGrayColor(0.7)
     c.strokeWidth = 0
     c.drawRoundedRect(v.bounds, 5)
 
+method onMouseOver(v: MenuView, e: var Event) =
+    let highlightedRow = int(e.localPosition.y / menuItemHeight)
+    for sv in v.subviews:
+        TableViewCell(sv).selected = false
+    if highlightedRow >= 0 and highlightedRow < v.subviews.len:
+        TableViewCell(v.subviews[highlightedRow]).selected = true
+
+    v.setNeedsDisplay()
+
+method onTouchEv(mv: MenuView, e: var Event): bool =
+    if e.buttonState == bsDown:
+        mv.trackMouseOver(false)
+        var selected: int = 0
+        for sv in mv.subviews:
+            if not TableViewCell(sv).selected:
+                inc(selected)
+            else:
+                break
+        if selected < mv.subviews.len():
+            let item = mv.menuItems[selected]
+            if not item.action.isNil:
+                item.action()
+        mv.removeFromSuperview()
+    return true
+
 proc popupAtPoint*(m: Menu, v: View, p: Point) =
     let mv = newViewWithMenuItems(m.items)
     mv.setFrameOrigin(v.convertPointToWindow(p))
     v.window.addSubview(mv)
-    mv.startTrackingMouse()
+    mv.trackMouseOver(true)

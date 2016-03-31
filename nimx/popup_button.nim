@@ -84,13 +84,6 @@ method draw(b: PopupButton, r: Rect) =
     let font = systemFont()
     c.drawText(font, newPoint(4, b.bounds.y + (b.bounds.height - font.size) / 2), b.mItems[b.mSelectedItem].title)
 
-method onMouseDown(b: PopupButton, e: var Event): bool =
-    result = true
-    var menu : Menu
-    menu.new()
-    menu.items = b.mItems
-    menu.popupAtPoint(b, newPoint(0, -b.mSelectedItem.Coord * 20.0))
-
 method onTouchEv(b: PopupButton, e: var Event): bool =
     result = true
     case e.buttonState

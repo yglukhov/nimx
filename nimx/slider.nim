@@ -64,33 +64,6 @@ template value*(s: Slider): Coord = s.mValue
 
 template isHorizontal*(s: Slider): bool = s.bounds.width > s.bounds.height
 
-method onMouseDown(s: Slider, e: var Event): bool =
-    result = true
-
-    if s.isHorizontal:
-        s.value = e.localPosition.x / s.bounds.width
-    else:
-        s.value = e.localPosition.y / s.bounds.height
-
-    mainApplication().pushEventFilter do(e: var Event, c: var EventFilterControl) -> bool:
-        result = true
-        if e.kind == etMouse:
-            e.localPosition = s.convertPointFromWindow(e.position)
-            if e.isButtonUpEvent():
-                c = efcBreak
-                result = s.onMouseUp(e)
-            elif e.isMouseMoveEvent():
-                if s.isHorizontal:
-                    s.value = e.localPosition.x / s.bounds.width
-                else:
-                    s.value = e.localPosition.y / s.bounds.height
-                s.setNeedsDisplay()
-                s.sendAction(e)
-
-method onMouseUp(s: Slider, e: var Event): bool =
-    result = true
-    s.sendAction(e)
-
 method onTouchEv(s: Slider, e: var Event): bool =
     result = true
     discard procCall s.View.onTouchEv(e)
