@@ -164,7 +164,7 @@ method onGestEvent*(d: ScrollDetector, e: var Event) : bool =
     if e.buttonState == bsDown:
         d.pointers.add(e)
         d.checkScroll(e)
-    if e.buttonState == bsUp:
+    elif e.buttonState == bsUp:
         for p in 0..< d.pointers.len:
             if d.pointers[p].pointerId == e.pointerId:
                 d.pointers.delete(p)
@@ -172,7 +172,7 @@ method onGestEvent*(d: ScrollDetector, e: var Event) : bool =
         if d.pointers.len < 1:
             result = false
         d.checkScroll(e)
-    if e.buttonState == bsUnknown:
+    elif e.buttonState == bsUnknown:
         for p in 0..< d.pointers.len:
             if d.pointers[p].pointerId == e.pointerId:
                 d.pointers.delete(p)

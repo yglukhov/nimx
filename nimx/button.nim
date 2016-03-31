@@ -232,25 +232,6 @@ method sendAction*(b: Button, e: Event) =
     if b.enabled:
         proccall Control(b).sendAction(e)
 
-method onMouseDown(b: Button, e: var Event): bool =
-    result = true
-    b.setState(bsDown)
-    if b.behavior == bbMomentaryLight:
-        b.value = 1
-
-    mainApplication().pushEventFilter do(e: var Event, c: var EventFilterControl) -> bool:
-        result = true
-        if e.isPointingEvent():
-            e.localPosition = b.convertPointFromWindow(e.position)
-            if e.isButtonUpEvent():
-                c = efcBreak
-                result = b.onMouseUp(e)
-            elif e.isMouseMoveEvent():
-                if e.localPosition.inRect(b.bounds):
-                    b.setState(bsDown)
-                else:
-                    b.setState(bsUp)
-
 template boolValue*(b: Button): bool = bool(b.value)
 
 template toggleValue(v: int8): int8 =
@@ -258,17 +239,6 @@ template toggleValue(v: int8): int8 =
         1
     else:
         0
-
-method onMouseUp(b: Button, e: var Event): bool =
-    result = true
-    b.setState(bsUp)
-    if b.behavior == bbMomentaryLight:
-        b.value = 0
-
-    if e.localPosition.inRect(b.bounds):
-        if b.behavior == bbToggle:
-            b.value = toggleValue(b.value)
-        b.sendAction(e)
 
 method name(b: Button): string =
     result = "Button"

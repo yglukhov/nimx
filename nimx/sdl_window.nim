@@ -28,7 +28,6 @@ proc initSDLIfNeeded() =
             discard glSetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, 0x0004)
             discard glSetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2)
 
-
 type SdlWindow* = ref object of Window
     impl: WindowPtr
     sdlGlContext: GlContextPtr
@@ -168,6 +167,12 @@ proc eventWithSDLEvent(event: ptr sdl2.Event): Event =
                     discard
 
         of MouseButtonDown, MouseButtonUp:
+            when not defined(ios) and not defined(android): 
+                if event.kind == MouseButtonDown:
+                    discard sdl2.captureMouse(True32)
+                else:
+                    discard sdl2.captureMouse(False32)
+
             let mouseEv = cast[MouseButtonEventPtr](event)
             if mouseEv.which != SDL_TOUCH_MOUSEID:
                 let wnd = windowFromSDLEvent(mouseEv)
@@ -289,7 +294,6 @@ proc nextEvent(evt: var sdl2.Event) =
         elif waitEvent(evt):
             discard handleEvent(addr evt)
             doPoll = evt.kind != QuitEvent
-
         # TODO: This should be researched more carefully.
         # During animations we need to process more than one event
         if doPoll:
