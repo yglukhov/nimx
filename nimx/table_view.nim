@@ -239,26 +239,6 @@ proc selectRow*(t: TableView, row: int) =
         t.onSelectionChange()
     t.setNeedsDisplay()
 
-method onMouseDown(b: TableView, e: var Event): bool =
-    if b.selectionMode == smSingleSelection:
-        var rows : array[1, int]
-        let initialPos = e.localPosition
-        b.getRowsAtHeights([initialPos.y], rows)
-        if rows[0] != -1:
-            let initiallyClickedRow = rows[0]
-            mainApplication().pushEventFilter do(e: var Event, c: var EventFilterControl) -> bool:
-                if e.isPointingEvent():
-                    result = true
-                    if e.isButtonUpEvent():
-                        b.selectRow(rows[0])
-                        c = efcBreak
-                    elif e.isMouseMoveEvent():
-                        e.localPosition = b.convertPointFromWindow(e.position)
-                        var newRows: array[1, int]
-                        b.getRowsAtHeights([e.localPosition.y], newRows)
-                        if newRows[0] != initiallyClickedRow:
-                            c = efcBreak
-
 method onTouchEv(b: TableView, e: var Event): bool =
     result = true
     case e.buttonState

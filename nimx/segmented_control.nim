@@ -117,39 +117,6 @@ proc segmentAtPoint(s: SegmentedControl, p: Point, r: var Rect): int =
         r.origin.x += r.size.width
     return -1
 
-method onMouseDown(s: SegmentedControl, e: var Event): bool =
-    result = true
-    var clickedSegmentRect: Rect
-    let clickedSegment = s.segmentAtPoint(e.localPosition, clickedSegmentRect)
-    if clickedSegment >= 0:
-        s.trackedSegment = clickedSegment
-        s.trackedSegmentOffset = clickedSegmentRect.x
-        s.setNeedsDisplay()
-
-    mainApplication().pushEventFilter do(e: var Event, c: var EventFilterControl) -> bool:
-        result = true
-        if e.kind == etMouse:
-            e.localPosition = s.convertPointFromWindow(e.position)
-            if e.isButtonUpEvent():
-                c = efcBreak
-                result = s.onMouseUp(e)
-            elif e.isMouseMoveEvent():
-                if e.localPosition.inRect(clickedSegmentRect):
-                    s.trackedSegment = clickedSegment
-                    s.trackedSegmentOffset = clickedSegmentRect.x
-                else:
-                    s.trackedSegment = s.mSelectedSegment
-                    s.trackedSegmentOffset = s.selectedSegmentOffset
-                s.setNeedsDisplay()
-
-method onMouseUp(s: SegmentedControl, e: var Event): bool =
-    result = true
-    if s.trackedSegment >= 0:
-        s.mSelectedSegment = s.trackedSegment
-        s.selectedSegmentOffset = s.trackedSegmentOffset
-        s.setNeedsDisplay()
-        s.sendAction(e)
-
 method setBoundsSize*(v: SegmentedControl, s: Size) =
     procCall v.Control.setBoundsSize(s)
     v.widthsValid = false
