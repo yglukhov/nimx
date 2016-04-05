@@ -106,6 +106,36 @@ proc hsvToRGB(h: float, s: float, v: float): Color =
         else:
             return newColor(v, c1, c2)
 
+proc rgbToHSV*(r: float, g: float, b: float): tuple[h: float, s: float, v: float] =
+    var max = r
+    if (max < g): max = g
+    if (max < b): max = b
+    var min = r
+    if (min > g): min = g
+    if (min > b): min = b
+
+    result.h = 0.0
+
+    if (max == min):
+        return result
+    elif (max == r):
+        result.h = 60.0 * (g - b) / (max - min)
+        if (result.h < 0.0): result.h += 360.0
+        if (result.h >= 360.0): result.h -= 360.0
+    elif (max == g):
+        result.h = 60.0 * (b - r) / (max - min) + 120.0
+    elif (max == b):
+        result.h = 60.0 * (r - g) / (max - min) + 240.0
+
+    result.h /= 360.0
+
+    if (max == 0): result.s = 0.0
+    else: result.s = 1.0 - (min / max)
+
+    result.v = max
+
+    return result
+
 proc hsvToRgb(color: tuple[h: float, s: float, v: float]): Color =
     hsvToRgb(color.h, color.s, color.v)
 
@@ -142,7 +172,7 @@ method draw(cph: ColorPickerH, r: Rect) =
     cpHComposition.draw r:
         setUniform("uChosenH", cc.h)
 
-proc colorHasChanged(cpv: ColorPickerView, newColor: tuple[h: float, s: float, v: float]) =
+proc colorHasChanged*(cpv: ColorPickerView, newColor: tuple[h: float, s: float, v: float]) =
     ## Perform update of ColorPickerView components
     cpv.tfH.text = formatFloat(newColor.h, precision = 3)
     cpv.tfS.text = formatFloat(newColor.s, precision = 3)
