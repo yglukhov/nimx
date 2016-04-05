@@ -206,8 +206,13 @@ method onTouchEv(cph: ColorPickerH, e: var Event): bool =
     let cpv = ColorPickerView(cph.superView)
 
     if e.buttonState == bsUp or true:
-        cpv.circle.currentColor.h = e.localPosition.x / cph.frame.width
-        procCall cpv.colorHasChanged(cpv.circle.currentColor)
+        let h = e.localPosition.x / cph.frame.width
+        if h >= 0 and h <= 1:
+            cpv.circle.currentColor.h = h
+            procCall cpv.colorHasChanged(cpv.circle.currentColor)
+
+            if not isNil(cpv.onColorSelected):
+                cpv.onColorSelected(hsvToRGB(cpv.circle.currentColor.h, cpv.circle.currentColor.s, cpv.circle.currentColor.v))
 
     return true
 
@@ -250,8 +255,13 @@ method onTouchEv(cps: ColorPickerS, e: var Event): bool =
     let cpv = ColorPickerView(cps.superView)
 
     if e.buttonState == bsUp or true:
-        cpv.circle.currentColor.s = e.localPosition.x / cps.frame.width
-        cpv.colorHasChanged(cpv.circle.currentColor)
+        let s = e.localPosition.x / cps.frame.width
+        if s >= 0 and s <= 1:
+            cpv.circle.currentColor.s = s
+            cpv.colorHasChanged(cpv.circle.currentColor)
+
+            if not isNil(cpv.onColorSelected):
+                cpv.onColorSelected(hsvToRGB(cpv.circle.currentColor.h, cpv.circle.currentColor.s, cpv.circle.currentColor.v))
 
     return true
 
@@ -294,8 +304,13 @@ method onTouchEv(cpva: ColorPickerV, e: var Event): bool =
     let cpv = ColorPickerView(cpva.superView)
 
     if e.buttonState == bsUp or true:
-        cpv.circle.currentColor.v = e.localPosition.x / cpva.frame.width
-        cpv.colorHasChanged(cpv.circle.currentColor)
+        let v = e.localPosition.x / cpva.frame.width
+        if v >= 0 and v <= 1:
+            cpv.circle.currentColor.v = v
+            cpv.colorHasChanged(cpv.circle.currentColor)
+
+            if not isNil(cpv.onColorSelected):
+                cpv.onColorSelected(hsvToRGB(cpv.circle.currentColor.h, cpv.circle.currentColor.s, cpv.circle.currentColor.v))
 
     return true
 
@@ -367,6 +382,10 @@ method onTouchEv*(cpc: ColorPickerCircle, e: var Event): bool =
         if s < 1.0 and s > 0.5:
             cpc.currentColor = (h, s, v)
             ColorPickerView(cpc.superview).colorHasChanged(cpc.currentColor)
+
+        let cpv = ColorPickerView(cpc.superView)
+        if not isNil(cpv.onColorSelected):
+            cpv.onColorSelected(hsvToRGB(cpv.circle.currentColor.h, cpv.circle.currentColor.s, cpv.circle.currentColor.v))
 
     return true
 
