@@ -206,13 +206,13 @@ method onTouchEv(cph: ColorPickerH, e: var Event): bool =
     let cpv = ColorPickerView(cph.superView)
 
     if e.buttonState == bsUp or true:
-        let h = e.localPosition.x / cph.frame.width
-        if h >= 0 and h <= 1:
-            cpv.circle.currentColor.h = h
-            procCall cpv.colorHasChanged(cpv.circle.currentColor)
+        var h = e.localPosition.x / cph.frame.width
+        h = h.clamp(0.0, 1.0)
+        cpv.circle.currentColor.h = h
+        procCall cpv.colorHasChanged(cpv.circle.currentColor)
 
-            if not isNil(cpv.onColorSelected):
-                cpv.onColorSelected(hsvToRGB(cpv.circle.currentColor.h, cpv.circle.currentColor.s, cpv.circle.currentColor.v))
+        if not isNil(cpv.onColorSelected):
+            cpv.onColorSelected(hsvToRGB(cpv.circle.currentColor.h, cpv.circle.currentColor.s, cpv.circle.currentColor.v))
 
     return true
 
@@ -255,13 +255,13 @@ method onTouchEv(cps: ColorPickerS, e: var Event): bool =
     let cpv = ColorPickerView(cps.superView)
 
     if e.buttonState == bsUp or true:
-        let s = e.localPosition.x / cps.frame.width
-        if s >= 0 and s <= 1:
-            cpv.circle.currentColor.s = s
-            cpv.colorHasChanged(cpv.circle.currentColor)
+        var s = e.localPosition.x / cps.frame.width
+        s = s.clamp(0.0, 1.0)
+        cpv.circle.currentColor.s = s
+        cpv.colorHasChanged(cpv.circle.currentColor)
 
-            if not isNil(cpv.onColorSelected):
-                cpv.onColorSelected(hsvToRGB(cpv.circle.currentColor.h, cpv.circle.currentColor.s, cpv.circle.currentColor.v))
+        if not isNil(cpv.onColorSelected):
+            cpv.onColorSelected(hsvToRGB(cpv.circle.currentColor.h, cpv.circle.currentColor.s, cpv.circle.currentColor.v))
 
     return true
 
@@ -304,13 +304,13 @@ method onTouchEv(cpva: ColorPickerV, e: var Event): bool =
     let cpv = ColorPickerView(cpva.superView)
 
     if e.buttonState == bsUp or true:
-        let v = e.localPosition.x / cpva.frame.width
-        if v >= 0 and v <= 1:
-            cpv.circle.currentColor.v = v
-            cpv.colorHasChanged(cpv.circle.currentColor)
+        var v = (e.localPosition.x / cpva.frame.width).clamp(0.0, 1.0)
+        v = v.clamp(0.0, 1.0)
+        cpv.circle.currentColor.v = v
+        cpv.colorHasChanged(cpv.circle.currentColor)
 
-            if not isNil(cpv.onColorSelected):
-                cpv.onColorSelected(hsvToRGB(cpv.circle.currentColor.h, cpv.circle.currentColor.s, cpv.circle.currentColor.v))
+        if not isNil(cpv.onColorSelected):
+            cpv.onColorSelected(hsvToRGB(cpv.circle.currentColor.h, cpv.circle.currentColor.s, cpv.circle.currentColor.v))
 
     return true
 
