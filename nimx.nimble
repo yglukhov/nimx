@@ -7,7 +7,7 @@ license     = "BSD"
 
 # Directory configuration
 
-skipDirs    = @["test/build"]
+skipDirs    = @["test/build", "build"]
 
 # Dependencies
 
