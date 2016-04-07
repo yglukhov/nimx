@@ -32,7 +32,7 @@ when defined js:
             VERTEX_SHADER* : GLenum
             FRAGMENT_SHADER* : GLenum
             TEXTURE_2D* : GLenum
-            ONE_MINUS_SRC_ALPHA*, ONE_MINUS_DST_ALPHA*, SRC_ALPHA*, DST_ALPHA*, ONE*, DST_COLOR : GLenum
+            ONE_MINUS_SRC_ALPHA*, ONE_MINUS_DST_ALPHA*, SRC_ALPHA*, DST_ALPHA*, ONE*, DST_COLOR* : GLenum
             BLEND* : GLenum
             TRIANGLES*, TRIANGLE_FAN*, TRIANGLE_STRIP, LINES* : GLenum
             COLOR_BUFFER_BIT*: int
