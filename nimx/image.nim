@@ -333,7 +333,8 @@ proc writeToPNGFile*(i: Image, path: string) = i.writeToFile(path, png)
 proc writeToTGAFile*(i: Image, path: string) = i.writeToFile(path, tga)
 #proc writeToHDRFile*(i: Image, path: string) = i.writeToFile(path, hdr) # Crashes...
 
-const asyncResourceLoad = not defined(js) and not defined(android)
+const asyncResourceLoad = not defined(js) and not defined(android) and not defined(ios) and
+    not defined(emscripten)
 
 when asyncResourceLoad:
     import threadpool, sdl_perform_on_main_thread, sdl2

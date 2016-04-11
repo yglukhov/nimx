@@ -350,7 +350,7 @@ proc makeAndroidBuildDir(b: Builder): string =
     buildDir
 
 proc jsPostBuild(b: Builder) =
-    if not b.disableClosureCompiler:
+    if not b.disableClosureCompiler and b.platform == "js":
         closure_compiler.compileFileAndRewrite(b.buildRoot / "main.js", ADVANCED_OPTIMIZATIONS, b.enableClosureCompilerSourceMap)
 
     let sf = splitFile(b.mainFile)
@@ -449,15 +449,21 @@ proc build*(b: Builder) =
     of "windows":
         b.executablePath &= ".exe"
         b.makeWindowsResource()
+    of "emscripten":
+        b.executablePath = b.buildRoot / "main.js"
+        b.nimFlags.add(["--cpu:i386", "-d:emscripten", "--os:linux", "--cc:clang",
+            "--clang.exe=emcc", "--clang.linkerexe=emcc", "-d:SDL_Static"])
+        b.compilerFlags.add(["--preload-file", b.resourcePath])
     else: discard
 
-    if b.platform != "js":
+    if b.platform != "js" and b.platform != "emscripten":
         b.nimFlags.add("--threads:on")
         if b.platform != "windows":
             b.linkerFlags.add("-lSDL2")
 
     if b.runAfterBuild and b.platform != "android" and b.platform != "ios" and
-            b.platform != "ios-sim" and b.platform != "js":
+            b.platform != "ios-sim" and b.platform != "js" and
+            b.platform != "emscripten":
         b.nimFlags.add("--run")
 
     b.nimFlags.add(["--warning[LockLevel]:off", "--verbosity:" & $b.nimVerbosity,
@@ -498,7 +504,7 @@ proc build*(b: Builder) =
     args.add b.mainFile
     direShell args
 
-    if b.platform == "js":
+    if b.platform == "js" or b.platform == "emscripten":
         b.jsPostBuild()
     elif b.platform == "ios":
         if not b.codesignIdentity.isNil:
@@ -576,3 +582,6 @@ task "droid-debug", "Start application on Android device and connect with debugg
 
 task "js", "Create Javascript version and run in browser.":
     newBuilder("js").build()
+
+task "emscripten", "Create emscripten version and run in browser.":
+    newBuilder("emscripten").build()

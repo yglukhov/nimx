@@ -130,7 +130,7 @@ proc createQuadIndexBuffer(c: GraphicsContext) =
 proc newGraphicsContext*(canvas: ref RootObj = nil): GraphicsContext =
     result.new()
     result.gl = newGL(canvas)
-    when not defined(ios) and not defined(android) and not defined(js):
+    when not defined(ios) and not defined(android) and not defined(js) and not defined(emscripten):
         loadExtensions()
 
     #result.testPolyShaderProgram = result.gl.newShaderProgram(testPolygonVertexShader, testPolygonFragmentShader)
