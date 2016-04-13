@@ -1,11 +1,15 @@
 import strutils
 
 # Support logging on iOS and android
-when defined(JS):
+when defined(js):
     proc js_console_log(a: cstring) {.importc: "console.log".}
 
     proc logi*(a: varargs[string, `$`]) =
         js_console_log(a.join())
+elif defined(emscripten):
+    proc emscripten_log(flags: cint, fmt: cstring) {.importc, varargs.}
+    proc logi*(a: varargs[string, `$`]) =
+        emscripten_log(0, "%s", cstring(a.join()))
 elif defined(macosx) or defined(ios):
     {.passL:"-framework Foundation"}
     {.emit: """

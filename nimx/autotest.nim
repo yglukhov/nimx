@@ -3,6 +3,7 @@ import nimx.timer
 import nimx.app
 import nimx.event
 import nimx.abstract_window
+import nimx.button
 import nimx.system_logger
 
 type UITestSuiteStep* = tuple
@@ -60,6 +61,17 @@ when true:
 
     proc sendMouseDownEvent*(wnd: Window, p: Point) = sendMouseEvent(wnd, p, bsDown)
     proc sendMouseUpEvent*(wnd: Window, p: Point) = sendMouseEvent(wnd, p, bsUp)
+
+    proc findButtonWithTitle*(v: View, t: string): Button =
+        try:
+            result = Button(v)
+        except:
+            discard
+        if result.isNil or result.title != t:
+            if not v.subviews.isNil:
+                for s in v.subviews:
+                    result = findButtonWithTitle(s, t)
+                    if not result.isNil: break
 
     proc quitApplication*() =
         when defined(js):
