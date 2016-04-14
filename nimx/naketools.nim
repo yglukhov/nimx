@@ -182,9 +182,12 @@ proc convertResource*(b: Builder, origPath, destExtension: string, conv : proc(f
         createDir(parentDir(dp))
         conv(op, dp)
 
-proc forEachResource*(b: Builder, p: proc(path: string)) =
+iterator allResources*(b: Builder): string =
     for i in walkDirRec(b.originalResourcePath):
-        p(i.substr(b.originalResourcePath.len + 1))
+        yield i.substr(b.originalResourcePath.len + 1)
+
+proc forEachResource*(b: Builder, p: proc(path: string)) =
+    for i in b.allResources: p(i)
 
 proc copyResources*(b: Builder) =
     copyDir(b.originalResourcePath, b.resourcePath)
