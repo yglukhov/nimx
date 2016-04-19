@@ -78,6 +78,8 @@ when true:
             # Hopefully we're using nimx automated testing in Firefox
             dump("---AUTO-TEST-QUIT---")
         else:
+            when defined(android):
+                logi "---AUTO-TEST-QUIT---"
             quit()
 
     template waitUntil*(e: bool): stmt =

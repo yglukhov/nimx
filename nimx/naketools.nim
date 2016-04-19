@@ -182,9 +182,12 @@ proc convertResource*(b: Builder, origPath, destExtension: string, conv : proc(f
         createDir(parentDir(dp))
         conv(op, dp)
 
-proc forEachResource*(b: Builder, p: proc(path: string)) =
+iterator allResources*(b: Builder): string =
     for i in walkDirRec(b.originalResourcePath):
-        p(i.substr(b.originalResourcePath.len + 1))
+        yield i.substr(b.originalResourcePath.len + 1)
+
+proc forEachResource*(b: Builder, p: proc(path: string)) =
+    for i in b.allResources: p(i)
 
 proc copyResources*(b: Builder) =
     copyDir(b.originalResourcePath, b.resourcePath)
@@ -539,6 +542,61 @@ proc runAutotestsInFirefox*(pathToMainHTML: string) =
 proc runAutotestsInFirefox*(b: Builder) =
     runAutotestsInFirefox(b.buildRoot / "main.html")
 
+proc getConnectedAndroidDevices*(b: Builder): seq[string] =
+    let adb = expandTilde(b.androidSdk/"platform-tools/adb")
+    let logcat = startProcess(adb, args = ["devices"])
+    let so = logcat.outputStream
+    var line = ""
+    var i = 0
+    result = @[]
+    while so.readLine(line):
+        if i > 0:
+            let ln = line.split('\t')
+            if ln.len > 0:
+                result.add(ln[0])
+        inc i
+
+proc installAppOnConnectedDevice(b: Builder, devId: string) =
+    withDir(b.buildRoot / b.javaPackageId):
+        putEnv "NIM_INCLUDE_DIR", expandTilde(b.nimIncludeDir)
+        direShell b.androidSdk/"tools/android", "update", "project", "-p", ".", "-t", "android-22" # try with android-16
+
+        var args = @[b.androidNdk/"ndk-build", "V=1"]
+        if b.debugMode:
+            args.add(["NDK_DEBUG=1", "APP_OPTIM=debug"])
+        else:
+            args.add("APP_OPTIM=release")
+        direShell args
+        putEnv "ANDROID_SERIAL", devId # Target specific device
+        direShell "ant", "debug", "install"
+
+proc runAutotestsOnConnectedDevices*(b: Builder) =
+    for devId in b.getConnectedAndroidDevices:
+        echo "Running on device: ", devId
+        b.installAppOnConnectedDevice(devId)
+        let adb = expandTilde(b.androidSdk/"platform-tools/adb")
+
+        let logcat = startProcess(adb, args = ["-s", devId, "logcat", "-T", "1", "-s", "NIM_APP"])
+        let so = logcat.outputStream
+
+        direShell adb, "-s", devId, "shell", "input", "keyevent", "KEYCODE_WAKEUP"
+        let activityName = b.javaPackageId & "/" & b.javaPackageId & ".MainActivity"
+        direShell adb, "-s", devId, "shell", "am", "start", "-n", activityName
+
+        var line = ""
+        var ok = true
+        while so.readLine(line):
+            let n = line.find(":")
+            if n != -1:
+                let ln = line[n + 2 .. ^1]
+                if ln == "---AUTO-TEST-QUIT---":
+                    break
+                elif ln == "---AUTO-TEST-FAIL---":
+                    ok = false
+                else:
+                    echo ln
+        logcat.kill()
+
 task defaultTask, "Build and run":
     newBuilder().build()
 
@@ -558,19 +616,9 @@ task "ios", "Build for iOS":
 task "droid", "Build for android and install on the connected device":
     let b = newBuilder("android")
     b.build()
-
-    withDir(b.buildRoot / b.javaPackageId):
-        putEnv "NIM_INCLUDE_DIR", expandTilde(b.nimIncludeDir)
-        direShell b.androidSdk/"tools/android", "update", "project", "-p", ".", "-t", "android-22" # try with android-16
-
-        var args = @[b.androidNdk/"ndk-build", "V=1"]
-        if b.debugMode:
-            args.add(["NDK_DEBUG=1", "APP_OPTIM=debug"])
-        else:
-            args.add("APP_OPTIM=release")
-        direShell args
-        #putEnv "ANDROID_SERIAL", "12345" # Target specific device
-        direShell "ant", "debug", "install"
+    let devs = b.getConnectedAndroidDevices()
+    if devs.len > 0:
+        b.installAppOnConnectedDevice(devs[0])
 
 task "droid-debug", "Start application on Android device and connect with debugger":
     let b = newBuilder("android")
