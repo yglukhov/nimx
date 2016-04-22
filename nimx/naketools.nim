@@ -106,7 +106,7 @@ proc newBuilder(platform: string): Builder =
     var nim_path = findExe("nim")
     var sdl_home : string
 
-    if ndk_path.len > 0:
+    if ndk_path.isNil:
         ndk_path = replaceInStr(ndk_path, "ndk-stack")
     elif existsEnv("NDK_HOME") or existsEnv("NDK_ROOT"):
         if existsEnv("NDK_HOME"):
@@ -114,7 +114,7 @@ proc newBuilder(platform: string): Builder =
         else:
             ndk_path = getEnv("NDK_ROOT")
 
-    if sdk_path.len > 0:
+    if sdk_path.isNil:
         sdk_path = replaceInStr(sdk_path, "platform")
     elif existsEnv("ANDROID_HOME") or existsEnv("ANDROID_SDK_HOME"):
         if existsEnv("ANDROID_HOME"):
@@ -122,7 +122,7 @@ proc newBuilder(platform: string): Builder =
         else:
             sdk_path = getEnv("ANDROID_SDK_HOME")
 
-    if nim_path.len > 0:
+    if nim_path.isNil:
         nim_path = replaceInStr(nim_path, "bin", "/lib")
     elif existsEnv("NIM_HOME"):
         nim_path = getEnv("NIM_HOME")
@@ -130,19 +130,20 @@ proc newBuilder(platform: string): Builder =
         sdl_home = getEnv("SDL_HOME")
 
     when not defined(windows):
-        if not ndk_path.len > 0:
+        if ndk_path.isNil:
             ndk_path = "~/Library/Android/sdk/ndk-bundle"
-        if not sdk_path.len > 0:
+        if sdk_path.isNil:
             sdk_path = "~/Library/Android/sdk"
 
     var error_msg = ""
-    if not sdk_path.len > 0: error_msg &= getEnvErrorMsg("ANDROID_HOME")
-    if not ndk_path.len > 0: error_msg &= getEnvErrorMsg("NDK_HOME")
-    if not nim_path.len > 0: error_msg &= getEnvErrorMsg("NIM_HOME")
-    if not sdl_home.len > 0: error_msg &= getEnvErrorMsg("SDL_HOME")
+    if sdk_path.isNil: error_msg &= getEnvErrorMsg("ANDROID_HOME")
+    if ndk_path.isNil: error_msg &= getEnvErrorMsg("NDK_HOME")
+    if nim_path.isNil: error_msg &= getEnvErrorMsg("NIM_HOME")
+    if sdl_home.isNil: error_msg &= getEnvErrorMsg("SDL_HOME")
 
     if error_msg.len > 0:
         raiseOSError(error_msg)
+
 
     b.androidSdk = sdk_path
     b.androidNdk = ndk_path
