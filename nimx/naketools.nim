@@ -1,7 +1,7 @@
 import nake
 export nake
 
-import tables, osproc, strutils, times, parseopt2, streams
+import tables, osproc, strutils, times, parseopt2, streams, os
 import jester, asyncdispatch, browsers, closure_compiler # Stuff needed for JS target
 import plists
 
@@ -79,6 +79,17 @@ proc setBuilderSettings(b: Builder) =
             else: discard
         else: discard
 
+proc replaceInStr(in_str, wh_str : string, by_str: string = ""): string =
+    result = in_str
+    if in_str.len > 0:
+        var pos = in_str.rfind(wh_str)
+        result.delete(pos, result.len)
+        if by_str.len > 0:
+            result &= by_str
+
+proc getEnvErrorMsg(env: string): string =
+    result = "Enviroment [" & env & "] not exist, verify your settings!"
+
 proc newBuilder(platform: string): Builder =
     result.new()
     let b = result
@@ -89,17 +100,56 @@ proc newBuilder(platform: string): Builder =
     b.javaPackageId = "com.mycompany.MyGame"
     b.disableClosureCompiler = false
 
+    ## try find binary for android sdk, ndk, and nim
+    var ndk_path = findExe("ndk-stack")
+    var sdk_path = findExe("adb")
+    var nim_path = findExe("nim")
+    var sdl_home : string
+
+    if ndk_path.len > 0:
+        ndk_path = replaceInStr(ndk_path, "ndk-stack")
+    elif existsEnv("NDK_HOME") or existsEnv("NDK_ROOT"):
+        if existsEnv("NDK_HOME"):
+            ndk_path = getEnv("NDK_HOME")
+        else:
+            ndk_path = getEnv("NDK_ROOT")
+
+    if sdk_path.len > 0:
+        sdk_path = replaceInStr(sdk_path, "platform")
+    elif existsEnv("ANDROID_HOME") or existsEnv("ANDROID_SDK_HOME"):
+        if existsEnv("ANDROID_HOME"):
+            sdk_path = getEnv("ANDROID_HOME")
+        else:
+            sdk_path = getEnv("ANDROID_SDK_HOME")
+
+    if nim_path.len > 0:
+        nim_path = replaceInStr(nim_path, "bin", "/lib")
+
+    if existsEnv("SDL_HOME"):
+        sdl_home = getEnv("SDL_HOME")
+
+    when not defined(windows):
+        if not ndk_path.len > 0:
+            ndk_path = "~/Library/Android/sdk/ndk-bundle"
+        if not sdk_path.len > 0:
+            sdk_path = "~/Library/Android/sdk"
+
+    var error_msg = ""
+    if not sdk_path.len > 0: error_msg = getEnvErrorMsg("ANDROID_HOME")
+    if not ndk_path.len > 0: error_msg = getEnvErrorMsg("NDK_HOME")
+    if not nim_path.len > 0: error_msg = "WHAT?"
+    if not sdl_home.len > 0: error_msg = getEnvErrorMsg("SDL_HOME")
+
+    if error_msg.len > 0:
+        raiseOSError(error_msg)
+
+    b.androidSdk = sdk_path
+    b.androidNdk = ndk_path
+    b.sdlRoot = sdl_home
+    b.nimIncludeDir = nim_path
+
     when defined(windows):
-        b.androidSdk = "D:\\Android\\android-sdk"
-        b.androidNdk = "D:\\Android\\android-ndk-r10e"
-        b.sdlRoot = "D:\\Android\\SDL2-2.0.3"
-        b.nimIncludeDir = "C:\\Nim\\lib"
         b.appIconName = "MyGame.ico"
-    else:
-        b.androidSdk = "~/Library/Android/sdk"
-        b.androidNdk = "~/Library/Android/sdk/ndk-bundle"
-        b.sdlRoot = "~/Projects/SDL"
-        b.nimIncludeDir = "~/Projects/nim/lib"
 
     b.macOSSDKVersion = "10.11"
     b.macOSMinVersion = "10.6"
@@ -562,6 +612,8 @@ proc installAppOnConnectedDevice(b: Builder, devId: string) =
         direShell b.androidSdk/"tools/android", "update", "project", "-p", ".", "-t", "android-22" # try with android-16
 
         var args = @[b.androidNdk/"ndk-build", "V=1"]
+        if b.nimParallelBuild > 0:
+            args.add("J=" & $b.nimParallelBuild)
         if b.debugMode:
             args.add(["NDK_DEBUG=1", "APP_OPTIM=debug"])
         else:
