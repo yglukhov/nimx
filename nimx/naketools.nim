@@ -88,7 +88,7 @@ proc replaceInStr(in_str, wh_str : string, by_str: string = ""): string =
             result &= by_str
 
 proc getEnvErrorMsg(env: string): string =
-    result = "Enviroment [" & env & "] not exist, verify your settings!"
+    result = "\nEnviroment [" & env & "] not exist, verify your settings!"
 
 proc newBuilder(platform: string): Builder =
     result.new()
@@ -124,7 +124,8 @@ proc newBuilder(platform: string): Builder =
 
     if nim_path.len > 0:
         nim_path = replaceInStr(nim_path, "bin", "/lib")
-
+    elif existsEnv("NIM_HOME"):
+        nim_path = getEnv("NIM_HOME")
     if existsEnv("SDL_HOME"):
         sdl_home = getEnv("SDL_HOME")
 
@@ -135,10 +136,10 @@ proc newBuilder(platform: string): Builder =
             sdk_path = "~/Library/Android/sdk"
 
     var error_msg = ""
-    if not sdk_path.len > 0: error_msg = getEnvErrorMsg("ANDROID_HOME")
-    if not ndk_path.len > 0: error_msg = getEnvErrorMsg("NDK_HOME")
-    if not nim_path.len > 0: error_msg = "WHAT?"
-    if not sdl_home.len > 0: error_msg = getEnvErrorMsg("SDL_HOME")
+    if not sdk_path.len > 0: error_msg &= getEnvErrorMsg("ANDROID_HOME")
+    if not ndk_path.len > 0: error_msg &= getEnvErrorMsg("NDK_HOME")
+    if not nim_path.len > 0: error_msg &= getEnvErrorMsg("NIM_HOME")
+    if not sdl_home.len > 0: error_msg &= getEnvErrorMsg("SDL_HOME")
 
     if error_msg.len > 0:
         raiseOSError(error_msg)
