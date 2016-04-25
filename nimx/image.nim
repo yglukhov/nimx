@@ -17,6 +17,7 @@ type SelfContainedImage* = ref object of Image
     mSize: Size
     texCoords*: array[4, GLfloat]
     framebuffer*: FramebufferRef
+    mFilePath: string
 
 type
     SpriteSheet* = ref object of SelfContainedImage
@@ -44,6 +45,13 @@ template setupTexParams(gl: GL) =
 
 when not defined(js):
     include private.image_pvr
+
+method setFilePath*(i: Image, path: string) {.base.} = discard
+method setFilePath*(i: SelfContainedImage, path: string) =
+    i.mFilePath = path
+
+method filePath*(i: Image): string {.base.} = discard
+method filePath*(i: SelfContainedImage): string = i.mFilePath
 
 when not defined js:
     template offset(p: pointer, off: int): pointer =
@@ -96,6 +104,8 @@ when not defined js:
         i.initWithBitmap(data, x, y, comp)
         stbi_image_free(data)
 
+        i.setFilePath(path)
+
     proc imageWithBitmap*(data: ptr uint8, x, y, comp: int): SelfContainedImage =
         result.new()
         result.initWithBitmap(data, x, y, comp)
@@ -125,6 +135,8 @@ proc initWithResource*(i: SelfContainedImage, name: string) =
                 data.len.cint, addr x, addr y, addr comp, 0)
             i.initWithBitmap(bitmap, x, y, comp)
             stbi_image_free(bitmap)
+
+        i.setFilePath(pathForResource(name))
 
 proc imageWithResource*(name: string): SelfContainedImage =
     result = SelfContainedImage(imageCache.get(name))

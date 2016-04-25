@@ -119,7 +119,8 @@ method drawWindow(w: SdlWindow) =
     c.gl.stencilMask(0x00)
     let oldContext = setCurrentContext(c)
 
-    defer: setCurrentContext(oldContext)
+    # TODO currentContext() return nil if exist save\open dialog window
+    # defer: setCurrentContext(oldContext)
     c.withTransform ortho(0, w.frame.width, w.frame.height, 0, -1, 1):
         procCall w.Window.drawWindow()
     w.impl.glSwapWindow() # Swap the front and back frame buffers (double buffering)
@@ -167,7 +168,7 @@ proc eventWithSDLEvent(event: ptr sdl2.Event): Event =
                     discard
 
         of MouseButtonDown, MouseButtonUp:
-            when not defined(ios) and not defined(android): 
+            when not defined(ios) and not defined(android):
                 if event.kind == MouseButtonDown:
                     discard sdl2.captureMouse(True32)
                 else:
