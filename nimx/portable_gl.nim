@@ -67,6 +67,8 @@ when defined js:
 
             CULL_FACE*, FRONT*, BACK*, FRONT_AND_BACK* : GLenum
 
+            BUFFER_SIZE* : GLenum
+
     const invalidUniformLocation* : UniformLocation = nil
     const invalidProgram* : ProgramRef = nil
     const invalidShader* : ShaderRef = nil
@@ -246,6 +248,8 @@ else:
     template FRONT*(gl: GL) : GLenum = GL_FRONT
     template BACK*(gl: GL) : GLenum = GL_BACK
     template FRONT_AND_BACK*(gl: GL) : GLenum = GL_FRONT_AND_BACK
+
+    template BUFFER_SIZE*(gl: GL) : GLenum = GL_BUFFER_SIZE
 
     template compileShader*(gl: GL, shader: ShaderRef) = glCompileShader(shader)
     template deleteShader*(gl: GL, shader: ShaderRef) = glDeleteShader(shader)
@@ -459,6 +463,26 @@ proc bufferSubData*(gl: GL, target: GLenum, offset: int32, data: openarray[GLush
         asm "`gl`.bufferSubData(`target`, `offset`, new Uint16Array(`data`));"
     else:
         glBufferSubData(target, offset, GLsizei(data.len * sizeof(GLushort)), cast[pointer](data));
+
+proc getBufferSubData*(gl: GL, target: GLenum, offset: int32, data: var openarray[GLfloat]) {.inline.} =
+    when defined(js):
+        asm "`gl`.getBufferSubData(`target`, `offset`, new Float32Array(`data`));"
+    else:
+        glGetBufferSubData(target, offset, GLsizei(data.len * sizeof(GLfloat)), cast[pointer](data));
+
+proc getBufferSubData*(gl: GL, target: GLenum, offset: int32, data: var openarray[GLushort]) {.inline.} =
+    when defined(js):
+        asm "`gl`.getBufferSubData(`target`, `offset`, new Uint16Array(`data`));"
+    else:
+        glGetBufferSubData(target, offset, GLsizei(data.len * sizeof(GLushort)), cast[pointer](data));
+
+proc getBufferParameteriv*(gl: GL, target, value: GLenum): GLint {.inline.} =
+    when defined js:
+        asm "`result` = `gl`.getBufferParameteriv(`target`, `value`);"
+    else:
+        var data: GLint
+        glGetBufferParameteriv(target, value, addr data)
+        result = data
 
 proc vertexAttribPointer*(gl: GL, index: GLuint, size: GLint, typ: GLenum, normalized: GLboolean,
                         stride: GLsizei, offset: int) {.inline.} =
