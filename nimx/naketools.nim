@@ -100,63 +100,64 @@ proc newBuilder(platform: string): Builder =
     b.javaPackageId = "com.mycompany.MyGame"
     b.disableClosureCompiler = false
 
-    var error_msg = ""
-    ## try find binary for android sdk, ndk, and nim
-    if platform == "android":
+    if platform == "android" or platform == "ios" or platform == "ios-sim":
+        var error_msg = ""
+        ## try find binary for android sdk, ndk, and nim
+        if platform == "android":
 
-        var ndk_path = findExe("ndk-stack")
-        var sdk_path = findExe("adb")
-        var nim_path = findExe("nim")
+            var ndk_path = findExe("ndk-stack")
+            var sdk_path = findExe("adb")
+            var nim_path = findExe("nim")
 
-        if not ndk_path.isNil:
-            ndk_path = replaceInStr(ndk_path, "ndk-stack")
-        elif existsEnv("NDK_HOME") or existsEnv("NDK_ROOT"):
-            if existsEnv("NDK_HOME"):
-                ndk_path = getEnv("NDK_HOME")
-            else:
-                ndk_path = getEnv("NDK_ROOT")
+            if not ndk_path.isNil:
+                ndk_path = replaceInStr(ndk_path, "ndk-stack")
+            elif existsEnv("NDK_HOME") or existsEnv("NDK_ROOT"):
+                if existsEnv("NDK_HOME"):
+                    ndk_path = getEnv("NDK_HOME")
+                else:
+                    ndk_path = getEnv("NDK_ROOT")
 
-        if not sdk_path.isNil:
-            sdk_path = replaceInStr(sdk_path, "platform")
-        elif existsEnv("ANDROID_HOME") or existsEnv("ANDROID_SDK_HOME"):
-            if existsEnv("ANDROID_HOME"):
-                sdk_path = getEnv("ANDROID_HOME")
-            else:
-                sdk_path = getEnv("ANDROID_SDK_HOME")
+            if not sdk_path.isNil:
+                sdk_path = replaceInStr(sdk_path, "platform")
+            elif existsEnv("ANDROID_HOME") or existsEnv("ANDROID_SDK_HOME"):
+                if existsEnv("ANDROID_HOME"):
+                    sdk_path = getEnv("ANDROID_HOME")
+                else:
+                    sdk_path = getEnv("ANDROID_SDK_HOME")
 
-        if not nim_path.isNil:
-            nim_path = replaceInStr(nim_path, "bin", "/lib")
-        elif existsEnv("NIM_HOME"):
-            nim_path = getEnv("NIM_HOME")
+            if not nim_path.isNil:
+                nim_path = replaceInStr(nim_path, "bin", "/lib")
+            elif existsEnv("NIM_HOME"):
+                nim_path = getEnv("NIM_HOME")
 
-        when not defined(windows):
-            if ndk_path.isNil:
-                ndk_path = "~/Library/Android/sdk/ndk-bundle"
-                if not fileExists(ndk_path&"/ndk-stack"):
-                    ndk_path = nil
-            if sdk_path.isNil:
-                sdk_path = "~/Library/Android/sdk"
-                if not fileExists(sdk_path&"/platform-tools/adb"):
-                    sdk_path = nil
+            when not defined(windows):
+                if ndk_path.isNil:
+                    ndk_path = "~/Library/Android/sdk/ndk-bundle"
+                    if not fileExists(ndk_path&"/ndk-stack"):
+                        ndk_path = nil
+                if sdk_path.isNil:
+                    sdk_path = "~/Library/Android/sdk"
+                    if not fileExists(sdk_path&"/platform-tools/adb"):
+                        sdk_path = nil
 
-        if sdk_path.isNil: error_msg &= getEnvErrorMsg("ANDROID_HOME")
-        if ndk_path.isNil: error_msg &= getEnvErrorMsg("NDK_HOME")
-        if nim_path.isNil: error_msg &= getEnvErrorMsg("NIM_HOME")
+            if sdk_path.isNil: error_msg &= getEnvErrorMsg("ANDROID_HOME")
+            if ndk_path.isNil: error_msg &= getEnvErrorMsg("NDK_HOME")
+            if nim_path.isNil: error_msg &= getEnvErrorMsg("NIM_HOME")
 
-        b.androidSdk = sdk_path
-        b.androidNdk = ndk_path
-        b.nimIncludeDir = nim_path
+            b.androidSdk = sdk_path
+            b.androidNdk = ndk_path
+            b.nimIncludeDir = nim_path
 
-    var sdl_home : string
-    if existsEnv("SDL_HOME"):
-        sdl_home = getEnv("SDL_HOME")
+        var sdl_home : string
+        if existsEnv("SDL_HOME"):
+            sdl_home = getEnv("SDL_HOME")
 
-    if sdl_home.isNil: error_msg &= getEnvErrorMsg("SDL_HOME")
+        if sdl_home.isNil: error_msg &= getEnvErrorMsg("SDL_HOME")
 
-    if error_msg.len > 0:
-        raiseOSError(error_msg)
+        if error_msg.len > 0:
+            raiseOSError(error_msg)
 
-    b.sdlRoot = sdl_home
+        b.sdlRoot = sdl_home
 
     when defined(windows):
         b.appIconName = "MyGame.ico"
