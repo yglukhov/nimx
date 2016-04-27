@@ -104,12 +104,11 @@ proc newBuilder(platform: string): Builder =
         var error_msg = ""
         ## try find binary for android sdk, ndk, and nim
         if platform == "android":
-
             var ndk_path = findExe("ndk-stack")
             var sdk_path = findExe("adb")
             var nim_path = findExe("nim")
 
-            if not ndk_path.isNil:
+            if ndk_path.len > 0:
                 ndk_path = replaceInStr(ndk_path, "ndk-stack")
             elif existsEnv("NDK_HOME") or existsEnv("NDK_ROOT"):
                 if existsEnv("NDK_HOME"):
@@ -117,7 +116,7 @@ proc newBuilder(platform: string): Builder =
                 else:
                     ndk_path = getEnv("NDK_ROOT")
 
-            if not sdk_path.isNil:
+            if sdk_path.len > 0:
                 sdk_path = replaceInStr(sdk_path, "platform")
             elif existsEnv("ANDROID_HOME") or existsEnv("ANDROID_SDK_HOME"):
                 if existsEnv("ANDROID_HOME"):
@@ -125,24 +124,27 @@ proc newBuilder(platform: string): Builder =
                 else:
                     sdk_path = getEnv("ANDROID_SDK_HOME")
 
-            if not nim_path.isNil:
+            if nim_path.len > 0:
+                if symlinkExists(nim_path):
+                    nim_path = expandSymlink(nim_path)
                 nim_path = replaceInStr(nim_path, "bin", "/lib")
             elif existsEnv("NIM_HOME"):
                 nim_path = getEnv("NIM_HOME")
 
             when not defined(windows):
-                if ndk_path.isNil:
+                if ndk_path.len == 0:
                     ndk_path = "~/Library/Android/sdk/ndk-bundle"
-                    if not fileExists(ndk_path&"/ndk-stack"):
+                    if not fileExists(expandTilde(ndk_path / "ndk-stack")):
+                        echo "NDK DOESNT EXIST"
                         ndk_path = nil
-                if sdk_path.isNil:
+                if sdk_path.len == 0:
                     sdk_path = "~/Library/Android/sdk"
-                    if not fileExists(sdk_path&"/platform-tools/adb"):
+                    if not fileExists(expandTilde(sdk_path / "platform-tools/adb")):
                         sdk_path = nil
 
-            if sdk_path.isNil: error_msg &= getEnvErrorMsg("ANDROID_HOME")
-            if ndk_path.isNil: error_msg &= getEnvErrorMsg("NDK_HOME")
-            if nim_path.isNil: error_msg &= getEnvErrorMsg("NIM_HOME")
+            if sdk_path.len == 0: error_msg &= getEnvErrorMsg("ANDROID_HOME")
+            if ndk_path.len == 0: error_msg &= getEnvErrorMsg("NDK_HOME")
+            if nim_path.len == 0: error_msg &= getEnvErrorMsg("NIM_HOME")
 
             b.androidSdk = sdk_path
             b.androidNdk = ndk_path
@@ -152,7 +154,7 @@ proc newBuilder(platform: string): Builder =
         if existsEnv("SDL_HOME"):
             sdl_home = getEnv("SDL_HOME")
 
-        if sdl_home.isNil: error_msg &= getEnvErrorMsg("SDL_HOME")
+        if sdl_home.len == 0: error_msg &= getEnvErrorMsg("SDL_HOME")
 
         if error_msg.len > 0:
             raiseOSError(error_msg)
@@ -440,6 +442,20 @@ proc signIosBundle(b: Builder) =
     e.writePlist(entPath)
     direShell(["codesign", "-s", "\"" & b.codesignIdentity & "\"", "--force", "--entitlements", entPath, b.buildRoot / b.bundleName])
 
+proc ndkBuild(b: Builder) =
+    withDir(b.buildRoot / b.javaPackageId):
+        putEnv "NIM_INCLUDE_DIR", expandTilde(b.nimIncludeDir)
+        direShell b.androidSdk/"tools/android", "update", "project", "-p", ".", "-t", "android-22" # try with android-16
+
+        var args = @[b.androidNdk/"ndk-build", "V=1"]
+        if b.nimParallelBuild > 0:
+            args.add("J=" & $b.nimParallelBuild)
+        if b.debugMode:
+            args.add(["NDK_DEBUG=1", "APP_OPTIM=debug"])
+        else:
+            args.add("APP_OPTIM=release")
+        direShell args
+
 proc preconfigure(b: Builder) =
     b.buildRoot = b.buildRoot / b.platform
     b.nimcachePath = b.buildRoot / "nimcache"
@@ -573,6 +589,8 @@ proc build*(b: Builder) =
     elif b.platform == "ios":
         if not b.codesignIdentity.isNil:
             b.signIosBundle()
+    elif b.platform == "android":
+        b.ndkBuild()
 
     if not afterBuild.isNil: afterBuild(b)
 
@@ -619,17 +637,6 @@ proc getConnectedAndroidDevices*(b: Builder): seq[string] =
 
 proc installAppOnConnectedDevice(b: Builder, devId: string) =
     withDir(b.buildRoot / b.javaPackageId):
-        putEnv "NIM_INCLUDE_DIR", expandTilde(b.nimIncludeDir)
-        direShell b.androidSdk/"tools/android", "update", "project", "-p", ".", "-t", "android-22" # try with android-16
-
-        var args = @[b.androidNdk/"ndk-build", "V=1"]
-        if b.nimParallelBuild > 0:
-            args.add("J=" & $b.nimParallelBuild)
-        if b.debugMode:
-            args.add(["NDK_DEBUG=1", "APP_OPTIM=debug"])
-        else:
-            args.add("APP_OPTIM=release")
-        direShell args
         putEnv "ANDROID_SERIAL", devId # Target specific device
         direShell "ant", "debug", "install"
 
