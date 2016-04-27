@@ -464,21 +464,9 @@ proc bufferSubData*(gl: GL, target: GLenum, offset: int32, data: openarray[GLush
     else:
         glBufferSubData(target, offset, GLsizei(data.len * sizeof(GLushort)), cast[pointer](data));
 
-proc getBufferSubData*(gl: GL, target: GLenum, offset: int32, data: var openarray[GLfloat]) {.inline.} =
-    when defined(js):
-        asm "`gl`.getBufferSubData(`target`, `offset`, new Float32Array(`data`));"
-    else:
-        glGetBufferSubData(target, offset, GLsizei(data.len * sizeof(GLfloat)), cast[pointer](data));
-
-proc getBufferSubData*(gl: GL, target: GLenum, offset: int32, data: var openarray[GLushort]) {.inline.} =
-    when defined(js):
-        asm "`gl`.getBufferSubData(`target`, `offset`, new Uint16Array(`data`));"
-    else:
-        glGetBufferSubData(target, offset, GLsizei(data.len * sizeof(GLushort)), cast[pointer](data));
-
 proc getBufferParameteriv*(gl: GL, target, value: GLenum): GLint {.inline.} =
     when defined js:
-        asm "`result` = `gl`.getBufferParameteriv(`target`, `value`);"
+        asm "`result` = `gl`.getBufferParameter(`target`, `value`);"
     else:
         var data: GLint
         glGetBufferParameteriv(target, value, addr data)
