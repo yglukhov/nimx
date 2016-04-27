@@ -1,7 +1,7 @@
 
-proc stbi_load*(file: cstring, x, y, comp: ptr cint, req_comp: cint): ptr uint8 {.importc.}
-proc stbi_load_from_memory*(buffer: ptr uint8, bufSize : cint, x, y, comp: ptr cint, req_comp: cint): ptr uint8 {.importc.}
-proc stbi_image_free*(data: ptr uint8) {.importc.}
+proc stbi_load*(file: cstring, x, y, comp: ptr cint, req_comp: cint): ptr uint8 {.noconv, importc.}
+proc stbi_load_from_memory*(buffer: ptr uint8, bufSize : cint, x, y, comp: ptr cint, req_comp: cint): ptr uint8 {.noconv, importc.}
+proc stbi_image_free*(data: ptr uint8) {.noconv, importc.}
 
 {.emit: """
 
