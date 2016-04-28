@@ -7,9 +7,9 @@ when defined(js):
     proc logi*(a: varargs[string, `$`]) =
         js_console_log(a.join())
 elif defined(emscripten):
-    proc emscripten_log(flags: cint, fmt: cstring) {.importc, varargs.}
+    proc emscripten_log(flags: cint) {.importc, varargs.}
     proc logi*(a: varargs[string, `$`]) =
-        emscripten_log(0, "%s", cstring(a.join()))
+        emscripten_log(0, cstring("%s"), cstring(a.join()))
 elif defined(macosx) or defined(ios):
     {.passL:"-framework Foundation"}
     {.emit: """
