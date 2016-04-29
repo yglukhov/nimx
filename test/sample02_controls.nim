@@ -28,8 +28,7 @@ method init(v: ControlsSampleView, r: Rect) =
     button.title = "Button"
     button.onAction do():
         if textField.text.isNil: textField.text = ""
-        textField.text &= "Click! "
-        textField.setNeedsDisplay()
+        textField.text = "Click! "
     v.addSubview(button)
 
     let sc = SegmentedControl.new(newRect(120, 40, v.bounds.width - 130, 22))
@@ -37,8 +36,7 @@ method init(v: ControlsSampleView, r: Rect) =
     sc.autoresizingMask = { afFlexibleWidth, afFlexibleMaxY }
     sc.onAction do():
         if textField.text.isNil: textField.text = ""
-        textField.text &= "Seg " & $sc.selectedSegment & "! "
-        textField.setNeedsDisplay()
+        textField.text = "Seg " & $sc.selectedSegment & "! "
 
     v.addSubview(sc)
 
@@ -55,7 +53,6 @@ method init(v: ControlsSampleView, r: Rect) =
     slider.onAction do():
         textField.text = "Slider value: " & $slider.value & " "
         progress.value = slider.value
-        textField.setNeedsDisplay()
     v.addSubview(slider)
 
     let vertSlider = Slider.new(newRect(v.bounds.width - 26, 150, 16, v.bounds.height - 160))
