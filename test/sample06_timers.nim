@@ -29,8 +29,7 @@ method init(t: TimersSampleView, r: Rect) =
         t.timer.clear()
         firesLabel.text = "fires: "
         t.timer = newTimer(parseFloat(intervalTextField.text), periodicButton.boolValue, proc() =
-            firesLabel.text &= "O"
-            firesLabel.setNeedsDisplay()
+            firesLabel.text = "fires: " & "O"
             )
     t.addSubview(startButton)
 
@@ -60,8 +59,7 @@ method init(t: TimersSampleView, r: Rect) =
             secs = 0
         secondsLabel.text = "seconds: "
         for i in 0 ..< secs:
-            secondsLabel.text &= "O"
-        secondsLabel.setNeedsDisplay()
+            secondsLabel.text = "seconds: " & "O"
 
     firesLabel = t.newLabel(newPoint(20, 230), newSize(120, 20), "fires: ")
 
