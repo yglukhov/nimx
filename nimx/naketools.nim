@@ -219,15 +219,6 @@ var
     beforeBuild*: proc(b: Builder)
     afterBuild*: proc(b: Builder)
 
-when defined(Windows):
-    const silenceStdout = "2>nul"
-else:
-    const silenceStdout = ">/dev/null"
-
-if dirExists("../.git"): # Install nimx
-    withDir "..":
-        direShell "nimble", "-y", "install", silenceStdout
-
 proc copyResourceAsIs*(b: Builder, path: string) =
     let destPath = b.resourcePath / path
     let fromPath = b.originalResourcePath / path
@@ -415,6 +406,42 @@ proc makeAndroidBuildDir(b: Builder): string =
         replaceVarsInFile buildDir/"jni/Application.mk", vars
     buildDir
 
+proc packageNameAtPath(d: string): string =
+    for file in walkFiles(d / "*.nimble"):
+        return file.splitFile.name
+
+proc curPackageNameAndPath(): tuple[name, path: string] =
+    var d = getCurrentDir()
+    while d.len > 1:
+        result.name = packageNameAtPath(d)
+        if not result.name.isNil:
+            result.path = d
+            return
+        d = d.parentDir()
+
+proc nimbleOverrideFlags(b: Builder): seq[string] =
+    result = @[]
+    var d = getCurrentDir()
+    while d.len > 1:
+        let nimbleoverride = d / "nimbleoverride"
+        if fileExists(nimbleoverride):
+            for ln in lines(nimbleoverride):
+                let path = ln.strip()
+                if path.len > 0 and path[0] != '#':
+                    var absPath = path
+                    if not isAbsolute(absPath): absPath = d / absPath
+                    let pkgName = packageNameAtPath(absPath)
+                    let origNimblePath = nimblePath(pkgName)
+                    if not origNimblePath.isNil: result.add("--excludePath:" & origNimblePath)
+                    result.add("--NimblePath:" & absPath)
+        d = d.parentDir()
+
+    let cp = curPackageNameAndPath()
+    if not cp.name.isNil:
+        let origNimblePath = nimblePath(cp.name)
+        if not origNimblePath.isNil: result.add("--excludePath:" & origNimblePath)
+        result.add("--NimblePath:" & cp.path)
+
 proc jsPostBuild(b: Builder) =
     if not b.disableClosureCompiler and b.platform == "js":
         closure_compiler.compileFileAndRewrite(b.buildRoot / "main.js", ADVANCED_OPTIMIZATIONS, b.enableClosureCompilerSourceMap)
@@ -581,6 +608,7 @@ proc build*(b: Builder) =
     # Run Nim
     var args = @[nimExe, command]
     args.add(b.nimFlags)
+    args.add(b.nimbleOverrideFlags())
     args.add b.mainFile
     direShell args
 
