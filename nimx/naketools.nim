@@ -574,6 +574,7 @@ proc build*(b: Builder) =
         b.nimFlags.add("--run")
 
     b.nimFlags.add(["--warning[LockLevel]:off", "--verbosity:" & $b.nimVerbosity,
+                "--hint[Pattern]:off",
                 "--parallelBuild:" & $b.nimParallelBuild, "--out:" & b.executablePath,
                 "--nimcache:" & b.nimcachePath])
 
