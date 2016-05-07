@@ -90,7 +90,7 @@ proc replaceInStr(in_str, wh_str : string, by_str: string = ""): string =
 proc getEnvErrorMsg(env: string): string =
     result = "\n Environment variable [ " & env & " ] is not set."
 
-proc newBuilder(platform: string): Builder =
+proc newBuilder*(platform: string): Builder =
     result.new()
     let b = result
 
