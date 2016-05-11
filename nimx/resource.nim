@@ -58,7 +58,7 @@ proc pathForResourceAux(name: string): string =
 
     when defined(android):
         result = name
-    elif defined(js):
+    elif defined(js) or defined(emscripten):
         result = "res/" & name
     else:
         let appDir = getAppDir()

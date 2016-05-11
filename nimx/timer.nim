@@ -1,12 +1,88 @@
 import times
 
+const jsCompatibleAPI = defined(js) or defined(emscripten)
+
 when defined(js):
     type TimerID {.importc.} = ref object
+    const nilTimer : TimerID = nil
 
     proc setInterval(p: proc(), timeout: float): TimerID {.importc.}
     proc setTimeout(p: proc(), timeout: float): TimerID {.importc.}
     proc clearInterval(t: TimerID) {.importc.}
     proc clearTimeout(t: TimerID) {.importc.}
+elif defined(emscripten):
+    import emscripten
+    type TimerID = pointer
+    const nilTimer : TimerID = nil
+
+    type Context = ref object
+        handler: proc()
+
+    proc initTimers() =
+        EM_ASM """
+        window.__nimx_timers = {};
+        """
+
+    initTimers()
+
+    proc timerCallback(c: pointer) {.EMSCRIPTEN_KEEPALIVE.} =
+        let ctx = cast[Context](c)
+        ctx.handler()
+
+    proc deleteTimerContext(c: pointer) {.EMSCRIPTEN_KEEPALIVE.} =
+        let ctx = cast[Context](c)
+        GC_unref(ctx)
+
+    proc setInterval(p: proc(), timeout: float): TimerID =
+        let ctx = Context.new()
+        ctx.handler = p
+        GC_ref(ctx)
+        result = cast[pointer](ctx)
+        discard EM_ASM_INT("""
+        var timer = setInterval(function() {
+            _timerCallback($1);
+        }, $0);
+        window.__nimx_timers[$1] = timer;
+        return 0;
+        """, cfloat(timeout), cast[pointer](ctx))
+
+    proc setTimeout(p: proc(), timeout: float): TimerID =
+        let ctx = Context.new()
+        ctx.handler = p
+        GC_ref(ctx)
+        result = cast[pointer](ctx)
+        discard EM_ASM_INT("""
+        var timer = setTimeout(function() {
+            _timerCallback($1);
+            var t = window.__nimx_timers[$1];
+            if (t !== undefined) {
+                _deleteTimerContext($1);
+                delete window.__nimx_timers[$1];
+            }
+        }, $0);
+        window.__nimx_timers[$1] = timer;
+        return 0;
+        """, cfloat(timeout), cast[pointer](ctx))
+
+    proc clearInterval(t: TimerID) =
+        discard EM_ASM_INT("""
+        var t = window.__nimx_timers[$0];
+        if (t !== undefined) {
+            clearInterval(t);
+            delete window.__nimx_timers[$0];
+            _deleteTimerContext($0);
+        }
+        """, t)
+
+    proc clearTimeout(t: TimerID) =
+        discard EM_ASM_INT("""
+        var t = window.__nimx_timers[$0];
+        if (t !== undefined) {
+            clearTimeout(t);
+            delete window.__nimx_timers[$0];
+            _deleteTimerContext($0);
+        }
+        """, t)
 
 else:
     import sdl2, sdl_perform_on_main_thread, tables
@@ -21,7 +97,14 @@ type Timer* = ref object
     when not defined(js):
         id: int
 
-when not defined(js):
+template fireCallbackAux(t: Timer) =
+    t.callback()
+    if t.isPeriodic:
+        t.nextFireTime = epochTime() + t.interval
+        if t.isRescheduling:
+            discard
+
+when not jsCompatibleAPI:
     # Due to SDL timers are running on a separate thread there is no way to
     # safely pass pointers/references as timer context because there is no
     # way to tell which thread touches the context last and has to dispose it.
@@ -34,33 +117,6 @@ when not defined(js):
         allTimers.del(t.id)
         t.id = 0
 
-template isTimerValid(t: Timer): bool =
-    when defined(js):
-        not t.timer.isNil
-    else:
-        t.timer != 0
-
-proc clear*(t: Timer) =
-    if not t.isNil:
-        if t.isTimerValid:
-            when defined(js):
-                if t.isPeriodic and not t.isRescheduling:
-                    clearInterval(t.timer)
-                else:
-                    clearTimeout(t.timer)
-                t.timer = nil
-            else:
-                t.deleteTimerFromSDL()
-            t.nextFireTime = t.nextFireTime - epochTime()
-
-template fireCallbackAux(t: Timer) =
-    t.callback()
-    if t.isPeriodic:
-        t.nextFireTime = epochTime() + t.interval
-        if t.isRescheduling:
-            discard
-
-when not defined(js):
     proc nextTimerId(): int =
         var idCounter {.global.} = 0
         inc idCounter
@@ -91,6 +147,25 @@ when not defined(js):
         result = interval
     {.pop.}
 
+template isTimerValid(t: Timer): bool =
+    when jsCompatibleAPI:
+        not t.timer.isNil
+    else:
+        t.timer != 0
+
+proc clear*(t: Timer) =
+    if not t.isNil:
+        if t.isTimerValid:
+            when jsCompatibleAPI:
+                if t.isPeriodic and not t.isRescheduling:
+                    clearInterval(t.timer)
+                else:
+                    clearTimeout(t.timer)
+                t.timer = nilTimer
+            else:
+                t.deleteTimerFromSDL()
+            t.nextFireTime = t.nextFireTime - epochTime()
+
 proc newTimer*(interval: float, repeat: bool, callback: proc()): Timer =
     assert(not callback.isNil)
     result.new()
@@ -99,7 +174,7 @@ proc newTimer*(interval: float, repeat: bool, callback: proc()): Timer =
     result.nextFireTime = epochTime() + interval
     result.interval = interval
 
-    when defined(js):
+    when jsCompatibleAPI:
         let t = result
         let cb = proc() =
             fireCallbackAux(t)
@@ -127,7 +202,7 @@ proc pause*(t: Timer) = t.clear()
 
 proc resume*(t: Timer) =
     if not t.isTimerValid:
-        when defined(js):
+        when jsCompatibleAPI:
             if t.isPeriodic:
                 let cb = proc() =
                     t.fireCallbackAux()

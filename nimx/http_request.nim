@@ -1,7 +1,7 @@
 import async_http_request
 export async_http_request
 
-when not defined(js):
+when not defined(js) and not defined(emscripten):
     import sdl2, sdl_perform_on_main_thread, marshal, streams
 
     proc storeToSharedBuffer*[T](a: T): pointer =
