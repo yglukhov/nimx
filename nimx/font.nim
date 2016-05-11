@@ -313,7 +313,7 @@ when not defined js:
 
 var sysFont : Font
 
-const preferredFonts = when defined(js) or defined(windows):
+const preferredFonts = when defined(js) or defined(windows) or defined(emscripten):
         [
             "Arial"
         ]
@@ -345,6 +345,10 @@ when not defined(js):
             [
                 r"c:\Windows\Fonts" #todo: system will not always in the c disk
             ]
+        elif defined(emscripten):
+            [
+                "res"
+            ]
         else:
             [
                 "/usr/share/fonts/truetype",
@@ -357,7 +361,8 @@ when not defined js:
     iterator potentialFontFilesForFace(face: string): string =
         for sp in fontSearchPaths:
             yield sp / face & ".ttf"
-        yield getAppDir() / face & ".ttf"
+        when not defined(emscripten):
+            yield getAppDir() / face & ".ttf"
 
     proc findFontFileForFace(face: string): string =
         for f in potentialFontFilesForFace(face):

@@ -68,7 +68,7 @@ proc setBuilderSettings(b: Builder) =
         of cmdLongOption, cmdShortOption:
             case key
             of "define", "d":
-                if val in ["js", "android", "ios", "ios-sim"]:
+                if val in ["js", "android", "ios", "ios-sim", "emscripten"]:
                     b.platform = val
                 if val == "release":
                     b.debugMode = false
@@ -560,7 +560,13 @@ proc build*(b: Builder) =
         b.executablePath = b.buildRoot / "main.js"
         b.nimFlags.add(["--cpu:i386", "-d:emscripten", "--os:linux", "--cc:clang",
             "--clang.exe=emcc", "--clang.linkerexe=emcc", "-d:SDL_Static"])
-        b.compilerFlags.add(["--preload-file", b.resourcePath])
+        b.additionalLinkerFlags.add(["--preload-file", b.resourcePath & "@/res"])
+        b.additionalNimFlags.add("-d:noAutoGLerrorCheck")
+        b.additionalLinkerFlags.add(["-s", "FULL_ES2=1"])
+        b.additionalLinkerFlags.add(["-s", "ALLOW_MEMORY_GROWTH=1"])
+        #b.additionalLinkerFlags.add(["-O3"])
+        #b.additionalCompilerFlags.add(["-O3"])
+
     else: discard
 
     if b.platform != "js" and b.platform != "emscripten":
