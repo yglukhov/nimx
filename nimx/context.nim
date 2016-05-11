@@ -337,7 +337,7 @@ proc drawText*(c: GraphicsContext, font: Font, pt: var Point, text: string) =
     gl.uniformMatrix4fv(uniformLocation("uModelViewProjectionMatrix"), false, c.transform)
     setupPosteffectUniforms(cc)
 
-    gl.activeTexture(gl.TEXTURE0 + cc.iTexIndex.GLenum)
+    gl.activeTexture(GLenum(int(gl.TEXTURE0) + cc.iTexIndex))
     gl.uniform1i(uniformLocation("texUnit"), cc.iTexIndex)
 
     gl.enableVertexAttribArray(saPosition.GLuint)

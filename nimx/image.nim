@@ -60,12 +60,12 @@ when not defined js:
     proc loadBitmapToTexture(data: ptr uint8, x, y, comp: int, texture: var TextureRef, size: var Size, texCoords: var array[4, GLfloat]) =
         glGenTextures(1, addr texture)
         glBindTexture(GL_TEXTURE_2D, texture)
-        let format : GLint = case comp:
-            of 1: GL_ALPHA
-            of 2: GL_LUMINANCE_ALPHA
-            of 3: GL_RGB
-            of 4: GL_RGBA
-            else: 0
+        let format : GLenum = case comp:
+            of 1: GLenum(GL_ALPHA)
+            of 2: GLenum(GL_LUMINANCE_ALPHA)
+            of 3: GLenum(GL_RGB)
+            of 4: GLenum(GL_RGBA)
+            else: GLenum(0)
         size = newSize(x.Coord, y.Coord)
         let texWidth = if isPowerOfTwo(x): x.int else: nextPowerOfTwo(x)
         let texHeight = if isPowerOfTwo(y): y.int else: nextPowerOfTwo(y)
@@ -395,7 +395,7 @@ when asyncResourceLoad:
             loadBitmapToTexture(bitmap, x, y, comp, c.texture, c.size, c.texCoords)
             stbi_image_free(bitmap)
 
-        let fenceId = glFenceSync( GL_SYNC_GPU_COMMANDS_COMPLETE, 0 );
+        let fenceId = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, GLbitfield(0))
         while true:
           let res = glClientWaitSync(fenceId, GL_SYNC_FLUSH_COMMANDS_BIT, GLuint64(5000000000)); # 5 Second timeout
           if res != GL_TIMEOUT_EXPIRED: break  # we ignore timeouts and wait until all OpenGL commands are processed!
