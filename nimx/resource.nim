@@ -173,33 +173,3 @@ proc loadJsonResourceAsync*(resourceName: string, handler: proc(j: JsonNode)) =
                 s.close()
     else:
         handler(j)
-
-when isMainModule and defined(js):
-    var dv : ref RootObj
-    {.emit: """
-    var buffer = new ArrayBuffer(32);
-    var tmpdv = new DataView(buffer, 0);
-
-    tmpdv.setInt16(0, 42);
-    tmpdv.getInt16(0); //42
-
-    tmpdv.setInt8(2, "h".charCodeAt(0));
-    tmpdv.setInt8(3, "e".charCodeAt(0));
-    tmpdv.setInt8(4, "l".charCodeAt(0));
-    tmpdv.setInt8(5, "l".charCodeAt(0));
-    tmpdv.setInt8(6, "o".charCodeAt(0));
-
-    tmpdv.setFloat32(7, 3.14);
-    tmpdv.setFloat64(11, 3.14);
-
-    `dv`[0] = tmpdv;
-    """.}
-    let s = newStreamWithDataView(dv)
-    try:
-        echo s.readInt16()
-        echo s.readStr(4)
-        echo s.readChar()
-        echo s.readFloat32()
-        echo s.readFloat64()
-    except:
-        echo "Exception caught"
