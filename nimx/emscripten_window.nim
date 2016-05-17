@@ -50,6 +50,16 @@ proc onMouseMove(eventType: cint, mouseEvent: ptr EmscriptenMouseEvent, userData
     evt.window = w
     discard mainApplication().handleEvent(evt)
 
+proc onMouseWheel(eventType: cint, wheelEvent: ptr EmscriptenWheelEvent, userData: pointer): EM_BOOL {.cdecl.} =
+    let w = cast[EmscriptenWindow](userData)
+    let pos = newPoint(Coord(wheelEvent.mouse.targetX), Coord(wheelEvent.mouse.targetY))
+    var evt = newEvent(etScroll, pos)
+    evt.window = w
+    evt.offset.x = wheelEvent.deltaX.Coord
+    evt.offset.y = wheelEvent.deltaY.Coord
+    if mainApplication().handleEvent(evt):
+        result = 1
+
 proc initCommon(w: EmscriptenWindow, r: view.Rect) =
     procCall init(w.Window, r)
 
@@ -80,6 +90,7 @@ proc initCommon(w: EmscriptenWindow, r: view.Rect) =
     discard emscripten_set_mousedown_callback(canvId, cast[pointer](w), 0, onMouseButton)
     discard emscripten_set_mouseup_callback(canvId, cast[pointer](w), 0, onMouseButton)
     discard emscripten_set_mousemove_callback(canvId, cast[pointer](w), 0, onMouseMove)
+    discard emscripten_set_wheel_callback(canvId, cast[pointer](w), 0, onMouseWheel)
 
     #w.enableAnimation(true)
     mainApplication().addWindow(w)
