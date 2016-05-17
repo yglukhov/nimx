@@ -226,25 +226,30 @@ proc newMetaAnimation*(anims: varargs[Animation]): MetaAnimation =
     result.new()
     result.startTime = -1
     result.numberOfLoops = -1
-    result.loopDuration = 1.0
     result.loopPattern = lpStartToEnd
     result.animations = @anims
     result.curIndex = -1
+    result.loopDuration = 1.0
 
-    let a = result
+    var a = result
     result.onAnimate = proc(p: float) =
+        a.finished = false
+        if a.animations.len <= 0: return
         let ep = epochTime()
+
         if not a.parallelMode:
             if a.curIndex == -1 or (a.curIndex < a.animations.len - 1 and a.animations[a.curIndex].finished):
                 inc a.curIndex
                 a.animations[a.curIndex].prepare(ep)
-            if a.curIndex == a.animations.len - 1 and a.animations[a.curIndex].finished:
-                if a.curLoop >= a.numberOfLoops:
+            elif a.curIndex == a.animations.len - 1 and a.animations[a.curIndex].finished:
+                if a.numberOfLoops == -1 or (a.numberOfLoops != -1 and a.curLoop > a.numberOfLoops):
+                    a.curIndex = -1
+                else:
                     a.finished = true
             else:
                 a.animations[a.curIndex].tick(ep)
         else:
-            if a.curIndex == -1 :
+            if a.curIndex == -1:
                 for anim in a.animations:
                     anim.prepare(ep)
                 a.curIndex = 0
@@ -258,7 +263,8 @@ proc newMetaAnimation*(anims: varargs[Animation]): MetaAnimation =
 
             if not anims_finished:
                 for anim in a.animations:
-                    anim.tick(ep)
+                    if not anim.finished:
+                        anim.tick(ep)
             else:
                 if a.numberOfLoops == -1 or (a.numberOfLoops != -1 and a.curLoop > a.numberOfLoops):
                     a.curIndex = -1
