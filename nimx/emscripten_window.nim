@@ -25,7 +25,7 @@ method enableAnimation*(w: EmscriptenWindow, flag: bool) =
 # assuming that touch devices may have only one window.
 var defaultWindow: EmscriptenWindow
 
-proc onMouse(eventType: cint, mouseEvent: ptr EmscriptenMouseEvent, userData: pointer): EM_BOOL {.cdecl.} =
+proc onMouseButton(eventType: cint, mouseEvent: ptr EmscriptenMouseEvent, userData: pointer): EM_BOOL {.cdecl.} =
     let w = cast[EmscriptenWindow](userData)
     template bsFromEt(): ButtonState =
         if eventType == 5:
@@ -41,6 +41,12 @@ proc onMouse(eventType: cint, mouseEvent: ptr EmscriptenMouseEvent, userData: po
         else: VirtualKey.Unknown
 
     var evt = newMouseButtonEvent(newPoint(Coord(mouseEvent.targetX), Coord(mouseEvent.targetY)), bcFromE(), bsFromEt())
+    evt.window = w
+    discard mainApplication().handleEvent(evt)
+
+proc onMouseMove(eventType: cint, mouseEvent: ptr EmscriptenMouseEvent, userData: pointer): EM_BOOL {.cdecl.} =
+    let w = cast[EmscriptenWindow](userData)
+    var evt = newMouseMoveEvent(newPoint(Coord(mouseEvent.targetX), Coord(mouseEvent.targetY)), uint32(mouseEvent.timestamp))
     evt.window = w
     discard mainApplication().handleEvent(evt)
 
@@ -71,8 +77,9 @@ proc initCommon(w: EmscriptenWindow, r: view.Rect) =
     discard emscripten_webgl_make_context_current(w.ctx)
     w.renderingContext = newGraphicsContext()
 
-    discard emscripten_set_mousedown_callback(canvId, cast[pointer](w), 0, onMouse)
-    discard emscripten_set_mouseup_callback(canvId, cast[pointer](w), 0, onMouse)
+    discard emscripten_set_mousedown_callback(canvId, cast[pointer](w), 0, onMouseButton)
+    discard emscripten_set_mouseup_callback(canvId, cast[pointer](w), 0, onMouseButton)
+    discard emscripten_set_mousemove_callback(canvId, cast[pointer](w), 0, onMouseMove)
 
     #w.enableAnimation(true)
     mainApplication().addWindow(w)
