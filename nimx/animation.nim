@@ -262,9 +262,7 @@ proc newMetaAnimation*(anims: varargs[Animation]): MetaAnimation =
             else:
                 if a.numberOfLoops == -1 or (a.numberOfLoops != -1 and a.curLoop > a.numberOfLoops):
                     a.curIndex = -1
-                    echo " repeat "
                 else:
-                    echo "finished"
                     a.finished = true
 
 when isMainModule:
