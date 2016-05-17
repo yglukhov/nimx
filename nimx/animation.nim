@@ -18,23 +18,29 @@ type ProgressHandler = object
     progress: float
     callIfCancelled: bool
 
-type Animation* = ref object of RootObj
-    startTime*: float
-    pauseTime*: float
-    loopDuration*: float
-    loopPattern*: LoopPattern
-    numberOfLoops*: int
-    timingFunction*: TimingFunction
-    onAnimate*: AnimationFunction
-    finished*: bool
-    cancelLoop: int # Loop at which animation was cancelled. -1 if not cancelled
-    curLoop*: int
-    tag*: string
+type
+    Animation* = ref object of RootObj
+        startTime*: float
+        pauseTime*: float
+        loopDuration*: float
+        loopPattern*: LoopPattern
+        numberOfLoops*: int
+        timingFunction*: TimingFunction
+        onAnimate*: AnimationFunction
+        finished*: bool
+        cancelLoop: int # Loop at which animation was cancelled. -1 if not cancelled
+        curLoop*: int
+        tag*: string
 
-    continueUntilEndOfLoopOnCancel*: bool
-    loopProgressHandlers: seq[ProgressHandler]
-    totalProgressHandlers: seq[ProgressHandler]
-    lphIt, tphIt: int # Cursors for progressHandlers arrays
+        continueUntilEndOfLoopOnCancel*: bool
+        loopProgressHandlers: seq[ProgressHandler]
+        totalProgressHandlers: seq[ProgressHandler]
+        lphIt, tphIt: int # Cursors for progressHandlers arrays
+
+    MetaAnimation* = ref object of Animation
+        animations*: seq[Animation]
+        curIndex*: int
+        parallelMode*: bool
 
 proc newAnimation*(): Animation =
     result.new()
@@ -216,6 +222,49 @@ proc resume*(a: Animation) =
         a.startTime += epochTime() - a.pauseTime
         a.pauseTime = 0
 
+proc newMetaAnimation*(anims: varargs[Animation]): MetaAnimation =
+    result.new()
+    result.startTime = -1
+    result.numberOfLoops = -1
+    result.loopDuration = 1.0
+    result.loopPattern = lpStartToEnd
+    result.animations = @anims
+    result.curIndex = -1
+
+    let a = result
+    result.onAnimate = proc(p: float) =
+        let ep = epochTime()
+        if not a.parallelMode:
+            if a.curIndex == -1 or (a.curIndex < a.animations.len - 1 and a.animations[a.curIndex].finished):
+                inc a.curIndex
+                a.animations[a.curIndex].prepare(ep)
+            if a.curIndex == a.animations.len - 1 and a.animations[a.curIndex].finished:
+                if a.curLoop >= a.numberOfLoops:
+                    a.finished = true
+            else:
+                a.animations[a.curIndex].tick(ep)
+        else:
+            if a.curIndex == -1 :
+                for anim in a.animations:
+                    anim.prepare(ep)
+                a.curIndex = 0
+
+            var anims_finished = true
+
+            for anim in a.animations:
+                if not anim.finished:
+                    anims_finished = false
+                    break
+
+            if not anims_finished:
+                for anim in a.animations:
+                    anim.tick(ep)
+            else:
+                if a.numberOfLoops == -1 or (a.numberOfLoops != -1 and a.curLoop > a.numberOfLoops):
+                    a.curIndex = -1
+                else:
+                    a.finished = true
+
 when isMainModule:
     proc emulateAnimationRun(a: Animation, startTime, endTime, fps: float): float =
         var curTime = startTime
@@ -238,3 +287,208 @@ when isMainModule:
     let timeTaken = a.emulateAnimationRun(5.0, 6.0, 60)
 
     doAssert(progresses[^1] == 1.0)
+
+const PI_X2 = PI * 2.0
+
+# when used to allow wrap all predefined timefunction in editors
+when true:
+    ## http://easings.net
+    proc linear*(time: float): float =
+        result = time
+    ## -------------------------------------------------------------
+    proc sineEaseIn*(time: float): float =
+        result = -1 * cos(time * PI_X2) + 1
+
+    proc sineEaseOut*(time: float): float =
+        result = sin(time * PI_X2)
+
+    proc sineEaseInOut*(time: float): float =
+        result = -0.5 * (cos(PI * time) - 1)
+
+    ## -------------------------------------------------------------
+    proc quadEaseIn*(time: float): float =
+        result = time * time
+
+    proc quadEaseOut*(time: float): float =
+        result = -1 * time * (time - 2)
+
+    proc quadEaseInOut*(time: float): float =
+        var var_time = time * 2
+        if var_time < 1:
+            result = 0.5 * var_time * var_time
+        else:
+            var_time -= 1.0
+            result = -0.5 * (var_time * (var_time - 2) - 1)
+
+    ## -------------------------------------------------------------
+    proc cubicEaseIn*(time: float): float =
+        result = time * time * time
+
+    proc cubicEaseOut*(time: float): float =
+        var var_time = time - 1
+        result = var_time * var_time * var_time + 1
+
+    proc cubicEaseInOut*(time: float): float =
+        var var_time = time * 2
+        if var_time < 1:
+            result = 0.5 * var_time * var_time * var_time
+        else:
+            var_time -= 2
+            result = 0.5 * (var_time * var_time * var_time + 2)
+
+    ## -------------------------------------------------------------
+    proc quartEaseIn*(time: float): float =
+        result = time * time * time * time
+
+    proc quartEaseOut*(time: float): float =
+        var var_time = time - 1
+        result = -(var_time * var_time * var_time * var_time - 1)
+
+    proc quartEaseInOut*(time: float): float =
+        var var_time = time * 2
+        if var_time < 1:
+            result = 0.5 * var_time * var_time * var_time * var_time
+        else:
+            var_time -= 2.0
+            result = -0.5 * (var_time * var_time * var_time * var_time - 2)
+
+    ## -------------------------------------------------------------
+    proc quintEaseIn*(time: float): float =
+        result = time * time * time * time * time
+
+    proc quintEaseOut*(time: float): float =
+        var var_time = time - 1
+        result = var_time * var_time * var_time * var_time * var_time + 1
+
+    proc quintEaseInOut*(time: float): float =
+        var var_time = time * 2
+        if var_time < 1:
+            result = 0.5 * var_time * var_time * var_time * var_time * var_time
+        else:
+            var_time -= 2.0
+            result = -0.5 * (var_time * var_time * var_time * var_time * var_time + 2)
+
+    ## -------------------------------------------------------------
+    proc expoEaseIn*(time: float): float =
+        if time <= 0.0001:
+            result = 0
+        else:
+            result = pow(2, 10 * (time/1 - 1)) - 1 * 0.001
+
+    proc expoEaseOut*(time: float): float =
+        if time >= 0.9999:
+            result = 1.0
+        else:
+            result = -pow(2, -10 * time/1 ) + 1
+
+    proc expoEaseInOut*(time: float): float =
+        var var_time = time * 2
+        if var_time < 1:
+            result = 0.5 * pow(2, 10 * (var_time - 1))
+        else:
+            result = 0.5 * (-pow(2, -10 * (var_time - 1)) + 2)
+    ## -------------------------------------------------------------
+
+    proc circleEaseIn*(time: float): float =
+        result = -(sqrt(1 - time * time) - 1)
+
+    proc circleEaseOut*(time: float): float =
+        var var_time = time - 1
+        result = sqrt( 1 - var_time * var_time )
+
+    proc circleEaseInOut*(time: float): float =
+        var var_time = time * 2
+        if var_time < 1:
+            result = -0.5 * (sqrt(1 - var_time * var_time) - 1)
+        else:
+            result = 0.5 * (sqrt(1 - var_time * var_time) + 1)
+
+    ## -------------------------------------------------------------
+    proc elasticEaseIn*(time, period: float): float =
+        if time <= 0.0001 or 0 >= 0.9999:
+            result = time
+        else:
+            var s = period / 4
+            var var_time = time - 1
+            result = -pow(2, 10 * var_time) * sin((var_time - s) * PI_X2 / period)
+
+    proc elasticEaseOut*(time, period: float): float =
+        if time <= 0.0001 or 0 >= 0.9999:
+            result = time
+        else:
+            var s = period / 4
+            result = pow(2, -10 * time) * sin((time - s) * PI_X2 / period) + 1
+
+    proc elasticEaseInOut*(time, period: float): float =
+        if time <= 0.0001 or 0 >= 0.9999:
+            result = time
+        else:
+            var var_time = time * 2 - 1
+            var nPeriod: float
+            if period == 0.0:
+                nPeriod = 0.3 * 1.5
+            else:
+                nPeriod = period
+            var s = nPeriod / 4
+            if var_time < 0:
+                result = -0.5 * pow(2, 10 * var_time) * sin((var_time - s) * PI_X2/nPeriod)
+            else:
+                result = pow(2, -10 * var_time) * sin((var_time - s) * PI_X2/nPeriod) * 0.5 + 1
+
+    ## -------------------------------------------------------------
+    proc backEaseIn*(time: float, overshoot: float = 1.70158): float =
+        result = time * time * ((overshoot + 1) * time - overshoot)
+
+    proc backEaseOut*(time: float, overshoot:float = 1.70158): float =
+        var var_time = time - 1
+        result = var_time * var_time * ((overshoot + 1) * var_time + overshoot) + 1
+
+    proc backEaseInOut*(time: float, overshoot: float = 1.70158): float =
+        var var_time = time * 2
+        if var_time < 1:
+            result = (var_time * var_time * (overshoot + 1) * var_time - overshoot) / 2
+        else:
+            var_time -= 2
+            result = (var_time * var_time * ((overshoot + 1) * var_time + overshoot)) / 2 + 1
+
+    ## -------------------------------------------------------------
+    proc bounceTime(time: float): float =
+        if time < 1 / 2.75:
+            result = 7.5625 * time * time
+        elif  time < 2 / 2.75:
+            var var_time = time - 1.5/2.75
+            result = 7.5625 * var_time * var_time + 0.75
+        elif time < 2.5 / 2.75:
+            var var_time = time - 2.25/2.75
+            result = 7.5625 * var_time * var_time + 0.9375
+        else:
+            var var_time = time - 2.625/2.75
+            result = 7.5265 * var_time * var_time + 0.984375
+
+    proc bounceEaseIn*(time: float): float =
+        result = 1 - bounceTime(1 - time)
+
+    proc bounceEaseOut*(time: float): float =
+        result = bounceTime(time)
+
+    proc  bounceEaseInOut*(time: float): float =
+        if time < 0.5:
+            var var_time = time * 2
+            result = ( 1 - bounceTime(1 - var_time)) * 0.5
+        else:
+            result = bounceTime(time * 2 - 1) * 0.5 + 0.5
+
+    ## -------------------------------------------------------------
+    proc quadraticIn*(time: float): float =
+        result = pow(time, 2)
+
+    proc quadraticOut*(time: float): float =
+        result = -time * (time - 2)
+
+    proc quadraticInOut*(time: float): float =
+        var var_time = time * 2
+        if  var_time < 1:
+            result = var_time * var_time * 0.5
+        else:
+            var_time -= 1
+            result = -0.5 * (var_time * (var_time - 2) - 1)
