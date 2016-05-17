@@ -47,7 +47,7 @@ proc onMouse(eventType: cint, mouseEvent: ptr EmscriptenMouseEvent, userData: po
 proc initCommon(w: EmscriptenWindow, r: view.Rect) =
     procCall init(w.Window, r)
 
-    let id = EM_ASM_INT """
+    let id = EM_ASM_INT("""
     if (window.__nimx_canvas_id === undefined) {
         window.__nimx_canvas_id = 0;
     } else {
@@ -55,11 +55,11 @@ proc initCommon(w: EmscriptenWindow, r: view.Rect) =
     }
     var canvas = document.createElement("canvas");
     canvas.id = "nimx_canvas" + window.__nimx_canvas_id;
-    canvas.width = 800;
-    canvas.height = 600;
+    canvas.width = $0;
+    canvas.height = $1;
     document.body.appendChild(canvas);
     return window.__nimx_canvas_id;
-    """
+    """, r.width, r.height)
 
     let canvId = "nimx_canvas" & $id
 
