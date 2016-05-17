@@ -311,7 +311,8 @@ var sysFont : Font
 
 const preferredFonts = when defined(js) or defined(windows) or defined(emscripten):
         [
-            "Arial"
+            "Arial",
+            "OpenSans-Regular"
         ]
     elif defined(macosx):
         [

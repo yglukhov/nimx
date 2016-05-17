@@ -560,12 +560,14 @@ proc build*(b: Builder) =
         b.executablePath = b.buildRoot / "main.js"
         b.nimFlags.add(["--cpu:i386", "-d:emscripten", "--os:linux", "--cc:clang",
             "--clang.exe=emcc", "--clang.linkerexe=emcc", "-d:SDL_Static"])
-        b.additionalLinkerFlags.add(["--preload-file", b.resourcePath & "@/res"])
+        b.additionalLinkerFlags.add(["--preload-file", b.resourcePath & "/OpenSans-Regular.ttf@/res/OpenSans-Regular.ttf"])
         b.additionalNimFlags.add("-d:noAutoGLerrorCheck")
         b.additionalLinkerFlags.add(["-s", "FULL_ES2=1"])
         b.additionalLinkerFlags.add(["-s", "ALLOW_MEMORY_GROWTH=1"])
-        #b.additionalLinkerFlags.add(["-O3"])
-        #b.additionalCompilerFlags.add(["-O3"])
+
+        if not b.debugMode:
+            b.additionalLinkerFlags.add("-O3")
+            b.additionalCompilerFlags.add("-O3")
 
     else: discard
 

@@ -148,6 +148,8 @@ when defined js:
         oReq.addEventListener("load", reqListener)
         oReq.open("GET", pathForResource(resourceName))
         oReq.send()
+elif defined(emscripten):
+    import emscripten
 
 proc loadResourceAsync*(resourceName: string, handler: proc(s: Stream)) =
     when defined(js):
@@ -156,6 +158,18 @@ proc loadResourceAsync*(resourceName: string, handler: proc(s: Stream)) =
             {.emit: "`dataView` = new DataView(`data`);".}
             handler(newStreamWithDataView(dataView))
         loadJSResourceAsync(resourceName, "arraybuffer", nil, nil, reqListener)
+    elif defined(emscripten):
+        emscripten_async_wget_data(pathForResource(resourceName),
+        proc (data: pointer, sz: cint) =
+            var str = newString(sz)
+            copyMem(addr str[0], data, sz)
+            let s = newStringStream(str)
+            handler(s)
+        ,
+        proc () =
+            logi "WARNING: Resource not found: ", resourceName
+            handler(nil)
+        )
     else:
         handler(streamForResourceWithName(resourceName))
 
