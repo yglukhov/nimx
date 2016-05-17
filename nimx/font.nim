@@ -79,9 +79,6 @@ type Font* = ref object
     ascent, descent: float32
     shadowX*, shadowY*, shadowBlur*: float32
 
-    when defined js:
-        canvas: Element
-
 proc linearDependency(x, x1, y1, x2, y2: float): float =
     result = y1 + (x - x1) * (y2 - y1) / (x2 - x1)
 
@@ -165,7 +162,6 @@ proc bakeChars(f: Font, start: int32): CharInfo =
         `ascent` = metrics.ascent;
         `descent` = metrics.descent;
         """.}
-        f.canvas = canvas
 
         const glyphMargin = 2
         let h = ascent + descent
