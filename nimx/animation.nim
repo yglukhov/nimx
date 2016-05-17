@@ -41,6 +41,7 @@ type
         animations*: seq[Animation]
         curIndex*: int
         parallelMode*: bool
+        loopNum*: int
 
 proc newAnimation*(): Animation =
     result.new()
@@ -72,7 +73,7 @@ proc removeHandlers*(a: Animation) =
     a.removeTotalProgressHandlers()
     a.removeLoopProgressHandlers()
 
-proc prepare*(a: Animation, startTime: float) =
+method prepare*(a: Animation, startTime: float) =
     a.finished = false
     a.startTime = startTime
     a.lphIt = 0
@@ -242,19 +243,20 @@ proc newMetaAnimation*(anims: varargs[Animation]): MetaAnimation =
                 inc a.curIndex
                 a.animations[a.curIndex].prepare(ep)
             elif a.curIndex == a.animations.len - 1 and a.animations[a.curIndex].finished:
-                if a.numberOfLoops == -1 or (a.numberOfLoops != -1 and a.curLoop > a.numberOfLoops):
+                if a.numberOfLoops == -1 or a.loopNum < a.numberOfLoops - 1:
                     a.curIndex = -1
+                    inc a.loopNum
                 else:
                     a.finished = true
             else:
                 a.animations[a.curIndex].tick(ep)
         else:
+            var anims_finished = true
+
             if a.curIndex == -1:
                 for anim in a.animations:
                     anim.prepare(ep)
                 a.curIndex = 0
-
-            var anims_finished = true
 
             for anim in a.animations:
                 if not anim.finished:
@@ -266,10 +268,21 @@ proc newMetaAnimation*(anims: varargs[Animation]): MetaAnimation =
                     if not anim.finished:
                         anim.tick(ep)
             else:
-                if a.numberOfLoops == -1 or (a.numberOfLoops != -1 and a.curLoop > a.numberOfLoops):
+                if a.numberOfLoops == -1 or a.loopNum < a.numberOfLoops - 1:
                     a.curIndex = -1
+                    inc a.loopNum
                 else:
                     a.finished = true
+
+method prepare*(a: MetaAnimation, startTime: float) =
+    a.finished = false
+    a.startTime = startTime
+    a.lphIt = 0
+    a.tphIt = 0
+    a.cancelLoop = -1
+    a.curLoop = 0
+    a.curIndex = -1
+    a.loopNum = 0
 
 when isMainModule:
     proc emulateAnimationRun(a: Animation, startTime, endTime, fps: float): float =
