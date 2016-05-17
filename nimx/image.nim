@@ -123,20 +123,20 @@ proc initWithResource*(i: SelfContainedImage, name: string) =
         `i`.__image.src = `nativeName`;
         """.}
     else:
-        let s = streamForResourceWithName(name)
-        var data = s.readAll()
-        s.close()
-        if name.endsWith(".pvr"):
-            i.initWithPVR(data)
-        else:
-            var x, y, comp: cint
+        loadResourceAsync(name) do(s: Stream):
+            var data = s.readAll()
+            s.close()
+            if name.endsWith(".pvr"):
+                i.initWithPVR(data)
+            else:
+                var x, y, comp: cint
 
-            var bitmap = stbi_load_from_memory(cast[ptr uint8](addr data[0]),
-                data.len.cint, addr x, addr y, addr comp, 0)
-            i.initWithBitmap(bitmap, x, y, comp)
-            stbi_image_free(bitmap)
+                var bitmap = stbi_load_from_memory(cast[ptr uint8](addr data[0]),
+                    data.len.cint, addr x, addr y, addr comp, 0)
+                i.initWithBitmap(bitmap, x, y, comp)
+                stbi_image_free(bitmap)
 
-        i.setFilePath(pathForResource(name))
+            i.setFilePath(pathForResource(name))
 
 proc imageWithResource*(name: string): SelfContainedImage =
     result = SelfContainedImage(imageCache.get(name))
