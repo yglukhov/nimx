@@ -25,14 +25,8 @@ method enableAnimation*(w: EmscriptenWindow, flag: bool) =
 # assuming that touch devices may have only one window.
 var defaultWindow: EmscriptenWindow
 
-proc onMouseButton(eventType: cint, mouseEvent: ptr EmscriptenMouseEvent, userData: pointer): EM_BOOL {.cdecl.} =
+proc onMouseButton(eventType: cint, mouseEvent: ptr EmscriptenMouseEvent, userData: pointer, bs: ButtonState): EM_BOOL =
     let w = cast[EmscriptenWindow](userData)
-    template bsFromEt(): ButtonState =
-        if eventType == 5:
-            bsDown
-        else:
-            bsUp
-
     template bcFromE(): VirtualKey =
         case mouseEvent.button:
         of 0: VirtualKey.MouseButtonPrimary
@@ -40,15 +34,21 @@ proc onMouseButton(eventType: cint, mouseEvent: ptr EmscriptenMouseEvent, userDa
         of 1: VirtualKey.MouseButtonMiddle
         else: VirtualKey.Unknown
 
-    var evt = newMouseButtonEvent(newPoint(Coord(mouseEvent.targetX), Coord(mouseEvent.targetY)), bcFromE(), bsFromEt())
+    var evt = newMouseButtonEvent(newPoint(Coord(mouseEvent.targetX), Coord(mouseEvent.targetY)), bcFromE(), bs, uint32(mouseEvent.timestamp))
     evt.window = w
-    discard mainApplication().handleEvent(evt)
+    if mainApplication().handleEvent(evt): result = 1
+
+proc onMouseDown(eventType: cint, mouseEvent: ptr EmscriptenMouseEvent, userData: pointer): EM_BOOL {.cdecl.} =
+    onMouseButton(eventType, mouseEvent, userData, bsDown)
+
+proc onMouseUp(eventType: cint, mouseEvent: ptr EmscriptenMouseEvent, userData: pointer): EM_BOOL {.cdecl.} =
+    onMouseButton(eventType, mouseEvent, userData, bsUp)
 
 proc onMouseMove(eventType: cint, mouseEvent: ptr EmscriptenMouseEvent, userData: pointer): EM_BOOL {.cdecl.} =
     let w = cast[EmscriptenWindow](userData)
     var evt = newMouseMoveEvent(newPoint(Coord(mouseEvent.targetX), Coord(mouseEvent.targetY)), uint32(mouseEvent.timestamp))
     evt.window = w
-    discard mainApplication().handleEvent(evt)
+    if mainApplication().handleEvent(evt): result = 1
 
 proc onMouseWheel(eventType: cint, wheelEvent: ptr EmscriptenWheelEvent, userData: pointer): EM_BOOL {.cdecl.} =
     let w = cast[EmscriptenWindow](userData)
@@ -57,8 +57,7 @@ proc onMouseWheel(eventType: cint, wheelEvent: ptr EmscriptenWheelEvent, userDat
     evt.window = w
     evt.offset.x = wheelEvent.deltaX.Coord
     evt.offset.y = wheelEvent.deltaY.Coord
-    if mainApplication().handleEvent(evt):
-        result = 1
+    if mainApplication().handleEvent(evt): result = 1
 
 proc initCommon(w: EmscriptenWindow, r: view.Rect) =
     procCall init(w.Window, r)
@@ -87,8 +86,8 @@ proc initCommon(w: EmscriptenWindow, r: view.Rect) =
     discard emscripten_webgl_make_context_current(w.ctx)
     w.renderingContext = newGraphicsContext()
 
-    discard emscripten_set_mousedown_callback(canvId, cast[pointer](w), 0, onMouseButton)
-    discard emscripten_set_mouseup_callback(canvId, cast[pointer](w), 0, onMouseButton)
+    discard emscripten_set_mousedown_callback(canvId, cast[pointer](w), 0, onMouseDown)
+    discard emscripten_set_mouseup_callback(canvId, cast[pointer](w), 0, onMouseUp)
     discard emscripten_set_mousemove_callback(canvId, cast[pointer](w), 0, onMouseMove)
     discard emscripten_set_wheel_callback(canvId, cast[pointer](w), 0, onMouseWheel)
 
