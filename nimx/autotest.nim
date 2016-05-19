@@ -44,12 +44,20 @@ macro registeredUiTest*(name: untyped, body: typed): stmt =
     result.add(testSuiteDefinitionWithNameAndBody(name, body))
     result.add(newCall(bindsym "registerTest", name))
 
+when defined(emscripten):
+    import emscripten
+
 proc dump(s: string) =
     when defined(js):
         let cs : cstring = s
         # The following ['dump'] is required this way because otherwise
         # it will be stripped away by closure compiler as not a standard function.
         {.emit: "if ('dump' in window) window['dump'](`cs` + '\\n');".}
+    elif defined(emscripten):
+        discard EM_ASM_INT("""
+        if ('dump' in window) window['dump'](Pointer_stringify($0) + '\n');
+        return 0;
+        """, cstring(s))
     else:
         logi s
 
@@ -74,7 +82,7 @@ when true:
                     if not result.isNil: break
 
     proc quitApplication*() =
-        when defined(js):
+        when defined(js) or defined(emscripten):
             # Hopefully we're using nimx automated testing in Firefox
             dump("---AUTO-TEST-QUIT---")
         else:
