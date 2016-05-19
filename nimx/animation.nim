@@ -73,7 +73,7 @@ proc removeHandlers*(a: Animation) =
     a.removeTotalProgressHandlers()
     a.removeLoopProgressHandlers()
 
-method prepare*(a: Animation, startTime: float) =
+method prepare*(a: Animation, startTime: float) {.base.} =
     a.finished = false
     a.startTime = startTime
     a.lphIt = 0
