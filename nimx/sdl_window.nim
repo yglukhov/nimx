@@ -153,7 +153,8 @@ proc eventWithSDLEvent(event: ptr sdl2.Event): Event =
                                    bs, int(touchEv.fingerID), touchEv.timestamp
                                    )
             result.window = defaultWindow
-            #result.kind = etUnknown TODO: Fix apple trackpad problem
+            when defined(macosx):
+                result.kind = etUnknown # TODO: Fix apple trackpad problem
 
         of WindowEvent:
             let wndEv = cast[WindowEventPtr](event)
