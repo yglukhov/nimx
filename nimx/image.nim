@@ -32,8 +32,6 @@ type
         mSize: Size
         texCoords: array[4, GLfloat]
 
-var imageCache = initResourceCache[Image]()
-
 template setupTexParams(gl: GL) =
     when defined(android) or defined(ios):
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
@@ -139,7 +137,7 @@ proc initWithResource*(i: SelfContainedImage, name: string) =
             i.setFilePath(pathForResource(name))
 
 proc imageWithResource*(name: string): SelfContainedImage =
-    result = SelfContainedImage(imageCache.get(name))
+    result = findCachedResource[SelfContainedImage](name)
     if result.isNil:
         resourceNotCached(name)
         result.new()
@@ -357,7 +355,7 @@ when asyncResourceLoad:
 
     type ImageLoadingCtx = ref object
         path, name: string
-        completionCallback: proc()
+        completionCallback: proc(i: SelfContainedImage)
         texture: TextureRef
         texCoords: array[4, GLfloat]
         size: Size
@@ -372,8 +370,7 @@ when asyncResourceLoad:
         i.texture = c.texture
         i.texCoords = c.texCoords
         i.mSize = c.size
-        imageCache.registerResource(c.name, i)
-        c.completionCallback()
+        c.completionCallback(i)
 
     var ctxIsCurrent = false
 
@@ -404,7 +401,7 @@ when asyncResourceLoad:
         let p = cast[pointer](loadComplete)
         performOnMainThread(cast[proc(data: pointer){.cdecl, gcsafe.}](p), ctx)
 
-registerResourcePreloader(["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga", "pvr"], proc(name: string, callback: proc()) =
+registerResourcePreloader(["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga", "pvr"]) do(name: string, callback: proc(i: SelfContainedImage)):
     when defined(js):
         proc handler(r: ref RootObj) =
             var onImLoad = proc (im: ref RootObj) =
@@ -412,8 +409,7 @@ registerResourcePreloader(["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga", "p
                 {.emit: "`w` = im.width; `h` = im.height;".}
                 let image = imageWithSize(newSize(w, h))
                 {.emit: "`image`.__image = im;".}
-                imageCache.registerResource(name, image)
-                callback()
+                callback(image)
             {.emit:"""
             var im = new Image();
             im.onload = function(){`onImLoad`(im);};
@@ -443,6 +439,4 @@ registerResourcePreloader(["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga", "p
 
         loadingQueue.addTask(loadResourceThreaded, cast[pointer](ctx))
     else:
-        imageCache.registerResource(name, imageWithResource(name))
-        callback()
-)
+        callback(imageWithResource(name))

@@ -5,6 +5,7 @@ import json
 import tables
 import async_http_request
 import pathutils
+import variant
 
 when not defined(js):
     import os
@@ -14,27 +15,44 @@ else:
     include "system/inclrtl"
     include ospaths
 
-type ResourceCache*[T] = object
-    cache: Table[string, T]
+type ResourceCache* = ref object
+    cache: Table[string, Variant]
 
-proc initResourceCache*[T](): ResourceCache[T] =
-    result.cache = initTable[string, T]()
+var resourceCaches = newSeq[ResourceCache]()
+
+proc newResourceCache*(): ResourceCache =
+    result.new()
+    result.cache = initTable[string, Variant]()
+    resourceCaches.add(result)
+
+proc release*(rc: ResourceCache) =
+    for i, r in resourceCaches:
+        if r == rc:
+            resourceCaches.delete(i)
+            break
 
 proc pathForResource*(name: string): string
 
-template registerResource*[T](c: var ResourceCache[T], name: string, r: T) =
-    c.cache[pathForResource(name)] = r
+template registerResource*[T](c: ResourceCache, name: string, r: T) =
+    c.cache[pathForResource(name)] = newVariant(r)
+
+template registerResource*[T](name: string, r: T) =
+    if resourceCaches.len == 0: discard newResourceCache() # Create default resource cache
+    let rc = resourceCaches[^1]
+    rc.registerResource(name, r)
 
 var warnWhenResourceNotCached* = false
 
-template get*[T](c: var ResourceCache[T], name: string): T =
+proc get*[T](c: ResourceCache, name: string): T =
     let p = pathForResource(name)
     let r = c.cache.getOrDefault(p)
-    if r.isNil and warnWhenResourceNotCached:
-        logi "WARNING: Resource not cached: ", name, "(", if p.isNil: "nil" else: p, ")"
-    r
+    if not r.isEmpty: return r.get(T)
 
-var gJsonResCache* = initResourceCache[JsonNode]()
+proc findCachedResource*[T](name: string): T =
+    let p = pathForResource(name)
+    for rc in resourceCaches:
+        let v = rc.cache.getOrDefault(p)
+        if not v.isEmpty: return v.get(T)
 
 proc resourceNotCached*(name: string) =
     if warnWhenResourceNotCached:
@@ -174,7 +192,7 @@ proc loadResourceAsync*(resourceName: string, handler: proc(s: Stream)) =
         handler(streamForResourceWithName(resourceName))
 
 proc loadJsonResourceAsync*(resourceName: string, handler: proc(j: JsonNode)) =
-    let j = gJsonResCache.get(resourceName)
+    let j = findCachedResource[JsonNode](resourceName)
     if j.isNil:
         when defined js:
             let reqListener = proc(data: ref RootObj) =

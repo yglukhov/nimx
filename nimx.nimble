@@ -18,9 +18,8 @@ requires "jnim" # For android target
 requires "nake"
 requires "closure_compiler"
 requires "plists"
+requires "variant"
 
-# Jester is required to run a web server from the nakefile to serve WebGL variant
-
-requires "jester"
+requires "jester" # required to run a web server from the nakefile to serve WebGL variant
 requires "https://github.com/yglukhov/ttf"
 requires "https://github.com/yglukhov/async_http_request"
