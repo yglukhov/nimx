@@ -40,13 +40,6 @@ void compose() {
 }
 """
 
-proc drawBecauseNimBug*(s: SegmentedControl, r: Rect) =
-    scComposition.draw s.bounds:
-        setUniform("uSelectedRect",
-            newRect(s.selectedSegmentOffset, 0, s.widths[s.mSelectedSegment] + s.padding, s.bounds.height))
-        setUniform("uTrackedRect",
-            newRect(s.trackedSegmentOffset, 0, s.widths[s.trackedSegment] + s.padding, s.bounds.height))
-
 proc recalculateSegmentWidths(s: SegmentedControl) =
     if s.widths.isNil:
         s.widths = newSeq[Coord](s.segments.len)
@@ -73,11 +66,18 @@ proc recalculateSegmentWidths(s: SegmentedControl) =
 method draw*(s: SegmentedControl, r: Rect) =
     if not s.widthsValid:
         s.recalculateSegmentWidths()
-    s.drawBecauseNimBug(r)
+
+    scComposition.draw s.bounds:
+        setUniform("uSelectedRect",
+            newRect(s.selectedSegmentOffset, 0, s.widths[s.mSelectedSegment] + s.padding, s.bounds.height))
+        setUniform("uTrackedRect",
+            newRect(s.trackedSegmentOffset, 0, s.widths[s.trackedSegment] + s.padding, s.bounds.height))
+
     let font = systemFont()
     let c = currentContext()
     var r = newRect(0, 0, 0, s.bounds.height)
     var strSize = newSize(0, font.size)
+    c.strokeWidth = 0
     for i, w in s.widths:
         if i == s.mSelectedSegment:
             c.fillColor = whiteColor()
@@ -91,8 +91,6 @@ method draw*(s: SegmentedControl, r: Rect) =
             c.fillColor = newGrayColor(0.78)
             c.drawRect(newRect(r.origin.x - 1, 1, 1, r.height - 2))
         r.origin.x += r.size.width
-
-    c.drawLine(newPoint(s.bounds.x + 4.0, r.height - 1.0), newPoint(s.bounds.width - 4.0, r.height - 1.0))
 
 proc `segments=`*(s: SegmentedControl, segs: seq[string]) =
     s.segments = segs
