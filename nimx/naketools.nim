@@ -70,8 +70,10 @@ proc setBuilderSettings(b: Builder) =
             of "define", "d":
                 if val in ["js", "android", "ios", "ios-sim", "emscripten"]:
                     b.platform = val
-                if val == "release":
+                elif val == "release":
                     b.debugMode = false
+                else:
+                    b.additionalNimFlags.add("-d:" & val)
             of "norun":
                 b.runAfterBuild = false
             of "parallelBuild":
