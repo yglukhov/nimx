@@ -35,8 +35,6 @@ type ResourceLoaderProc* = proc(name: string, completionCallback: proc())
 
 var resourcePreloaders = newSeq[tuple[fileExtensions: seq[string], loader: ResourceLoaderProc]]()
 
-var gTextResCache = initResourceCache[string]()
-
 proc startPreloadingResource(ld: ResourceLoader, name: string) =
     let extension = name.getFileExtension()
 
@@ -50,30 +48,31 @@ proc startPreloadingResource(ld: ResourceLoader, name: string) =
     logi "WARNING: Unknown resource type: ", name
     #raise newException(Exception, "Unknown resource type: " & name)
 
-proc registerResourcePreloader*(fileExtensions: openarray[string], loader: ResourceLoaderProc) =
+proc registerResourcePreloader*(fileExtensions: openarray[string], loader: proc(name: string, callback: proc())) {.deprecated.} =
     resourcePreloaders.add((@fileExtensions, loader))
 
-registerResourcePreloader(["json", "zsm"], proc(name: string, callback: proc()) =
-    loadJsonResourceAsync(name, proc(j: JsonNode) =
-        gJsonResCache.registerResource(name, j)
-        callback()
-    )
-)
+proc registerResourcePreloader*[T](fileExtensions: openarray[string], loader: proc(name: string, callback: proc(r: T))) =
+    proc wrapCb(name: string, callback: proc()) =
+        loader(name) do(r: T):
+            registerResource(name, r)
+            callback()
+    resourcePreloaders.add((@fileExtensions, wrapCb))
 
-registerResourcePreloader(["obj", "txt"], proc(name: string, callback: proc()) =
+registerResourcePreloader(["json", "zsm"]) do(name: string, callback: proc(j: JsonNode)):
+    loadJsonResourceAsync(name) do(j: JsonNode):
+        callback(j)
+
+registerResourcePreloader(["obj", "txt"]) do(name: string, callback: proc(s: string)):
     when defined(js):
         proc handler(r: ref RootObj) =
             var text = cast[cstring](r)
-            gTextResCache.registerResource(name, $text)
-            callback()
+            callback($text)
 
         loadJSResourceAsync(name, "text", nil, nil, handler)
     else:
         loadResourceAsync name, proc(s: Stream) =
-            gTextResCache.registerResource(name, s.readAll())
+            callback(s.readAll())
             s.close()
-            callback()
-)
 
 proc preloadResources*(ld: ResourceLoader, resourceNames: openarray[string]) =
     ld.itemsToLoad += resourceNames.len

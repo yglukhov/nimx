@@ -3,6 +3,7 @@ import nimx.timer
 import nimx.app
 import nimx.event
 import nimx.abstract_window
+import nimx.button
 import nimx.system_logger
 
 type UITestSuiteStep* = tuple
@@ -43,12 +44,20 @@ macro registeredUiTest*(name: untyped, body: typed): stmt =
     result.add(testSuiteDefinitionWithNameAndBody(name, body))
     result.add(newCall(bindsym "registerTest", name))
 
+when defined(emscripten):
+    import emscripten
+
 proc dump(s: string) =
     when defined(js):
         let cs : cstring = s
         # The following ['dump'] is required this way because otherwise
         # it will be stripped away by closure compiler as not a standard function.
         {.emit: "if ('dump' in window) window['dump'](`cs` + '\\n');".}
+    elif defined(emscripten):
+        discard EM_ASM_INT("""
+        if ('dump' in window) window['dump'](Pointer_stringify($0) + '\n');
+        return 0;
+        """, cstring(s))
     else:
         logi s
 
@@ -61,11 +70,24 @@ when true:
     proc sendMouseDownEvent*(wnd: Window, p: Point) = sendMouseEvent(wnd, p, bsDown)
     proc sendMouseUpEvent*(wnd: Window, p: Point) = sendMouseEvent(wnd, p, bsUp)
 
+    proc findButtonWithTitle*(v: View, t: string): Button =
+        try:
+            result = Button(v)
+        except:
+            discard
+        if result.isNil or result.title != t:
+            if not v.subviews.isNil:
+                for s in v.subviews:
+                    result = findButtonWithTitle(s, t)
+                    if not result.isNil: break
+
     proc quitApplication*() =
-        when defined(js):
+        when defined(js) or defined(emscripten):
             # Hopefully we're using nimx automated testing in Firefox
             dump("---AUTO-TEST-QUIT---")
         else:
+            when defined(android):
+                logi "---AUTO-TEST-QUIT---"
             quit()
 
     template waitUntil*(e: bool): stmt =

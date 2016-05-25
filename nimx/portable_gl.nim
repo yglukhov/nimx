@@ -32,9 +32,9 @@ when defined js:
             VERTEX_SHADER* : GLenum
             FRAGMENT_SHADER* : GLenum
             TEXTURE_2D* : GLenum
-            ONE_MINUS_SRC_ALPHA*, ONE_MINUS_DST_ALPHA*, SRC_ALPHA*, DST_ALPHA*, ONE* : GLenum
+            ONE_MINUS_SRC_ALPHA*, ONE_MINUS_DST_ALPHA*, SRC_ALPHA*, DST_ALPHA*, ONE*, DST_COLOR* : GLenum
             BLEND* : GLenum
-            TRIANGLES*, TRIANGLE_FAN*, TRIANGLE_STRIP, LINES* : GLenum
+            TRIANGLES*, TRIANGLE_FAN*, TRIANGLE_STRIP*, LINES* : GLenum
             COLOR_BUFFER_BIT*: int
             STENCIL_BUFFER_BIT*: int
             DEPTH_BUFFER_BIT*: int
@@ -66,6 +66,8 @@ when defined js:
             TEXTURE0*: GLenum
 
             CULL_FACE*, FRONT*, BACK*, FRONT_AND_BACK* : GLenum
+
+            BUFFER_SIZE* : GLenum
 
     const invalidUniformLocation* : UniformLocation = nil
     const invalidProgram* : ProgramRef = nil
@@ -123,6 +125,7 @@ when defined js:
     proc clearColor*(gl: GL, r, g, b, a: GLfloat)
     proc clearStencil*(gl: GL, s: GLint)
     proc blendFunc*(gl: GL, sfactor, dfactor: GLenum)
+    proc blendFuncSeparate*(gl: GL, sfactor, dfactor, sfactorA, dfactorA: GLenum)
     proc texParameteri*(gl: GL, target, pname: GLenum, param: GLint)
 
     proc texImage2D*(gl: GL, target: GLenum, level, internalformat: GLint, width, height: GLsizei, border: GLint, format, t: GLenum, pixels: ref RootObj)
@@ -171,6 +174,7 @@ else:
     template ONE_MINUS_DST_ALPHA*(gl: GL): GLenum = GL_ONE_MINUS_DST_ALPHA
     template SRC_ALPHA*(gl: GL): GLenum = GL_SRC_ALPHA
     template DST_ALPHA*(gl: GL): GLenum = GL_DST_ALPHA
+    template DST_COLOR*(gl: GL): GLenum = GL_DST_COLOR
     template ONE*(gl: GL): GLenum = GL_ONE
     template BLEND*(gl: GL): GLenum = GL_BLEND
     template TRIANGLES*(gl: GL): GLenum = GL_TRIANGLES
@@ -245,6 +249,8 @@ else:
     template BACK*(gl: GL) : GLenum = GL_BACK
     template FRONT_AND_BACK*(gl: GL) : GLenum = GL_FRONT_AND_BACK
 
+    template BUFFER_SIZE*(gl: GL) : GLenum = GL_BUFFER_SIZE
+
     template compileShader*(gl: GL, shader: ShaderRef) = glCompileShader(shader)
     template deleteShader*(gl: GL, shader: ShaderRef) = glDeleteShader(shader)
     template deleteProgram*(gl: GL, prog: ProgramRef) = glDeleteProgram(prog)
@@ -306,6 +312,7 @@ else:
     template clearStencil*(gl: GL, s: GLint) = glClearStencil(s)
 
     template blendFunc*(gl: GL, sfactor, dfactor: GLenum) = glBlendFunc(sfactor, dfactor)
+    template blendFuncSeparate*(gl: GL, sfactor, dfactor, sfactorA, dfactorA: GLenum) = glBlendFuncSeparate(sfactor, dfactor, sfactorA, dfactorA)
     template texParameteri*(gl: GL, target, pname: GLenum, param: GLint) = glTexParameteri(target, pname, param)
 
     template texImage2D*(gl: GL, target: GLenum, level, internalformat: GLint, width, height: GLsizei, border: GLint, format, t: GLenum, pixels: pointer) =
@@ -408,7 +415,7 @@ proc isShaderCompiled*(gl: GL, shader: ShaderRef): bool {.inline.} =
     else:
         var compiled: GLint
         glGetShaderiv(shader, GL_COMPILE_STATUS, addr compiled)
-        result = if compiled == GL_TRUE: true else: false
+        result = GLboolean(compiled) == GLboolean(GL_TRUE)
 
 proc isProgramLinked*(gl: GL, prog: ProgramRef): bool {.inline.} =
     when defined js:
@@ -416,7 +423,7 @@ proc isProgramLinked*(gl: GL, prog: ProgramRef): bool {.inline.} =
     else:
         var linked: GLint
         glGetProgramiv(prog, GL_LINK_STATUS, addr linked)
-        result = if linked == GL_TRUE: true else: false
+        result = GLboolean(linked) == GLboolean(GL_TRUE)
 
 proc bufferData*(gl: GL, target: GLenum, data: openarray[GLfloat], usage: GLenum) {.inline.} =
     when defined(js):
@@ -456,6 +463,14 @@ proc bufferSubData*(gl: GL, target: GLenum, offset: int32, data: openarray[GLush
         asm "`gl`.bufferSubData(`target`, `offset`, new Uint16Array(`data`));"
     else:
         glBufferSubData(target, offset, GLsizei(data.len * sizeof(GLushort)), cast[pointer](data));
+
+proc getBufferParameteriv*(gl: GL, target, value: GLenum): GLint {.inline.} =
+    when defined js:
+        asm "`result` = `gl`.getBufferParameter(`target`, `value`);"
+    else:
+        var data: GLint
+        glGetBufferParameteriv(target, value, addr data)
+        result = data
 
 proc vertexAttribPointer*(gl: GL, index: GLuint, size: GLint, typ: GLenum, normalized: GLboolean,
                         stride: GLsizei, offset: int) {.inline.} =

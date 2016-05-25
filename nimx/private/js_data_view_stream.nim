@@ -50,6 +50,13 @@ proc abReadData(st: Stream, buffer: pointer, bufLen: int): int =
                 `result` = 4;
                 ok = true;
             }
+            else if (`bufLen` == 8) {
+                // Float64 expected
+                `buffer`[`buffer`_Idx] = `view`.getFloat64(`pos`, gLittleEndian);
+                `pos` += 8;
+                `result` = 8;
+                ok = true;
+            }
         }
         else if (`buffer`[0] === 0.0) {
             if (`bufLen` == 4) {
@@ -57,13 +64,6 @@ proc abReadData(st: Stream, buffer: pointer, bufLen: int): int =
                 `buffer`[`buffer`_Idx] = `view`.getFloat32(`pos`, gLittleEndian);
                 `pos` += 4;
                 `result` = 4;
-                ok = true;
-            }
-            else if (`bufLen` == 8) {
-                console.log("Reading float64")
-                `buffer`[`buffer`_Idx] = `view`.getFloat64(`pos`, gLittleEndian);
-                `pos` += 8;
-                `result` = 8;
                 ok = true;
             }
         }
@@ -211,3 +211,31 @@ proc newDataViewWriteStream*(): Stream =
     r.writeDataImpl = abWriteData
     r.getPositionImpl = abGetPos
     result = r
+
+when isMainModule:
+    var dv : ref RootObj
+    {.emit: """
+    var buffer = new ArrayBuffer(32);
+    var tmpdv = new DataView(buffer, 0);
+
+    tmpdv.setInt16(0, 42, gLittleEndian);
+    tmpdv.getInt16(0); //42
+
+    tmpdv.setInt8(2, "h".charCodeAt(0));
+    tmpdv.setInt8(3, "e".charCodeAt(0));
+    tmpdv.setInt8(4, "l".charCodeAt(0));
+    tmpdv.setInt8(5, "l".charCodeAt(0));
+    tmpdv.setInt8(6, "o".charCodeAt(0));
+
+    tmpdv.setFloat32(7, 3.14, gLittleEndian);
+    tmpdv.setFloat64(11, 3.14, gLittleEndian);
+
+    `dv`[0] = tmpdv;
+    """.}
+    let s = newStreamWithDataView(dv)
+    doAssert(s.readInt16() == 42)
+    doAssert(s.readStr(4) == "hell")
+    doAssert(s.readChar() == 'o')
+    discard s.readFloat32() # TODO: Stream can't differ between Float32 and Int32
+    #doAssert(s.readFloat32() == 3.14)
+    doAssert(s.readFloat64() == 3.14)

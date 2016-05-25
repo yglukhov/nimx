@@ -82,9 +82,12 @@ proc startApplication() =
     when defined(runAutoTests):
         startRegisteredTests()
 
-when defined js:
+when defined(js):
     import dom
     dom.window.onload = proc (e: dom.Event) =
+        startApplication()
+elif defined(emscripten):
+    runApplication:
         startApplication()
 else:
     try:

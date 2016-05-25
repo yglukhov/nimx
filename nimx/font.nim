@@ -79,9 +79,6 @@ type Font* = ref object
     ascent, descent: float32
     shadowX*, shadowY*, shadowBlur*: float32
 
-    when defined js:
-        canvas: Element
-
 proc linearDependency(x, x1, y1, x2, y2: float): float =
     result = y1 + (x - x1) * (y2 - y1) / (x2 - x1)
 
@@ -165,7 +162,6 @@ proc bakeChars(f: Font, start: int32): CharInfo =
         `ascent` = metrics.ascent;
         `descent` = metrics.descent;
         """.}
-        f.canvas = canvas
 
         const glyphMargin = 2
         let h = ascent + descent
@@ -297,11 +293,12 @@ proc bakeChars(f: Font, start: int32): CharInfo =
         when dumpDebugBitmaps:
             discard stbi_write_bmp("atlas_nimx_df_" & $fSize & "_" & $start & "_" & $width & "x" & $height & ".bmp", width, height, 1, addr temp_bitmap[0])
         let gl = result.prepareTexture()
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.ALPHA, width, height, 0, gl.ALPHA, gl.UNSIGNED_BYTE, addr temp_bitmap[0])
+        gl.texImage2D(gl.TEXTURE_2D, 0, GLint(gl.ALPHA), width, height, 0, gl.ALPHA, gl.UNSIGNED_BYTE, addr temp_bitmap[0])
 
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST)
-    gl.generateMipmap(gl.TEXTURE_2D)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+    #gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST)
+    #gl.generateMipmap(gl.TEXTURE_2D)
 
 when not defined js:
     proc newFontWithFile*(pathToTTFile: string, size: float): Font =
@@ -312,9 +309,10 @@ when not defined js:
 
 var sysFont : Font
 
-const preferredFonts = when defined(js) or defined(windows):
+const preferredFonts = when defined(js) or defined(windows) or defined(emscripten):
         [
-            "Arial"
+            "Arial",
+            "OpenSans-Regular"
         ]
     elif defined(macosx):
         [
@@ -344,6 +342,10 @@ when not defined(js):
             [
                 r"c:\Windows\Fonts" #todo: system will not always in the c disk
             ]
+        elif defined(emscripten):
+            [
+                "res"
+            ]
         else:
             [
                 "/usr/share/fonts/truetype",
@@ -356,7 +358,8 @@ when not defined js:
     iterator potentialFontFilesForFace(face: string): string =
         for sp in fontSearchPaths:
             yield sp / face & ".ttf"
-        yield getAppDir() / face & ".ttf"
+        when not defined(emscripten):
+            yield getAppDir() / face & ".ttf"
 
     proc findFontFileForFace(face: string): string =
         for f in potentialFontFilesForFace(face):

@@ -130,7 +130,7 @@ proc createQuadIndexBuffer(c: GraphicsContext) =
 proc newGraphicsContext*(canvas: ref RootObj = nil): GraphicsContext =
     result.new()
     result.gl = newGL(canvas)
-    when not defined(ios) and not defined(android) and not defined(js):
+    when not defined(ios) and not defined(android) and not defined(js) and not defined(emscripten):
         loadExtensions()
 
     #result.testPolyShaderProgram = result.gl.newShaderProgram(testPolygonVertexShader, testPolygonFragmentShader)
@@ -337,7 +337,7 @@ proc drawText*(c: GraphicsContext, font: Font, pt: var Point, text: string) =
     gl.uniformMatrix4fv(uniformLocation("uModelViewProjectionMatrix"), false, c.transform)
     setupPosteffectUniforms(cc)
 
-    gl.activeTexture(gl.TEXTURE0 + cc.iTexIndex.GLenum)
+    gl.activeTexture(GLenum(int(gl.TEXTURE0) + cc.iTexIndex))
     gl.uniform1i(uniformLocation("texUnit"), cc.iTexIndex)
 
     gl.enableVertexAttribArray(saPosition.GLuint)

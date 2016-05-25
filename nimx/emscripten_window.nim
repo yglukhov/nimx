@@ -1,5 +1,4 @@
 import abstract_window
-import sdl2 except Event, Rect
 import system_logger
 import view
 import opengl
@@ -11,125 +10,126 @@ import app
 import linkage_details
 import portable_gl
 import screen
-import private.sdl_vk_map
+import emscripten
 
-export abstract_window
-
-proc initSDLIfNeeded() =
-    var sdlInitialized {.global.} = false
-    if not sdlInitialized:
-        if sdl2.init(INIT_VIDEO) != SdlSuccess:
-            logi "Error: sdl2.init(INIT_VIDEO): ", getError()
-        sdlInitialized = true
-        if glSetAttribute(SDL_GL_STENCIL_SIZE, 8) != 0:
-            logi "Error: could not set stencil size: ", getError()
-
-        when defined(ios) or defined(android):
-            discard glSetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, 0x0004)
-            discard glSetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2)
-
-type SdlWindow* = ref object of Window
-    impl: WindowPtr
-    sdlGlContext: GlContextPtr
+type EmscriptenWindow* = ref object of Window
+    ctx: EMSCRIPTEN_WEBGL_CONTEXT_HANDLE
     renderingContext: GraphicsContext
 
 var animationEnabled = 0
 
-method enableAnimation*(w: SdlWindow, flag: bool) =
-    if flag:
-        inc animationEnabled
-        when defined(ios):
-            proc animationCallback(p: pointer) {.cdecl.} =
-                let w = cast[SdlWindow](p)
-                w.runAnimations()
-                w.drawWindow()
-            discard iPhoneSetAnimationCallback(w.impl, 0, animationCallback, cast[pointer](w))
-    else:
-        dec animationEnabled
-        when defined(ios):
-            discard iPhoneSetAnimationCallback(w.impl, 0, nil, nil)
+method enableAnimation*(w: EmscriptenWindow, flag: bool) =
+    discard
 
 # SDL does not provide window id in touch event info, so we add this workaround
 # assuming that touch devices may have only one window.
-var defaultWindow: SdlWindow
+var defaultWindow: EmscriptenWindow
 
-proc initCommon(w: SdlWindow, r: view.Rect) =
-    if w.impl == nil:
-        logi "Could not create window!"
-        quit 1
-    if defaultWindow.isNil:
-        defaultWindow = w
+proc onMouseButton(eventType: cint, mouseEvent: ptr EmscriptenMouseEvent, userData: pointer, bs: ButtonState): EM_BOOL =
+    let w = cast[EmscriptenWindow](userData)
+    template bcFromE(): VirtualKey =
+        case mouseEvent.button:
+        of 0: VirtualKey.MouseButtonPrimary
+        of 2: VirtualKey.MouseButtonSecondary
+        of 1: VirtualKey.MouseButtonMiddle
+        else: VirtualKey.Unknown
+
+    var evt = newMouseButtonEvent(newPoint(Coord(mouseEvent.targetX), Coord(mouseEvent.targetY)), bcFromE(), bs, uint32(mouseEvent.timestamp))
+    evt.window = w
+    if mainApplication().handleEvent(evt): result = 1
+
+proc onMouseDown(eventType: cint, mouseEvent: ptr EmscriptenMouseEvent, userData: pointer): EM_BOOL {.cdecl.} =
+    onMouseButton(eventType, mouseEvent, userData, bsDown)
+
+proc onMouseUp(eventType: cint, mouseEvent: ptr EmscriptenMouseEvent, userData: pointer): EM_BOOL {.cdecl.} =
+    onMouseButton(eventType, mouseEvent, userData, bsUp)
+
+proc onMouseMove(eventType: cint, mouseEvent: ptr EmscriptenMouseEvent, userData: pointer): EM_BOOL {.cdecl.} =
+    let w = cast[EmscriptenWindow](userData)
+    var evt = newMouseMoveEvent(newPoint(Coord(mouseEvent.targetX), Coord(mouseEvent.targetY)), uint32(mouseEvent.timestamp))
+    evt.window = w
+    if mainApplication().handleEvent(evt): result = 1
+
+proc onMouseWheel(eventType: cint, wheelEvent: ptr EmscriptenWheelEvent, userData: pointer): EM_BOOL {.cdecl.} =
+    let w = cast[EmscriptenWindow](userData)
+    let pos = newPoint(Coord(wheelEvent.mouse.targetX), Coord(wheelEvent.mouse.targetY))
+    var evt = newEvent(etScroll, pos)
+    evt.window = w
+    evt.offset.x = wheelEvent.deltaX.Coord
+    evt.offset.y = wheelEvent.deltaY.Coord
+    if mainApplication().handleEvent(evt): result = 1
+
+proc initCommon(w: EmscriptenWindow, r: view.Rect) =
     procCall init(w.Window, r)
-    discard glSetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 1)
-    w.sdlGlContext = w.impl.glCreateContext()
-    if w.sdlGlContext == nil:
-        logi "Could not create context!"
-    discard glMakeCurrent(w.impl, w.sdlGlContext)
+
+    let id = EM_ASM_INT("""
+    if (window.__nimx_canvas_id === undefined) {
+        window.__nimx_canvas_id = 0;
+    } else {
+        ++window.__nimx_canvas_id;
+    }
+    var canvas = document.createElement("canvas");
+    canvas.id = "nimx_canvas" + window.__nimx_canvas_id;
+    canvas.width = $0;
+    canvas.height = $1;
+    document.body.appendChild(canvas);
+    return window.__nimx_canvas_id;
+    """, r.width, r.height)
+
+    let canvId = "nimx_canvas" & $id
+
+    var attrs: EmscriptenWebGLContextAttributes
+    emscripten_webgl_init_context_attributes(addr attrs)
+    attrs.premultipliedAlpha = 0
+    attrs.alpha = 0
+    w.ctx = emscripten_webgl_create_context(canvId, addr attrs)
+    discard emscripten_webgl_make_context_current(w.ctx)
     w.renderingContext = newGraphicsContext()
+
+    discard emscripten_set_mousedown_callback(canvId, cast[pointer](w), 0, onMouseDown)
+    discard emscripten_set_mouseup_callback(canvId, cast[pointer](w), 0, onMouseUp)
+    discard emscripten_set_mousemove_callback(canvId, cast[pointer](w), 0, onMouseMove)
+    discard emscripten_set_wheel_callback(canvId, cast[pointer](w), 0, onMouseWheel)
 
     #w.enableAnimation(true)
     mainApplication().addWindow(w)
-    discard w.impl.setData("__nimx_wnd", cast[pointer](w))
     w.onResize(r.size)
 
-proc initFullscreen*(w: SdlWindow) =
-    initSDLIfNeeded()
-    var displayMode : DisplayMode
-    discard getDesktopDisplayMode(0, displayMode)
-    let flags = SDL_WINDOW_OPENGL or SDL_WINDOW_FULLSCREEN or SDL_WINDOW_RESIZABLE or SDL_WINDOW_ALLOW_HIGHDPI
-    w.impl = createWindow(nil, 0, 0, displayMode.w, displayMode.h, flags)
+proc initFullscreen*(w: EmscriptenWindow) =
+    w.initCommon(newRect(0, 0, 800, 600))
 
-    var width, height : cint
-    w.impl.getSize(width, height)
-    w.initCommon(newRect(0, 0, Coord(width), Coord(height)))
+method init*(w: EmscriptenWindow, r: view.Rect) =
+    w.initCommon(r)
 
-method init*(w: SdlWindow, r: view.Rect) =
-    when defined(ios):
-        w.initFullscreen()
-    else:
-        initSDLIfNeeded()
-        w.impl = createWindow(nil, cint(r.x), cint(r.y), cint(r.width), cint(r.height), SDL_WINDOW_OPENGL or SDL_WINDOW_RESIZABLE or SDL_WINDOW_ALLOW_HIGHDPI)
-        w.initCommon(newRect(0, 0, r.width, r.height))
-
-proc newFullscreenSdlWindow*(): SdlWindow =
+proc newFullscreenEmscriptenWindow*(): EmscriptenWindow =
     result.new()
     result.initFullscreen()
 
-proc newSdlWindow*(r: view.Rect): SdlWindow =
+proc newEmscriptenWindow*(r: view.Rect): EmscriptenWindow =
     result.new()
     result.init(r)
 
 newWindow = proc(r: view.Rect): Window =
-    result = newSdlWindow(r)
+    result = newEmscriptenWindow(r)
 
 newFullscreenWindow = proc(): Window =
-    result = newFullscreenSdlWindow()
+    result = newFullscreenEmscriptenWindow()
 
-method `title=`*(w: SdlWindow, t: string) =
-    w.impl.setTitle(t)
-
-method title*(w: SdlWindow): string = $w.impl.getTitle()
-
-
-method drawWindow(w: SdlWindow) =
+method drawWindow(w: EmscriptenWindow) =
     let c = w.renderingContext
-    #c.gl.viewport(0, 0, w.frame.width.GLsizei, w.frame.height.GLsizei)
-    c.gl.stencilMask(0xFF) # Android requires setting stencil mask to clear
+    c.gl.viewport(0, 0, w.frame.width.GLsizei, w.frame.height.GLsizei)
     c.gl.clear(c.gl.COLOR_BUFFER_BIT or c.gl.STENCIL_BUFFER_BIT or c.gl.DEPTH_BUFFER_BIT)
-    c.gl.stencilMask(0x00)
     let oldContext = setCurrentContext(c)
 
-    # TODO currentContext() return nil if exist save\open dialog window
-    # defer: setCurrentContext(oldContext)
     c.withTransform ortho(0, w.frame.width, w.frame.height, 0, -1, 1):
         procCall w.Window.drawWindow()
-    w.impl.glSwapWindow() # Swap the front and back frame buffers (double buffering)
 
-proc windowFromSDLEvent[T](event: T): SdlWindow =
+#[
+proc windowFromSDLEvent[T](event: T): EmscriptenWindow =
     let sdlWndId = event.windowID
     let sdlWin = getWindowFromID(sdlWndId)
     if sdlWin != nil:
-        result = cast[SdlWindow](sdlWin.getData("__nimx_wnd"))
+        result = cast[EmscriptenWindow](sdlWin.getData("__nimx_wnd"))
 
 proc positionFromSDLEvent[T](event: T): auto =
     newPoint(event.x.Coord, event.y.Coord)
@@ -139,6 +139,8 @@ template buttonStateFromSDLState(s: KeyState): ButtonState =
         bsDown
     else:
         bsUp
+
+var activeTouches = 0
 
 proc eventWithSDLEvent(event: ptr sdl2.Event): Event =
     case event.kind:
@@ -152,9 +154,15 @@ proc eventWithSDLEvent(event: ptr sdl2.Event): Event =
                                    newPoint(touchEv.x * defaultWindow.frame.width, touchEv.y * defaultWindow.frame.height),
                                    bs, int(touchEv.fingerID), touchEv.timestamp
                                    )
+            if bs == bsDown:
+                inc activeTouches
+                if activeTouches == 1:
+                    result.pointerId = 0
+            elif bs == bsUp:
+                dec activeTouches
+            #logi "EVENT: ", result.position, " ", result.buttonState
             result.window = defaultWindow
-            when defined(macosx):
-                result.kind = etUnknown # TODO: Fix apple trackpad problem
+            result.kind = etUnknown # TODO: Fix apple trackpad problem
 
         of WindowEvent:
             let wndEv = cast[WindowEventPtr](event)
@@ -253,12 +261,12 @@ proc handleEvent(event: ptr sdl2.Event): Bool32 =
         if (e.kind != etUnknown):
             discard mainApplication().handleEvent(e)
     result = True32
-
-method onResize*(w: SdlWindow, newSize: Size) =
-    let sf = screenScaleFactor()
+]#
+method onResize*(w: EmscriptenWindow, newSize: Size) =
+    let sf = 1.0 #screenScaleFactor()
     glViewport(0, 0, GLSizei(newSize.width * sf), GLsizei(newSize.height * sf))
     procCall w.Window.onResize(newSize)
-
+#[
 # Framerate limiter
 let MAXFRAMERATE: uint32 = 20 # milli seconds
 var frametime: uint32
@@ -306,10 +314,10 @@ proc nextEvent(evt: var sdl2.Event) =
 
     animateAndDraw()
 
-method startTextInput*(w: SdlWindow, r: Rect) =
+method startTextInput*(w: EmscriptenWindow, r: Rect) =
     startTextInput()
 
-method stopTextInput*(w: SdlWindow) =
+method stopTextInput*(w: EmscriptenWindow) =
     stopTextInput()
 
 proc runUntilQuit*() =
@@ -325,3 +333,32 @@ proc runUntilQuit*() =
             break
 
     discard quit(evt)
+]#
+
+proc mainLoop() {.cdecl.} =
+    mainApplication().runAnimations()
+    mainApplication().drawWindows()
+    GC_fullCollect()
+
+var initFunc : proc()
+
+var initDone = false
+proc mainLoopPreload() {.cdecl.} =
+    if initDone:
+        mainLoop()
+    else:
+        let r = EM_ASM_INT """
+        if (document.readyState === 'complete') {
+            return 1;
+        }
+        return 0;
+        """
+        if r == 1:
+            GC_disable()
+            initFunc()
+            initDone = true
+
+template runApplication*(initCode: typed): stmt =
+    initFunc = proc() =
+        initCode
+    emscripten_set_main_loop(mainLoopPreload, 0, 1)

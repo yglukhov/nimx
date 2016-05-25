@@ -17,6 +17,7 @@ type SelfContainedImage* = ref object of Image
     mSize: Size
     texCoords*: array[4, GLfloat]
     framebuffer*: FramebufferRef
+    mFilePath: string
 
 type
     SpriteSheet* = ref object of SelfContainedImage
@@ -31,8 +32,6 @@ type
         mSize: Size
         texCoords: array[4, GLfloat]
 
-var imageCache = initResourceCache[Image]()
-
 template setupTexParams(gl: GL) =
     when defined(android) or defined(ios):
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
@@ -45,6 +44,13 @@ template setupTexParams(gl: GL) =
 when not defined(js):
     include private.image_pvr
 
+method setFilePath*(i: Image, path: string) {.base.} = discard
+method setFilePath*(i: SelfContainedImage, path: string) =
+    i.mFilePath = path
+
+method filePath*(i: Image): string {.base.} = discard
+method filePath*(i: SelfContainedImage): string = i.mFilePath
+
 when not defined js:
     template offset(p: pointer, off: int): pointer =
         cast[pointer](cast[int](p) + off)
@@ -52,12 +58,12 @@ when not defined js:
     proc loadBitmapToTexture(data: ptr uint8, x, y, comp: int, texture: var TextureRef, size: var Size, texCoords: var array[4, GLfloat]) =
         glGenTextures(1, addr texture)
         glBindTexture(GL_TEXTURE_2D, texture)
-        let format : GLint = case comp:
-            of 1: GL_ALPHA
-            of 2: GL_LUMINANCE_ALPHA
-            of 3: GL_RGB
-            of 4: GL_RGBA
-            else: 0
+        let format : GLenum = case comp:
+            of 1: GLenum(GL_ALPHA)
+            of 2: GLenum(GL_LUMINANCE_ALPHA)
+            of 3: GLenum(GL_RGB)
+            of 4: GLenum(GL_RGBA)
+            else: GLenum(0)
         size = newSize(x.Coord, y.Coord)
         let texWidth = if isPowerOfTwo(x): x.int else: nextPowerOfTwo(x)
         let texHeight = if isPowerOfTwo(y): y.int else: nextPowerOfTwo(y)
@@ -96,6 +102,8 @@ when not defined js:
         i.initWithBitmap(data, x, y, comp)
         stbi_image_free(data)
 
+        i.setFilePath(path)
+
     proc imageWithBitmap*(data: ptr uint8, x, y, comp: int): SelfContainedImage =
         result.new()
         result.initWithBitmap(data, x, y, comp)
@@ -113,21 +121,23 @@ proc initWithResource*(i: SelfContainedImage, name: string) =
         `i`.__image.src = `nativeName`;
         """.}
     else:
-        let s = streamForResourceWithName(name)
-        var data = s.readAll()
-        s.close()
-        if name.endsWith(".pvr"):
-            i.initWithPVR(data)
-        else:
-            var x, y, comp: cint
+        loadResourceAsync(name) do(s: Stream):
+            var data = s.readAll()
+            s.close()
+            if name.endsWith(".pvr"):
+                i.initWithPVR(data)
+            else:
+                var x, y, comp: cint
 
-            var bitmap = stbi_load_from_memory(cast[ptr uint8](addr data[0]),
-                data.len.cint, addr x, addr y, addr comp, 0)
-            i.initWithBitmap(bitmap, x, y, comp)
-            stbi_image_free(bitmap)
+                var bitmap = stbi_load_from_memory(cast[ptr uint8](addr data[0]),
+                    data.len.cint, addr x, addr y, addr comp, 0)
+                i.initWithBitmap(bitmap, x, y, comp)
+                stbi_image_free(bitmap)
+
+            i.setFilePath(pathForResource(name))
 
 proc imageWithResource*(name: string): SelfContainedImage =
-    result = SelfContainedImage(imageCache.get(name))
+    result = findCachedResource[SelfContainedImage](name)
     if result.isNil:
         resourceNotCached(name)
         result.new()
@@ -333,7 +343,8 @@ proc writeToPNGFile*(i: Image, path: string) = i.writeToFile(path, png)
 proc writeToTGAFile*(i: Image, path: string) = i.writeToFile(path, tga)
 #proc writeToHDRFile*(i: Image, path: string) = i.writeToFile(path, hdr) # Crashes...
 
-const asyncResourceLoad = not defined(js) and not defined(android)
+const asyncResourceLoad = not defined(js) and not defined(android) and not defined(ios) and
+    not defined(emscripten)
 
 when asyncResourceLoad:
     import threadpool, sdl_perform_on_main_thread, sdl2
@@ -344,7 +355,7 @@ when asyncResourceLoad:
 
     type ImageLoadingCtx = ref object
         path, name: string
-        completionCallback: proc()
+        completionCallback: proc(i: SelfContainedImage)
         texture: TextureRef
         texCoords: array[4, GLfloat]
         size: Size
@@ -359,8 +370,7 @@ when asyncResourceLoad:
         i.texture = c.texture
         i.texCoords = c.texCoords
         i.mSize = c.size
-        imageCache.registerResource(c.name, i)
-        c.completionCallback()
+        c.completionCallback(i)
 
     var ctxIsCurrent = false
 
@@ -382,7 +392,7 @@ when asyncResourceLoad:
             loadBitmapToTexture(bitmap, x, y, comp, c.texture, c.size, c.texCoords)
             stbi_image_free(bitmap)
 
-        let fenceId = glFenceSync( GL_SYNC_GPU_COMMANDS_COMPLETE, 0 );
+        let fenceId = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, GLbitfield(0))
         while true:
           let res = glClientWaitSync(fenceId, GL_SYNC_FLUSH_COMMANDS_BIT, GLuint64(5000000000)); # 5 Second timeout
           if res != GL_TIMEOUT_EXPIRED: break  # we ignore timeouts and wait until all OpenGL commands are processed!
@@ -391,7 +401,7 @@ when asyncResourceLoad:
         let p = cast[pointer](loadComplete)
         performOnMainThread(cast[proc(data: pointer){.cdecl, gcsafe.}](p), ctx)
 
-registerResourcePreloader(["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga", "pvr"], proc(name: string, callback: proc()) =
+registerResourcePreloader(["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga", "pvr"]) do(name: string, callback: proc(i: SelfContainedImage)):
     when defined(js):
         proc handler(r: ref RootObj) =
             var onImLoad = proc (im: ref RootObj) =
@@ -399,8 +409,7 @@ registerResourcePreloader(["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga", "p
                 {.emit: "`w` = im.width; `h` = im.height;".}
                 let image = imageWithSize(newSize(w, h))
                 {.emit: "`image`.__image = im;".}
-                imageCache.registerResource(name, image)
-                callback()
+                callback(image)
             {.emit:"""
             var im = new Image();
             im.onload = function(){`onImLoad`(im);};
@@ -430,6 +439,4 @@ registerResourcePreloader(["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga", "p
 
         loadingQueue.addTask(loadResourceThreaded, cast[pointer](ctx))
     else:
-        imageCache.registerResource(name, imageWithResource(name))
-        callback()
-)
+        callback(imageWithResource(name))

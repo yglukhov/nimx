@@ -13,7 +13,7 @@ import window_event_handling
 export control
 
 type TextField* = ref object of Control
-    text*: string
+    mText*: string
     editable*: bool
     textColor*: Color
 
@@ -27,6 +27,13 @@ var cursorOffset : Coord
 
 const leftMargin = 3.0
 
+proc `text=`*(tf: TextField, text: string) =
+    tf.mText = text
+    tf.setNeedsDisplay()
+
+proc text*(tf: TextField) : string =
+    result = tf.mText
+
 proc newTextField*(r: Rect): TextField =
     result.new()
     result.init(r)
@@ -35,7 +42,7 @@ proc newTextField*(r: Rect): TextField =
 proc newTextField*(parent: View = nil, position: Point = newPoint(0, 0), size: Size = newSize(100, 20), text: string = ""): TextField =
     result = newTextField(newRect(position.x, position.y, size.width, size.height))
     result.editable = true
-    result.text = text
+    result.mText = text
     if not isNil(parent):
         parent.addSubview(result)
 
@@ -46,7 +53,7 @@ proc newLabel*(r: Rect): TextField =
 proc newLabel*(parent: View = nil, position: Point = newPoint(0, 0), size: Size = newSize(100, 20), text: string = "label"): TextField =
     result = newLabel(newRect(position.x, position.y, size.width, size.height))
     result.editable = false
-    result.text = text
+    result.mText = text
     if not isNil(parent):
         parent.addSubview(result)
 
@@ -102,14 +109,14 @@ method draw*(t: TextField, r: Rect) =
 
             t.setNeedsDisplay()
 
-    if t.text != nil:
+    if t.mText != nil:
         var pt = newPoint(leftMargin, textY)
         let cell = t.enclosingTableViewCell()
         if not cell.isNil and cell.selected:
             c.fillColor = whiteColor()
         else:
             c.fillColor = t.textColor
-        c.drawText(systemFont(), pt, t.text)
+        c.drawText(systemFont(), pt, t.mText)
 
     if t.isEditing:
         t.drawFocusRing()
@@ -122,7 +129,7 @@ method onTouchEv(t: TextField, e: var Event): bool =
     of bsDown:
         if t.editable:
             result = t.makeFirstResponder()
-            if t.text.isNil:
+            if t.mText.isNil:
                 cursorPos = 0
                 cursorOffset = 0
             else:
@@ -157,16 +164,16 @@ method onTouchEv(t: TextField, e: var Event): bool =
             result = false
 
 proc updateCursorOffset(t: TextField) =
-    cursorOffset = systemFont().cursorOffsetForPositionInString(t.text, cursorPos)
+    cursorOffset = systemFont().cursorOffsetForPositionInString(t.mText, cursorPos)
 
 proc clearSelection(t: TextField) =
     # Clears selected text
     if t.textSelection.startIndex < t.textSelection.endIndex:
-        t.text.uniDelete(t.textSelection.startIndex, t.textSelection.endIndex - 1)
+        t.mText.uniDelete(t.textSelection.startIndex, t.textSelection.endIndex - 1)
         cursorPos = t.textSelection.startIndex
         t.updateCursorOffset()
     else:
-        t.text.uniDelete(t.textSelection.endIndex, t.textSelection.startIndex - 1)
+        t.mText.uniDelete(t.textSelection.endIndex, t.textSelection.startIndex - 1)
         cursorPos = t.textSelection.endIndex
         t.updateCursorOffset()
 
@@ -177,20 +184,20 @@ method onKeyDown*(t: TextField, e: var Event): bool =
         result = true
         if t.textSelection.selected: t.clearSelection()
         elif cursorPos > 0:
-            t.text.uniDelete(cursorPos - 1, cursorPos - 1)
+            t.mText.uniDelete(cursorPos - 1, cursorPos - 1)
             dec cursorPos
         t.updateCursorOffset()
         t.bumpCursorVisibility()
-    elif e.keyCode == VirtualKey.Delete and not t.text.isNil:
+    elif e.keyCode == VirtualKey.Delete and not t.mText.isNil:
         if t.textSelection.selected: t.clearSelection()
-        elif cursorPos < t.text.runeLen:
-            t.text.uniDelete(cursorPos, cursorPos)
+        elif cursorPos < t.mText.runeLen:
+            t.mText.uniDelete(cursorPos, cursorPos)
         t.bumpCursorVisibility()
     elif e.keyCode == VirtualKey.Left:
         dec cursorPos
         if cursorPos < 0: cursorPos = 0
 
-        if (alsoPressed(VirtualKey.LeftShift) or alsoPressed(VirtualKey.RightShift)) and t.text != "" and t.text != nil:
+        if (alsoPressed(VirtualKey.LeftShift) or alsoPressed(VirtualKey.RightShift)) and t.mText != "" and t.mText != nil:
             if t.textSelection.selected: t.textSelection.endIndex = cursorPos
             else: t.textSelection = (true, false, cursorPos + 1, cursorPos)
         else:
@@ -199,10 +206,10 @@ method onKeyDown*(t: TextField, e: var Event): bool =
         t.bumpCursorVisibility()
     elif e.keyCode == VirtualKey.Right:
         inc cursorPos
-        let textLen = t.text.runeLen
+        let textLen = t.mText.runeLen
         if cursorPos > textLen: cursorPos = textLen
 
-        if (alsoPressed(VirtualKey.LeftShift) or alsoPressed(VirtualKey.RightShift)) and t.text != "" and t.text != nil:
+        if (alsoPressed(VirtualKey.LeftShift) or alsoPressed(VirtualKey.RightShift)) and t.mText != "" and t.mText != nil:
             if t.textSelection.selected: t.textSelection.endIndex = cursorPos
             else: t.textSelection = (true, false, cursorPos - 1, cursorPos)
         else:
@@ -228,25 +235,25 @@ method onKeyDown*(t: TextField, e: var Event): bool =
     elif e.keyCode == VirtualKey.End:
         if alsoPressed(VirtualKey.LeftShift) or alsoPressed(VirtualKey.RightShift):
             if t.textSelection.selected:
-                t.textSelection.endIndex = t.text.runeLen
+                t.textSelection.endIndex = t.mText.runeLen
             else:
-                t.textSelection = (true, false, cursorPos, t.text.runeLen)
+                t.textSelection = (true, false, cursorPos, t.mText.runeLen)
         else:
             t.textSelection = (false, false, -1, -1)
 
-        cursorPos = t.text.runeLen
+        cursorPos = t.mText.runeLen
         t.updateCursorOffset()
         t.bumpCursorVisibility()
 
 method onTextInput*(t: TextField, s: string): bool =
     result = true
-    if t.text.isNil: t.text = ""
+    if t.mText.isNil: t.mText = ""
 
     if t.textSelection.selected:
         t.clearSelection()
         return procCall onTextInput(t, s)
 
-    t.text.insert(cursorPos, s)
+    t.mText.insert(cursorPos, s)
     cursorPos += s.runeLen
     t.updateCursorOffset()
     t.bumpCursorVisibility()
@@ -261,6 +268,6 @@ method viewShouldResignFirstResponder*(v: TextField, newFirstResponder: View): b
 
 method viewDidBecomeFirstResponder*(t: TextField) =
     t.window.startTextInput(t.convertRectoToWindow(t.bounds))
-    cursorPos = if t.text.isNil: 0 else: t.text.len
+    cursorPos = if t.mText.isNil: 0 else: t.mText.len
     t.updateCursorOffset()
     t.bumpCursorVisibility()
