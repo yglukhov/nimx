@@ -366,7 +366,9 @@ proc newGL*(canvas: ref RootObj): GL =
                 alert("Your browser does not support WebGL. Please, use a modern browser.");
             }
             """
-        globalGL = result
+    else:
+        result.new()
+    globalGL = result
 
 proc sharedGL*(): GL = globalGL
 
