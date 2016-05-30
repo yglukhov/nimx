@@ -14,8 +14,9 @@ type ResourceLoader* = ref object
     totalSize : int
     loadedSize: int
     itemsToLoad: int
+    itemsLoaded: int
     onComplete*: proc()
-    onProgress*: proc(name: string)
+    onProgress*: proc(p: float)
     when debugResCache:
         resourcesToLoad: seq[string]
 
@@ -25,14 +26,15 @@ proc getFileExtension(name: string): string =
         result = name.substr(p + 1)
 
 proc onResourceLoaded(ld: ResourceLoader, name: string) =
-    dec ld.itemsToLoad
+    # dec ld.itemsToLoad
+    inc ld.itemsLoaded
     when debugResCache:
         ld.resourcesToLoad.keepIf(proc(a: string):bool = a != name)
         echo "REMAINING ITEMS: ", ld.resourcesToLoad
-    if ld.itemsToLoad == 0:
+    if ld.itemsToLoad == ld.itemsLoaded:
         ld.onComplete()
     if not ld.onProgress.isNil:
-        ld.onProgress(name)
+        ld.onProgress( ld.itemsLoaded.float / ld.itemsToLoad.float)
 
 type ResourceLoaderProc* = proc(name: string, completionCallback: proc())
 
@@ -79,6 +81,7 @@ registerResourcePreloader(["obj", "txt"]) do(name: string, callback: proc(s: str
 
 proc preloadResources*(ld: ResourceLoader, resourceNames: openarray[string]) =
     ld.itemsToLoad += resourceNames.len
+    ld.itemsLoaded = 0
     when debugResCache:
         ld.resourcesToLoad = @resourceNames
     let oldWarn = warnWhenResourceNotCached
