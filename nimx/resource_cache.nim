@@ -15,6 +15,7 @@ type ResourceLoader* = ref object
     loadedSize: int
     itemsToLoad: int
     onComplete*: proc()
+    onProgress*: proc(name: string)
     when debugResCache:
         resourcesToLoad: seq[string]
 
@@ -30,6 +31,8 @@ proc onResourceLoaded(ld: ResourceLoader, name: string) =
         echo "REMAINING ITEMS: ", ld.resourcesToLoad
     if ld.itemsToLoad == 0:
         ld.onComplete()
+    if not ld.onProgress.isNil:
+        ld.onProgress(name)
 
 type ResourceLoaderProc* = proc(name: string, completionCallback: proc())
 
