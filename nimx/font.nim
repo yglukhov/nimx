@@ -423,16 +423,16 @@ proc getQuadDataForRune*(f: Font, r: Rune, quad: var openarray[Coord], offset: i
     template charComp(e: BackedCharComponent): auto =
         chunk.bakedChars.charOffComp(c, e).Coord
 
-    let w = charComp(compWidth).Coord
-    let h = charComp(compHeight).Coord
+    let w = charComp(compWidth)
+    let h = charComp(compHeight)
 
-    let x0 = pt.x + charComp(compX).Coord * f.scale
+    let x0 = pt.x + charComp(compX) * f.scale
     let x1 = x0 + w * f.scale
-    let y0 = pt.y + charComp(compY).Coord * f.scale
+    let y0 = pt.y + charComp(compY) * f.scale
     let y1 = y0 + h * f.scale
 
-    var s0 = charComp(compTexX).Coord
-    var t0 = charComp(compTexY).Coord
+    var s0 = charComp(compTexX)
+    var t0 = charComp(compTexY)
     let s1 = (s0 + w) / chunk.texWidth.Coord
     let t1 = (t0 + h) / chunk.texHeight.Coord
     s0 /= chunk.texWidth.Coord
@@ -442,7 +442,7 @@ proc getQuadDataForRune*(f: Font, r: Rune, quad: var openarray[Coord], offset: i
     quad[offset + 4] = x0; quad[offset + 5] = y1; quad[offset + 6] = s0; quad[offset + 7] = t1
     quad[offset + 8] = x1; quad[offset + 9] = y1; quad[offset + 10] = s1; quad[offset + 11] = t1
     quad[offset + 12] = x1; quad[offset + 13] = y0; quad[offset + 14] = s1; quad[offset + 15] = t0
-    pt.x += charComp(compAdvance).Coord * f.scale
+    pt.x += charComp(compAdvance) * f.scale
     texture = chunk.texture
 
 template getQuadDataForRune*(f: Font, r: Rune, quad: var array[16, Coord], texture: var TextureRef, pt: var Point) =
