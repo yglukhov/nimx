@@ -146,10 +146,14 @@ method viewWillMoveToWindow*(v: View, w: Window) {.base.} =
         s.window = v.window
         s.viewWillMoveToWindow(w)
 
+
+method viewDidMoveToWindow*(v: View){.base.}=discard
+
 proc moveToWindow(v: View, w: Window) =
     v.window = w
     for s in v.subviews:
         s.moveToWindow(w)
+    v.viewDidMoveToWindow()
 
 template setNeedsDisplay*(v: View) =
     if v.window != nil:
