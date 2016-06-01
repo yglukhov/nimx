@@ -19,7 +19,6 @@ import private.simple_table
 # Quick and dirty interface for fonts.
 # TODO:
 #  - Remove dependency on OpenGL.
-#  - Distance field textures
 
 import opengl
 import portable_gl
@@ -44,6 +43,7 @@ template charOffComp(bc: var BakedCharInfo, charOffset: int, comp: BackedCharCom
 
 type CharInfo = ref object
     bakedChars: BakedCharInfo
+    tempBitmap: seq[byte]
     texture: TextureRef
     texWidth, texHeight: uint16
 
@@ -100,7 +100,7 @@ proc `size=`*(f: Font, s: float) =
 
 template size*(f: Font): float = f.mSize
 
-proc prepareTexture(i: var CharInfo): GL =
+proc prepareTexture(i: CharInfo): GL =
     result = sharedGL()
     i.texture = result.createTexture()
     result.bindTexture(result.TEXTURE_2D, i.texture)
@@ -134,9 +134,7 @@ when dumpDebugBitmaps and defined(js):
 
 template isPrintableCodePoint(c: int): bool = not (i <= 0x1f or i == 0x7f or (i >= 0x80 and i <= 0x9F))
 
-proc bakeChars(f: Font, start: int32): CharInfo =
-    result.new()
-
+proc bakeChars(f: Font, start: int32, res: CharInfo) =
     let startChar = start * charChunkLength
     let endChar = startChar + charChunkLength
 
@@ -182,18 +180,18 @@ proc bakeChars(f: Font, start: int32): CharInfo =
                     let (x, y) = rectPacker.packAndGrow(w + glyphMargin * 2, h + glyphMargin * 2)
 
                     let c = charOff(i - startChar)
-                    #result.bakedChars.charOffComp(c, compX) = 0
-                    #result.bakedChars.charOffComp(c, compY) = 0
-                    result.bakedChars.charOffComp(c, compAdvance) = w.int16
-                    result.bakedChars.charOffComp(c, compTexX) = (x + glyphMargin).int16
-                    result.bakedChars.charOffComp(c, compTexY) = (y + glyphMargin).int16
-                    result.bakedChars.charOffComp(c, compWidth) = w.int16
-                    result.bakedChars.charOffComp(c, compHeight) = h.int16
+                    #res.bakedChars.charOffComp(c, compX) = 0
+                    #res.bakedChars.charOffComp(c, compY) = 0
+                    res.bakedChars.charOffComp(c, compAdvance) = w.int16
+                    res.bakedChars.charOffComp(c, compTexX) = (x + glyphMargin).int16
+                    res.bakedChars.charOffComp(c, compTexY) = (y + glyphMargin).int16
+                    res.bakedChars.charOffComp(c, compWidth) = w.int16
+                    res.bakedChars.charOffComp(c, compHeight) = h.int16
 
         let texWidth = rectPacker.width
         let texHeight = rectPacker.height
-        result.texWidth = texWidth.uint16
-        result.texHeight = texHeight.uint16
+        res.texWidth = texWidth.uint16
+        res.texHeight = texHeight.uint16
 
         asm """
         `canvas`.width = `texWidth`;
@@ -205,10 +203,10 @@ proc bakeChars(f: Font, start: int32): CharInfo =
         for i in startChar .. < endChar:
             if isPrintableCodePoint(i):
                 let c = charOff(i - startChar)
-                let w = result.bakedChars.charOffComp(c, compAdvance)
+                let w = res.bakedChars.charOffComp(c, compAdvance)
                 if w > 0:
-                    let x = result.bakedChars.charOffComp(c, compTexX)
-                    let y = result.bakedChars.charOffComp(c, compTexY)
+                    let x = res.bakedChars.charOffComp(c, compTexX)
+                    let y = res.bakedChars.charOffComp(c, compTexY)
                     {.emit: "ctx.fillText(String.fromCharCode(`i`), `x`, `y`);".}
 
         var data : seq[cdouble]
@@ -229,17 +227,14 @@ proc bakeChars(f: Font, start: int32): CharInfo =
         when dumpDebugBitmaps:
             logBitmap("alpha", byteData, texWidth, texHeight)
 
-        let gl = result.prepareTexture()
-        asm """
-        `gl`.texImage2D(`gl`.TEXTURE_2D, 0, `gl`.ALPHA, `texWidth`, `texHeight`, 0, `gl`.ALPHA, `gl`.UNSIGNED_BYTE, `byteData`);
-        """
+        shallowCopy(res.tempBitmap, byteData)
     else:
         var rawData = readFile(f.filePath)
 
         var fontinfo: stbtt_fontinfo
         if stbtt_InitFont(fontinfo, cast[font_type](rawData.cstring), 0) == 0:
             logi "Could not init font"
-            return nil
+            raise newException(Exception, "Could not init font")
 
         let scale = stbtt_ScaleForPixelHeight(fontinfo, fSize)
         var ascent, descent, lineGap : cint
@@ -261,28 +256,28 @@ proc bakeChars(f: Font, start: int32): CharInfo =
                 let (x, y) = rectPacker.packAndGrow(gw + glyphMargin * 2, gh + glyphMargin * 2)
 
                 let c = charOff(i - startChar)
-                result.bakedChars.charOffComp(c, compX) = (x0.cfloat + lsb.cfloat * scale - glyphMargin.float / 2).int16
-                result.bakedChars.charOffComp(c, compY) = (y0.cfloat + ascent.cfloat * scale - glyphMargin.float / 2).int16
-                result.bakedChars.charOffComp(c, compAdvance) = (scale * advance.cfloat).int16
-                result.bakedChars.charOffComp(c, compTexX) = (x + glyphMargin).int16
-                result.bakedChars.charOffComp(c, compTexY) = (y + glyphMargin).int16
-                result.bakedChars.charOffComp(c, compWidth) = (gw + glyphMargin).int16
-                result.bakedChars.charOffComp(c, compHeight) = (gh + glyphMargin).int16
+                res.bakedChars.charOffComp(c, compX) = (x0.cfloat + lsb.cfloat * scale - glyphMargin.float / 2).int16
+                res.bakedChars.charOffComp(c, compY) = (y0.cfloat + ascent.cfloat * scale - glyphMargin.float / 2).int16
+                res.bakedChars.charOffComp(c, compAdvance) = (scale * advance.cfloat).int16
+                res.bakedChars.charOffComp(c, compTexX) = (x + glyphMargin).int16
+                res.bakedChars.charOffComp(c, compTexY) = (y + glyphMargin).int16
+                res.bakedChars.charOffComp(c, compWidth) = (gw + glyphMargin).int16
+                res.bakedChars.charOffComp(c, compHeight) = (gh + glyphMargin).int16
 
         let width = rectPacker.width
         let height = rectPacker.height
-        result.texWidth = width.uint16
-        result.texHeight = height.uint16
+        res.texWidth = width.uint16
+        res.texHeight = height.uint16
         var temp_bitmap = newSeq[byte](width * height)
 
         for i in startChar .. < endChar:
             if isPrintableCodePoint(i):
                 let c = charOff(i - startChar)
-                if result.bakedChars.charOffComp(c, compAdvance) > 0:
-                    let x = result.bakedChars.charOffComp(c, compTexX).int + (glyphMargin.float / 2).int
-                    let y = result.bakedChars.charOffComp(c, compTexY).int + (glyphMargin.float / 2).int
-                    let w = result.bakedChars.charOffComp(c, compWidth).cint
-                    let h = result.bakedChars.charOffComp(c, compHeight).cint
+                if res.bakedChars.charOffComp(c, compAdvance) > 0:
+                    let x = res.bakedChars.charOffComp(c, compTexX).int + (glyphMargin.float / 2).int
+                    let y = res.bakedChars.charOffComp(c, compTexY).int + (glyphMargin.float / 2).int
+                    let w = res.bakedChars.charOffComp(c, compWidth).cint
+                    let h = res.bakedChars.charOffComp(c, compHeight).cint
                     stbtt_MakeGlyphBitmap(fontinfo, addr temp_bitmap[x + y * width.int], w, h, width.cint, scale, scale, glyphIndexes[i - startChar])
 
         when dumpDebugBitmaps:
@@ -292,13 +287,7 @@ proc bakeChars(f: Font, start: int32): CharInfo =
 
         when dumpDebugBitmaps:
             discard stbi_write_bmp("atlas_nimx_df_" & $fSize & "_" & $start & "_" & $width & "x" & $height & ".bmp", width, height, 1, addr temp_bitmap[0])
-        let gl = result.prepareTexture()
-        gl.texImage2D(gl.TEXTURE_2D, 0, GLint(gl.ALPHA), width, height, 0, gl.ALPHA, gl.UNSIGNED_BYTE, addr temp_bitmap[0])
-
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
-    #gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST)
-    #gl.generateMipmap(gl.TEXTURE_2D)
+        shallowCopy(res.tempBitmap, temp_bitmap)
 
 when not defined js:
     proc newFontWithFile*(pathToTTFile: string, size: float): Font =
@@ -402,9 +391,30 @@ import math
 proc chunkAndCharIndexForRune(f: Font, r: Rune): tuple[ch: CharInfo, index: int] =
     let chunkStart = floor(r.int / charChunkLength.int).int32
     result.index = r.int mod charChunkLength
-    if not f.chars.hasKey(chunkStart):
-        f.chars[chunkStart] = f.bakeChars(chunkStart)
-    result.ch = f.chars[chunkStart]
+    if f.chars.hasKey(chunkStart):
+       result.ch = f.chars[chunkStart]
+    else:
+        result.ch.new()
+        f.bakeChars(chunkStart, result.ch)
+        f.chars[chunkStart] = result.ch
+
+    if result.ch.texture.isEmpty and sharedGL() != nil:
+        let gl = result.ch.prepareTexture()
+        let texWidth = result.ch.texWidth.GLsizei
+        let texHeight = result.ch.texHeight.GLsizei
+        when defined(js):
+            var byteData: seq[byte]
+            shallowCopy(byteData, result.ch.tempBitmap)
+            {.emit: """
+            `gl`.texImage2D(`gl`.TEXTURE_2D, 0, `gl`.ALPHA, `texWidth`, `texHeight`, 0, `gl`.ALPHA, `gl`.UNSIGNED_BYTE, `byteData`);
+            """.}
+        else:
+            gl.texImage2D(gl.TEXTURE_2D, 0, GLint(gl.ALPHA), texWidth, texHeight, 0, gl.ALPHA, gl.UNSIGNED_BYTE, addr result.ch.tempBitmap[0])
+        result.ch.tempBitmap = nil
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+        #gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST)
+        #gl.generateMipmap(gl.TEXTURE_2D)
 
 proc getQuadDataForRune*(f: Font, r: Rune, quad: var openarray[Coord], offset: int, texture: var TextureRef, pt: var Point) =
     let (chunk, charIndexInChunk) = f.chunkAndCharIndexForRune(r)
@@ -413,16 +423,16 @@ proc getQuadDataForRune*(f: Font, r: Rune, quad: var openarray[Coord], offset: i
     template charComp(e: BackedCharComponent): auto =
         chunk.bakedChars.charOffComp(c, e).Coord
 
-    let w = charComp(compWidth).Coord
-    let h = charComp(compHeight).Coord
+    let w = charComp(compWidth)
+    let h = charComp(compHeight)
 
-    let x0 = pt.x + charComp(compX).Coord * f.scale
+    let x0 = pt.x + charComp(compX) * f.scale
     let x1 = x0 + w * f.scale
-    let y0 = pt.y + charComp(compY).Coord * f.scale
+    let y0 = pt.y + charComp(compY) * f.scale
     let y1 = y0 + h * f.scale
 
-    var s0 = charComp(compTexX).Coord
-    var t0 = charComp(compTexY).Coord
+    var s0 = charComp(compTexX)
+    var t0 = charComp(compTexY)
     let s1 = (s0 + w) / chunk.texWidth.Coord
     let t1 = (t0 + h) / chunk.texHeight.Coord
     s0 /= chunk.texWidth.Coord
@@ -432,7 +442,7 @@ proc getQuadDataForRune*(f: Font, r: Rune, quad: var openarray[Coord], offset: i
     quad[offset + 4] = x0; quad[offset + 5] = y1; quad[offset + 6] = s0; quad[offset + 7] = t1
     quad[offset + 8] = x1; quad[offset + 9] = y1; quad[offset + 10] = s1; quad[offset + 11] = t1
     quad[offset + 12] = x1; quad[offset + 13] = y0; quad[offset + 14] = s1; quad[offset + 15] = t0
-    pt.x += charComp(compAdvance).Coord * f.scale
+    pt.x += charComp(compAdvance) * f.scale
     texture = chunk.texture
 
 template getQuadDataForRune*(f: Font, r: Rune, quad: var array[16, Coord], texture: var TextureRef, pt: var Point) =
