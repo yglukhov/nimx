@@ -146,6 +146,10 @@ method viewWillMoveToWindow*(v: View, w: Window) {.base.} =
         s.window = v.window
         s.viewWillMoveToWindow(w)
 
+method viewDidMoveToWindow*(v: View){.base.} =
+    for s in v.subviews:
+        s.viewDidMoveToWindow()
+
 proc moveToWindow(v: View, w: Window) =
     v.window = w
     for s in v.subviews:
@@ -169,6 +173,7 @@ proc removeFromSuperview(v: View, callHandlers: bool) =
             v.viewWillMoveToSuperview(nil)
         v.superview.removeSubview(v)
         v.moveToWindow(nil)
+        v.viewDidMoveToWindow()
         v.superview = nil
 
 method removeFromSuperview*(v: View) {.base.} =
@@ -183,6 +188,7 @@ method addSubview*(v: View, s: View) {.base.} =
         v.subviews.add(s)
         s.superview = v
         s.moveToWindow(v.window)
+        s.viewDidMoveToWindow()
         v.setNeedsDisplay()
 
 method clipType*(v: View): ClipType {.base.} = ctNone
