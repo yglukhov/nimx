@@ -73,6 +73,8 @@ when defined js:
     const invalidProgram* : ProgramRef = nil
     const invalidShader* : ShaderRef = nil
     const invalidBuffer* : BufferRef = nil
+    const invalidFrameBuffer* : FramebufferRef = nil
+    const invalidTexture* : TextureRef = nil
 
     {.push importcpp.}
 
@@ -95,6 +97,7 @@ when defined js:
     proc deleteFramebuffer*(gl: GL, name: FramebufferRef)
     proc deleteRenderbuffer*(gl: GL, name: RenderbufferRef)
     proc deleteBuffer*(gl: GL, name: BufferRef)
+    proc deleteTexture*(gl: GL, name: TextureRef)
 
     proc bindAttribLocation*(gl: GL, program: ProgramRef, index: GLuint, name: cstring)
     proc enableVertexAttribArray*(gl: GL, attrib: GLuint)
@@ -166,6 +169,8 @@ else:
     const invalidProgram* : ProgramRef = 0
     const invalidShader* : ShaderRef = 0
     const invalidBuffer* : BufferRef = 0
+    const invalidFrameBuffer* : FramebufferRef = 0
+    const invalidTexture* : TextureRef = 0
 
     template VERTEX_SHADER*(gl: GL): GLenum = GL_VERTEX_SHADER
     template FRAGMENT_SHADER*(gl: GL): GLenum = GL_FRAGMENT_SHADER
@@ -278,6 +283,9 @@ else:
     proc deleteBuffer*(gl: GL, name: BufferRef) {.inline.} =
         glDeleteBuffers(1, unsafeAddr name)
 
+    proc deleteTexture*(gl: GL, name: TextureRef) {.inline.} =
+        glDeleteTextures(1, unsafeAddr name)
+
     template bindAttribLocation*(gl: GL, program: ProgramRef, index: GLuint, name: cstring) = glBindAttribLocation(program, index, name)
     template enableVertexAttribArray*(gl: GL, attrib: GLuint) = glEnableVertexAttribArray(attrib)
     template disableVertexAttribArray*(gl: GL, attrib: GLuint) = glDisableVertexAttribArray(attrib)
@@ -344,7 +352,7 @@ var globalGL: GL
 proc newGL*(canvas: ref RootObj): GL =
     when defined js:
         asm """
-            var options = {stencil: true, alpha: false, premultipliedAlpha: false};
+            var options = {stencil: true, alpha: false, premultipliedAlpha: false, antialias: false};
             try {
                 `result` = `canvas`.getContext("webgl", options);
             }
