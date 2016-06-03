@@ -23,3 +23,4 @@ requires "variant"
 requires "jester" # required to run a web server from the nakefile to serve WebGL variant
 requires "https://github.com/yglukhov/ttf"
 requires "https://github.com/yglukhov/async_http_request"
+requires "https://github.com/yglukhov/emscripten.nim"
