@@ -869,7 +869,7 @@ proc lookAt*(dest: var Matrix4, eye, center, up: Vector3) =
 
 proc tryGetTranslationFromModel*(mat: Matrix4, translation: var Vector3): bool =
     if mat[15] == 0: return false
-    translation = newVector3(mat[3], mat[7], mat[11]) / mat[15]
+    translation = newVector3(mat[12], mat[13], mat[14]) / mat[15]
     return true
 
 proc tryGetScaleRotationFromModel*(mat: Matrix4, scale: var Vector3, rotation: var Vector4): bool =
@@ -941,6 +941,11 @@ proc tryGetScaleRotationFromModel*(mat: Matrix4, scale: var Vector3, rotation: v
     rotation = newVector4(x, y, z, w)
 
     return true
+
+proc transformDirection*(mat: Matrix4, dir: Vector3): Vector3 =
+    result.x = dir.x * mat[0] + dir.y * mat[4] + dir.z * mat[8]
+    result.y = dir.x * mat[1] + dir.y * mat[5] + dir.z * mat[9]
+    result.z = dir.x * mat[2] + dir.y * mat[6] + dir.z * mat[10]
 
 discard """
 mat4_t mat4_fromRotationTranslation(quat_t quat, vec3_t vec, mat4_t dest) {

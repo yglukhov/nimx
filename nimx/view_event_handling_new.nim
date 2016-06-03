@@ -15,10 +15,10 @@ method onTouchEv*(v: View, e: var Event): bool {.base.} =
         for d in v.gestureDetectors:
             let r = d.onGestEvent(e)
             result = result or r
-    if not result:
-        if e.buttonState == bsDown:
-            if v.acceptsFirstResponder:
-                discard v.makeFirstResponder()
+    # if not result:
+    if e.buttonState == bsUp:
+        if v.acceptsFirstResponder:
+            discard v.makeFirstResponder()
 
 method onInterceptTouchEv*(v: View, e: var Event): bool {.base.} =
     discard
