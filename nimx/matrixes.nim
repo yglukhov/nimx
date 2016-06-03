@@ -942,11 +942,6 @@ proc tryGetScaleRotationFromModel*(mat: Matrix4, scale: var Vector3, rotation: v
 
     return true
 
-proc transformPoint*(mat: Matrix4, point: Vector3): Vector3 =
-    result.x = point.x * mat[0] + point.y * mat[4] + point.z * mat[8] + mat[12]
-    result.y = point.x * mat[1] + point.y * mat[5] + point.z * mat[9] + mat[13]
-    result.z = point.x * mat[2] + point.y * mat[6] + point.z * mat[10] + mat[14]
-
 proc transformDirection*(mat: Matrix4, dir: Vector3): Vector3 =
     result.x = dir.x * mat[0] + dir.y * mat[4] + dir.z * mat[8]
     result.y = dir.x * mat[1] + dir.y * mat[5] + dir.z * mat[9]
