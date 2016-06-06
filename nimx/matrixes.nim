@@ -876,9 +876,9 @@ proc tryGetScaleRotationFromModel*(mat: Matrix4, scale: var Vector3, rotation: v
     if mat[15] == 0: return false
 
     var
-        row0 = newVector3(mat[0], mat[4], mat[8]) / mat[15]
-        row1 = newVector3(mat[1], mat[5], mat[9]) / mat[15]
-        row2 = newVector3(mat[2], mat[6], mat[10]) / mat[15]
+        row0 = newVector3(mat[0], mat[1], mat[2]) / mat[15]
+        row1 = newVector3(mat[4], mat[5], mat[6]) / mat[15]
+        row2 = newVector3(mat[8], mat[9], mat[10]) / mat[15]
 
     # scale skew
     scale[0] = row0.length()
