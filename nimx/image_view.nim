@@ -21,7 +21,7 @@ type
 proc newImageView*(r: Rect, image: Image = nil, fillRule = ImageFillRule.NoFill): ImageView =
     result.new
     result.image = image
-    result.fillRule = ImageFillRule.NoFill
+    result.fillRule = fillRule
     result.init(r)
 
 method init*(v: ImageView, r: Rect) =
