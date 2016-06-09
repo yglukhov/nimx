@@ -564,8 +564,8 @@ proc build*(b: Builder) =
             "--clang.exe=emcc", "--clang.linkerexe=emcc", "-d:SDL_Static"])
         b.additionalLinkerFlags.add(["--preload-file", b.resourcePath & "/OpenSans-Regular.ttf@/res/OpenSans-Regular.ttf"])
         b.additionalNimFlags.add("-d:noAutoGLerrorCheck")
-        b.additionalLinkerFlags.add(["-s", "FULL_ES2=1"])
-        b.additionalLinkerFlags.add(["-s", "ALLOW_MEMORY_GROWTH=1"])
+        b.additionalLinkerFlags.add(["-s\\ FULL_ES2=1"])
+        b.additionalLinkerFlags.add(["-s\\ ALLOW_MEMORY_GROWTH=1"])
 
         if not b.debugMode:
             b.additionalLinkerFlags.add("-O3")
@@ -640,8 +640,12 @@ proc runAutotestsInFirefox*(pathToMainHTML: string) =
             findExe("firefox")
     createDir("tempprofile")
     writeFile("tempprofile/user.js", """
-    pref("browser.shell.checkDefaultBrowser", false);
-    pref("browser.dom.window.dump.enabled", true);""")
+    user_pref("browser.shell.checkDefaultBrowser", false);
+    user_pref("browser.dom.window.dump.enabled", true);
+    user_pref("app.update.auto", false);
+    user_pref("app.update.enabled", false);
+    user_pref("webgl.disable-fail-if-major-performance-caveat", true);
+    """)
     let ffp = startProcess(ffbin, args = ["-profile", "./tempprofile", pathToMainHTML])
     let so = ffp.outputStream
     var line = ""
