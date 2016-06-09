@@ -453,6 +453,9 @@ template popPostEffect*() =
     postEffectStack.setLen(postEffectStack.len - 1)
     postEffectIdStack.setLen(postEffectIdStack.len - 1)
 
+template hasPostEffect*(): bool =
+    postEffectStack.len > 0
+
 template getCompiledComposition*(gl: GL, comp: Composition): CompiledComposition =
     let pehash = if postEffectIdStack.len > 0: postEffectIdStack[^1] else: 0
     let cchash = !$(pehash !& comp.id)
