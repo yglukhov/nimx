@@ -238,7 +238,6 @@ let fontComposition = newComposition("""
 attribute vec4 aPosition;
 
 uniform mat4 uModelViewProjectionMatrix;
-
 varying vec2 vTexCoord;
 
 void main() {
@@ -254,86 +253,117 @@ precision mediump float;
 
 uniform sampler2D texUnit;
 uniform vec4 fillColor;
-uniform float uGamma;
-uniform float uBase;
+uniform float alphaMin;
+uniform float alphaMax;
 
 varying vec2 vTexCoord;
 
-float contour(in float d, in float w) {
-    // smoothstep(lower edge0, upper edge1, x)
-    return smoothstep(0.5 - w, 0.5 + w, d);
-}
-
-float samp(in vec2 uv, float w) {
-    return contour(texture2D(texUnit, uv).a, w);
-}
-
-void composeWithSupersampling() {
-    // retrieve distance from texture
-    vec2 uv = vTexCoord;
-    float dist = texture2D(texUnit, uv).a;
-
-    // fwidth helps keep outlines a constant width irrespective of scaling
-    // GLSL's fwidth = abs(dFdx(uv)) + abs(dFdy(uv))
-    float width = fwidth(dist);
-    // Stefan Gustavson's fwidth
-    //float width = 0.7 * length(vec2(dFdx(dist), dFdy(dist)));
-
-// basic version
-    //float alpha = smoothstep(0.5 - width, 0.5 + width, dist);
-
-// supersampled version
-
-    float alpha = contour( dist, width );
-    //float alpha = aastep( 0.5, dist );
-
-    // ------- (comment this block out to get your original behavior)
-    // Supersample, 4 extra points
-    float dscale = 0.354; // half of 1/sqrt2; you can play with this
-
-
-    //dscale = uGamma;
-
-    vec2 duv = dscale * (dFdx(uv) + dFdy(uv));
-    vec4 box = vec4(uv-duv, uv+duv);
-
-    float asum = samp( box.xy, width )
-               + samp( box.zw, width )
-               + samp( box.xw, width )
-               + samp( box.zy, width );
-
-    // weighted average, with 4 extra points having 0.5 weight each,
-    // so 1 + 0.5*4 = 3 is the divisor
-    alpha = (alpha + 0.5 * asum) / 3.0;
-
-    // -------
-
-    gl_FragColor = vec4(fillColor.rgb, fillColor.a * alpha);
-}
-
-#define ENABLE_SUPERSAMPLING
-
-void compose() {
-#ifdef ENABLE_SUPERSAMPLING
-    composeWithSupersampling();
-#else
+void compose()
+{
     float dist = texture2D(texUnit, vTexCoord).a;
-    float alpha = smoothstep(uBase - uGamma, uBase + uGamma, dist);
+    float alpha = smoothstep(alphaMin, alphaMax, dist);
     gl_FragColor = vec4(fillColor.rgb, alpha * fillColor.a);
-#endif
 }
 """, false)
+
+let fontSubpixelComposition = newComposition("""
+attribute vec4 aPosition;
+
+uniform mat4 uModelViewProjectionMatrix;
+varying vec2 vTexCoord;
+
+void main() {
+    vTexCoord = aPosition.zw;
+    gl_Position = uModelViewProjectionMatrix * vec4(aPosition.xy, 0, 1);
+}
+""",
+"""
+#ifdef GL_ES
+#extension GL_OES_standard_derivatives : enable
+precision mediump float;
+#endif
+
+uniform sampler2D texUnit;
+uniform vec4 fillColor;
+uniform float alphaMin;
+uniform float alphaMax;
+
+varying vec2 vTexCoord;
+
+void subpixelCompose()
+{
+    vec4 n;
+    float shift = dFdx(vTexCoord.x);
+
+    n.x = texture2D(texUnit, vTexCoord.xy - vec2(0.667 * shift, 0.0)).a;
+    n.y = texture2D(texUnit, vTexCoord.xy - vec2(0.333 * shift, 0.0)).a;
+    n.z = texture2D(texUnit, vTexCoord.xy + vec2(0.333 * shift, 0.0)).a;
+    n.w = texture2D(texUnit, vTexCoord.xy + vec2(0.667 * shift, 0.0)).a;
+    float c = texture2D(texUnit, vTexCoord.xy).a;
+
+#if 0
+    // Blurrier, faster.
+    n = smoothstep(alphaMin, alphaMax, n);
+    c = smoothstep(alphaMin, alphaMax, c);
+#else
+    // Sharper, slower.
+    vec2 d = min(abs(n.yw - n.xz) * 2., 0.67);
+    vec2 lo = mix(vec2(alphaMin), vec2(0.5), d);
+    vec2 hi = mix(vec2(alphaMax), vec2(0.5), d);
+    n = smoothstep(lo.xxyy, hi.xxyy, n);
+    c = smoothstep(lo.x + lo.y, hi.x + hi.y, 2. * c);
+#endif
+
+    gl_FragColor = vec4(0.333 * (n.xyz + n.yzw + c), c) * fillColor.a;
+}
+
+void compose()
+{
+    subpixelCompose();
+}
+""", false)
+
+import math
+proc thresholdFunc(glyphScale: float): float =
+    let base = 0.53
+    let baseDev = 0.065
+    let devScaleMin = 0.15
+    let devScaleMax = 0.3
+    return base - ((clamp(glyphScale, devScaleMin, devScaleMax) - devScaleMin) / (devScaleMax - devScaleMin) * -baseDev + baseDev)
+
+proc spreadFunc(glyphScale: float): float =
+    var range = 0.055f
+    return range / glyphScale
 
 proc drawText*(c: GraphicsContext, font: Font, pt: var Point, text: string) =
     # assume orthographic projection with units = screen pixels, origin at top left
     let gl = c.gl
-    let cc = gl.getCompiledComposition(fontComposition)
+    var cc = gl.getCompiledComposition(fontComposition)
+    var subpixelDraw = true
+
+    if hasPostEffect():
+        subpixelDraw = false
+
+    when defined(android):
+        subpixelDraw = false
+
+    var aBase = thresholdFunc(font.scale)
+    var aRange = spreadFunc(font.scale)
+    var alphaMin = max(0.0, aBase - aRange);
+    var alphaMax = min(aBase + aRange, 1.0);
+
+    if subpixelDraw:
+        cc = gl.getCompiledComposition(fontSubpixelComposition)
+
+        gl.blendColor(c.fillColor.r, c.fillColor.g, c.fillColor.b, c.fillColor.a)
+        gl.blendFunc(gl.CONSTANT_COLOR, gl.ONE_MINUS_SRC_COLOR)
+
     gl.useProgram(cc.program)
 
     compositionDrawingDefinitions(cc, c, gl)
     setUniform("fillColor", c.fillColor)
-    setUniform("uGamma", font.gamma.GLfloat)
-    setUniform("uBase", font.base.GLfloat)
+    setUniform("alphaMin", alphaMin)
+    setUniform("alphaMax", alphaMax)
     gl.uniformMatrix4fv(uniformLocation("uModelViewProjectionMatrix"), false, c.transform)
     setupPosteffectUniforms(cc)
 
@@ -341,8 +371,6 @@ proc drawText*(c: GraphicsContext, font: Font, pt: var Point, text: string) =
     gl.uniform1i(uniformLocation("texUnit"), cc.iTexIndex)
 
     gl.enableVertexAttribArray(saPosition.GLuint)
-#    gl.enable(gl.BLEND)
-#    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, c.quadIndexBuffer)
 
@@ -374,6 +402,9 @@ proc drawText*(c: GraphicsContext, font: Font, pt: var Point, text: string) =
         pt.x += font.horizontalSpacing
 
     if n > 0: flush()
+
+    if subpixelDraw:
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 
 proc drawText*(c: GraphicsContext, font: Font, pt: Point, text: string) =
     var p = pt

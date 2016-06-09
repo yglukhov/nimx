@@ -72,7 +72,7 @@ type Font* = ref object
     chars: SimpleTable[int32, CharInfo]
     mSize: float
     isHorizontal*: bool
-    scale: float
+    scale*: float
     filePath: string
     horizontalSpacing*: Coord
     gamma*, base*: float32

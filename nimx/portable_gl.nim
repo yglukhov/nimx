@@ -32,7 +32,7 @@ when defined js:
             VERTEX_SHADER* : GLenum
             FRAGMENT_SHADER* : GLenum
             TEXTURE_2D* : GLenum
-            ONE_MINUS_SRC_ALPHA*, ONE_MINUS_DST_ALPHA*, SRC_ALPHA*, DST_ALPHA*, ONE*, DST_COLOR* : GLenum
+            ONE_MINUS_SRC_ALPHA*, ONE_MINUS_DST_ALPHA*, SRC_ALPHA*, DST_ALPHA*, ONE*, DST_COLOR*, CONSTANT_COLOR*, ONE_MINUS_SRC_COLOR*: GLenum
             BLEND* : GLenum
             TRIANGLES*, TRIANGLE_FAN*, TRIANGLE_STRIP*, LINES* : GLenum
             COLOR_BUFFER_BIT*: int
@@ -128,6 +128,7 @@ when defined js:
     proc clearColor*(gl: GL, r, g, b, a: GLfloat)
     proc clearStencil*(gl: GL, s: GLint)
     proc blendFunc*(gl: GL, sfactor, dfactor: GLenum)
+    proc blendColor*(gl: GL, r, g, b, a: Glfloat)
     proc blendFuncSeparate*(gl: GL, sfactor, dfactor, sfactorA, dfactorA: GLenum)
     proc texParameteri*(gl: GL, target, pname: GLenum, param: GLint)
 
@@ -175,6 +176,8 @@ else:
     template VERTEX_SHADER*(gl: GL): GLenum = GL_VERTEX_SHADER
     template FRAGMENT_SHADER*(gl: GL): GLenum = GL_FRAGMENT_SHADER
     template TEXTURE_2D*(gl: GL): GLenum = GL_TEXTURE_2D
+    template CONSTANT_COLOR*(gl: GL): GLenum = GL_CONSTANT_COLOR
+    template ONE_MINUS_SRC_COLOR*(gl: GL): GLenum = GL_ONE_MINUS_SRC_COLOR
     template ONE_MINUS_SRC_ALPHA*(gl: GL): GLenum = GL_ONE_MINUS_SRC_ALPHA
     template ONE_MINUS_DST_ALPHA*(gl: GL): GLenum = GL_ONE_MINUS_DST_ALPHA
     template SRC_ALPHA*(gl: GL): GLenum = GL_SRC_ALPHA
@@ -320,6 +323,7 @@ else:
     template clearStencil*(gl: GL, s: GLint) = glClearStencil(s)
 
     template blendFunc*(gl: GL, sfactor, dfactor: GLenum) = glBlendFunc(sfactor, dfactor)
+    template blendColor*(gl: GL, r, g, b, a: Glfloat) = glBlendColor(r, g, b, a)
     template blendFuncSeparate*(gl: GL, sfactor, dfactor, sfactorA, dfactorA: GLenum) = glBlendFuncSeparate(sfactor, dfactor, sfactorA, dfactorA)
     template texParameteri*(gl: GL, target, pname: GLenum, param: GLint) = glTexParameteri(target, pname, param)
 
