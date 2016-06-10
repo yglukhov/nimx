@@ -20,6 +20,7 @@ import sample03_image
 import sample04_animation
 import sample05_fonts
 import sample06_timers
+import sample07_collections
 
 const isMobile = defined(ios) or defined(android)
 
