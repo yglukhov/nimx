@@ -213,8 +213,8 @@ proc eventWithSDLEvent(event: ptr sdl2.Event): Event =
         of KeyDown, KeyUp:
             let keyEv = cast[KeyboardEventPtr](event)
             let wnd = windowFromSDLEvent(keyEv)
-            result = newKeyboardEvent(virtualKeyFromNative(keyEv.keysym.sym), buttonStateFromSDLState(keyEv.state.KeyState), keyEv.repeat)
-            result.rune = keyEv.keysym.unicode.Rune
+            result = newKeyboardEvent(virtualKeyFromNative(cint(keyEv.keysym.scancode)), buttonStateFromSDLState(keyEv.state.KeyState), keyEv.repeat)
+            #result.rune = keyEv.keysym.unicode.Rune
             result.window = wnd
 
         of TextInput:
