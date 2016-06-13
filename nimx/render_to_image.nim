@@ -27,7 +27,7 @@ proc bindFramebuffer*(gl: GL, i: SelfContainedImage, makeDepthAndStencil: bool =
             let depthBuffer = gl.createRenderbuffer()
             gl.bindRenderbuffer(gl.RENDERBUFFER, depthBuffer)
 
-            let depthStencilFormat = when defined(js): gl.DEPTH_STENCIL else: gl.DEPTH24_STENCIL8
+            let depthStencilFormat = when defined(js) or defined(emscripten): gl.DEPTH_STENCIL else: gl.DEPTH24_STENCIL8
 
             gl.renderbufferStorage(gl.RENDERBUFFER, depthStencilFormat, texWidth.GLsizei, texHeight.GLsizei)
             gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_STENCIL_ATTACHMENT, gl.RENDERBUFFER, depthBuffer)
@@ -66,6 +66,6 @@ proc draw*(i: Image, drawProc: proc()) =
 
     gl.clearColor(oldClearColor[0], oldClearColor[1], oldClearColor[2], oldClearColor[3])
 
-    viewport(gl, oldViewport)
+    gl.viewport(oldViewport)
     gl.bindRenderbuffer(gl.RENDERBUFFER, oldRb)
     gl.bindFramebuffer(gl.FRAMEBUFFER, oldFb)

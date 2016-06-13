@@ -96,6 +96,7 @@ proc initCommon(w: EmscriptenWindow, r: view.Rect) =
     attrs.premultipliedAlpha = 0
     attrs.alpha = 0
     attrs.antialias = 0
+    attrs.stencil = 1
     w.ctx = emscripten_webgl_create_context(canvId, addr attrs)
     discard emscripten_webgl_make_context_current(w.ctx)
     w.renderingContext = newGraphicsContext()
