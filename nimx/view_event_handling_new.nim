@@ -59,6 +59,7 @@ proc processOnlyTouchEvents(v: View, e : var Event): bool =
     if e.buttonState == bsDown:
         if v.isMainWindow(e):
             pointers = pointers + 1
+            assert(pointers > 0)
         if pointers == 1:
             v.interceptEvents = false
             v.touchTarget = nil
@@ -112,6 +113,7 @@ proc processOnlyTouchEvents(v: View, e : var Event): bool =
     if e.buttonState == bsUp:
         if v.isMainWindow(e):
             pointers = pointers - 1
+            assert(pointers >= 0)
         if pointers == 0:
             v.touchTarget = nil
             v.interceptEvents = false
