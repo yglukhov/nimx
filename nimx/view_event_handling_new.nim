@@ -26,8 +26,6 @@ method onInterceptTouchEv*(v: View, e: var Event): bool {.base.} =
 proc isMainWindow(v: View, e : var Event): bool =
     result = v == e.window
 
-proc processTouchEvent*(v: View, e : var Event): bool
-
 var pointers = 0
 
 method onMouseIn*(v: View, e: var Event) {.base.} =
@@ -55,7 +53,7 @@ proc handleMouseOverEvent(v: View, e : var Event) =
             vi.onMouseOut(e)
     e.localPosition = localPosition
 
-proc processOnlyTouchEvents(v: View, e : var Event): bool =
+proc processTouchEvent*(v: View, e : var Event): bool =
     if e.buttonState == bsDown:
         if v.isMainWindow(e):
             pointers = pointers + 1
@@ -118,22 +116,15 @@ proc processOnlyTouchEvents(v: View, e : var Event): bool =
             v.touchTarget = nil
             v.interceptEvents = false
 
-proc processMouseWheelPrivate(v: View, e : var Event): bool =
+proc processMouseWheelEvent*(v: View, e : var Event): bool =
     let localPosition = e.localPosition
     for i in countdown(v.subviews.len - 1, 0):
         let s = v.subviews[i]
         e.localPosition = localPosition - s.frame.origin + s.bounds.origin
         if e.localPosition.inRect(s.bounds):
-            result = s.processTouchEvent(e)
+            result = s.processMouseWheelEvent(e)
             if result:
                 break
     if not result:
         e.localPosition = localPosition
         result = v.onScroll(e)
-
-proc processTouchEvent*(v: View, e : var Event): bool =
-    case e.kind
-    of etScroll:
-        result = processMouseWheelPrivate(v,e)
-    else:
-        result = processOnlyTouchEvents(v,e)
