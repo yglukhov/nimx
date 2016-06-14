@@ -12,6 +12,8 @@ import portable_gl
 import screen
 import emscripten
 
+import private.js_vk_map
+
 type EmscriptenWindow* = ref object of Window
     ctx: EMSCRIPTEN_WEBGL_CONTEXT_HANDLE
     renderingContext: GraphicsContext
@@ -59,6 +61,17 @@ proc onMouseWheel(eventType: cint, wheelEvent: ptr EmscriptenWheelEvent, userDat
     evt.offset.y = wheelEvent.deltaY.Coord
     if mainApplication().handleEvent(evt): result = 1
 
+proc onKey(keyEvent: ptr EmscriptenKeyboardEvent, userData: pointer, buttonState: ButtonState): EM_BOOL =
+    var e = newKeyboardEvent(virtualKeyFromNative(int(keyEvent.keyCode)), buttonState, bool(keyEvent.repeat))
+    e.window = cast[EmscriptenWindow](userData)
+    if mainApplication().handleEvent(e): result = 1
+
+proc onKeyDown(eventType: cint, keyEvent: ptr EmscriptenKeyboardEvent, userData: pointer): EM_BOOL {.cdecl.} =
+    onKey(keyEvent, userData, bsDown)
+
+proc onKeyUp(eventType: cint, keyEvent: ptr EmscriptenKeyboardEvent, userData: pointer): EM_BOOL {.cdecl.} =
+    onKey(keyEvent, userData, bsUp)
+
 proc initCommon(w: EmscriptenWindow, r: view.Rect) =
     procCall init(w.Window, r)
 
@@ -83,6 +96,7 @@ proc initCommon(w: EmscriptenWindow, r: view.Rect) =
     attrs.premultipliedAlpha = 0
     attrs.alpha = 0
     attrs.antialias = 0
+    attrs.stencil = 1
     w.ctx = emscripten_webgl_create_context(canvId, addr attrs)
     discard emscripten_webgl_make_context_current(w.ctx)
     w.renderingContext = newGraphicsContext()
@@ -91,6 +105,9 @@ proc initCommon(w: EmscriptenWindow, r: view.Rect) =
     discard emscripten_set_mouseup_callback(canvId, cast[pointer](w), 0, onMouseUp)
     discard emscripten_set_mousemove_callback(canvId, cast[pointer](w), 0, onMouseMove)
     discard emscripten_set_wheel_callback(canvId, cast[pointer](w), 0, onMouseWheel)
+
+    discard emscripten_set_keydown_callback(nil, cast[pointer](w), 1, onKeyDown)
+    discard emscripten_set_keyup_callback(nil, cast[pointer](w), 1, onKeyUp)
 
     #w.enableAnimation(true)
     mainApplication().addWindow(w)
