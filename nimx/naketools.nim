@@ -644,6 +644,8 @@ proc runAutotestsInFirefox*(pathToMainHTML: string) =
     user_pref("browser.dom.window.dump.enabled", true);
     user_pref("app.update.auto", false);
     user_pref("app.update.enabled", false);
+    user_pref("extensions.update.enabled", false);
+    user_pref("extensions.update.autoUpdateDefault", false);
     user_pref("webgl.disable-fail-if-major-performance-caveat", true);
     """)
     let ffp = startProcess(ffbin, args = ["-profile", "./tempprofile", pathToMainHTML])
