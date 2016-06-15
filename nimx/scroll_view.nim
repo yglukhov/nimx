@@ -12,7 +12,7 @@ type ScrollView* = ref object of View
     clipView: ClipView
     mHorizontalScrollBar, mVerticalScrollBar: ScrollBar
 
-const scrollBarWidth = 16.Coord
+const scrollBarWidth = 12.Coord
 
 proc onScrollBar(v: ScrollView, sb: ScrollBar)
 
@@ -47,6 +47,8 @@ proc `verticalScrollBar=`*(v: ScrollView, s: ScrollBar) {.inline.} = v.setScroll
 template horizontalScrollBar*(v: ScrollView): ScrollBar = v.mHorizontalScrollBar
 template verticalScrollBar*(v: ScrollView): ScrollBar = v.mVerticalScrollBar
 
+proc recalcScrollKnobSizes(v: ScrollView)
+
 proc newScrollView*(r: Rect): ScrollView =
     result.new()
     result.init(r)
@@ -70,6 +72,7 @@ proc newScrollView*(v: View): ScrollView =
     result.clipView.addSubview(v)
     result.autoresizingMask = v.autoresizingMask
     v.autoresizingMask = { afFlexibleMaxX, afFlexibleMaxY }
+    result.recalcScrollKnobSizes()
 
 proc contentView*(v: ScrollView): View =
     if v.clipView.subviews.len > 0:
@@ -79,6 +82,21 @@ proc `contentView=`*(v: ScrollView, c: View) =
     if v.clipView.subviews.len > 0:
         v.clipView.subviews[0].removeFromSuperview()
     v.clipView.addSubview(c)
+    v.recalcScrollKnobSizes()
+
+proc contentSize(v: ScrollView): Size =
+    let cv = v.contentView
+    if cv.isNil:
+        result = v.bounds.size
+    else:
+        result = cv.frame.size
+
+proc recalcScrollbarKnobPositions(v: ScrollView) =
+    var cs = v.contentSize
+    if not v.mHorizontalScrollBar.isNil:
+       v.mHorizontalScrollBar.value = v.clipView.bounds.x / (cs.width - v.clipView.bounds.width)
+    if not v.mVerticalScrollBar.isNil:
+       v.mVerticalScrollBar.value = v.clipView.bounds.y / (cs.height - v.clipView.bounds.height)
 
 method onScroll*(v: ScrollView, e: var Event): bool =
     let cvBounds = v.clipView.bounds
@@ -103,6 +121,7 @@ method onScroll*(v: ScrollView, e: var Event): bool =
         o.y = 0
 
     v.clipView.setBoundsOrigin(o)
+    v.recalcScrollbarKnobPositions()
     result = true
 
 proc onScrollBar(v: ScrollView, sb: ScrollBar) =
@@ -134,3 +153,17 @@ method subviewDidChangeDesiredSize*(v: ScrollView, sub: View, desiredSize: Size)
 
     v.clipView.setBoundsOrigin(boundsOrigin)
     v.contentView().setFrameSize(size)
+    v.recalcScrollKnobSizes()
+    v.recalcScrollbarKnobPositions()
+
+proc recalcScrollKnobSizes(v: ScrollView) =
+    var cs = v.contentSize
+    if not v.mHorizontalScrollBar.isNil:
+        v.mHorizontalScrollBar.knobSize = v.bounds.width / cs.width
+    if not v.mVerticalScrollBar.isNil:
+        v.mVerticalScrollBar.knobSize = v.bounds.height / cs.height
+
+method resizeSubviews*(v: ScrollView, oldSize: Size) =
+    procCall v.View.resizeSubviews(oldSize)
+    v.recalcScrollKnobSizes()
+    v.recalcScrollbarKnobPositions()
