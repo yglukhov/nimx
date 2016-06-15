@@ -12,7 +12,7 @@ type ScrollView* = ref object of View
     clipView: ClipView
     mHorizontalScrollBar, mVerticalScrollBar: ScrollBar
 
-const scrollBarWidth = 16.Coord
+const scrollBarWidth = 12.Coord
 
 proc onScrollBar(v: ScrollView, sb: ScrollBar)
 
