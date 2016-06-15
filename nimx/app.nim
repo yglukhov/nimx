@@ -33,6 +33,8 @@ proc addWindow*(a: Application, w: Window) =
     a.windows.add(w)
 
 proc handleEvent*(a: Application, e: var Event): bool =
+    incrementActiveTouchesIfNeeded(e)
+
     var control = efcContinue
     var cleanupEventFilters = false
     for i in 0 ..< a.eventFilters.len:
@@ -54,6 +56,8 @@ proc handleEvent*(a: Application, e: var Event): bool =
             for w in a.windows: w.enableAnimation(false)
         elif e.kind == etAppWillEnterForeground:
             for w in a.windows: w.enableAnimation(true)
+
+    decrementActiveTouchesIfNeeded(e)
 
 proc drawWindows*(a: Application) =
     for w in a.windows:

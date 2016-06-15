@@ -26,8 +26,6 @@ method onInterceptTouchEv*(v: View, e: var Event): bool {.base.} =
 proc isMainWindow(v: View, e : var Event): bool =
     result = v == e.window
 
-proc processTouchEvent*(v: View, e : var Event): bool
-
 var pointers = 0
 
 method onMouseIn*(v: View, e: var Event) {.base.} =
@@ -55,11 +53,9 @@ proc handleMouseOverEvent(v: View, e : var Event) =
             vi.onMouseOut(e)
     e.localPosition = localPosition
 
-proc processOnlyTouchEvents(v: View, e : var Event): bool =
+proc processTouchEvent*(v: View, e : var Event): bool =
     if e.buttonState == bsDown:
-        if v.isMainWindow(e):
-            pointers = pointers + 1
-        if pointers == 1:
+        if numberOfActiveTouches() == 1:
             v.interceptEvents = false
             v.touchTarget = nil
             if v.subviews.isNil or v.subviews.len == 0:
@@ -82,7 +78,7 @@ proc processOnlyTouchEvents(v: View, e : var Event): bool =
                         e.localPosition = localPosition
                         result = v.onTouchEv(e)
     else:
-        if pointers > 0:
+        if numberOfActiveTouches() > 0:
             if v.subviews.isNil or v.subviews.len == 0:
                 # single view
                 if not v.isMainWindow(e):
@@ -110,28 +106,19 @@ proc processOnlyTouchEvents(v: View, e : var Event): bool =
             if v.isMainWindow(e):
                 v.handleMouseOverEvent(e)
     if e.buttonState == bsUp:
-        if v.isMainWindow(e):
-            pointers = pointers - 1
-        if pointers == 0:
+        if v.isMainWindow(e) and numberOfActiveTouches() == 1:
             v.touchTarget = nil
             v.interceptEvents = false
 
-proc processMouseWheelPrivate(v: View, e : var Event): bool =
+proc processMouseWheelEvent*(v: View, e : var Event): bool =
     let localPosition = e.localPosition
     for i in countdown(v.subviews.len - 1, 0):
         let s = v.subviews[i]
         e.localPosition = localPosition - s.frame.origin + s.bounds.origin
         if e.localPosition.inRect(s.bounds):
-            result = s.processTouchEvent(e)
+            result = s.processMouseWheelEvent(e)
             if result:
                 break
     if not result:
         e.localPosition = localPosition
         result = v.onScroll(e)
-
-proc processTouchEvent*(v: View, e : var Event): bool =
-    case e.kind
-    of etScroll:
-        result = processMouseWheelPrivate(v,e)
-    else:
-        result = processOnlyTouchEvents(v,e)

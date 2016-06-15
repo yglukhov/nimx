@@ -83,3 +83,19 @@ proc isButtonDownEvent*(e: Event): bool = e.buttonState == bsDown
 proc isButtonUpEvent*(e: Event): bool = e.buttonState == bsUp
 
 proc isMouseMoveEvent*(e: Event): bool = e.buttonState == bsUnknown and e.kind == etMouse
+
+var activeTouches = 0
+
+template numberOfActiveTouches*(): int = activeTouches
+
+proc incrementActiveTouchesIfNeeded*(e: Event) =
+    # Private proc. Should be called from application.handleEvent()
+    if (e.kind == etTouch or e.kind == etMouse) and e.buttonState == bsDown:
+        inc activeTouches
+        assert(activeTouches > 0)
+
+proc decrementActiveTouchesIfNeeded*(e: Event) =
+    # Private proc. Should be called from application.handleEvent()
+    if (e.kind == etTouch or e.kind == etMouse) and e.buttonState == bsUp:
+        assert(activeTouches > 0)
+        dec activeTouches
