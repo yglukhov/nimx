@@ -8,7 +8,7 @@ import view_event_handling
 import app
 
 type ScrollBar* = ref object of Slider
-    knobSize: float # Knob size should vary between 0.0 and 1.0 depending on
+    mKnobSize: float # Knob size should vary between 0.0 and 1.0 depending on
                     # shown part of document in the clip view. E.g. if all of
                     # the document fits, then it should be 1.0. Half of the
                     # document is 0.5.
@@ -16,16 +16,16 @@ type ScrollBar* = ref object of Slider
 
 method init*(s: ScrollBar, r: Rect) =
     procCall s.Slider.init(r)
-    s.knobSize = 0.2
+    s.mKnobSize = 0.2
 
 proc knobRect(s: ScrollBar): Rect =
     result = s.bounds
     if s.isHorizontal:
-        result.size.width *= s.knobSize
+        result.size.width *= s.mKnobSize
         result.origin.x = (s.bounds.width - result.width) * s.value
         result = inset(result, 0, 1)
     else:
-        result.size.height *= s.knobSize
+        result.size.height *= s.mKnobSize
         result.origin.y = (s.bounds.height - result.height) * s.value
         result = inset(result, 1, 0)
 
@@ -44,13 +44,20 @@ method draw*(s: ScrollBar, r: Rect) =
     c.strokeColor = newGrayColor(0.65, 0.5)
     c.drawRoundedRect(kr, radius)
 
+proc `knobSize=`*(s: ScrollBar, v: float) =
+    s.mKnobSize = v
+    if s.mKnobSize < 0: s.mKnobSize = 0
+    elif s.mKnobSize > 1: s.mKnobSize = 1
+
+template knobSize*(s: ScrollBar): float = s.mKnobSize
+
 method onTouchEv*(s: ScrollBar, e: var Event): bool =
     template pageUp() =
-        s.value = s.value - s.knobSize
+        s.value = s.value - s.mKnobSize
         s.sendAction()
 
     template pageDown() =
-        s.value = s.value + s.knobSize
+        s.value = s.value + s.mKnobSize
         s.sendAction()
 
     let kr = s.knobRect()
