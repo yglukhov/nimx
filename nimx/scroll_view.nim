@@ -12,16 +12,38 @@ type ScrollView* = ref object of View
     clipView: ClipView
     mHorizontalScrollBar, mVerticalScrollBar: ScrollBar
 
+const scrollBarWidth = 16.Coord
+
 proc onScrollBar(v: ScrollView, sb: ScrollBar)
-template setScrollBar(v: ScrollView, vs: var ScrollBar, s: ScrollBar) =
+
+proc relayout(v: ScrollView) =
+    var cvs = v.bounds.size
+
+    if not v.mVerticalScrollBar.isNil:
+        cvs.width -= scrollBarWidth
+    if not v.mHorizontalScrollBar.isNil:
+        cvs.height -= scrollBarWidth
+    if not v.clipView.isNil:
+        v.clipView.setFrameSize(cvs)
+    if not v.mVerticalScrollBar.isNil:
+        v.mVerticalScrollBar.setFrameSize(newSize(v.mVerticalScrollBar.frame.width, cvs.height))
+    if not v.mHorizontalScrollBar.isNil:
+        v.mHorizontalScrollBar.setFrameSize(newSize(cvs.width, v.mHorizontalScrollBar.frame.height))
+
+proc setScrollBar(v: ScrollView, vs: var ScrollBar, s: ScrollBar) =
     if not vs.isNil:
         vs.removeFromSuperview()
+    let layoutChanged = (vs.isNil xor s.isNil)
     vs = s
-    v.addSubview(s)
-    s.onAction do(): v.onScrollBar(s)
+    if not s.isNil:
+        v.addSubview(s)
+        s.onAction do(): v.onScrollBar(s)
 
-proc `horizontalScrollBar=`*(v: ScrollView, s: ScrollBar) = v.setScrollBar(v.mHorizontalScrollBar, s)
-proc `verticalScrollBar=`*(v: ScrollView, s: ScrollBar) = v.setScrollBar(v.mVerticalScrollBar, s)
+    if layoutChanged:
+        v.relayout()
+
+proc `horizontalScrollBar=`*(v: ScrollView, s: ScrollBar) {.inline.} = v.setScrollBar(v.mHorizontalScrollBar, s)
+proc `verticalScrollBar=`*(v: ScrollView, s: ScrollBar) {.inline.} = v.setScrollBar(v.mVerticalScrollBar, s)
 template horizontalScrollBar*(v: ScrollView): ScrollBar = v.mHorizontalScrollBar
 template verticalScrollBar*(v: ScrollView): ScrollBar = v.mVerticalScrollBar
 
@@ -29,22 +51,17 @@ proc newScrollView*(r: Rect): ScrollView =
     result.new()
     result.init(r)
 
-    const scrollBarWidth = 16.Coord
-
-    var sb = ScrollBar.new(newRect(0, r.height - scrollBarWidth, r.width - scrollBarWidth, scrollBarWidth))
+    var sb = ScrollBar.new(newRect(0, r.height - scrollBarWidth, 0, scrollBarWidth))
     sb.autoresizingMask = {afFlexibleWidth, afFlexibleMinY}
     result.horizontalScrollBar = sb
 
-    sb = ScrollBar.new(newRect(r.width - scrollBarWidth, 0, scrollBarWidth, r.height - scrollBarWidth))
+    sb = ScrollBar.new(newRect(r.width - scrollBarWidth, 0, scrollBarWidth, 0))
     sb.autoresizingMask = {afFlexibleMinX, afFlexibleHeight}
     result.verticalScrollBar = sb
 
-    var cvFrame = result.bounds
-    cvFrame.size.width -= scrollBarWidth
-    cvFrame.size.height -= scrollBarWidth
-
-    result.clipView = newClipView(cvFrame)
+    result.clipView = newClipView(zeroRect)
     result.addSubview(result.clipView)
+    result.relayout()
 
 proc newScrollView*(v: View): ScrollView =
     # Create a scrollview by wrapping v into it

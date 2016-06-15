@@ -55,10 +55,7 @@ proc handleMouseOverEvent(v: View, e : var Event) =
 
 proc processTouchEvent*(v: View, e : var Event): bool =
     if e.buttonState == bsDown:
-        if v.isMainWindow(e):
-            pointers = pointers + 1
-            assert(pointers > 0)
-        if pointers == 1:
+        if numberOfActiveTouches() == 1:
             v.interceptEvents = false
             v.touchTarget = nil
             if v.subviews.isNil or v.subviews.len == 0:
@@ -81,7 +78,7 @@ proc processTouchEvent*(v: View, e : var Event): bool =
                         e.localPosition = localPosition
                         result = v.onTouchEv(e)
     else:
-        if pointers > 0:
+        if numberOfActiveTouches() > 0:
             if v.subviews.isNil or v.subviews.len == 0:
                 # single view
                 if not v.isMainWindow(e):
@@ -109,10 +106,7 @@ proc processTouchEvent*(v: View, e : var Event): bool =
             if v.isMainWindow(e):
                 v.handleMouseOverEvent(e)
     if e.buttonState == bsUp:
-        if v.isMainWindow(e):
-            pointers = pointers - 1
-            assert(pointers >= 0)
-        if pointers == 0:
+        if v.isMainWindow(e) and numberOfActiveTouches() == 1:
             v.touchTarget = nil
             v.interceptEvents = false
 
