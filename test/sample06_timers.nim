@@ -48,7 +48,8 @@ method init(t: TimersSampleView, r: Rect) =
     let resumeButton = newButton(newRect(20, 170, 100, 20))
     resumeButton.title = "Resume"
     resumeButton.onAction do():
-        t.timer.resume()
+        if not t.timer.isNil:
+            t.timer.resume()
     t.addSubview(resumeButton)
 
     let secondsLabel = t.newLabel(newPoint(20, 200), newSize(120, 20), "seconds: ")
