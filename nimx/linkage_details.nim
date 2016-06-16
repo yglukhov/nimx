@@ -1,11 +1,24 @@
 import macros
 
+
 when not defined(windows):
+
+    when defined(android):
+        import nimx.system_logger
+    proc setupLogger() {.cdecl.}=
+        when defined(android):
+            errorMessageWriter = proc(msg: string) =
+                logi msg
+        else:
+            discard
+
     when not compileOption("noMain"):
         {.error: "Please run Nim with --noMain flag.".}
 
     when defined(ios):
         {.emit: "#define __IPHONEOS__".}
+
+
 
     {.emit: """
 // The following piece of code is a copy-paste from SDL/SDL_main.h
@@ -99,6 +112,7 @@ int main(int argc, char** args) {
     cmdLine = args;
     cmdCount = argc;
     gEnv = NULL;
+    `setupLogger`();
     NimMain();
     return nim_program_result;
 }

@@ -32,10 +32,20 @@ proc nimxPrivateStringify*(v: string): string {.inline.} =
     result = v
     if result.isNil: result = "(nil)"
 
-var currentOffset = ""
+var currentOffset {.threadvar.}: string
 
-proc logi*(a: varargs[string, nimxPrivateStringify]) = native_log(currentOffset & a.join())
+proc logi*(a: varargs[string, nimxPrivateStringify]) {.gcsafe.} =
+    if currentOffset.isNil: currentOffset = ""
+    native_log(currentOffset & a.join())
+
+proc increaseOffset() =
+    if currentOffset.isNil: currentOffset = "  "
+    else: currentOffset &= "  "
+
+template decreaseOffset() =
+    currentOffset.setLen(currentOffset.len - 2)
 
 template enterLog*() =
-    currentOffset &= "  "
-    defer: currentOffset.setLen(currentOffset.len - 2)
+    increaseOffset()
+    defer: decreaseOffset()
+
