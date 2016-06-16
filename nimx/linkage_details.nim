@@ -1,20 +1,14 @@
 import macros
 
+
 when not defined(windows):
 
     when defined(android):
-        {.emit: """
-        #include <android/log.h>
-        """.}
-
-        proc droid_log_imported(a: cstring) =
-            {.emit: """__android_log_write(ANDROID_LOG_INFO, "NIM_APP", `a`);""".}
-
-        proc androidMessageWriter(s: string) = droid_log_imported(s)
-
+        import nimx.system_logger
     proc setupLogger() {.cdecl.}=
         when defined(android):
-            errorMessageWriter = androidMessageWriter
+            errorMessageWriter = proc(msg: string) =
+                logi msg
         else:
             discard
 
