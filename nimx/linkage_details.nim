@@ -12,11 +12,11 @@ when not defined(windows):
 
         proc androidMessageWriter(s: string) = droid_log_imported(s)
 
-        proc setupLogger() {.cdecl.}=
-            when defined(android):
-                errorMessageWriter = androidMessageWriter
-            else:
-                discard
+    proc setupLogger() {.cdecl.}=
+        when defined(android):
+            errorMessageWriter = androidMessageWriter
+        else:
+            discard
 
     when not compileOption("noMain"):
         {.error: "Please run Nim with --noMain flag.".}
