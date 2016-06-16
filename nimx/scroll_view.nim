@@ -65,15 +65,6 @@ proc newScrollView*(r: Rect): ScrollView =
     result.addSubview(result.clipView)
     result.relayout()
 
-proc newScrollView*(v: View): ScrollView =
-    # Create a scrollview by wrapping v into it
-    result = newScrollView(v.frame)
-    v.setFrameOrigin(zeroPoint)
-    result.clipView.addSubview(v)
-    result.autoresizingMask = v.autoresizingMask
-    v.autoresizingMask = { afFlexibleMaxX, afFlexibleMaxY }
-    result.recalcScrollKnobSizes()
-
 proc contentView*(v: ScrollView): View =
     if v.clipView.subviews.len > 0:
         result = v.clipView.subviews[0]
@@ -81,14 +72,32 @@ proc contentView*(v: ScrollView): View =
 proc `contentView=`*(v: ScrollView, c: View) =
     if v.clipView.subviews.len > 0:
         v.clipView.subviews[0].removeFromSuperview()
+    c.setFrameOrigin(zeroPoint)
+    var sz = c.frame.size
+    var changeFrame = false
+    if afFlexibleWidth in c.autoresizingMask:
+        sz.width = v.clipView.bounds.width
+        changeFrame = true
+    if afFlexibleHeight in c.autoresizingMask:
+        sz.height = v.clipView.bounds.height
+        changeFrame = true
+    if changeFrame:
+        c.removeFromSuperview()
+        c.setFrameSize(sz)
     v.clipView.addSubview(c)
     v.recalcScrollKnobSizes()
 
+proc newScrollView*(v: View): ScrollView =
+    # Create a scrollview by wrapping v into it
+    result = newScrollView(v.frame)
+    result.autoresizingMask = v.autoresizingMask
+    result.contentView = v
+    #v.autoresizingMask = { afFlexibleMaxX, afFlexibleMaxY }
+    result.recalcScrollKnobSizes()
+
 proc contentSize(v: ScrollView): Size =
     let cv = v.contentView
-    if cv.isNil:
-        result = v.bounds.size
-    else:
+    if not cv.isNil:
         result = cv.frame.size
 
 proc recalcScrollbarKnobPositions(v: ScrollView) =
@@ -103,10 +112,7 @@ method onScroll*(v: ScrollView, e: var Event): bool =
     var o = cvBounds.origin
     o += e.offset
 
-    var contentSize = zeroSize
-    let cv = v.contentView()
-    if cv != nil:
-        contentSize = cv.frame.size
+    let contentSize = v.contentSize
 
     # Trim x
     if contentSize.width - o.x < cvBounds.width:
@@ -125,10 +131,7 @@ method onScroll*(v: ScrollView, e: var Event): bool =
     result = true
 
 proc onScrollBar(v: ScrollView, sb: ScrollBar) =
-    var contentSize = zeroSize
-    let cv = v.contentView()
-    if cv != nil:
-        contentSize = cv.frame.size
+    let contentSize = v.contentSize
 
     let cvBounds = v.clipView.bounds
     var o = cvBounds.origin
