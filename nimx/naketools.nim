@@ -16,6 +16,7 @@ type Builder* = ref object
 
     androidSdk* : string
     androidNdk* : string
+    androidApi* : int
     sdlRoot* : string
 
     nimIncludeDir* : string
@@ -474,7 +475,9 @@ proc signIosBundle(b: Builder) =
 proc ndkBuild(b: Builder) =
     withDir(b.buildRoot / b.javaPackageId):
         putEnv "NIM_INCLUDE_DIR", expandTilde(b.nimIncludeDir)
-        direShell b.androidSdk/"tools/android", "update", "project", "-p", ".", "-t", "android-22" # try with android-16
+        if b.androidApi == 0:
+            b.androidApi = 14 #default android-api level
+        direShell b.androidSdk/"tools/android", "update", "project", "-p", ".", "-t", "android-" & $b.androidApi # try with android-16
 
         var args = @[b.androidNdk/"ndk-build", "V=1"]
         if b.nimParallelBuild > 0:
