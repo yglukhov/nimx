@@ -42,16 +42,32 @@ method drawWindow*(w: Window) {.base.} =
     w.needsDisplay = false
 
     w.recursiveDrawSubviews()
+
+    let font = systemFontOfSize(w.bounds.height/45)
     let c = currentContext()
-    var pt = newPoint(w.frame.width - 100, 2)
+    let offset = w.frame.width - 10
     c.fillColor = newColor(1, 0, 0, 1)
-    c.drawText(systemFont(), pt, "FPS: " & $fps())
+
+    let fps_str = "FPS: " & $fps()
+    var text_size = font.sizeOfString(fps_str)
+    var offsetY :float = 2
+    var fps_point = newPoint(offset - text_size.width, offsetY)
+    c.drawText(font, fps_point, fps_str)
+    offsetY += text_size.height + 2
 
     when enableGraphicsProfiling:
-        var pt2 = newPoint(w.frame.width - 100, 22)
-        var pt3 = newPoint(w.frame.width - 100, 42)
-        c.drawText(systemFont(), pt2, "Overdraw: " & $GetOverdrawValue())
-        c.drawText(systemFont(), pt3, "DIPs: " & $GetDIPValue())
+        let over_str = "Overdraw: " & $GetOverdrawValue()
+        text_size = font.sizeOfString(over_str)
+        var over_point = newPoint(offset - text_size.width, offsetY)
+        offsetY += text_size.height + 2
+
+        let dips_str = "DIPs: " & $GetDIPValue()
+        text_size = font.sizeOfString(dips_str)
+        var dips_point = newPoint(offset - text_size.width, offsetY)
+        offsetY += text_size.height + 2
+        c.drawText(font, over_point, over_str)
+        c.drawText(font, dips_point, dips_str)
+
         ResetOverdrawValue()
         ResetDIPValue()
 
