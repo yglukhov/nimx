@@ -149,8 +149,6 @@ proc tick*(a: Animation, curTime: float) =
             processRemainingHandlersInLoop(a.totalProgressHandlers, a.tphIt, stopped=true)
 
 proc cancel*(a: Animation) =
-    if a.startTime < 0:
-        logi "Animation was not played before cancelling!"
     a.cancelLoop = a.curLoop
 
 proc isCancelled*(a: Animation): bool = a.cancelLoop != -1
