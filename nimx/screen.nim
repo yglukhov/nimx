@@ -55,7 +55,7 @@ proc getDPI*(): int =
             act.getWindowManager().getDefaultDisplay().getMetrics(dm)
             dpi = dm.densityDpi
 
-    elif defined(ios) or defined(macosx):
+    elif defined(ios):
         if dpi == 0:
             {.emit: """
                 if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad) {
