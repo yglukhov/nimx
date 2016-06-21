@@ -54,15 +54,15 @@ when true:
     proc sendMouseUpEvent*(wnd: Window, p: Point) = sendMouseEvent(wnd, p, bsUp)
 
     proc findButtonWithTitle*(v: View, t: string): Button =
-        try:
-            result = Button(v)
-        except:
-            discard
-        if result.isNil or result.title != t:
-            if not v.subviews.isNil:
-                for s in v.subviews:
-                    result = findButtonWithTitle(s, t)
-                    if not result.isNil: break
+        if v of Button:
+            let btn = Button(v)
+            if btn.title == t:
+                result = btn
+        else:
+            for s in v.subviews:
+                result = findButtonWithTitle(s, t)
+                if not result.isNil: break
+
 
     proc quitApplication*() =
         when defined(js) or defined(emscripten) or defined(android):
