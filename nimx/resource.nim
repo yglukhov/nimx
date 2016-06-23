@@ -154,19 +154,22 @@ when defined(js):
 type ResourceLoadingError* = object
     description*: string
 
-when defined js:
+when defined(js) or defined(emscripten):
+    import jsbind
     proc loadJSResourceAsync*(resourceName: string, resourceType: cstring, onProgress: proc(p: float), onError: proc(e: ResourceLoadingError), onComplete: proc(result: ref RootObj)) =
-        let reqListener = proc(ev: ref RootObj) =
-            var data : ref RootObj
-            {.emit: "`data` = `ev`.target.response;".}
-            onComplete(data)
-
         let oReq = newXMLHTTPRequest()
+        var reqListener: proc()
+        reqListener = proc() =
+            onComplete(cast[ref RootObj](oReq.response))
+            jsUnref(reqListener)
+        jsRef(reqListener)
+
         oReq.responseType = resourceType
         oReq.addEventListener("load", reqListener)
         oReq.open("GET", pathForResource(resourceName))
         oReq.send()
-elif defined(emscripten):
+
+when defined(emscripten):
     import emscripten
 
 proc loadResourceAsync*(resourceName: string, handler: proc(s: Stream)) =
