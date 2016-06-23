@@ -253,15 +253,36 @@ precision mediump float;
 
 uniform sampler2D texUnit;
 uniform vec4 fillColor;
-uniform float alphaMin;
-uniform float alphaMax;
+uniform float preScale;
 
 varying vec2 vTexCoord;
 
+float thresholdFunc(float glyphScale)
+{
+    float base = 0.5;
+    float baseDev = 0.065;
+    float devScaleMin = 0.15;
+    float devScaleMax = 0.3;
+    return base - ((clamp(glyphScale, devScaleMin, devScaleMax) - devScaleMin) / (devScaleMax - devScaleMin) * -baseDev + baseDev);
+}
+
+float spreadFunc(float glyphScale)
+{
+    float range = 0.06;
+    return range / glyphScale;
+}
+
 void compose()
 {
+    float scale = preScale / fwidth(vTexCoord.x);
+    scale = abs(scale);
+    float aBase = thresholdFunc(scale);
+    float aRange = spreadFunc(scale);
+    float aMin = max(0.0, aBase - aRange);
+    float aMax = min(aBase + aRange, 1.0);
+
     float dist = texture2D(texUnit, vTexCoord).a;
-    float alpha = smoothstep(alphaMin, alphaMax, dist);
+    float alpha = smoothstep(aMin, aMax, dist);
     gl_FragColor = vec4(fillColor.rgb, alpha * fillColor.a);
 }
 """, false)
@@ -323,6 +344,83 @@ void compose()
 }
 """, false)
 
+let fontSubpixelCompositionWithDynamicBase = newComposition("""
+attribute vec4 aPosition;
+
+uniform mat4 uModelViewProjectionMatrix;
+varying vec2 vTexCoord;
+
+void main() {
+    vTexCoord = aPosition.zw;
+    gl_Position = uModelViewProjectionMatrix * vec4(aPosition.xy, 0, 1);
+}
+""",
+"""
+#ifdef GL_ES
+#extension GL_OES_standard_derivatives : enable
+precision mediump float;
+#endif
+
+uniform sampler2D texUnit;
+uniform vec4 fillColor;
+uniform float preScale;
+
+varying vec2 vTexCoord;
+
+float thresholdFunc(float glyphScale)
+{
+    float base = 0.5;
+    float baseDev = 0.065;
+    float devScaleMin = 0.15;
+    float devScaleMax = 0.3;
+    return base - ((clamp(glyphScale, devScaleMin, devScaleMax) - devScaleMin) / (devScaleMax - devScaleMin) * -baseDev + baseDev);
+}
+
+float spreadFunc(float glyphScale)
+{
+    float range = 0.06;
+    return range / glyphScale;
+}
+
+void subpixelCompose()
+{
+    float scale = preScale / fwidth(vTexCoord.x); // 0.25 * 1.0 / (dFdx(vTexCoord.x) / (16.0 / 1280.0));
+    scale = abs(scale);
+    float aBase = thresholdFunc(scale);
+    float aRange = spreadFunc(scale);
+    float aMin = max(0.0, aBase - aRange);
+    float aMax = min(aBase + aRange, 1.0);
+
+    vec4 n;
+    vec2 shift_vec = dFdx(vTexCoord.xy);
+    n.x = texture2D(texUnit, vTexCoord.xy - shift_vec * 0.667).a;
+    n.y = texture2D(texUnit, vTexCoord.xy - shift_vec * 0.333).a;
+    n.z = texture2D(texUnit, vTexCoord.xy + shift_vec * 0.333).a;
+    n.w = texture2D(texUnit, vTexCoord.xy + shift_vec * 0.667).a;
+    float c = texture2D(texUnit, vTexCoord.xy).a;
+
+#if 0
+    // Blurrier, faster.
+    n = smoothstep(aMin, aMax, n);
+    c = smoothstep(aMin, aMax, c);
+#else
+    // Sharper, slower.
+    vec2 d = min(abs(n.yw - n.xz) * 2., 0.67);
+    vec2 lo = mix(vec2(aMin), vec2(0.5), d);
+    vec2 hi = mix(vec2(aMax), vec2(0.5), d);
+    n = smoothstep(lo.xxyy, hi.xxyy, n);
+    c = smoothstep(lo.x + lo.y, hi.x + hi.y, 2. * c);
+#endif
+
+    gl_FragColor = vec4(0.333 * (n.xyz + n.yzw + c), c) * fillColor.a;
+}
+
+void compose()
+{
+    subpixelCompose();
+}
+""", false)
+
 import math
 proc thresholdFunc(glyphScale: float): float =
     let base = 0.53
@@ -347,13 +445,10 @@ proc drawText*(c: GraphicsContext, font: Font, pt: var Point, text: string) =
     when defined(android):
         subpixelDraw = false
 
-    var aBase = thresholdFunc(font.scale)
-    var aRange = spreadFunc(font.scale)
-    var alphaMin = max(0.0, aBase - aRange);
-    var alphaMax = min(aBase + aRange, 1.0);
+    let preScale = 1.0 / 320.0 # magic constant...
 
     if subpixelDraw:
-        cc = gl.getCompiledComposition(fontSubpixelComposition)
+        cc = gl.getCompiledComposition(fontSubpixelCompositionWithDynamicBase)
 
         gl.blendColor(c.fillColor.r, c.fillColor.g, c.fillColor.b, c.fillColor.a)
         gl.blendFunc(gl.CONSTANT_COLOR, gl.ONE_MINUS_SRC_COLOR)
@@ -362,8 +457,7 @@ proc drawText*(c: GraphicsContext, font: Font, pt: var Point, text: string) =
 
     compositionDrawingDefinitions(cc, c, gl)
     setUniform("fillColor", c.fillColor)
-    setUniform("alphaMin", alphaMin)
-    setUniform("alphaMax", alphaMax)
+    setUniform("preScale", preScale)
     gl.uniformMatrix4fv(uniformLocation("uModelViewProjectionMatrix"), false, c.transform)
     setupPosteffectUniforms(cc)
 
