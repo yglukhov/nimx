@@ -13,9 +13,9 @@ proc pushAnimation*(ar: AnimationRunner, a: Animation) =
     # if not a.isNil and not a.tag.isNil:
     a.prepare()
     if not (a in ar.animations):
+        ar.animations.add(a)
         if not ar.onAnimationAdded.isNil():
             ar.onAnimationAdded()
-        ar.animations.add(a)
 
 proc removeAnimation*(ar: AnimationRunner, a: Animation) =
     for idx, anim in ar.animations:
