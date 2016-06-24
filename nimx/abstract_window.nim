@@ -138,9 +138,4 @@ method init*(w: Window, frame: Rect) =
     w.animationRunners = @[]
 
     var defaultRunner = newAnimationRunner()
-    defaultRunner.onAnimationAdded = proc()=
-        w.animationAdded()
-    defaultRunner.onAnimationRemoved = proc()=
-        w.animationRemoved()
-
-    w.animationRunners.add(defaultRunner) #default animation runner for window
+    w.addAnimationRunner(defaultRunner) #default animation runner for window
