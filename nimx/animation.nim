@@ -26,8 +26,8 @@ type ProgressHandler = object
 
 type
     Animation* = ref object of RootObj
-        currentTime*: float
-        paused*: bool
+        startTime*: float
+        pauseTime*: float
         loopDuration*: float
         loopPattern*: LoopPattern
         cancelBehavior*: CancelBehavior
@@ -75,22 +75,19 @@ proc removeTotalProgressHandlers*(a: Animation) =
 proc removeLoopProgressHandlers*(a: Animation) =
     if not a.loopProgressHandlers.isNil: a.loopProgressHandlers.setLen(0)
 
-proc `continueUntilEndOfLoopOnCancel=`*(a: Animation, bval: bool) {.deprecated.}=
+proc `continueUntilEndOfLoopOnCancel=`*(a: Animation, bval: bool)=
     if bval:
         a.cancelBehavior = cbContinueUntilEndOfLoop
     else:
         a.cancelBehavior = cbNoJump
 
-proc `continueUntilEndOfLoopOnCancel`*(a: Animation): bool {.deprecated.}=
-    result = a.cancelBehavior == cbContinueUntilEndOfLoop
-
 proc removeHandlers*(a: Animation) =
     a.removeTotalProgressHandlers()
     a.removeLoopProgressHandlers()
 
-method prepare*(a: Animation) {.base.} =
+method prepare*(a: Animation, st: float) {.base.} =
     a.finished = false
-    a.currentTime = 0
+    a.startTime = st
     a.lphIt = 0
     a.tphIt = 0
     a.cancelLoop = -1
@@ -113,16 +110,17 @@ proc processRemainingHandlersInLoop(handlers: openarray[ProgressHandler], it: va
         inc it
     it = 0
 
-method tick*(a: Animation, dt: float) =
-    if a.paused: return
+method tick*(a: Animation, t: float) =
+    if a.pauseTime != 0: return
 
-    a.currentTime += dt
+    let duration = t - a.startTime
+    doAssert(duration > -0.0001)
     let oldLoop = a.curLoop
-    a.curLoop = a.currentLoopForTotalDuration(a.currentTime)
-    var loopProgress = (a.currentTime mod a.loopDuration) / a.loopDuration
+    a.curLoop = a.currentLoopForTotalDuration(duration)
+    var loopProgress = (duration mod a.loopDuration) / a.loopDuration
 
     var totalProgress =
-        if a.numberOfLoops > 0: a.currentTime / (float(a.numberOfLoops) * a.loopDuration) #todo: posible zero division when a.loopDuration is 0.0
+        if a.numberOfLoops > 0: duration / (float(a.numberOfLoops) * a.loopDuration)
         else: 0.0
 
     if a.cancelLoop >= 0:
@@ -161,7 +159,7 @@ method tick*(a: Animation, dt: float) =
 
     if not a.finished:
         if not a.loopProgressHandlers.isNil: processHandlers(a.loopProgressHandlers, a.lphIt, loopProgress)
-        if not a.totalProgressHandlers.isNil: processHandlers(a.totalProgressHandlers, a.tphIt, totalProgress)
+    if not a.totalProgressHandlers.isNil: processHandlers(a.totalProgressHandlers, a.tphIt, totalProgress)
 
     if a.finished:
         if a.curLoop == oldLoop and not a.loopProgressHandlers.isNil and a.lphIt < a.loopProgressHandlers.len:
@@ -234,10 +232,13 @@ proc chainOnAnimate*(a: Animation, oa: proc(p: float)) =
             oa(p)
 
 proc pause*(a: Animation) =
-    a.paused = true
+    if a.pauseTime == 0:
+        a.pauseTime = epochTime()
 
 proc resume*(a: Animation) =
-    a.paused = false
+    if a.pauseTime != 0:
+        a.startTime += epochTime() - a.pauseTime
+        a.pauseTime = 0
 
 proc newMetaAnimation*(anims: varargs[Animation]): MetaAnimation =
     result.new()
@@ -290,27 +291,30 @@ proc nextIndex(a: MetaAnimation) =
             dec a.curIndex
 
 
-method prepare*(a: MetaAnimation)=
+method prepare*(a: MetaAnimation, t: float)=
     a.finished = false
-    a.currentTime = 0
+    a.startTime = t
     a.lphIt = 0
     a.tphIt = 0
     a.cancelLoop = -1
     a.curLoop = 0
     a.curIndex = -1
 
-method tick*(a: MetaAnimation, dt: float) =
+method tick*(a: MetaAnimation, t: float) =
+
+    if a.pauseTime != 0 : return
 
     if a.animations.isNil or a.animations.len == 0:
         a.finished = true
         return
 
     var
+        duration = t - a.startTime
         updateAnims: seq[Animation]
         animsFinished = true
-        needPrepare = a.curIndex == -1 or (not a.parallelMode and a.animations[a.curIndex].currentTime == 0)
+        needPrepare = a.curIndex == -1 or (not a.parallelMode and a.animations[a.curIndex].startTime == 0)
+        curTime = epochTime()
 
-    a.currentTime += dt
     var prevLoopPattern = a.currentLoopPattern
 
     if a.curIndex == -1:
@@ -327,13 +331,13 @@ method tick*(a: MetaAnimation, dt: float) =
         anim.loopPattern = a.currentLoopPattern
 
         if needPrepare:
-            anim.prepare()
+            anim.prepare(curTime)
 
         if a.cancelLoop >= 0:
             anim.cancel()
 
         if not anim.finished:
-            anim.tick(dt)
+            anim.tick(curTime)
 
         if not anim.finished: #if we call cancel, anim will be finished after tick
             animsFinished = false
@@ -342,7 +346,7 @@ method tick*(a: MetaAnimation, dt: float) =
         if (a.curIndex < a.animations.len - 1 and a.currentLoopPattern == lpStartToEnd) or
             (a.curIndex > 0 and a.currentLoopPattern == lpEndToStart):
             a.nextIndex()
-            a.animations[a.curIndex].currentTime = 0
+            a.animations[a.curIndex].startTime = 0
 
         elif ( (a.curIndex == a.animations.len - 1 and a.currentLoopPattern == lpStartToEnd) or
             (a.curIndex == 0 and a.currentLoopPattern == lpEndToStart) ) and (a.curLoop < a.numberOfLoops - 1 or a.numberOfLoops == -1):
@@ -371,7 +375,7 @@ method tick*(a: MetaAnimation, dt: float) =
 when isMainModule:
     proc emulateAnimationRun(a: Animation, startTime, endTime, fps: float): float =
         var curTime = startTime
-        a.prepare()
+        a.prepare(startTime)
         let timeStep = 1.0 / fps
         while true:
             a.tick(timeStep)

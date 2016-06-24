@@ -1,17 +1,23 @@
 import animation
+import times
 
 type AnimationRunner* = ref object
     animations*: seq[Animation]
     onAnimationAdded*: proc()
     onAnimationRemoved*: proc()
+    animsToReset: seq[Animation]
+    updating: bool
 
 proc newAnimationRunner*(): AnimationRunner=
     result = new(AnimationRunner)
     result.animations = @[]
+    result.animsToReset = @[]
 
 proc pushAnimation*(ar: AnimationRunner, a: Animation) =
-    # if not a.isNil and not a.tag.isNil:
-    a.prepare()
+    let t = epochTime()
+
+    a.prepare(t)
+
     if not (a in ar.animations):
         ar.animations.add(a)
         if not ar.onAnimationAdded.isNil():
@@ -25,12 +31,15 @@ proc removeAnimation*(ar: AnimationRunner, a: Animation) =
                 ar.onAnimationRemoved()
             break
 
-proc update*(ar: AnimationRunner, dt: float)=
-    var index = 0
+proc update*(ar: AnimationRunner, t: float)=
 
-    while index < ar.animations.len:
+    var index = 0
+    let animLen = ar.animations.len
+
+    while index < animLen:
         var anim = ar.animations[index]
-        anim.tick(dt)
+        if not anim.finished and anim.startTime < t:
+            anim.tick(t)
         inc index
 
     index = 0
@@ -42,5 +51,3 @@ proc update*(ar: AnimationRunner, dt: float)=
                 ar.onAnimationRemoved()
         else:
             inc index
-
-

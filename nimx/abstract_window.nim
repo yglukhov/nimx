@@ -23,12 +23,11 @@ method onResize*(w: Window, newSize: Size) {.base.} =
 # Bug 2488. Can not use {.global.} for JS target.
 var lastTime = epochTime()
 var lastFrame = 0.0
-var deltaTime = 0.0
 var totalAnims = 0
 
 proc fps(): int =
     let curTime = epochTime()
-    deltaTime = curTime - lastTime
+    let deltaTime = curTime - lastTime
     lastFrame = (lastFrame * 0.9 + deltaTime * 0.1)
     result = (1.0 / lastFrame).int
     lastTime = curTime
@@ -63,9 +62,15 @@ proc runAnimations*(w: Window) =
     totalAnims = 0
     if not w.isNil:
 
-        for runner in w.animationRunners:
+        let t = epochTime()
+        var index = 0
+        let runnersLen = w.animationRunners.len
+
+        while index < runnersLen:
+            let runner = w.animationRunners[index]
             totalAnims += runner.animations.len
-            runner.update(deltaTime)
+            runner.update(t)
+            inc index
 
         if totalAnims > 0:
             w.needsDisplay = true
@@ -106,9 +111,7 @@ proc addAnimationRunner*(w: Window, ar: AnimationRunner)=
             if ar.animations.len > 0:
                 w.animationAdded(ar.animations.len)
 
-proc `animations`*(w: Window): seq[Animation]=
-    if not w.isNil:
-        result = w.animationRunners[DEFAULT_RUNNER].animations
+template animations*(w: Window): seq[Animation] = w.animationRunners[DEFAULT_RUNNER].animations
 
 proc removeAnimationRunner*(w: Window, ar: AnimationRunner)=
     if not w.isNil:
