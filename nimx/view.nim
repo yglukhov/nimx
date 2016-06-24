@@ -2,8 +2,10 @@ import typetraits
 import types
 import context
 import animation
+import animation_runner
 
 export types
+export animation_runner
 
 type AutoresizingFlag* = enum
     afFlexibleMinX
@@ -36,10 +38,9 @@ type
 
     Window* = ref object of View
         firstResponder*: View
-        animations*: seq[Animation]
+        animationRunners*: seq[AnimationRunner]
         needsDisplay*: bool
         mouseOverListeners*: seq[View]
-
 
 
 method init*(v: View, frame: Rect) {.base.} =

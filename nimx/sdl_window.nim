@@ -36,6 +36,7 @@ type SdlWindow* = ref object of Window
 var animationEnabled = 0
 
 method enableAnimation*(w: SdlWindow, flag: bool) =
+    doAssert( (animationEnabled == 0 and flag) or (animationEnabled != 0 and not flag) )
     if flag:
         inc animationEnabled
         when defined(ios):

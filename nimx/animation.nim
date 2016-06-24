@@ -10,6 +10,12 @@ type LoopPattern* = enum
     lpEndToStart
     lpEndToStartToEnd
 
+type CancelBehavior* = enum
+    cbNoJump
+    cbJumpToStart
+    cbJumpToEnd
+    cbContinueUntilEndOfLoop
+
 type TimingFunction = proc(time: float): float
 type AnimationFunction = proc(progress: float)
 
@@ -24,6 +30,7 @@ type
         pauseTime*: float
         loopDuration*: float
         loopPattern*: LoopPattern
+        cancelBehavior*: CancelBehavior
         numberOfLoops*: int
         timingFunction*: TimingFunction
         onAnimate*: AnimationFunction
@@ -32,7 +39,6 @@ type
         curLoop*: int
         tag*: string
 
-        continueUntilEndOfLoopOnCancel*: bool
         loopProgressHandlers: seq[ProgressHandler]
         totalProgressHandlers: seq[ProgressHandler]
         lphIt, tphIt: int # Cursors for progressHandlers arrays
@@ -41,13 +47,13 @@ type
         animations*: seq[Animation]
         curIndex*: int
         parallelMode*: bool
-        loopNum*: int
+        currentLoopPattern: LoopPattern
 
 proc newAnimation*(): Animation =
     result.new()
-    result.startTime = -1
     result.numberOfLoops = -1
     result.loopDuration = 1.0
+    result.cancelBehavior = cbNoJump
     result.loopPattern = lpStartToEnd
 
 proc addHandler(s: var seq[ProgressHandler], ph: ProgressHandler) =
@@ -69,13 +75,19 @@ proc removeTotalProgressHandlers*(a: Animation) =
 proc removeLoopProgressHandlers*(a: Animation) =
     if not a.loopProgressHandlers.isNil: a.loopProgressHandlers.setLen(0)
 
+proc `continueUntilEndOfLoopOnCancel=`*(a: Animation, bval: bool)=
+    if bval:
+        a.cancelBehavior = cbContinueUntilEndOfLoop
+    else:
+        a.cancelBehavior = cbNoJump
+
 proc removeHandlers*(a: Animation) =
     a.removeTotalProgressHandlers()
     a.removeLoopProgressHandlers()
 
-method prepare*(a: Animation, startTime: float) {.base.} =
+method prepare*(a: Animation, st: float) {.base.} =
     a.finished = false
-    a.startTime = startTime
+    a.startTime = st
     a.lphIt = 0
     a.tphIt = 0
     a.cancelLoop = -1
@@ -98,34 +110,37 @@ proc processRemainingHandlersInLoop(handlers: openarray[ProgressHandler], it: va
         inc it
     it = 0
 
-proc tick*(a: Animation, curTime: float) =
+method tick*(a: Animation, t: float) =
     if a.pauseTime != 0: return
-    let duration = curTime - a.startTime
-    let currentLoop = a.currentLoopForTotalDuration(duration)
+
+    let duration = t - a.startTime
+    doAssert(duration > -0.0001)
+    let oldLoop = a.curLoop
+    a.curLoop = a.currentLoopForTotalDuration(duration)
     var loopProgress = (duration mod a.loopDuration) / a.loopDuration
-    if currentLoop > a.curLoop:
-        if not a.loopProgressHandlers.isNil:
-            processRemainingHandlersInLoop(a.loopProgressHandlers, a.lphIt, stopped=false)
 
     var totalProgress =
         if a.numberOfLoops > 0: duration / (float(a.numberOfLoops) * a.loopDuration)
         else: 0.0
 
     if a.cancelLoop >= 0:
-        if not a.continueUntilEndOfLoopOnCancel:
+
+        if a.cancelBehavior != cbContinueUntilEndOfLoop:
             a.finished = true
-        elif currentLoop > a.cancelLoop:
+
+            if a.cancelBehavior == cbJumpToEnd:
+                loopProgress = 1.0
+            elif a.cancelBehavior == cbJumpToStart:
+                loopProgress = 0.0
+
+        elif a.curLoop > a.cancelLoop:
             a.finished = true
             loopProgress = 1.0
 
-    if a.numberOfLoops >= 0 and currentLoop >= a.numberOfLoops:
-
+    if a.numberOfLoops >= 0 and a.curLoop >= a.numberOfLoops:
         a.finished = true
         loopProgress = 1.0
         totalProgress = 1.0
-
-    let oldLoop = a.curLoop
-    a.curLoop = currentLoop
 
     if not a.onAnimate.isNil:
         var curvedProgress = loopProgress
@@ -138,12 +153,16 @@ proc tick*(a: Animation, curTime: float) =
             curvedProgress = a.timingFunction(curvedProgress)
         a.onAnimate(curvedProgress)
 
+    if a.curLoop > oldLoop:
+        if not a.loopProgressHandlers.isNil:
+            processRemainingHandlersInLoop(a.loopProgressHandlers, a.lphIt, stopped=false)
+
     if not a.finished:
         if not a.loopProgressHandlers.isNil: processHandlers(a.loopProgressHandlers, a.lphIt, loopProgress)
     if not a.totalProgressHandlers.isNil: processHandlers(a.totalProgressHandlers, a.tphIt, totalProgress)
 
     if a.finished:
-        if currentLoop == oldLoop and not a.loopProgressHandlers.isNil and a.lphIt < a.loopProgressHandlers.len:
+        if a.curLoop == oldLoop and not a.loopProgressHandlers.isNil and a.lphIt < a.loopProgressHandlers.len:
             processRemainingHandlersInLoop(a.loopProgressHandlers, a.lphIt, stopped=true)
         if not a.totalProgressHandlers.isNil and a.tphIt < a.totalProgressHandlers.len:
             processRemainingHandlersInLoop(a.totalProgressHandlers, a.tphIt, stopped=true)
@@ -223,64 +242,135 @@ proc resume*(a: Animation) =
 
 proc newMetaAnimation*(anims: varargs[Animation]): MetaAnimation =
     result.new()
-    result.startTime = -1
     result.numberOfLoops = -1
     result.loopPattern = lpStartToEnd
     result.animations = @anims
     result.curIndex = -1
     result.loopDuration = 1.0
 
-    var a = result
-    result.onAnimate = proc(p: float) =
-        a.finished = false
-        if a.animations.len <= 0: return
-        let ep = epochTime()
+proc nextIndex(a: MetaAnimation) =
 
-        if not a.parallelMode:
-            if a.curIndex == -1 or (a.curIndex < a.animations.len - 1 and a.animations[a.curIndex].finished):
-                inc a.curIndex
-                a.animations[a.curIndex].prepare(ep)
-            elif a.curIndex == a.animations.len - 1 and a.animations[a.curIndex].finished:
-                if a.numberOfLoops == -1 or a.loopNum < a.numberOfLoops - 1:
-                    a.curIndex = -1
-                    inc a.loopNum
-                else:
-                    a.finished = true
-            else:
-                a.animations[a.curIndex].tick(ep)
-        else:
-            var anims_finished = true
+    if a.loopPattern == lpStartToEnd:
+        if a.currentLoopPattern != lpStartToEnd:
+            a.curIndex = -1
 
-            if a.curIndex == -1:
-                for anim in a.animations:
-                    anim.prepare(ep)
-                a.curIndex = 0
+        a.currentLoopPattern = lpStartToEnd
+        inc a.curIndex
 
-            for anim in a.animations:
-                if not anim.finished:
-                    anims_finished = false
-                    break
+    elif a.loopPattern == lpEndToStart:
+        if a.curIndex == -1 or a.currentLoopPattern != lpEndToStart:
+            a.curIndex = a.animations.len
 
-            if not anims_finished:
-                for anim in a.animations:
-                    if not anim.finished:
-                        anim.tick(ep)
-            else:
-                if a.numberOfLoops == -1 or a.loopNum < a.numberOfLoops - 1:
-                    a.curIndex = -1
-                    inc a.loopNum
-                else:
-                    a.finished = true
+        a.currentLoopPattern = lpEndToStart
+        dec a.curIndex
 
-method prepare*(a: MetaAnimation, startTime: float) =
+    elif a.loopPattern == lpStartToEndToStart:
+
+        if a.curIndex == -1 and a.curLoop mod 2 == 0:
+            a.currentLoopPattern = lpStartToEnd
+        elif a.curIndex == -1 and a.currentLoopPattern != lpEndToStart:
+            a.curIndex = a.animations.len
+            a.currentLoopPattern = lpEndToStart
+
+        if a.currentLoopPattern == lpStartToEnd:
+            inc a.curIndex
+        elif a.currentLoopPattern == lpEndToStart:
+            dec a.curIndex
+
+    elif a.loopPattern == lpEndToStartToEnd:
+
+        if a.curIndex == -1 and a.curLoop mod 2 == 0:
+            a.currentLoopPattern = lpEndToStart
+            a.curIndex = a.animations.len
+        elif a.curIndex == -1 and a.currentLoopPattern != lpStartToEnd:
+            a.currentLoopPattern = lpStartToEnd
+
+        if a.currentLoopPattern == lpStartToEnd:
+            inc a.curIndex
+        elif a.currentLoopPattern == lpEndToStart:
+            dec a.curIndex
+
+
+method prepare*(a: MetaAnimation, t: float)=
     a.finished = false
-    a.startTime = startTime
+    a.startTime = t
     a.lphIt = 0
     a.tphIt = 0
     a.cancelLoop = -1
     a.curLoop = 0
     a.curIndex = -1
-    a.loopNum = 0
+
+method tick*(a: MetaAnimation, t: float) =
+
+    if a.pauseTime != 0 : return
+
+    if a.animations.isNil or a.animations.len == 0:
+        a.finished = true
+        return
+
+    var
+        duration = t - a.startTime
+        updateAnims: seq[Animation]
+        animsFinished = true
+        needPrepare = a.curIndex == -1 or (not a.parallelMode and a.animations[a.curIndex].startTime == 0)
+        curTime = epochTime()
+
+    var prevLoopPattern = a.currentLoopPattern
+
+    if a.curIndex == -1:
+        a.nextIndex()
+
+    if a.parallelMode:
+        updateAnims = a.animations
+    else:
+        updateAnims = @[]
+        updateAnims.add(a.animations[a.curIndex])
+
+    for anim in updateAnims:
+
+        anim.loopPattern = a.currentLoopPattern
+
+        if needPrepare:
+            anim.prepare(curTime)
+
+        if a.cancelLoop >= 0:
+            anim.cancel()
+
+        if not anim.finished:
+            anim.tick(curTime)
+
+        if not anim.finished: #if we call cancel, anim will be finished after tick
+            animsFinished = false
+
+    if animsFinished:
+        if (a.curIndex < a.animations.len - 1 and a.currentLoopPattern == lpStartToEnd) or
+            (a.curIndex > 0 and a.currentLoopPattern == lpEndToStart):
+            a.nextIndex()
+            a.animations[a.curIndex].startTime = 0
+
+        elif ( (a.curIndex == a.animations.len - 1 and a.currentLoopPattern == lpStartToEnd) or
+            (a.curIndex == 0 and a.currentLoopPattern == lpEndToStart) ) and (a.curLoop < a.numberOfLoops - 1 or a.numberOfLoops == -1):
+
+            a.curIndex = -1
+            inc a.curLoop
+
+            if not a.loopProgressHandlers.isNil:
+                processRemainingHandlersInLoop(a.loopProgressHandlers, a.lphIt, stopped=false)
+
+        elif ((a.loopPattern == lpEndToStartToEnd or a.loopPattern == lpStartToEndToStart) and
+            (a.curIndex == a.animations.len - 1 or a.curIndex == 0) and
+            (a.curLoop < a.numberOfLoops * 2 - 1 or a.numberOfLoops == -1)):
+            a.curIndex = -1
+            inc a.curLoop
+
+            if not a.loopProgressHandlers.isNil:
+                processRemainingHandlersInLoop(a.loopProgressHandlers, a.lphIt, stopped=false)
+        else:
+            a.finished = true
+            if not a.loopProgressHandlers.isNil and a.lphIt < a.loopProgressHandlers.len:
+                processRemainingHandlersInLoop(a.loopProgressHandlers, a.lphIt, stopped=true)
+            if not a.totalProgressHandlers.isNil and a.tphIt < a.totalProgressHandlers.len:
+                processRemainingHandlersInLoop(a.totalProgressHandlers, a.tphIt, stopped=true)
 
 when isMainModule:
     proc emulateAnimationRun(a: Animation, startTime, endTime, fps: float): float =
@@ -288,7 +378,7 @@ when isMainModule:
         a.prepare(startTime)
         let timeStep = 1.0 / fps
         while true:
-            a.tick(curTime)
+            a.tick(timeStep)
             if a.finished: break
             curTime += timeStep
         result = curTime - startTime
