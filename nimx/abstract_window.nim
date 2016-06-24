@@ -10,7 +10,6 @@ export view
 
 # Window type is defined in view module
 
-
 #TODO: Window size has two notions. Think about it.
 
 const DEFAULT_RUNNER = 0
@@ -61,9 +60,8 @@ method stopTextInput*(w: Window) {.base.} = discard
 proc runAnimations*(w: Window) =
     # New animations can be added while in the following loop. They will
     # have to be ticked on the next frame.
-
+    totalAnims = 0
     if not w.isNil:
-        totalAnims = 0
 
         for runner in w.animationRunners:
             totalAnims += runner.animations.len
@@ -74,7 +72,6 @@ proc runAnimations*(w: Window) =
 
 proc animationAdded(w: Window, count: int = 1)=
     var animsCount = 0
-
 
     for runner in w.animationRunners:
         animsCount += runner.animations.len
@@ -137,5 +134,6 @@ method init*(w: Window, frame: Rect) =
     w.mouseOverListeners = @[]
     w.animationRunners = @[]
 
+    #default animation runner for window
     var defaultRunner = newAnimationRunner()
-    w.addAnimationRunner(defaultRunner) #default animation runner for window
+    w.addAnimationRunner(defaultRunner)
