@@ -1,4 +1,4 @@
-import typetraits
+import typetraits, tables, sequtils
 import types
 import context
 import animation
@@ -297,3 +297,22 @@ proc isDescendantOf*(subView, superview: View): bool =
         if vi == superview:
             return true
         vi = vi.superview
+
+var viewRegistry = initTable[string, proc(): View]()
+
+proc registerView*[T]() =
+    viewRegistry[T.name] = proc(): View =
+        var res : T
+        res.new()
+        result = res
+
+proc createView*(className: string): View =
+    let c = viewRegistry.getOrDefault(className)
+    if not c.isNil: result = c()
+    if result.isNil:
+        raise newException(Exception, "View " & className & " is not registered")
+
+proc createView*(T: typedesc): T = T(createView(T.name))
+proc registeredViews*(): seq[string] = toSeq(keys(viewRegistry))
+
+registerView[View]()

@@ -50,8 +50,8 @@ proc startApplication() =
         let selectedRows = toSeq(items(tableView.selectedRows))
         if selectedRows.len > 0:
             let firstSelectedRow = selectedRows[0]
-            currentView = allSamples[firstSelectedRow].view
-            currentView.setFrame(newRect(140, 20, mainWindow.bounds.width - 160, mainWindow.bounds.height - 40))
+            currentView = createView(allSamples[firstSelectedRow].className)
+            currentView.init(newRect(140, 20, mainWindow.bounds.width - 160, mainWindow.bounds.height - 40))
             currentView.autoresizingMask = { afFlexibleWidth, afFlexibleHeight }
             mainWindow.addSubview(currentView)
 
