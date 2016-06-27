@@ -326,3 +326,12 @@ proc runUntilQuit*() =
             break
 
     discard quit(evt)
+
+template runApplication*(body: typed): stmt =
+    try:
+        body
+        runUntilQuit()
+    except:
+        logi "Exception caught: ", getCurrentExceptionMsg()
+        logi getCurrentException().getStackTrace()
+        quit 1

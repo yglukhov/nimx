@@ -83,18 +83,5 @@ proc startApplication() =
     when defined(runAutoTests):
         startRegisteredTests()
 
-when defined(js):
-    import dom
-    dom.window.onload = proc (e: dom.Event) =
-        startApplication()
-elif defined(emscripten):
-    runApplication:
-        startApplication()
-else:
-    try:
-        startApplication()
-        runUntilQuit()
-    except:
-        logi "Exception caught: ", getCurrentExceptionMsg()
-        logi getCurrentException().getStackTrace()
-        quit 1
+runApplication:
+    startApplication()

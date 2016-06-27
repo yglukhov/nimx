@@ -286,3 +286,7 @@ method stopTextInput*(w: JSCanvasWindow) =
         window.__nimx_textinput.blur();
     }
     """.}
+
+template runApplication*(code: typed): stmt =
+    dom.window.onload = proc (e: dom.Event) =
+        code
