@@ -289,7 +289,7 @@ method viewShouldResignFirstResponder*(v: TextField, newFirstResponder: View): b
     v.sendAction()
 
 method viewDidBecomeFirstResponder*(t: TextField) =
-    t.window.startTextInput(t.convertRectoToWindow(t.bounds))
+    t.window.startTextInput(t.convertRectToWindow(t.bounds))
     cursorPos = if t.mText.isNil: 0 else: t.mText.len
     t.updateCursorOffset()
     t.bumpCursorVisibility()
