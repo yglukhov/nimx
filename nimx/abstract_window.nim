@@ -91,14 +91,13 @@ proc runAnimations*(w: Window) =
     totalAnims = 0
     if not w.isNil:
 
-        let t = epochTime()
         var index = 0
         let runnersLen = w.animationRunners.len
 
         while index < runnersLen:
             let runner = w.animationRunners[index]
             totalAnims += runner.animations.len
-            runner.update(t)
+            runner.update()
             inc index
 
         if totalAnims > 0:

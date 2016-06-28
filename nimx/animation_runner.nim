@@ -5,18 +5,13 @@ type AnimationRunner* = ref object
     animations*: seq[Animation]
     onAnimationAdded*: proc()
     onAnimationRemoved*: proc()
-    animsToReset: seq[Animation]
-    updating: bool
 
 proc newAnimationRunner*(): AnimationRunner=
     result = new(AnimationRunner)
     result.animations = @[]
-    result.animsToReset = @[]
 
 proc pushAnimation*(ar: AnimationRunner, a: Animation) =
-    let t = epochTime()
-
-    a.prepare(t)
+    a.prepare(epochTime())
 
     if not (a in ar.animations):
         ar.animations.add(a)
@@ -31,15 +26,14 @@ proc removeAnimation*(ar: AnimationRunner, a: Animation) =
                 ar.onAnimationRemoved()
             break
 
-proc update*(ar: AnimationRunner, t: float)=
-
+proc update*(ar: AnimationRunner)=
     var index = 0
     let animLen = ar.animations.len
 
     while index < animLen:
         var anim = ar.animations[index]
-        if not anim.finished and anim.startTime < t:
-            anim.tick(t)
+        if not anim.finished:
+            anim.tick(epochTime())
         inc index
 
     index = 0
