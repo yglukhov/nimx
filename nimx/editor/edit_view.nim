@@ -1,6 +1,7 @@
 import times
 
 import view, panel_view, context, undo_manager, toolbar, button, menu
+import inspector_panel
 
 import gesture_detector_newtouch
 import view_event_handling_new
@@ -24,6 +25,7 @@ type
         eventCatchingView: EventCatchingView
         undoManager: UndoManager
         toolbar: Toolbar
+        inspector: InspectorPanel
 
     PanOperation = enum
         poDrag
@@ -108,6 +110,9 @@ proc startEditingInView*(editedView, editingView: View): Editor =
 
     editor.createNewViewButton()
 
+    editor.inspector = InspectorPanel.new(newRect(680, 200, 200, 800))
+    editingView.addSubview(editor.inspector)
+
 proc findSubviewAtPoint(v: View, p: Point): View =
     for i in countdown(v.subviews.len - 1, 0):
         let s = v.subviews[i]
@@ -172,6 +177,7 @@ method onTouchEv*(v: EventCatchingView, e: var Event): bool =
     of bsUp:
         if epochTime() - v.dragStartTime < 0.3:
             v.selectedView = v.panningView
+            v.editor.inspector.setInspectedObject(v.selectedView)
             v.setNeedsDisplay()
         else:
             let pv = v.panningView

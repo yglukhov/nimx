@@ -3,6 +3,7 @@ import types
 import context
 import animation
 import animation_runner
+import property_visitor
 
 export types
 export animation_runner
@@ -314,5 +315,14 @@ proc createView*(className: string): View =
 
 proc createView*(T: typedesc): T = T(createView(T.name))
 proc registeredViews*(): seq[string] = toSeq(keys(viewRegistry))
+
+template `originForEditor=`(v: View, p: Point) = v.setFrameOrigin(p)
+template originForEditor(v: View): Point = v.frame.origin
+template `sizeForEditor=`(v: View, p: Size) = v.setFrameSize(p)
+template sizeForEditor(v: View): Size = v.frame.size
+
+method visitProperties*(v: View, pv: var PropertyVisitor) {.base.} =
+    pv.visitProperty("origin", v.originForEditor)
+    pv.visitProperty("size", v.sizeForEditor)
 
 registerView[View]()

@@ -13,18 +13,18 @@ type EnumValue* = object
     possibleValues*: Table[string, int]
     curValue*: int
 
-type PropertyVisitor* = object of RootObj
+type PropertyVisitor* = tuple # Tuple is a workaround for nim bug #4428. PropertyVisitor should better be an object.
     qualifiers: seq[string]
-    requireSetter*: bool
-    requireGetter*: bool
-    requireName*: bool
-    flags*: set[PropertyFlag]
+    requireSetter: bool
+    requireGetter: bool
+    requireName: bool
+    flags: set[PropertyFlag]
 
-    setterAndGetter*: Variant
+    setterAndGetter: Variant
 
-    name*: string
-    commit*: proc()
-    onChangeCallback*: proc()
+    name: string
+    commit: proc()
+    onChangeCallback: proc()
 
 proc clear*(p: var PropertyVisitor) =
     p.setterAndGetter = newVariant()
