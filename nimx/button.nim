@@ -264,3 +264,5 @@ method onTouchEv(b: Button, e: var Event): bool =
                 b.value = toggleValue(b.value)
             b.sendAction(e)
     result = true
+
+registerView[Button]()

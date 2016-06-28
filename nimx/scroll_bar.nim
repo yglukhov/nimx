@@ -23,24 +23,25 @@ proc knobRect(s: ScrollBar): Rect =
     if s.isHorizontal:
         result.size.width *= s.mKnobSize
         result.origin.x = (s.bounds.width - result.width) * s.value
-        result = inset(result, 0, 1)
+        result = inset(result, 0, 2)
     else:
         result.size.height *= s.mKnobSize
         result.origin.y = (s.bounds.height - result.height) * s.value
-        result = inset(result, 1, 0)
+        result = inset(result, 2, 0)
 
 method draw*(s: ScrollBar, r: Rect) =
-    var radius = min(s.bounds.width, s.bounds.height) / 2
+    let bezelRect = s.bounds.inset(1, 1)
+    var radius = min(bezelRect.width, bezelRect.height) / 2
     let c = currentContext()
     c.fillColor = newGrayColor(0.85, 0.5)
     c.strokeColor = newGrayColor(0.5, 0.5)
     c.strokeWidth = 0.5
-    c.drawRoundedRect(s.bounds, radius)
+    c.drawRoundedRect(bezelRect, radius)
 
     let kr = s.knobRect()
     radius = min(kr.width, kr.height) / 2
     c.strokeWidth = 1
-    c.fillColor = newGrayColor(0.8, 0.8)
+    c.fillColor = newColor(0.2, 0.2, 0.3, 0.5)
     c.strokeColor = newGrayColor(0.65, 0.5)
     c.drawRoundedRect(kr, radius)
 

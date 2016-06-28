@@ -7,8 +7,8 @@ import nimx.image
 import nimx.window
 import nimx.autotest
 import nimx.button, nimx.text_field
-
-import nimx.edit_view
+import nimx.all_views
+import nimx.editor.edit_view
 
 const isMobile = defined(ios) or defined(android)
 

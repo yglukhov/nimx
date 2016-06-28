@@ -293,3 +293,5 @@ method viewDidBecomeFirstResponder*(t: TextField) =
     cursorPos = if t.mText.isNil: 0 else: t.mText.len
     t.updateCursorOffset()
     t.bumpCursorVisibility()
+
+registerView[TextField]()
