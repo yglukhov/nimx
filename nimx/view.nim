@@ -1,9 +1,11 @@
-import typetraits
+import typetraits, tables, sequtils
 import types
 import context
 import animation
+import animation_runner
 
 export types
+export animation_runner
 
 type AutoresizingFlag* = enum
     afFlexibleMinX
@@ -36,10 +38,9 @@ type
 
     Window* = ref object of View
         firstResponder*: View
-        animations*: seq[Animation]
+        animationRunners*: seq[AnimationRunner]
         needsDisplay*: bool
         mouseOverListeners*: seq[View]
-
 
 
 method init*(v: View, frame: Rect) {.base.} =
@@ -97,7 +98,7 @@ proc convertPointFromWindow*(v: View, p: Point): Point =
     if v == v.window: p
     else: v.convertPointFromParent(v.superview.convertPointFromWindow(p))
 
-proc convertRectoToWindow*(v: View, r: Rect): Rect =
+proc convertRectToWindow*(v: View, r: Rect): Rect =
     result.origin = v.convertPointToWindow(r.origin)
     # TODO: Respect bounds transformations
     result.size = r.size
@@ -277,6 +278,7 @@ method setFrameSize*(v: View, s: Size) {.base.} =
 
 method setFrameOrigin*(v: View, o: Point) {.base.} =
     v.frame.origin = o
+    v.setNeedsDisplay()
 
 method setFrame*(v: View, r: Rect) =
     if v.frame.origin != r.origin:
@@ -295,3 +297,22 @@ proc isDescendantOf*(subView, superview: View): bool =
         if vi == superview:
             return true
         vi = vi.superview
+
+var viewRegistry = initTable[string, proc(): View]()
+
+proc registerView*[T]() =
+    viewRegistry[T.name] = proc(): View =
+        var res : T
+        res.new()
+        result = res
+
+proc createView*(className: string): View =
+    let c = viewRegistry.getOrDefault(className)
+    if not c.isNil: result = c()
+    if result.isNil:
+        raise newException(Exception, "View " & className & " is not registered")
+
+proc createView*(T: typedesc): T = T(createView(T.name))
+proc registeredViews*(): seq[string] = toSeq(keys(viewRegistry))
+
+registerView[View]()

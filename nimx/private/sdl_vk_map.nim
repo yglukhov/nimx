@@ -122,6 +122,7 @@ const virtualKeyMapping: Table[Scancode, VirtualKey] = {
     SDL_SCANCODE_KP_COMMA:         VirtualKey.KeypadComma,
     #0:                 VirtualKey.Lang1, # -
     #0:                 VirtualKey.Lang2, # -
+    SDL_SCANCODE_LGUI:             VirtualKey.LeftGUI,
     SDL_SCANCODE_RGUI:             VirtualKey.RightGUI,
     SDL_SCANCODE_STOP:             VirtualKey.Stop,
     SDL_SCANCODE_AGAIN:            VirtualKey.Again,

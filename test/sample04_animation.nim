@@ -89,4 +89,4 @@ method viewWillMoveToWindow*(v: AnimationSampleView, w: Window) =
     else:
         w.addAnimation(v.animation)
 
-registerSample "Animation", AnimationSampleView.new(newRect(0, 0, 100, 100))
+registerSample[AnimationSampleView]("Animation")

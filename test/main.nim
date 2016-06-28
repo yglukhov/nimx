@@ -50,8 +50,8 @@ proc startApplication() =
         let selectedRows = toSeq(items(tableView.selectedRows))
         if selectedRows.len > 0:
             let firstSelectedRow = selectedRows[0]
-            currentView = allSamples[firstSelectedRow].view
-            currentView.setFrame(newRect(140, 20, mainWindow.bounds.width - 160, mainWindow.bounds.height - 40))
+            currentView = createView(allSamples[firstSelectedRow].className)
+            currentView.init(newRect(140, 20, mainWindow.bounds.width - 160, mainWindow.bounds.height - 40))
             currentView.autoresizingMask = { afFlexibleWidth, afFlexibleHeight }
             mainWindow.addSubview(currentView)
 
@@ -83,18 +83,5 @@ proc startApplication() =
     when defined(runAutoTests):
         startRegisteredTests()
 
-when defined(js):
-    import dom
-    dom.window.onload = proc (e: dom.Event) =
-        startApplication()
-elif defined(emscripten):
-    runApplication:
-        startApplication()
-else:
-    try:
-        startApplication()
-        runUntilQuit()
-    except:
-        logi "Exception caught: ", getCurrentExceptionMsg()
-        logi getCurrentException().getStackTrace()
-        quit 1
+runApplication:
+    startApplication()

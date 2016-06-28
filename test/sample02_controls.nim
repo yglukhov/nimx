@@ -104,5 +104,4 @@ method init(v: ControlsSampleView, r: Rect) =
         popupFillRule.onAction do():
             imageView.fillRule = popupFillRule.selectedIndex().ImageFillRule
 
-
-registerSample "Controls", ControlsSampleView.new(newRect(0, 0, 100, 100))
+registerSample[ControlsSampleView]("Controls")

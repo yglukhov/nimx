@@ -36,6 +36,7 @@ type SdlWindow* = ref object of Window
 var animationEnabled = 0
 
 method enableAnimation*(w: SdlWindow, flag: bool) =
+    doAssert( (animationEnabled == 0 and flag) or (animationEnabled != 0 and not flag) )
     if flag:
         inc animationEnabled
         when defined(ios):
@@ -325,3 +326,12 @@ proc runUntilQuit*() =
             break
 
     discard quit(evt)
+
+template runApplication*(body: typed): stmt =
+    try:
+        body
+        runUntilQuit()
+    except:
+        logi "Exception caught: ", getCurrentExceptionMsg()
+        logi getCurrentException().getStackTrace()
+        quit 1
