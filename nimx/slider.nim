@@ -84,4 +84,4 @@ method onTouchEv(s: Slider, e: var Event): bool =
         s.sendAction(e)
         result = false
 
-registerView[Slider]()
+registerClass(Slider)

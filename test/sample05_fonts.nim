@@ -102,4 +102,4 @@ method draw(v: FontsView, r: Rect) =
     c.fillColor = blackColor()
     c.drawText(v.curFont, origin, v.caption)
 
-registerSample[FontsView]("Fonts")
+registerSample(FontsView, "Fonts")

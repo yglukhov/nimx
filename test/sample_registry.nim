@@ -5,6 +5,6 @@ type SampleInfo = tuple[name: string, className: string]
 
 var allSamples* = newSeq[SampleInfo]()
 
-proc registerSample*[T](sampleName: string) =
-    allSamples.add((sampleName, T.name))
-    registerView[T]()
+template registerSample*(T: typedesc, sampleName: string) =
+    allSamples.add((sampleName, name(T)))
+    registerClass(T)

@@ -299,4 +299,4 @@ method visitProperties*(v: TextField, pv: var PropertyVisitor) =
     procCall v.Control.visitProperties(pv)
     pv.visitProperty("text", v.text)
 
-registerView[TextField]()
+registerClass(TextField)
