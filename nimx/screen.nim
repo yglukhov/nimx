@@ -16,7 +16,7 @@ elif defined(macosx):
         `result` = [`s` respondsToSelector: @selector(backingScaleFactor)] ? [`s` backingScaleFactor] : 1.0f;
         """.}
 elif defined(android):
-    import jnim, sdl2
+    import jnim1, sdl2 # TODO: Switch to newer jnim version eventually
     jnimport:
         import android.util.DisplayMetrics
         import android.app.Activity

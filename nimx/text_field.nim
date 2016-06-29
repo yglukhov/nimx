@@ -9,6 +9,7 @@ import unicode
 import timer
 import table_view_cell
 import window_event_handling
+import property_visitor
 
 export control
 
@@ -293,3 +294,9 @@ method viewDidBecomeFirstResponder*(t: TextField) =
     cursorPos = if t.mText.isNil: 0 else: t.mText.len
     t.updateCursorOffset()
     t.bumpCursorVisibility()
+
+method visitProperties*(v: TextField, pv: var PropertyVisitor) =
+    procCall v.Control.visitProperties(pv)
+    pv.visitProperty("text", v.text)
+
+registerView[TextField]()

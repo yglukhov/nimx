@@ -9,6 +9,7 @@ import app
 import view_event_handling
 import view_event_handling_new
 import composition
+import property_visitor
 
 export control
 
@@ -264,3 +265,14 @@ method onTouchEv(b: Button, e: var Event): bool =
                 b.value = toggleValue(b.value)
             b.sendAction(e)
     result = true
+
+method visitProperties*(v: Button, pv: var PropertyVisitor) =
+    procCall v.Control.visitProperties(pv)
+    pv.visitProperty("title", v.title)
+    pv.visitProperty("state", v.state)
+    pv.visitProperty("style", v.style)
+    pv.visitProperty("enabled", v.enabled)
+    pv.visitProperty("hasBezel", v.hasBezel)
+    pv.visitProperty("behavior", v.behavior)
+
+registerView[Button]()
