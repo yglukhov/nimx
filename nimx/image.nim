@@ -134,6 +134,7 @@ proc initWithResource*(i: SelfContainedImage, name: string) =
         `i`.__image.src = `nativeName`;
         """.}
     else:
+        let path = pathForResource(name)
         loadResourceAsync(name) do(s: Stream):
             var data = s.readAll()
             s.close()
@@ -147,7 +148,7 @@ proc initWithResource*(i: SelfContainedImage, name: string) =
                 i.initWithBitmap(bitmap, x, y, comp)
                 stbi_image_free(bitmap)
 
-            i.setFilePath(pathForResource(name))
+            i.setFilePath(path)
 
 proc imageWithResource*(name: string): SelfContainedImage =
     result = findCachedResource[SelfContainedImage](name)
