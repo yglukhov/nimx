@@ -77,11 +77,11 @@ proc createNewViewButton(e: Editor) =
         var menu : Menu
         menu.new()
         var items = newSeq[MenuItem]()
-        for i, c in registeredViews():
+        for c in registeredClassesOfType(View):
             closureScope:
                 let menuItem = newMenuItem(c)
                 menuItem.action = proc() =
-                    let v = createView(menuItem.title)
+                    let v = View(newObjectOfClass(menuItem.title))
                     v.init(newRect(500, 500, 100, 100))
                     e.editedView.addSubview(v)
                     e.eventCatchingView.selectedView = v

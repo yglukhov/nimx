@@ -4,9 +4,10 @@ import context
 import animation
 import animation_runner
 import property_visitor
+import class_registry
 
 export types
-export animation_runner
+export animation_runner, class_registry
 
 type AutoresizingFlag* = enum
     afFlexibleMinX
@@ -299,23 +300,6 @@ proc isDescendantOf*(subView, superview: View): bool =
             return true
         vi = vi.superview
 
-var viewRegistry = initTable[string, proc(): View]()
-
-proc registerView*[T]() =
-    viewRegistry[T.name] = proc(): View =
-        var res : T
-        res.new()
-        result = res
-
-proc createView*(className: string): View =
-    let c = viewRegistry.getOrDefault(className)
-    if not c.isNil: result = c()
-    if result.isNil:
-        raise newException(Exception, "View " & className & " is not registered")
-
-proc createView*(T: typedesc): T = T(createView(T.name))
-proc registeredViews*(): seq[string] = toSeq(keys(viewRegistry))
-
 template `originForEditor=`(v: View, p: Point) = v.setFrameOrigin(p)
 template originForEditor(v: View): Point = v.frame.origin
 template `sizeForEditor=`(v: View, p: Size) = v.setFrameSize(p)
@@ -325,4 +309,4 @@ method visitProperties*(v: View, pv: var PropertyVisitor) {.base.} =
     pv.visitProperty("origin", v.originForEditor)
     pv.visitProperty("size", v.sizeForEditor)
 
-registerView[View]()
+registerClass(View)

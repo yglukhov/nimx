@@ -26,10 +26,7 @@ proc push*(u: UndoManager, description: string, redo: proc(), undo: proc()) {.in
     if u.cursor != u.actions.len:
         u.actions.setLen(u.cursor)
     inc u.cursor
-    u.actions.setLen(u.cursor)
-    u.actions[^1].description = description
-    u.actions[^1].redo = redo
-    u.actions[^1].undo = undo
+    u.actions.add(UndoAction(redo: redo, undo: undo, description: description))
 
 proc pushAndDo*(u: UndoManager, description: string, redo: proc(), undo: proc()) {.inline.} =
     u.push(description, redo, undo)

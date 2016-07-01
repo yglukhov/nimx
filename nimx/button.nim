@@ -275,4 +275,4 @@ method visitProperties*(v: Button, pv: var PropertyVisitor) =
     pv.visitProperty("hasBezel", v.hasBezel)
     pv.visitProperty("behavior", v.behavior)
 
-registerView[Button]()
+registerClass(Button)
