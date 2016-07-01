@@ -5,6 +5,7 @@ import animation
 import animation_runner
 import property_visitor
 import class_registry
+import serializers
 
 export types
 export animation_runner, class_registry
@@ -308,5 +309,23 @@ template sizeForEditor(v: View): Size = v.frame.size
 method visitProperties*(v: View, pv: var PropertyVisitor) {.base.} =
     pv.visitProperty("origin", v.originForEditor)
     pv.visitProperty("size", v.sizeForEditor)
+    pv.visitProperty("layout", v.autoresizingMask)
+    pv.visitProperty("color", v.backgroundColor)
+
+method serializeFields*(v: View, s: Serializer) =
+    s.serialize("frame", v.frame)
+    s.serialize("bounds", v.bounds)
+    s.serialize("subviews", v.subviews)
+
+method deserializeFields*(v: View, s: Deserializer) =
+    var fr: Rect
+    s.deserialize("frame", fr)
+    v.init(fr)
+    s.deserialize("bounds", v.bounds)
+    var subviews: seq[View]
+    s.deserialize("subviews", subviews)
+    for sv in subviews:
+        doAssert(not sv.isNil)
+        v.addSubview(sv)
 
 registerClass(View)
