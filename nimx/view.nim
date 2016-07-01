@@ -77,6 +77,17 @@ proc trackMouseOver*(v: View, val: bool) =
 
 proc addGestureDetector*(v: View, d: GestureDetector) = v.gestureDetectors.add(d)
 
+proc removeGestureDetector*(v: View, d: GestureDetector) =
+    var index = 0
+    while index < v.gestureDetectors.len:
+        if v.gestureDetectors[index] == d:
+            v.gestureDetectors.delete(index)
+            break
+        else:
+            inc index
+
+proc removeAllGestureDetectors*(v: View) = v.gestureDetectors.setLen(0)
+
 proc new*[V](v: typedesc[V], frame: Rect): V =
     result.new()
     result.init(frame)
