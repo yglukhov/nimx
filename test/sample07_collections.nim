@@ -50,4 +50,4 @@ method init(v: CollectionsSampleView, r: Rect) =
         popupItemSize.onAction do():
             collectionView.itemSize = newSize((50 + 50 * popupItemSize.selectedIndex()).Coord, (50 + 50 * popupItemSize.selectedIndex()).Coord)
 
-registerSample[CollectionsSampleView]("Collections")
+registerSample(CollectionsSampleView, "Collections")

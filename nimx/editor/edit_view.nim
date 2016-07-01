@@ -1,4 +1,4 @@
-import times
+import times, json
 
 import view, panel_view, context, undo_manager, toolbar, button, menu
 import inspector_panel
@@ -6,6 +6,9 @@ import inspector_panel
 import gesture_detector_newtouch
 import view_event_handling_new
 import window_event_handling
+
+import nimx.property_editors.autoresizing_mask_editor # Imported here to be registered in the propedit registry
+import nimx.serializers
 
 type
     EventCatchingView = ref object of View
@@ -77,18 +80,50 @@ proc createNewViewButton(e: Editor) =
         var menu : Menu
         menu.new()
         var items = newSeq[MenuItem]()
-        for i, c in registeredViews():
+        for c in registeredClassesOfType(View):
             closureScope:
                 let menuItem = newMenuItem(c)
                 menuItem.action = proc() =
-                    let v = createView(menuItem.title)
-                    v.init(newRect(500, 500, 100, 100))
-                    e.editedView.addSubview(v)
+                    let v = View(newObjectOfClass(menuItem.title))
+                    if not e.eventCatchingView.selectedView.isNil:
+                        v.init(newRect(10, 10, 100, 100))
+                        e.eventCatchingView.selectedView.addSubview(v)
+                    else:
+                        v.init(newRect(200, 200, 100, 100))
+                        e.editedView.addSubview(v)
                     e.eventCatchingView.selectedView = v
                 items.add(menuItem)
 
         menu.items = items
         menu.popupAtPoint(b, newPoint(0, 27))
+    e.toolbar.addSubview(b)
+
+var testJnode: JsonNode
+
+proc createLoadButton(e: Editor) =
+    let b = Button.new(newRect(0, 30, 120, 20))
+    b.title = "Load"
+    b.onAction do():
+        if not testJnode.isNil:
+            let s = newJsonDeserializer(testJnode)
+            var v: View
+            s.deserialize(v)
+            doAssert(not v.isNil)
+            let sup = e.editedView.superview
+            e.editedView.removeFromSuperview()
+            e.editedView = v
+            sup.addSubview(v)
+
+    e.toolbar.addSubview(b)
+
+proc createSaveButton(e: Editor) =
+    let b = Button.new(newRect(0, 30, 120, 20))
+    b.title = "Save"
+    b.onAction do():
+        let s = newJsonSerializer()
+        s.serialize(e.editedView)
+        testJnode = s.jsonNode()
+        echo testJnode
     e.toolbar.addSubview(b)
 
 proc startEditingInView*(editedView, editingView: View): Editor =
@@ -109,6 +144,8 @@ proc startEditingInView*(editedView, editingView: View): Editor =
     editingView.addSubview(editor.toolbar)
 
     editor.createNewViewButton()
+    editor.createLoadButton()
+    editor.createSaveButton()
 
     editor.inspector = InspectorPanel.new(newRect(680, 200, 200, 800))
     editingView.addSubview(editor.inspector)

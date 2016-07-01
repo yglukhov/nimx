@@ -78,4 +78,4 @@ method draw(v: ImageView, r: Rect) =
                 newX = if newWidth > r.width: 0.Coord else: r.width / 2 - newWidth / 2
             c.drawImage(v.image, newRect(newX, newY, newWidth, newHeight))
 
-registerView[ImageView]()
+registerClass(ImageView)

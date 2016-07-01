@@ -4,9 +4,11 @@ import context
 import animation
 import animation_runner
 import property_visitor
+import class_registry
+import serializers
 
 export types
-export animation_runner
+export animation_runner, class_registry
 
 type AutoresizingFlag* = enum
     afFlexibleMinX
@@ -310,23 +312,6 @@ proc isDescendantOf*(subView, superview: View): bool =
             return true
         vi = vi.superview
 
-var viewRegistry = initTable[string, proc(): View]()
-
-proc registerView*[T]() =
-    viewRegistry[T.name] = proc(): View =
-        var res : T
-        res.new()
-        result = res
-
-proc createView*(className: string): View =
-    let c = viewRegistry.getOrDefault(className)
-    if not c.isNil: result = c()
-    if result.isNil:
-        raise newException(Exception, "View " & className & " is not registered")
-
-proc createView*(T: typedesc): T = T(createView(T.name))
-proc registeredViews*(): seq[string] = toSeq(keys(viewRegistry))
-
 template `originForEditor=`(v: View, p: Point) = v.setFrameOrigin(p)
 template originForEditor(v: View): Point = v.frame.origin
 template `sizeForEditor=`(v: View, p: Size) = v.setFrameSize(p)
@@ -335,5 +320,23 @@ template sizeForEditor(v: View): Size = v.frame.size
 method visitProperties*(v: View, pv: var PropertyVisitor) {.base.} =
     pv.visitProperty("origin", v.originForEditor)
     pv.visitProperty("size", v.sizeForEditor)
+    pv.visitProperty("layout", v.autoresizingMask)
+    pv.visitProperty("color", v.backgroundColor)
 
-registerView[View]()
+method serializeFields*(v: View, s: Serializer) =
+    s.serialize("frame", v.frame)
+    s.serialize("bounds", v.bounds)
+    s.serialize("subviews", v.subviews)
+
+method deserializeFields*(v: View, s: Deserializer) =
+    var fr: Rect
+    s.deserialize("frame", fr)
+    v.init(fr)
+    s.deserialize("bounds", v.bounds)
+    var subviews: seq[View]
+    s.deserialize("subviews", subviews)
+    for sv in subviews:
+        doAssert(not sv.isNil)
+        v.addSubview(sv)
+
+registerClass(View)

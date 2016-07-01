@@ -64,4 +64,4 @@ method init(t: TimersSampleView, r: Rect) =
 
     firesLabel = t.newLabel(newPoint(20, 230), newSize(120, 20), "fires: ")
 
-registerSample[TimersSampleView]("Timers")
+registerSample(TimersSampleView, "Timers")
