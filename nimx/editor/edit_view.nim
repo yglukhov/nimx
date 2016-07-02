@@ -1,6 +1,12 @@
 import times, json
 
-import view, panel_view, context, undo_manager, toolbar, button, menu
+const savingAndLoadingEnabled = not defined(js) and not defined(emscripten) and
+        not defined(ios) and not defined(android)
+
+when savingAndLoadingEnabled:
+    import native_dialogs
+
+import view, panel_view, context, undo_manager, toolbar, button, menu, resource
 import inspector_panel
 
 import gesture_detector_newtouch
@@ -44,7 +50,7 @@ type
 method acceptsFirstResponder(v: EventCatchingView): bool = true
 
 method onKeyUp(v: EventCatchingView, e : var Event): bool =
-    echo "editor onKeyUp ", e.keyCode
+    # echo "editor onKeyUp ", e.keyCode
     if not v.keyUpDelegate.isNil:
         v.keyUpDelegate(e)
 
@@ -63,6 +69,17 @@ method onKeyDown(v: EventCatchingView, e : var Event): bool =
         elif e.keyCode == VirtualKey.Y and
                 (alsoPressed(VirtualKey.LeftControl) or alsoPressed(VirtualKey.RightControl)) and u.canRedo():
             u.redo()
+
+    if e.keyCode == VirtualKey.Delete:
+        let sv = v.selectedView
+        if not sv.isNil:
+            let svSuper = sv.superview
+            u.pushAndDo("Delete view") do():
+                sv.removeFromSuperView()
+                v.selectedView = nil
+            do():
+                svSuper.addSubview(sv)
+                v.selectedView = sv
 
     if not v.keyDownDelegate.isNil:
         v.keyDownDelegate(e)
@@ -98,33 +115,40 @@ proc createNewViewButton(e: Editor) =
         menu.popupAtPoint(b, newPoint(0, 27))
     e.toolbar.addSubview(b)
 
-var testJnode: JsonNode
+when savingAndLoadingEnabled:
+    proc createLoadButton(e: Editor) =
+        let b = Button.new(newRect(0, 30, 120, 20))
+        b.title = "Load"
+        b.onAction do():
+            let path = callDialogFileOpen("Open")
+            if not path.isNil:
+                let j = try: parseFile(path) except: nil
+                if not j.isNil:
+                    let s = newJsonDeserializer(j)
+                    pushParentResource(path)
+                    var v: View
+                    s.deserialize(v)
+                    popParentResource()
+                    doAssert(not v.isNil)
+                    let sup = e.editedView.superview
+                    e.editedView.removeFromSuperview()
+                    e.editedView = v
+                    sup.addSubview(v)
 
-proc createLoadButton(e: Editor) =
-    let b = Button.new(newRect(0, 30, 120, 20))
-    b.title = "Load"
-    b.onAction do():
-        if not testJnode.isNil:
-            let s = newJsonDeserializer(testJnode)
-            var v: View
-            s.deserialize(v)
-            doAssert(not v.isNil)
-            let sup = e.editedView.superview
-            e.editedView.removeFromSuperview()
-            e.editedView = v
-            sup.addSubview(v)
+        e.toolbar.addSubview(b)
 
-    e.toolbar.addSubview(b)
-
-proc createSaveButton(e: Editor) =
-    let b = Button.new(newRect(0, 30, 120, 20))
-    b.title = "Save"
-    b.onAction do():
-        let s = newJsonSerializer()
-        s.serialize(e.editedView)
-        testJnode = s.jsonNode()
-        echo testJnode
-    e.toolbar.addSubview(b)
+    proc createSaveButton(e: Editor) =
+        let b = Button.new(newRect(0, 30, 120, 20))
+        b.title = "Save"
+        b.onAction do():
+            let path = callDialogFileSave("Save")
+            if not path.isNil:
+                let s = newJsonSerializer()
+                pushParentResource(path)
+                s.serialize(e.editedView)
+                popParentResource()
+                writeFile(path, $s.jsonNode())
+        e.toolbar.addSubview(b)
 
 proc startEditingInView*(editedView, editingView: View): Editor =
     ## editedView - the view to edit
@@ -144,10 +168,11 @@ proc startEditingInView*(editedView, editingView: View): Editor =
     editingView.addSubview(editor.toolbar)
 
     editor.createNewViewButton()
-    editor.createLoadButton()
-    editor.createSaveButton()
+    when savingAndLoadingEnabled:
+        editor.createLoadButton()
+        editor.createSaveButton()
 
-    editor.inspector = InspectorPanel.new(newRect(680, 200, 200, 800))
+    editor.inspector = InspectorPanel.new(newRect(680, 100, 300, 600))
     editingView.addSubview(editor.inspector)
 
 proc findSubviewAtPoint(v: View, p: Point): View =

@@ -95,6 +95,14 @@ proc pathForResource*(name: string): string =
     if not result.isNil:
         result.normalizePath()
 
+proc resourceNameForPathAux(path: string): string =
+    if parentResources.len > 0:
+        return relativePathToPath(parentResources[^1], path)
+    result = path
+
+proc resourceNameForPath*(path: string): string =
+    result = resourceNameForPathAux(path)
+
 when not defined(js):
     type
         RWOpsStream = ref RWOpsStreamObj
