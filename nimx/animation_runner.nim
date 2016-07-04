@@ -11,6 +11,8 @@ proc newAnimationRunner*(): AnimationRunner=
     result.animations = @[]
 
 proc pushAnimation*(ar: AnimationRunner, a: Animation) =
+    doAssert( not a.isNil(), "Animation is nil")
+
     a.prepare(epochTime())
 
     if not (a in ar.animations):
