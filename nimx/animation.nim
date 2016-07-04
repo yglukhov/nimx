@@ -110,6 +110,20 @@ proc processRemainingHandlersInLoop(handlers: openarray[ProgressHandler], it: va
         inc it
     it = 0
 
+method onProgress*(a: Animation, p: float)=
+    # var loopProgress = p
+
+    if not a.onAnimate.isNil:
+        var curvedProgress = p
+        if a.loopPattern == lpStartToEndToStart:
+            curvedProgress *= 2
+            if curvedProgress >= 1.0: curvedProgress = 2 - curvedProgress
+        elif a.loopPattern == lpEndToStart:
+            curvedProgress = 1.0 - curvedProgress
+        if not a.timingFunction.isNil:
+            curvedProgress = a.timingFunction(curvedProgress)
+        a.onAnimate(curvedProgress)
+
 method tick*(a: Animation, t: float) =
     if a.pauseTime != 0: return
 
@@ -142,16 +156,7 @@ method tick*(a: Animation, t: float) =
         loopProgress = 1.0
         totalProgress = 1.0
 
-    if not a.onAnimate.isNil:
-        var curvedProgress = loopProgress
-        if a.loopPattern == lpStartToEndToStart:
-            curvedProgress *= 2
-            if curvedProgress >= 1.0: curvedProgress = 2 - curvedProgress
-        elif a.loopPattern == lpEndToStart:
-            curvedProgress = 1.0 - curvedProgress
-        if not a.timingFunction.isNil:
-            curvedProgress = a.timingFunction(curvedProgress)
-        a.onAnimate(curvedProgress)
+    a.onProgress(loopProgress)
 
     if a.curLoop > oldLoop:
         if not a.loopProgressHandlers.isNil:
