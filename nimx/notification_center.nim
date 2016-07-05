@@ -5,12 +5,12 @@ export variant
 
 when defined(js):
     {.emit:"""
-    var observerIdCounter = 0
+    var observerIdCounter = 0;
     """.}
 
-type NCObserveID = int
+type NCObserverID = int
 type NCCallback = proc(args: Variant)
-type NCCallbackTable = Table[NCObserveID, NCCallback]
+type NCCallbackTable = Table[NCObserverID, NCCallback]
 type NotificationCenter* = ref object of RootObj
     observers: Table[string, NCCallbackTable]
 
@@ -43,18 +43,17 @@ proc getObserverID(rawId: ref | SomeOrdinal): int =
         obsId = cast[int](rawId)
     result = obsId
 
+proc deleteWithLen(t: var NCCallbackTable, id: int): int=
+    t.del(id)
+    result = t.len
+
 proc removeObserver*(nc: NotificationCenter, observerId: ref | SomeOrdinal) =
     let obsId = getObserverID(observerId)
-
     var toRemoveKeys = newSeq[string]()
 
     for key in nc.observers.keys:
-        var val = nc.observers.mget(key)
-        if val.hasKey(obsId):
-            val.del(obsId)
-        if val.len == 0:
+        if nc.observers[key].deleteWithLen(obsId) == 0:
             toRemoveKeys.add(key)
-        nc.observers[key] = val
 
     for key in toRemoveKeys:
         nc.observers.del(key)
@@ -66,54 +65,61 @@ proc addObserver*(nc: NotificationCenter, ev: string, observerId: ref | SomeOrdi
         var obTable = initTable[int, NCCallback]()
         nc.observers.add(ev, obTable)
 
-    var t = nc.observers.mget(ev)
-    t.add(obsId, cb)
-    nc.observers[ev] = t
+    nc.observers.mget(ev).add(obsId, cb)
 
 proc postNotification*(nc: NotificationCenter, ev: string, args: Variant) =
     if nc.observers.hasKey(ev):
-        var toRemoveKeys = newSeq[int]()
+
         var observers = nc.observers[ev]
 
         for key, val in observers:
-            if not val.isNil:
-                val(args)
-            else:
-                toRemoveKeys.add(key)
-
-        for key in toRemoveKeys:
-            nc.removeObserver(key)
+            val(args)
 
 proc postNotification*(nc: NotificationCenter, ev: string)=
     nc.postNotification(ev, newVariant())
 
 proc tests*(nc:NotificationCenter)=
-
     const test1arg = "some string"
+    var step = 0
 
     nc.addObserver("test1", 15, proc(args: Variant)=
         doAssert( args.get(string) == test1arg)
-        )
+        inc step
+    )
     nc.addObserver("test1", 19, proc(args: Variant)=
         doAssert( args.get(string) == test1arg)
-        )
+        inc step
+    )
     nc.addObserver("test1", 17, proc(args: Variant)=
         doAssert( args.get(string) == test1arg)
+        inc step
+
+        nc.addObserver("test3", nc, proc(args: Variant)=
+            nc.removeObserver("test3")
+            inc step
         )
+    )
     nc.addObserver("test1", 150, proc(args: Variant)=
         doAssert(false)
-        )
+    )
     nc.addObserver("ignored", 150, proc(args: Variant)=
         doAssert(false)
-        )
+    )
     nc.addObserver("test2", nc, proc(args: Variant)=
         doAssert(false)
-     )
+    )
 
     nc.removeObserver(150)
     nc.postNotification("test1", newVariant(test1arg))
+    nc.postNotification("test3")
     nc.removeObserver(nc)
     nc.postNotification("test2", newVariant(test1arg))
+
     doAssert(nc.observers.len == 1)
     nc.removeObserver("test1")
     doAssert(nc.observers.len == 0)
+    doAssert(step == 4)
+
+when isMainModule:
+
+    sharedNotificationCenter().tests()

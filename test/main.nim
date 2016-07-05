@@ -10,6 +10,7 @@ import nimx.table_view
 import nimx.text_field
 import nimx.autotest
 import nimx.window
+import nimx.notification_center
 
 import sequtils
 import intsets
@@ -59,6 +60,7 @@ proc startApplication() =
     tableView.selectRow(0)
 
     uiTest generalUITest:
+
         sendMouseDownEvent(mainWindow, newPoint(50, 60))
         sendMouseUpEvent(mainWindow, newPoint(50, 60))
 
@@ -81,6 +83,7 @@ proc startApplication() =
 
     registerTest(generalUITest)
     when defined(runAutoTests):
+
         startRegisteredTests()
 
 runApplication:

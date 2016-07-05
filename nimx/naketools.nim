@@ -662,7 +662,10 @@ proc runAutotestsInFirefox*(pathToMainHTML: string) =
             ok = false
         else:
             echo line
+
     ffp.kill()
+    discard ffp.waitForExit()
+
     removeDir("tempprofile")
     doAssert(ok, "Firefox autotest failed")
 
