@@ -72,6 +72,16 @@ proc onKeyDown(eventType: cint, keyEvent: ptr EmscriptenKeyboardEvent, userData:
 proc onKeyUp(eventType: cint, keyEvent: ptr EmscriptenKeyboardEvent, userData: pointer): EM_BOOL {.cdecl.} =
     onKey(keyEvent, userData, bsUp)
 
+proc onFocus(eventType: cint, keyEvent: ptr EmscriptenFocusEvent, userData: pointer): EM_BOOL {.cdecl.}=
+    let w = cast[EmscriptenWindow](userData)
+    w.onFocusChange(true)
+    result = 1
+
+proc onBlur(eventType: cint, keyEvent: ptr EmscriptenFocusEvent, userData: pointer): EM_BOOL {.cdecl.}=
+    let w = cast[EmscriptenWindow](userData)
+    w.onFocusChange(false)
+    result = 1
+
 proc initCommon(w: EmscriptenWindow, r: view.Rect) =
     procCall init(w.Window, r)
 
@@ -108,6 +118,9 @@ proc initCommon(w: EmscriptenWindow, r: view.Rect) =
 
     discard emscripten_set_keydown_callback(nil, cast[pointer](w), 1, onKeyDown)
     discard emscripten_set_keyup_callback(nil, cast[pointer](w), 1, onKeyUp)
+
+    discard emscripten_set_blur_callback(canvId, cast[pointer](w), 1, onBlur)
+    discard emscripten_set_focus_callback(canvId, cast[pointer](w), 1, onFocus)
 
     #w.enableAnimation(true)
     mainApplication().addWindow(w)
