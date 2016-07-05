@@ -88,8 +88,6 @@ proc endEditing*(e: Editor) =
     e.eventCatchingView.removeFromSuperview()
     e.toolbar.removeFromSuperview()
 
-template closureScope*(body: untyped): stmt = (proc() = body)()
-
 proc createNewViewButton(e: Editor) =
     let b = Button.new(newRect(0, 30, 120, 20))
     b.title = "New view"
