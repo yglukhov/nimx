@@ -65,7 +65,7 @@ proc addObserver*(nc: NotificationCenter, ev: string, observerId: ref | SomeOrdi
         var obTable = initTable[int, NCCallback]()
         nc.observers.add(ev, obTable)
 
-    nc.observers.mget(ev).add(obsId, cb)
+    nc.observers[ev].add(obsId, cb)
 
 proc postNotification*(nc: NotificationCenter, ev: string, args: Variant) =
     if nc.observers.hasKey(ev):
