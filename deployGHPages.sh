@@ -1,18 +1,10 @@
 #!/bin/sh
 
-CUR_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-
-echo "Current branch: $CUR_BRANCH"
-
-if [ "$CUR_BRANCH" = "master" -a "$GH_KEY" = "" ]
-then
-    echo "Error: GH_KEY not set"
-    exit 1
-fi
-
 if [ "$GH_KEY" \!= "" ]
 then
-    echo "GH_KEY is present"
+    export GIT_DIR=/tmp/gh-pages.tmp
+    rm -rf "$GIT_DIR"
+    mkdir -p "$GIT_DIR"
 
     cd "$1"
     git init
