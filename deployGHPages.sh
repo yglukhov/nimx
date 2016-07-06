@@ -1,6 +1,6 @@
 #!/bin/sh
 
-echo "deployGHPages called"
+echo "deployGHPages called: $GH_KEY"
 
 if [ "$GH_KEY" \!= "" ]
 then
