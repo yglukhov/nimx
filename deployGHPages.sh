@@ -1,20 +1,15 @@
 #!/bin/sh
 
-echo "deployGHPages called: $GH_KEY"
+CUR_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+if [ "$CUR_BRANCH" = "master" -a "$GH_KEY" = "" ]
+then
+    echo "Error: GH_KEY not set"
+    exit 1
+fi
 
 if [ "$GH_KEY" \!= "" ]
 then
-    echo "GH_KEY IS PRESENT"
-
     cd "$1"
-    rm -rf ./.git
-
-    echo "DOCS CONTENT: "
-    ls -l
-    echo "END"
-
-    echo "TRAVIS_REPO_SLUG: $TRAVIS_REPO_SLUG"
-
     git init
 
     git config user.name "Travis CI"
