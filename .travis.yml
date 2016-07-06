@@ -4,5 +4,4 @@ services:
 before_install:
   - docker pull yglukhov/nim-ui-base
 script:
-  - docker run -v "$(pwd):/project" -w /project yglukhov/nim-ui-base run "nimble install -y && nake tests && nake samples -d:js --norun && nake docs"
-  - ./deployGHPages.sh ./build/doc
+  - docker run -v "$(pwd):/project" -w /project yglukhov/nim-ui-base run "nimble install -y && nake tests && nake samples -d:js --norun && nake docs && ./deployGHPages.sh ./build/doc"
