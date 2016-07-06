@@ -3,6 +3,14 @@
 if [ "$GH_KEY" \!= "" ]
 then
     cd "$1"
+    rm -rf ./.git
+
+    echo "DOCS CONTENT: "
+    ls -l
+    echo "END"
+
+    echo "TRAVIS_REPO_SLUG: $TRAVIS_REPO_SLUG"
+
     git init
 
     git config user.name "Travis CI"
