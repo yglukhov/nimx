@@ -1,6 +1,9 @@
 #!/bin/sh
 
 CUR_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
+echo "Current branch: $CUR_BRANCH"
+
 if [ "$CUR_BRANCH" = "master" -a "$GH_KEY" = "" ]
 then
     echo "Error: GH_KEY not set"
@@ -9,6 +12,8 @@ fi
 
 if [ "$GH_KEY" \!= "" ]
 then
+    echo "GH_KEY is present"
+
     cd "$1"
     git init
 
