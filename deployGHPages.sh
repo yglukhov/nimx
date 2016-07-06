@@ -7,6 +7,7 @@ then
     mkdir -p "$GIT_DIR"
 
     cd "$1"
+    export GIT_WORK_TREE=$(pwd)
     git init
 
     git config user.name "Travis CI"
