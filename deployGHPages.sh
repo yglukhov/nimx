@@ -1,7 +1,11 @@
 #!/bin/sh
 
+echo "deployGHPages called"
+
 if [ "$GH_KEY" \!= "" ]
 then
+    echo "GH_KEY IS PRESENT"
+
     cd "$1"
     rm -rf ./.git
 
