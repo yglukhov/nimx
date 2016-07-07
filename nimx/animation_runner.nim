@@ -66,7 +66,7 @@ proc update*(ar: AnimationRunner)=
         inc index
 
     index = 0
-    while index < animLen:
+    while index < ar.animations.len:
         var anim = ar.animations[index]
         if anim.finished:
             ar.animations.delete(index)
