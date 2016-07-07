@@ -69,7 +69,7 @@ proc setBuilderSettings(b: Builder) =
         of cmdLongOption, cmdShortOption:
             case key
             of "define", "d":
-                if val in ["js", "android", "ios", "ios-sim", "emscripten"]:
+                if val in ["js", "android", "ios", "ios-sim", "emscripten", "windows"]:
                     b.platform = val
                 elif val == "release":
                     b.debugMode = false
@@ -285,15 +285,13 @@ proc makeWindowsResource(b: Builder) =
     let
         rcPath = b.buildRoot / "res" / (b.appName & ".rc")
         rcO = b.nimcachePath / (b.appName & "_res.o")
-    var createResource: bool = false
-
-    shell "type", "nul", ">", rcPath
+    var createResource = false
 
     if not isNil(b.appIconName):
-        let appIconPath = b.resourcePath / (b.appIconName)
+        let appIconPath = b.resourcePath / b.appIconName
 
         if fileExists(absPath(appIconPath)):
-            shell "echo", "AppIcon ICON \"$#\"" % [b.appIconName], ">>", rcPath
+            writeFile(rcPath, "AppIcon ICON \"$#\"" % [b.appIconName])
             shell "windres", "-i", rcPath, "-o", rcO
             createResource = true
         else:
@@ -560,6 +558,16 @@ proc build*(b: Builder) =
         b.linkerFlags.add(["-L/usr/local/lib", "-Wl,-rpath,/usr/local/lib", "-lpthread"])
     of "windows":
         b.executablePath &= ".exe"
+        when defined(macosx) or defined(linux):
+            # We are trying to build for windows, but we're not on windows.
+            # Use mxe cross-compiler
+            var mxeBin = findExe("i686-w64-mingw32.static-gcc")
+            if mxeBin.len == 0:
+                mxeBin = getEnv("MXE_BIN")
+                if mxeBin.len == 0:
+                    echo "Trying to cross-compile for windows, but mxe cross-compiler not found. Set MXE_BIN environment var to mxe gcc path."
+                    quit 1
+            b.nimFlags.add(["--cpu:i386", "--os:windows", "--cc:gcc", "--gcc.exe:" & mxeBin, "--gcc.linkerexe:" & mxeBin])
         b.makeWindowsResource()
     of "emscripten":
         b.executablePath = b.buildRoot / "main.js"

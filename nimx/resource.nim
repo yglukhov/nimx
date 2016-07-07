@@ -6,6 +6,7 @@ import tables
 import async_http_request
 import pathutils
 import variant
+import typetraits
 
 when not defined(js):
     import os
@@ -53,6 +54,13 @@ proc findCachedResource*[T](name: string): T =
     for rc in resourceCaches:
         let v = rc.cache.getOrDefault(p)
         if not v.isEmpty: return v.get(T)
+
+proc findCachedResources*[T](): seq[T] =
+    result = newSeq[T]()
+    for rc in resourceCaches:
+        for v in rc.cache.values:
+            if not v.isEmpty and v.ofType(T):
+                result.add(v.get(T))
 
 proc resourceNotCached*(name: string) =
     if warnWhenResourceNotCached:

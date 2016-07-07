@@ -5,6 +5,8 @@ import times
 import context
 import font
 import composition
+import resource
+import image
 import notification_center
 export view
 
@@ -32,22 +34,37 @@ proc fps(): int =
     result = (1.0 / lastFrame).int
     lastTime = curTime
 
+proc getTextureMemory(): int =
+    var memory = 0.int
+    var selfImages = findCachedResources[SelfContainedImage]()
+    for img in selfImages:
+        memory += int(img.size.width * img.size.height)
+
+    memory = int(4 * memory / 1024 / 1024)
+    return memory
+
 method drawWindow*(w: Window) {.base.} =
     w.needsDisplay = false
 
     w.recursiveDrawSubviews()
     let c = currentContext()
-    var pt = newPoint(w.frame.width - 110, 2)
     c.fillColor = newColor(1, 0, 0, 1)
-    c.drawText(systemFont(), pt, "FPS: " & $fps())
 
     when enableGraphicsProfiling:
-        var pt2 = newPoint(w.frame.width - 110, 22)
-        var pt3 = newPoint(w.frame.width - 110, 42)
-        var pt4 = newPoint(w.frame.width - 110, 62)
-        c.drawText(systemFont(), pt2, "Overdraw: " & $GetOverdrawValue())
-        c.drawText(systemFont(), pt3, "DIPs: " & $GetDIPValue())
-        c.drawText(systemFont(), pt4, "Animations: " & $totalAnims)
+        var font = systemFont()
+        let old_size = font.size
+        font.size = 14
+        var pt = newPoint(w.frame.width - 100, 5)
+        var pt2 = newPoint(w.frame.width - 100, 20)
+        var pt3 = newPoint(w.frame.width - 100, 35)
+        var pt4 = newPoint(w.frame.width - 100, 50)
+        var pt5 = newPoint(w.frame.width - 100, 65)
+        c.drawText(font, pt, "FPS: " & $fps())
+        c.drawText(font, pt2, "Overdraw: " & $GetOverdrawValue())
+        c.drawText(font, pt3, "DIPs: " & $GetDIPValue())
+        c.drawText(font, pt4, "Animations: " & $totalAnims)
+        # c.drawText(font, pt5, "TexMem: " & $getTextureMemory())
+        font.size = old_size
         ResetOverdrawValue()
         ResetDIPValue()
 
