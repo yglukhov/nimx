@@ -40,18 +40,6 @@ proc getTextureMemory(): int =
     for img in selfImages:
         memory += int(img.size.width * img.size.height)
 
-    var spriteImages = findCachedResources[SpriteImage]()
-    for img in spriteImages:
-        memory += int(img.size.width * img.size.height)
-
-    var images = findCachedResources[Image]()
-    for img in images:
-        memory += int(img.size.width * img.size.height)
-
-    var fixedImages = findCachedResources[FixedTexCoordSpriteImage]()
-    for img in fixedImages:
-        memory += int(img.size.width * img.size.height)
-
     memory = int(4 * memory / 1024 / 1024)
     return memory
 
@@ -75,7 +63,7 @@ method drawWindow*(w: Window) {.base.} =
         c.drawText(font, pt2, "Overdraw: " & $GetOverdrawValue())
         c.drawText(font, pt3, "DIPs: " & $GetDIPValue())
         c.drawText(font, pt4, "Animations: " & $totalAnims)
-        c.drawText(font, pt5, "TexMem: " & $getTextureMemory())
+        # c.drawText(font, pt5, "TexMem: " & $getTextureMemory())
         font.size = old_size
         ResetOverdrawValue()
         ResetDIPValue()
