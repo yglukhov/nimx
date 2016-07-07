@@ -422,55 +422,15 @@ void compose()
 """, false)
 
 import math
-proc thresholdFunc(glyphScale: float): float =
-    let base = 0.53
-    let baseDev = 0.065
-    let devScaleMin = 0.15
-    let devScaleMax = 0.3
-    return base - ((clamp(glyphScale, devScaleMin, devScaleMax) - devScaleMin) / (devScaleMax - devScaleMin) * -baseDev + baseDev)
 
-proc spreadFunc(glyphScale: float): float =
-    var range = 0.055f
-    return range / glyphScale
-
-proc drawText*(c: GraphicsContext, font: Font, pt: var Point, text: string) =
-    # assume orthographic projection with units = screen pixels, origin at top left
+proc drawTextBase*(c: GraphicsContext, font: Font, pt: var Point, text: string) =
     let gl = c.gl
-    var cc = gl.getCompiledComposition(fontComposition)
-    var subpixelDraw = true
-
-    if hasPostEffect():
-        subpixelDraw = false
-
-    when defined(android):
-        subpixelDraw = false
-
-    let preScale = 1.0 / 320.0 # magic constant...
-
-    if subpixelDraw:
-        cc = gl.getCompiledComposition(fontSubpixelCompositionWithDynamicBase)
-
-        gl.blendColor(c.fillColor.r, c.fillColor.g, c.fillColor.b, c.fillColor.a)
-        gl.blendFunc(gl.CONSTANT_COLOR, gl.ONE_MINUS_SRC_COLOR)
-
-    gl.useProgram(cc.program)
-
-    compositionDrawingDefinitions(cc, c, gl)
-    setUniform("fillColor", c.fillColor)
-    setUniform("preScale", preScale)
-    gl.uniformMatrix4fv(uniformLocation("uModelViewProjectionMatrix"), false, c.transform)
-    setupPosteffectUniforms(cc)
-
-    gl.activeTexture(GLenum(int(gl.TEXTURE0) + cc.iTexIndex))
-    gl.uniform1i(uniformLocation("texUnit"), cc.iTexIndex)
 
     gl.enableVertexAttribArray(saPosition.GLuint)
-
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, c.quadIndexBuffer)
 
     var texture: TextureRef
     var newTexture: TextureRef
-
     var n : GLint = 0
 
     template flush() =
@@ -496,6 +456,40 @@ proc drawText*(c: GraphicsContext, font: Font, pt: var Point, text: string) =
         pt.x += font.horizontalSpacing
 
     if n > 0: flush()
+
+proc drawText(c: GraphicsContext, font: Font, pt: var Point, text: string) =
+    # assume orthographic projection with units = screen pixels, origin at top left
+    let gl = c.gl
+    var cc = gl.getCompiledComposition(fontComposition)
+    var subpixelDraw = true
+
+    if hasPostEffect():
+        subpixelDraw = false
+
+    when defined(android):
+        subpixelDraw = false
+
+    let preScale = 1.0 / 320.0 # magic constant...
+
+    if subpixelDraw:
+        cc = gl.getCompiledComposition(fontSubpixelCompositionWithDynamicBase)
+
+        gl.blendColor(c.fillColor.r, c.fillColor.g, c.fillColor.b, c.fillColor.a)
+        gl.blendFunc(gl.CONSTANT_COLOR, gl.ONE_MINUS_SRC_COLOR)
+
+    gl.useProgram(cc.program)
+
+    compositionDrawingDefinitions(cc, c, gl)
+    setUniform("fillColor", c.fillColor)
+    setUniform("preScale", preScale)
+
+    gl.uniformMatrix4fv(uniformLocation("uModelViewProjectionMatrix"), false, c.transform)
+    setupPosteffectUniforms(cc)
+
+    gl.activeTexture(GLenum(int(gl.TEXTURE0) + cc.iTexIndex))
+    gl.uniform1i(uniformLocation("texUnit"), cc.iTexIndex)
+
+    c.drawTextBase(font, pt, text)
 
     if subpixelDraw:
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)

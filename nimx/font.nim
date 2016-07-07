@@ -4,6 +4,7 @@ import system_logger
 import unicode
 import tables
 import rect_packer
+import nimx.resource
 
 when defined js:
     import dom
@@ -134,6 +135,13 @@ when dumpDebugBitmaps and defined(js):
 
 template isPrintableCodePoint(c: int): bool = not (i <= 0x1f or i == 0x7f or (i >= 0x80 and i <= 0x9F))
 
+template dumpBitmaps(bitmap: seq[byte], width, height, start: int, fSize: float) =
+    var bmp = newSeq[byte](width * height * 3)
+    for i in 0 .. < width * height:
+        bmp[3*i] = bitmap[i]
+
+    discard stbi_write_bmp("atlas_nimx_alpha_" & $fSize & "_" & $start & "_" & $width & "x" & $height & ".bmp", width.cint, height.cint, 3.cint, addr bmp[0])
+
 proc bakeChars(f: Font, start: int32, res: CharInfo) =
     let startChar = start * charChunkLength
     let endChar = startChar + charChunkLength
@@ -161,7 +169,7 @@ proc bakeChars(f: Font, start: int32, res: CharInfo) =
         `descent` = metrics.descent;
         """.}
 
-        const glyphMargin = 2
+        const glyphMargin = 5
         let h = ascent + descent
 
         for i in startChar .. < endChar:
@@ -185,8 +193,8 @@ proc bakeChars(f: Font, start: int32, res: CharInfo) =
                     res.bakedChars.charOffComp(c, compAdvance) = w.int16
                     res.bakedChars.charOffComp(c, compTexX) = (x + glyphMargin).int16
                     res.bakedChars.charOffComp(c, compTexY) = (y + glyphMargin).int16
-                    res.bakedChars.charOffComp(c, compWidth) = w.int16
-                    res.bakedChars.charOffComp(c, compHeight) = h.int16
+                    res.bakedChars.charOffComp(c, compWidth) = w.int16 + glyphMargin
+                    res.bakedChars.charOffComp(c, compHeight) = h.int16 + glyphMargin
 
         let texWidth = rectPacker.width
         let texHeight = rectPacker.height
@@ -242,7 +250,7 @@ proc bakeChars(f: Font, start: int32, res: CharInfo) =
 
         var glyphIndexes: array[charChunkLength, cint]
 
-        const glyphMargin = 5
+        const glyphMargin = 10
 
         for i in startChar .. < endChar:
             if isPrintableCodePoint(i):
@@ -256,7 +264,7 @@ proc bakeChars(f: Font, start: int32, res: CharInfo) =
                 let (x, y) = rectPacker.packAndGrow(gw + glyphMargin * 2, gh + glyphMargin * 2)
 
                 let c = charOff(i - startChar)
-                res.bakedChars.charOffComp(c, compX) = (x0.cfloat + lsb.cfloat * scale - glyphMargin.float / 2).int16
+                res.bakedChars.charOffComp(c, compX) = (x0.cfloat - glyphMargin.float / 2).int16
                 res.bakedChars.charOffComp(c, compY) = (y0.cfloat + ascent.cfloat * scale - glyphMargin.float / 2).int16
                 res.bakedChars.charOffComp(c, compAdvance) = (scale * advance.cfloat).int16
                 res.bakedChars.charOffComp(c, compTexX) = (x + glyphMargin).int16
@@ -281,12 +289,13 @@ proc bakeChars(f: Font, start: int32, res: CharInfo) =
                     stbtt_MakeGlyphBitmap(fontinfo, addr temp_bitmap[x + y * width.int], w, h, width.cint, scale, scale, glyphIndexes[i - startChar])
 
         when dumpDebugBitmaps:
-            discard stbi_write_bmp("atlas_nimx_alpha_" & $fSize & "_" & $start & "_" & $width & "x" & $height & ".bmp", width, height, 1, addr temp_bitmap[0])
+            dumpBitmaps(temp_bitmap, width, height, start, fSize)
 
         make_distance_map(temp_bitmap, width, height)
 
         when dumpDebugBitmaps:
-            discard stbi_write_bmp("atlas_nimx_df_" & $fSize & "_" & $start & "_" & $width & "x" & $height & ".bmp", width, height, 1, addr temp_bitmap[0])
+            dumpBitmaps(temp_bitmap, width, height, start, fSize)
+
         shallowCopy(res.tempBitmap, temp_bitmap)
 
 when not defined js:
@@ -348,7 +357,8 @@ when not defined js:
         for sp in fontSearchPaths:
             yield sp / face & ".ttf"
         when not defined(emscripten):
-            yield getAppDir() / face & ".ttf"
+            yield getAppDir() / "res" / face & ".ttf"
+            yield getAppDir() /../ "Resources" / face & ".ttf"
 
     proc findFontFileForFace(face: string): string =
         for f in potentialFontFilesForFace(face):
