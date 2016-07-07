@@ -10,6 +10,7 @@ import timer
 import table_view_cell
 import window_event_handling
 import property_visitor
+import serializers
 
 export control
 
@@ -298,5 +299,13 @@ method viewDidBecomeFirstResponder*(t: TextField) =
 method visitProperties*(v: TextField, pv: var PropertyVisitor) =
     procCall v.Control.visitProperties(pv)
     pv.visitProperty("text", v.text)
+
+method serializeFields*(v: TextField, s: Serializer) =
+    procCall v.View.serializeFields(s)
+    s.serialize("text", v.text)
+
+method deserializeFields*(v: TextField, s: Deserializer) =
+    procCall v.View.deserializeFields(s)
+    s.deserialize("text", v.mText)
 
 registerClass(TextField)

@@ -2,6 +2,9 @@ import nimx.context
 import nimx.image
 import nimx.types
 import nimx.view
+import nimx.property_visitor
+import nimx.serializers
+import nimx.resource
 
 type
     ImageFillRule* {.pure.} = enum
@@ -77,5 +80,23 @@ method draw(v: ImageView, r: Rect) =
                 newY = 0.Coord
                 newX = if newWidth > r.width: 0.Coord else: r.width / 2 - newWidth / 2
             c.drawImage(v.image, newRect(newX, newY, newWidth, newHeight))
+
+method visitProperties*(v: ImageView, pv: var PropertyVisitor) =
+    procCall v.View.visitProperties(pv)
+    pv.visitProperty("image", v.image)
+    pv.visitProperty("fillRule", v.fillRule)
+
+method serializeFields*(v: ImageView, s: Serializer) =
+    procCall v.View.serializeFields(s)
+    s.serialize("image", resourceNameForPath(v.image.filePath))
+    s.serialize("fillRule", v.fillRule)
+
+method deserializeFields*(v: ImageView, s: Deserializer) =
+    procCall v.View.deserializeFields(s)
+    s.deserialize("fillRule", v.fillRule)
+    var imgName : string
+    s.deserialize("image", imgName)
+    if not imgName.isNil:
+        v.image = imageWithResource(imgName)
 
 registerClass(ImageView)

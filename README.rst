@@ -33,6 +33,7 @@ Usage
     # File: main.nim
     import nimx.window
     import nimx.text_field
+    import nimx.system_logger # Required because of Nim bug (#4433)
 
     proc startApp() =
         # First create a window. Window is the root of view hierarchy.

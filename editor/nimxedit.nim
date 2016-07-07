@@ -29,9 +29,12 @@ proc startApplication() =
 
     mainWindow.title = "nimx"
 
+    let editedViewWrapper = View.new(mainWindow.bounds)
+    editedViewWrapper.autoresizingMask = {afFlexibleWidth, afFlexibleHeight}
     let editedView = View.new(mainWindow.bounds)
     editedView.autoresizingMask = {afFlexibleWidth, afFlexibleHeight}
-    mainWindow.addSubview(editedView)
+    editedViewWrapper.addSubview(editedView)
+    mainWindow.addSubview(editedViewWrapper)
 
     let dummyButton = Button.new(newRect(100, 100, 60, 25))
     dummyButton.title = "Hello!"

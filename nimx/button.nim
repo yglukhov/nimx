@@ -10,6 +10,7 @@ import view_event_handling
 import view_event_handling_new
 import composition
 import property_visitor
+import serializers
 
 export control
 
@@ -274,5 +275,23 @@ method visitProperties*(v: Button, pv: var PropertyVisitor) =
     pv.visitProperty("enabled", v.enabled)
     pv.visitProperty("hasBezel", v.hasBezel)
     pv.visitProperty("behavior", v.behavior)
+
+method serializeFields*(v: Button, s: Serializer) =
+    procCall v.View.serializeFields(s)
+    s.serialize("title", v.title)
+    s.serialize("state", v.state)
+    s.serialize("style", v.style)
+    s.serialize("enabled", v.enabled)
+    s.serialize("hasBezel", v.hasBezel)
+    s.serialize("behavior", v.behavior)
+
+method deserializeFields*(v: Button, s: Deserializer) =
+    procCall v.View.deserializeFields(s)
+    s.deserialize("title", v.title)
+    s.deserialize("state", v.state)
+    s.deserialize("style", v.style)
+    s.deserialize("enabled", v.enabled)
+    s.deserialize("hasBezel", v.hasBezel)
+    s.deserialize("behavior", v.behavior)
 
 registerClass(Button)

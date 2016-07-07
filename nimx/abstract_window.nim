@@ -7,7 +7,7 @@ import font
 import composition
 import resource
 import image
-
+import notification_center
 export view
 
 # Window type is defined in view module
@@ -154,6 +154,13 @@ proc removeAnimationRunner*(w: Window, ar: AnimationRunner)=
 proc addAnimation*(w: Window, a: Animation) =
     if not w.isNil:
         w.animationRunners[DEFAULT_RUNNER].pushAnimation(a)
+
+proc onFocusChange*(w: Window, inFocus: bool)=
+
+    if inFocus:
+        sharedNotificationCenter().postNotification("onFocusEnter")
+    else:
+        sharedNotificationCenter().postNotification("onFocusLeave")
 
 var newWindow*: proc(r: Rect): Window
 var newFullscreenWindow*: proc(): Window
