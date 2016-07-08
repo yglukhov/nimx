@@ -89,52 +89,51 @@ proc postNotification*(nc: NotificationCenter, ev: string, args: Variant) =
 proc postNotification*(nc: NotificationCenter, ev: string)=
     nc.postNotification(ev, newVariant())
 
-proc tests*(nc:NotificationCenter)=
-    const test1arg = "some string"
-    var step = 0
-
-    nc.addObserver("test1", 15, proc(args: Variant)=
-        doAssert( args.get(string) == test1arg)
-        inc step
-    )
-    nc.addObserver("test1", 19, proc(args: Variant)=
-        doAssert( args.get(string) == test1arg)
-        inc step
-    )
-    nc.addObserver("test1", 17, proc(args: Variant)=
-        doAssert( args.get(string) == test1arg)
-        inc step
-
-        nc.addObserver("test3", nc, proc(args: Variant)=
-            nc.removeObserver("test3", nc)
-            inc step
-        )
-    )
-    nc.addObserver("test1", 150, proc(args: Variant)=
-        doAssert(false)
-    )
-    nc.addObserver("ignored", 150, proc(args: Variant)=
-        doAssert(false)
-    )
-    nc.addObserver("test2", nc, proc(args: Variant)=
-        doAssert(false)
-    )
-
-    nc.removeObserver(150)
-    nc.postNotification("test1", newVariant(test1arg))
-    nc.postNotification("test3")
-    nc.removeObserver(nc)
-    nc.postNotification("test2", newVariant(test1arg))
-
-    doAssert(nc.observers.len == 1)
-    nc.removeObserver("test1", 15)
-    nc.removeObserver("test1", 19)
-    nc.removeObserver("test1", 13)
-    nc.removeObserver("test1", 17)
-    doAssert(nc.observers.len == 0)
-    doAssert(step == 4)
 
 when isMainModule:
+    proc tests*(nc:NotificationCenter)=
+        const test1arg = "some string"
+        var step = 0
 
+        nc.addObserver("test1", 15, proc(args: Variant)=
+            doAssert( args.get(string) == test1arg)
+            inc step
+        )
+        nc.addObserver("test1", 19, proc(args: Variant)=
+            doAssert( args.get(string) == test1arg)
+            inc step
+        )
+        nc.addObserver("test1", 17, proc(args: Variant)=
+            doAssert( args.get(string) == test1arg)
+            inc step
+
+            nc.addObserver("test3", nc, proc(args: Variant)=
+                nc.removeObserver("test3", nc)
+                inc step
+            )
+        )
+        nc.addObserver("test1", 150, proc(args: Variant)=
+            doAssert(false)
+        )
+        nc.addObserver("ignored", 150, proc(args: Variant)=
+            doAssert(false)
+        )
+        nc.addObserver("test2", nc, proc(args: Variant)=
+            doAssert(false)
+        )
+
+        nc.removeObserver(150)
+        nc.postNotification("test1", newVariant(test1arg))
+        nc.postNotification("test3")
+        nc.removeObserver(nc)
+        nc.postNotification("test2", newVariant(test1arg))
+
+        doAssert(nc.observers.len == 1)
+        nc.removeObserver("test1", 15)
+        nc.removeObserver("test1", 19)
+        nc.removeObserver("test1", 13)
+        nc.removeObserver("test1", 17)
+        doAssert(nc.observers.len == 0)
+        doAssert(step == 4)
 
     sharedNotificationCenter().tests()
