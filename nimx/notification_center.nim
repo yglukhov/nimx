@@ -22,10 +22,6 @@ proc sharedNotificationCenter*(): NotificationCenter=
         gNotifCenter.observers = initTable[string, NCCallbackTable]()
     result = gNotifCenter
 
-proc removeObserver*(nc: NotificationCenter, ev: string)=
-    if nc.observers.hasKey(ev):
-        nc.observers.del(ev)
-
 proc getObserverID(rawId: ref | SomeOrdinal): int =
     var obsId : int
     when defined(js):
@@ -46,6 +42,16 @@ proc getObserverID(rawId: ref | SomeOrdinal): int =
 proc deleteWithLen(t: var NCCallbackTable, id: int): int=
     t.del(id)
     result = t.len
+
+proc removeObserver*(nc: NotificationCenter, observerId: ref | SomeOrdinal, ev: string)=
+    let obsId = getObserverID(observerId)
+    var isRemKey = false
+
+    if nc.observers.hasKey(ev):
+        isRemKey = nc.observers[ev].deleteWithLen(obsId) == 0
+
+    if isRemKey:
+        nc.observers.del(ev)
 
 proc removeObserver*(nc: NotificationCenter, observerId: ref | SomeOrdinal) =
     let obsId = getObserverID(observerId)
@@ -78,10 +84,9 @@ proc postNotification*(nc: NotificationCenter, ev: string, args: Variant) =
 proc postNotification*(nc: NotificationCenter, ev: string)=
     nc.postNotification(ev, newVariant())
 
-
 when isMainModule:
 
-    proc tests(nc:NotificationCenter)=
+    proc tests*(nc:NotificationCenter)=
         const test1arg = "some string"
         var step = 0
 
@@ -98,7 +103,7 @@ when isMainModule:
             inc step
 
             nc.addObserver("test3", nc, proc(args: Variant)=
-                nc.removeObserver("test3")
+                nc.removeObserver(nc, "test3")
                 inc step
             )
         )
@@ -119,7 +124,10 @@ when isMainModule:
         nc.postNotification("test2", newVariant(test1arg))
 
         doAssert(nc.observers.len == 1)
-        nc.removeObserver("test1")
+        nc.removeObserver(15, "test1")
+        nc.removeObserver(19, "test1")
+        nc.removeObserver(13, "test1")
+        nc.removeObserver(17, "test1")
         doAssert(nc.observers.len == 0)
         doAssert(step == 4)
 

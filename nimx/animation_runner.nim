@@ -26,6 +26,9 @@ proc pushAnimation*(ar: AnimationRunner, a: Animation) =
             ar.onAnimationAdded()
 
 proc pauseAnimations*(ar: AnimationRunner, isHard: bool = false)=
+    if isHard:
+        ar.paused = true
+
     var index = 0
     let animLen = ar.animations.len
 
@@ -33,9 +36,6 @@ proc pauseAnimations*(ar: AnimationRunner, isHard: bool = false)=
         var anim = ar.animations[index]
         anim.pause()
         inc index
-
-    if isHard:
-        ar.paused = true
 
 proc resumeAnimations*(ar: AnimationRunner) =
     var index = 0
