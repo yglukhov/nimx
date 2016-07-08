@@ -32,6 +32,7 @@ proc pauseAnimations*(ar: AnimationRunner, isHard: bool = false)=
     while index < animLen:
         var anim = ar.animations[index]
         anim.pause()
+        inc index
 
     if isHard:
         ar.paused = true
@@ -43,6 +44,7 @@ proc resumeAnimations*(ar: AnimationRunner) =
     while index < animLen:
         var anim = ar.animations[index]
         anim.resume()
+        inc index
 
     ar.paused = false
 
