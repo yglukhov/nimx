@@ -154,14 +154,15 @@ when not jsCompatibleAPI:
         # This proc is run on a foreign thread!
 
         var ud = cast[UserData](data)
-        if not ud.isNil and not ud.isHandled:
+        if not ud.isHandled:
 
             var res = performOnMainThread(fireCallback, data)
 
             if  res == 1:   # success
                 ud.isHandled = true
             elif res == 0:  # event filtered
-                ud.isHandled = false
+                # Assume that event filter handles our timer correctly.
+                ud.isHandled = true
             else:           # -1 error or event stack full
                 ud.isHandled = false
 

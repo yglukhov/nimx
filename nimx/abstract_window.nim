@@ -15,6 +15,8 @@ export view
 #TODO: Window size has two notions. Think about it.
 
 const DEFAULT_RUNNER = 0
+const AW_FOCUS_ENTER* = "AW_FOCUS_ENTER"
+const AW_FOCUS_LEAVE* = "AW_FOCUS_LEAVE"
 
 method `title=`*(w: Window, t: string) {.base.} = discard
 method title*(w: Window): string {.base.} = ""
@@ -146,9 +148,9 @@ proc addAnimation*(w: Window, a: Animation) =
 proc onFocusChange*(w: Window, inFocus: bool)=
 
     if inFocus:
-        sharedNotificationCenter().postNotification("onFocusEnter")
+        sharedNotificationCenter().postNotification(AW_FOCUS_ENTER)
     else:
-        sharedNotificationCenter().postNotification("onFocusLeave")
+        sharedNotificationCenter().postNotification(AW_FOCUS_LEAVE)
 
 var newWindow*: proc(r: Rect): Window
 var newFullscreenWindow*: proc(): Window
