@@ -87,6 +87,10 @@ elif defined(emscripten):
 else:
     import sdl2, sdl_perform_on_main_thread, tables
 
+type UserData = ref object
+    id: int
+    isHandled: bool
+
 type Timer* = ref object
     callback: proc()
     timer: TimerID
@@ -96,6 +100,7 @@ type Timer* = ref object
     isRescheduling: bool
     when not defined(js):
         id: int
+        userData: UserData
 
 template fireCallbackAux(t: Timer) =
     t.callback()
@@ -109,6 +114,7 @@ when not jsCompatibleAPI:
     # safely pass pointers/references as timer context because there is no
     # way to tell which thread touches the context last and has to dispose it.
     # Solution to this is a global map of active timers.
+
     var allTimers = initTable[int, Timer]()
 
     proc deleteTimerFromSDL(t: Timer) =
@@ -125,9 +131,11 @@ when not jsCompatibleAPI:
     proc timeoutThreadCallback(interval: uint32, data: pointer): uint32 {.cdecl.}
 
     proc fireCallback(data: pointer) {.cdecl.} =
-        let t = allTimers.getOrDefault(cast[int](data))
+        var ud = cast[UserData](data)
+        let t = allTimers.getOrDefault(ud.id)
         if not t.isNil:
             t.fireCallbackAux()
+
             if not t.isPeriodic:
                 t.deleteTimerFromSDL()
             elif t.isRescheduling:
@@ -135,15 +143,28 @@ when not jsCompatibleAPI:
                 t.id = nextTimerId()
                 t.isRescheduling = false
                 allTimers[t.id] = t
-                t.timer = addTimer(uint32(t.interval * 1000), timeoutThreadCallback, cast[pointer](t.id))
+                t.timer = addTimer(uint32(t.interval * 1000), timeoutThreadCallback, cast[pointer](t.userData))
 
+            t.userData.isHandled = false
 
     # Nim is hostile when it's callbacks are called from an "unknown" thread.
     # The following function can not use nim's stack trace and GC.
     {.push stack_trace:off.}
     proc timeoutThreadCallback(interval: uint32, data: pointer): uint32 =
         # This proc is run on a foreign thread!
-        performOnMainThread(fireCallback, data)
+
+        var ud = cast[UserData](data)
+        if not ud.isNil and not ud.isHandled:
+
+            var res = performOnMainThread(fireCallback, data)
+
+            if  res == 1:   # success
+                ud.isHandled = true
+            elif res == 0:  # event filtered
+                ud.isHandled = false
+            else:           # -1 error or event stack full
+                ud.isHandled = false
+
         result = interval
     {.pop.}
 
@@ -190,7 +211,10 @@ proc newTimer*(interval: float, repeat: bool, callback: proc()): Timer =
 
         result.id = nextTimerId()
         allTimers[result.id] = result
-        result.timer = addTimer(uint32(interval * 1000), timeoutThreadCallback, cast[pointer](result.id))
+        result.userData = new(UserData)
+        result.userData.id = result.id
+        result.userData.isHandled = false
+        result.timer = addTimer(uint32(interval * 1000), timeoutThreadCallback, cast[pointer](result.userData))
 
 proc setTimeout*(interval: float, callback: proc()): Timer {.discardable.} =
     newTimer(interval, false, callback)
@@ -219,6 +243,6 @@ proc resume*(t: Timer) =
             t.id = nextTimerId()
             t.isRescheduling = true
             allTimers[t.id] = t
-            t.timer = addTimer(uint32(t.nextFireTime * 1000), timeoutThreadCallback, cast[pointer](t.id))
+            t.timer = addTimer(uint32(t.nextFireTime * 1000), timeoutThreadCallback, cast[pointer](t.userData))
 
         t.nextFireTime = t.nextFireTime + epochTime()
