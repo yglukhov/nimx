@@ -34,13 +34,23 @@ proc release*(rc: ResourceCache) =
 
 proc pathForResource*(name: string): string
 
+proc currentResourceCache*(): ResourceCache =
+    if resourceCaches.len > 0:
+        result = resourceCaches[^1]
+    else:
+        result = newResourceCache()
+
+template registerResource*(c: ResourceCache, name: string, r: Variant) =
+    c.cache[pathForResource(name)] = r
+
 template registerResource*[T](c: ResourceCache, name: string, r: T) =
-    c.cache[pathForResource(name)] = newVariant(r)
+    c.registerResource(name, newVariant(r))
+
+template registerResource*(name: string, r: Variant) =
+    currentResourceCache().registerResource(name, r)
 
 template registerResource*[T](name: string, r: T) =
-    if resourceCaches.len == 0: discard newResourceCache() # Create default resource cache
-    let rc = resourceCaches[^1]
-    rc.registerResource(name, r)
+    registerResource(name, newVariant(r))
 
 var warnWhenResourceNotCached* = false
 
