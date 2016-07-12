@@ -223,7 +223,14 @@ proc setTimeout*(interval: float, callback: proc()): Timer {.discardable.} =
 proc setInterval*(interval: float, callback: proc()): Timer {.discardable.} =
     newTimer(interval, true, callback)
 
-proc pause*(t: Timer) = t.clear()
+proc pause*(t: Timer) =
+  if not t.isNil:
+    if t.isTimerValid:
+        when jsCompatibleAPI:
+            t.clear()
+        else:
+            discard removeTimer(t.timer)
+            t.timer = 0
 
 proc resume*(t: Timer) =
     if not t.isTimerValid:
@@ -241,7 +248,6 @@ proc resume*(t: Timer) =
             else:
                 t.timer = setTimeout(t.callback, t.nextFireTime * 1000)
         else:
-            t.id = nextTimerId()
             t.isRescheduling = true
             allTimers[t.id] = t
             t.timer = addTimer(uint32(t.nextFireTime * 1000), timeoutThreadCallback, cast[pointer](t.userData))
