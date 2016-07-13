@@ -17,6 +17,7 @@ export control
 type TextField* = ref object of Control
     mText*: string
     editable*: bool
+    onInput*: proc(t: TextField)
     textColor*: Color
     mFont*: Font
     textSelection: tuple[selected: bool, inselection: bool, startIndex: int, endIndex: int]
@@ -210,12 +211,16 @@ method onKeyDown*(t: TextField, e: var Event): bool =
         elif cursorPos > 0:
             t.mText.uniDelete(cursorPos - 1, cursorPos - 1)
             dec cursorPos
+            if not t.onInput.isNil:
+                t.onInput(t)
         t.updateCursorOffset()
         t.bumpCursorVisibility()
     elif e.keyCode == VirtualKey.Delete and not t.mText.isNil:
         if t.textSelection.selected: t.clearSelection()
         elif cursorPos < t.mText.runeLen:
             t.mText.uniDelete(cursorPos, cursorPos)
+            if not t.onInput.isNil:
+                t.onInput(t)
         t.bumpCursorVisibility()
     elif e.keyCode == VirtualKey.Left:
         dec cursorPos
@@ -282,6 +287,8 @@ method onTextInput*(t: TextField, s: string): bool =
     t.updateCursorOffset()
     t.bumpCursorVisibility()
 
+    if not t.onInput.isNil:
+        t.onInput(t)
 
 method viewShouldResignFirstResponder*(v: TextField, newFirstResponder: View): bool =
     result = true
