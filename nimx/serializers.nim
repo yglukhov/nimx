@@ -110,6 +110,8 @@ method deserializeFields*(o: RootRef, s: Deserializer) {.base.} = discard
 
 proc makeSeq*[T](v: var seq[T], len: int) = v = newSeq[T](len)
 
+template typeOfSetElem[T](s: set[T]): typedesc = T
+
 proc deserialize*[T](s: Deserializer, o: var T) =
     when o is object | tuple:
         s.beginObject()
@@ -155,11 +157,13 @@ proc deserialize*[T](s: Deserializer, o: var T) =
         s.deserialize(i)
         o = T(i)
     elif o is set:
-        discard
-        # s.beginArray()
-        # for i in o:
-        #     s.serialize(int(i))
-        # s.endObjectOrArray()
+        let ln = s.beginArray()
+        for i in 0 ..< ln:
+            var val : int
+            s.curIndex = i
+            s.deserialize(val)
+            o.incl(typeOfSetElem(o)(val))
+        s.endObjectOrArray()
     elif o is (proc):
         discard
     else:

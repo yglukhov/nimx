@@ -111,8 +111,6 @@ proc processRemainingHandlersInLoop(handlers: openarray[ProgressHandler], it: va
     it = 0
 
 method onProgress*(a: Animation, p: float)=
-    # var loopProgress = p
-
     if not a.onAnimate.isNil:
         var curvedProgress = p
         if a.loopPattern == lpStartToEndToStart:
@@ -237,8 +235,7 @@ proc chainOnAnimate*(a: Animation, oa: proc(p: float)) =
             oa(p)
 
 proc pause*(a: Animation) =
-    if a.pauseTime == 0:
-        a.pauseTime = epochTime()
+    a.pauseTime = epochTime()
 
 proc resume*(a: Animation) =
     if a.pauseTime != 0:

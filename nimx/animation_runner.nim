@@ -5,20 +5,48 @@ type AnimationRunner* = ref object
     animations*: seq[Animation]
     onAnimationAdded*: proc()
     onAnimationRemoved*: proc()
+    paused: bool
 
 proc newAnimationRunner*(): AnimationRunner=
     result = new(AnimationRunner)
     result.animations = @[]
+    result.paused = false
 
 proc pushAnimation*(ar: AnimationRunner, a: Animation) =
     doAssert( not a.isNil(), "Animation is nil")
 
     a.prepare(epochTime())
 
+    if ar.paused:
+        a.pause()
+
     if not (a in ar.animations):
         ar.animations.add(a)
         if not ar.onAnimationAdded.isNil():
             ar.onAnimationAdded()
+
+proc pauseAnimations*(ar: AnimationRunner, isHard: bool = false)=
+    if isHard:
+        ar.paused = true
+
+    var index = 0
+    let animLen = ar.animations.len
+
+    while index < animLen:
+        var anim = ar.animations[index]
+        anim.pause()
+        inc index
+
+proc resumeAnimations*(ar: AnimationRunner) =
+    var index = 0
+    let animLen = ar.animations.len
+
+    while index < animLen:
+        var anim = ar.animations[index]
+        anim.resume()
+        inc index
+
+    ar.paused = false
 
 proc removeAnimation*(ar: AnimationRunner, a: Animation) =
     for idx, anim in ar.animations:
@@ -29,6 +57,7 @@ proc removeAnimation*(ar: AnimationRunner, a: Animation) =
             break
 
 proc update*(ar: AnimationRunner)=
+
     var index = 0
     let animLen = ar.animations.len
 
