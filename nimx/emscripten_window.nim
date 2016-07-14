@@ -5,7 +5,7 @@ import opengl
 import context
 import event
 import font
-import unicode
+import unicode, times
 import app
 import linkage_details
 import portable_gl
@@ -373,10 +373,19 @@ proc runUntilQuit*() =
     discard quit(evt)
 ]#
 
+var lastCollectionTime = 0.0
+
 proc mainLoop() {.cdecl.} =
     mainApplication().runAnimations()
     mainApplication().drawWindows()
-    GC_fullCollect()
+
+    # TODO: Use real-timish mode here.
+    let t = epochTime()
+    if t > lastCollectionTime + 2:
+        GC_enable()
+        GC_fullCollect()
+        GC_disable()
+        lastCollectionTime = t
 
 var initFunc : proc()
 
@@ -392,7 +401,7 @@ proc mainLoopPreload() {.cdecl.} =
         return 0;
         """
         if r == 1:
-            GC_disable()
+            GC_disable() # GC Should only be called close to the bottom of the stack on emscripten.
             initFunc()
             initDone = true
 
