@@ -55,28 +55,27 @@ proc handleMouseOverEvent(v: View, e : var Event) =
 
 proc processTouchEvent*(v: View, e : var Event): bool =
     if e.buttonState == bsDown:
-        if numberOfActiveTouches() == 1:
-            v.interceptEvents = false
-            v.touchTarget = nil
-            if v.subviews.isNil or v.subviews.len == 0:
+        v.interceptEvents = false
+        v.touchTarget = nil
+        if v.subviews.isNil or v.subviews.len == 0:
+            result = v.onTouchEv(e)
+        else:
+            if v.onInterceptTouchEv(e):
+                v.interceptEvents = true
                 result = v.onTouchEv(e)
             else:
-                if v.onInterceptTouchEv(e):
-                    v.interceptEvents = true
+                let localPosition = e.localPosition
+                for i in countdown(v.subviews.len - 1, 0):
+                    let s = v.subviews[i]
+                    e.localPosition = s.convertPointFromParent(localPosition)
+                    if e.localPosition.inRect(s.bounds):
+                        result = s.processTouchEvent(e)
+                        if result:
+                            v.touchTarget = s
+                            break
+                if not result:
+                    e.localPosition = localPosition
                     result = v.onTouchEv(e)
-                else:
-                    let localPosition = e.localPosition
-                    for i in countdown(v.subviews.len - 1, 0):
-                        let s = v.subviews[i]
-                        e.localPosition = s.convertPointFromParent(localPosition)
-                        if e.localPosition.inRect(s.bounds):
-                            result = s.processTouchEvent(e)
-                            if result:
-                                v.touchTarget = s
-                                break
-                    if not result:
-                        e.localPosition = localPosition
-                        result = v.onTouchEv(e)
     else:
         if numberOfActiveTouches() > 0:
             if v.subviews.isNil or v.subviews.len == 0:

@@ -168,9 +168,9 @@ proc newBuilder*(platform: string): Builder =
         b.appIconName = "MyGame.ico"
 
     b.macOSSDKVersion = "10.11"
-    b.macOSMinVersion = "10.6"
+    b.macOSMinVersion = "10.7"
 
-    b.iOSSDKVersion = "9.2"
+    b.iOSSDKVersion = "9.3"
     b.iOSMinVersion = b.iOSSDKVersion
 
     # Simulator device identifier should be set to run the simulator.
@@ -256,19 +256,21 @@ proc preprocessResourcesAux(b: Builder) =
         createDir(b.resourcePath)
         preprocessResources(b)
 
-proc infoPlistSetValueForKey(path, value, key: string) =
-    direShell "defaults", "write", path, key, value
-
 proc absPath(path: string): string =
     if path.isAbsolute(): path else: getCurrentDir() / path
 
 proc makeIosBundle(b: Builder) =
-    let bundlePath = b.buildRoot / b.bundleName
-    createDir bundlePath
-    let infoPlistPath = absPath(bundlePath / "Info")
-    infoPlistSetValueForKey(infoPlistPath, b.appName, "CFBundleName")
-    infoPlistSetValueForKey(infoPlistPath, b.bundleId, "CFBundleIdentifier")
-    infoPlistSetValueForKey(infoPlistPath, b.appName, "CFBundleExecutable")
+    let loadPath = b.originalResourcePath / "Info.plist"
+    var plist = loadPlist(loadPath)
+    if plist.isNil:
+        plist = newJObject()
+    plist["CFBundleName"] = %b.appName
+    plist["CFBundleIdentifier"] = %b.bundleId
+    plist["CFBundleExecutable"] = %b.appName
+
+    let savePath = b.buildRoot / b.bundleName
+    createDir savePath
+    plist.writePlist(savePath / "Info.plist")
 
 proc makeMacOsBundle(b: Builder) =
     let bundlePath = b.buildRoot / b.bundleName
@@ -468,7 +470,7 @@ proc signIosBundle(b: Builder) =
     e["keychain-access-groups"] = %*[appID]
 
     e.writePlist(entPath)
-    direShell(["codesign", "-s", "\"" & b.codesignIdentity & "\"", "--force", "--entitlements", entPath, b.buildRoot / b.bundleName])
+    var res = direShell(["codesign", "-s", "\"" & b.codesignIdentity & "\"", "--force", "--entitlements", entPath, b.buildRoot / b.bundleName])
 
 proc ndkBuild(b: Builder) =
     withDir(b.buildRoot / b.javaPackageId):
@@ -639,10 +641,13 @@ proc build*(b: Builder) =
     elif b.platform == "ios":
         if not b.codesignIdentity.isNil:
             b.signIosBundle()
+            direShell "ios-deploy", "--debug", "--bundle", b.buildRoot / b.bundleName, "--no-wifi"
+
     elif b.platform == "android":
         b.ndkBuild()
 
-    if not afterBuild.isNil: afterBuild(b)
+    if not afterBuild.isNil:
+        afterBuild(b)
 
 proc runAutotestsInFirefox*(pathToMainHTML: string) =
     let ffbin = when defined(macosx):
