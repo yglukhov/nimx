@@ -99,7 +99,7 @@ proc newBuilder*(platform: string): Builder =
 
     b.platform = platform
     b.appName = "MyGame"
-    b.bundleId = "com.kromtech.testgame1"
+    b.bundleId = "com.mycompany.MyGame"
     b.javaPackageId = "com.mycompany.MyGame"
     b.disableClosureCompiler = false
 
@@ -170,7 +170,7 @@ proc newBuilder*(platform: string): Builder =
     b.macOSSDKVersion = "10.11"
     b.macOSMinVersion = "10.6"
 
-    b.iOSSDKVersion = "9.2"
+    b.iOSSDKVersion = "9.3"
     b.iOSMinVersion = b.iOSSDKVersion
 
     # Simulator device identifier should be set to run the simulator.
