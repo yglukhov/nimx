@@ -148,13 +148,14 @@ proc eventWithSDLEvent(event: ptr sdl2.Event): Event =
                 of FingerDown: bsDown
                 of FingerUp: bsUp
                 else: bsUnknown
+
             let touchEv = cast[TouchFingerEventPtr](event)
             result = newTouchEvent(
                                    newPoint(touchEv.x * defaultWindow.frame.width, touchEv.y * defaultWindow.frame.height),
                                    bs, int(touchEv.fingerID), touchEv.timestamp
                                    )
             result.window = defaultWindow
-            when defined(macosx):
+            when defined(macosx) and not defined(ios):
                 result.kind = etUnknown # TODO: Fix apple trackpad problem
 
         of WindowEvent:
@@ -286,10 +287,18 @@ proc handleCallbackEvent(evt: UserEventPtr) =
     else:
         p(evt.data2)
 
+proc iPhoneSetEventPump(enabled: Bool32) {.importc: "SDL_iPhoneSetEventPump".}
+
 proc nextEvent(evt: var sdl2.Event) =
     when defined(ios):
-        if waitEvent(evt):
+        iPhoneSetEventPump(true)
+        pumpEvents()
+        iPhoneSetEventPump(false)
+        while pollEvent(evt):
             discard handleEvent(addr evt)
+
+        if animationEnabled == 0:
+            mainApplication().drawWindows()
     else:
         var doPoll = false
         if animationEnabled > 0:
@@ -305,7 +314,7 @@ proc nextEvent(evt: var sdl2.Event) =
                 if evt.kind == QuitEvent:
                     break
 
-    animateAndDraw()
+        animateAndDraw()
 
 method startTextInput*(w: SdlWindow, r: Rect) =
     startTextInput()
