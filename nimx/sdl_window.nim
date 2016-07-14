@@ -287,9 +287,6 @@ proc handleCallbackEvent(evt: UserEventPtr) =
     else:
         p(evt.data2)
 
-import times
-var lastTime = epochTime()
-
 proc iPhoneSetEventPump(enabled: Bool32) {.importc: "SDL_iPhoneSetEventPump".}
 
 proc nextEvent(evt: var sdl2.Event) =

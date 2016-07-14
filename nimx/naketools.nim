@@ -470,7 +470,7 @@ proc signIosBundle(b: Builder) =
     e["keychain-access-groups"] = %*[appID]
 
     e.writePlist(entPath)
-    var res = direShell(["codesign", "-s", "\"" & b.codesignIdentity & "\"", "--force", "--entitlements", entPath, b.buildRoot / b.bundleName])
+    direShell(["codesign", "-s", "\"" & b.codesignIdentity & "\"", "--force", "--entitlements", entPath, b.buildRoot / b.bundleName])
 
 proc ndkBuild(b: Builder) =
     withDir(b.buildRoot / b.javaPackageId):
