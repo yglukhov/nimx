@@ -120,7 +120,7 @@ proc pbWrite(p: Pasteboard, pi_ar: varargs[PasteboardItem])=
     if *openClipboard() and *emptyClipboard():
 
         for pi in pi_ar:
-            let win_kind = getClipboardFormatByString(pi.kind)
+            let fKind = getClipboardFormatByString(pi.kind)
             let cwstr = newWideCString(pi.data)
             let size = csize(cwstr.len + 1) * sizeof(Utf16Char)
             var allmem = globalAlloc(GMEM_MOVEABLE, size)
@@ -128,7 +128,7 @@ proc pbWrite(p: Pasteboard, pi_ar: varargs[PasteboardItem])=
             if not pBuf.isNil:
                 copyMem(pBuf, addr(cwstr[0]), size)
                 discard globalUnlock(allmem)
-                discard setClipboardData(win_kind, allmem)
+                discard setClipboardData(fKind, allmem)
                 discard globalFree(allmem)
 
         discard closeClipboard()
@@ -138,15 +138,15 @@ proc pbWrite(p: Pasteboard, pi_ar: varargs[PasteboardItem])=
 
 proc pbRead(p: Pasteboard, kind: string): PasteboardItem =
 
-    let win_kind = getClipboardFormatByString(kind)
+    let fKind = getClipboardFormatByString(kind)
     if *openClipboard():
-        if not *isClipboardFormatAvailable(win_kind): return nil
+        if not *isClipboardFormatAvailable(fKind): return nil
 
-        var hglb = getClipboardData(win_kind)
+        var hglb = getClipboardData(fKind)
         var lpstr = globalLock(hglb)
 
         if not lpstr.isNil:
-            result = getPasteboardItem(win_kind, lpstr, hglb)
+            result = getPasteboardItem(fKind, lpstr, hglb)
         else:
             result = nil
 
