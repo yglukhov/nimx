@@ -1,14 +1,13 @@
 import abstract_pasteboard
 export abstract_pasteboard
 import winlean
-import tables
 import os
+
 {.pragma: winApi, stdcall, nodecl.}
 
 type
     LPVOID = pointer
     UINT = cuint
-    # HANDLE = pointer
 
 const
     CF_UNICODETEXT: UINT = 13
@@ -52,7 +51,6 @@ proc emptyClipboard(): WINBOOL {.winApi, importc: "EmptyClipboard".}
 # );
 proc isClipboardFormatAvailable(format: UINT): WINBOOL {.winApi, importc: "IsClipboardFormatAvailable".}
 
-
 # HGLOBAL WINAPI GlobalAlloc(
 #   _In_ UINT   uFlags,
 #   _In_ SIZE_T dwBytes
@@ -88,20 +86,23 @@ proc getClipboardFormatName(uFormat: UINT, lpszFormatName: WideCString, cchMaxCo
 
 proc `*`(b: SomeOrdinal): bool = result = b != 0
 
+proc error()=
+    raiseOSError("GetLastError: " $ getLastError())
+
 proc getClipboardFormatByString(str: string): UINT =
     case str
     of PboardKindString: result = CF_UNICODETEXT
     else:
         var uFormat = registerClipboardFormat(newWideCString (str))
         if not *uFormat:
-            raiseOSError($getLastError())
+
         result = uFormat
 
 type WindowsPasteboard = ref object of Pasteboard
 
 proc getPasteboardItem(k: UINT, lpstr: LPVOID, lpdat: Handle): PasteboardItem =
     var lpdatLen = globalSize(lpdat)
-    if not *lpdatLen: raiseOSError($getLastError())
+    if not *lpdatLen: error()
     var str = newWideCString("",lpdatLen)
     copyMem(addr(str[0]), lpstr, csize(lpdatLen) )
 
@@ -113,7 +114,7 @@ proc getPasteboardItem(k: UINT, lpstr: LPVOID, lpdat: Handle): PasteboardItem =
         let maxLen = MAX_FORMAT_NAME_LEN
         var fName = newWideCString("", maxLen)
         var L = getClipboardFormatName(k, fName, maxLen)
-        if L == 0'i32: raiseOSError($getLastError())
+        if L == 0'i32: error()
         result = newPasteboardItem(fName$L, data)
 
 proc pbWrite(p: Pasteboard, pi_ar: varargs[PasteboardItem])=
@@ -134,7 +135,7 @@ proc pbWrite(p: Pasteboard, pi_ar: varargs[PasteboardItem])=
         discard closeClipboard()
 
     else:
-        raiseOSError($getLastError())
+        error()
 
 proc pbRead(p: Pasteboard, kind: string): PasteboardItem =
 
@@ -154,7 +155,7 @@ proc pbRead(p: Pasteboard, kind: string): PasteboardItem =
         discard closeClipboard()
 
     else:
-        raiseOSError($getLastError())
+        error()
 
 proc pasteboardWithName*(name: string): Pasteboard=
     var res = new(WindowsPasteboard)
