@@ -1,13 +1,14 @@
-import tables
 import event, keyboard, window_event_handling
 
 type KeyCommand* = enum
-    kcUnknown,
-    kcCopy,
-    kcCut,
-    kcPaste,
-    kcUndo,
+    kcUnknown
+    kcCopy
+    kcCut
+    kcPaste
+    kcUndo
     kcRedo
+    kcSave
+    kcSaveAs
 
 type Modifier = enum
     Shift
@@ -33,12 +34,20 @@ proc commandFromEvent*(e: Event): KeyCommand =
         if isMacOS():
             defineCmd kcUndo, VirtualKey.Z, {Gui}
             defineCmd kcRedo, VirtualKey.Z, {Shift, Gui}
+
             defineCmd kcCopy, VirtualKey.C, {Gui}
             defineCmd kcCut, VirtualKey.X, {Gui}
             defineCmd kcPaste, VirtualKey.V, {Gui}
+
+            defineCmd kcSave, VirtualKey.S, {Gui}
+            defineCmd kcSaveAs, VirtualKey.S, {Shift, Gui}
         else:
             defineCmd kcUndo, VirtualKey.Z, {Ctrl}
             defineCmd kcRedo, VirtualKey.Y, {Ctrl}
+
             defineCmd kcCopy, VirtualKey.C, {Ctrl}
             defineCmd kcCut, VirtualKey.X, {Ctrl}
             defineCmd kcPaste, VirtualKey.V, {Ctrl}
+
+            defineCmd kcSave, VirtualKey.S, {Ctrl}
+            defineCmd kcSaveAs, VirtualKey.S, {Shift, Ctrl}
