@@ -17,6 +17,7 @@ import private.js_vk_map
 type EmscriptenWindow* = ref object of Window
     ctx: EMSCRIPTEN_WEBGL_CONTEXT_HANDLE
     renderingContext: GraphicsContext
+    canvasId: string
 
 var animationEnabled = 0
 
@@ -82,6 +83,27 @@ proc onBlur(eventType: cint, keyEvent: ptr EmscriptenFocusEvent, userData: point
     w.onFocusChange(false)
     result = 0
 
+proc onResize(eventType: cint, uiEvent: ptr EmscriptenUiEvent, userData: pointer): EM_BOOL {.cdecl.} =
+    let w = cast[EmscriptenWindow](userData)
+
+    const maxWidth = 1280
+    const maxHeight = 800
+
+    var width = uiEvent.documentBodyClientWidth.cdouble
+    var height = uiEvent.documentBodyClientHeight.cdouble
+    if width > maxWidth: width = maxWidth
+    if height > maxHeight: height = maxHeight
+
+    discard emscripten_set_element_css_size(w.canvasId, width, height)
+    discard EM_ASM_INT("""
+    var c = document.getElementById(Pointer_stringify($0));
+    c.width = $1;
+    c.height = $2;
+    """, cstring(w.canvasId), width, height)
+
+    w.onResize(newSize(width, height))
+    result = 0
+
 proc onContextLost(eventType: cint, reserved: pointer, userData: pointer): EM_BOOL {.cdecl.} =
     discard EM_ASM_INT("""
     alert("Context lost!");
@@ -104,7 +126,7 @@ proc initCommon(w: EmscriptenWindow, r: view.Rect) =
     return window.__nimx_canvas_id;
     """, r.width, r.height)
 
-    let canvId = "nimx_canvas" & $id
+    w.canvasId = "nimx_canvas" & $id
 
     var attrs: EmscriptenWebGLContextAttributes
     emscripten_webgl_init_context_attributes(addr attrs)
@@ -112,14 +134,14 @@ proc initCommon(w: EmscriptenWindow, r: view.Rect) =
     attrs.alpha = 0
     attrs.antialias = 0
     attrs.stencil = 1
-    w.ctx = emscripten_webgl_create_context(canvId, addr attrs)
+    w.ctx = emscripten_webgl_create_context(w.canvasId, addr attrs)
     discard emscripten_webgl_make_context_current(w.ctx)
     w.renderingContext = newGraphicsContext()
 
-    discard emscripten_set_mousedown_callback(canvId, cast[pointer](w), 0, onMouseDown)
-    discard emscripten_set_mouseup_callback(canvId, cast[pointer](w), 0, onMouseUp)
-    discard emscripten_set_mousemove_callback(canvId, cast[pointer](w), 0, onMouseMove)
-    discard emscripten_set_wheel_callback(canvId, cast[pointer](w), 0, onMouseWheel)
+    discard emscripten_set_mousedown_callback(w.canvasId, cast[pointer](w), 0, onMouseDown)
+    discard emscripten_set_mouseup_callback(w.canvasId, cast[pointer](w), 0, onMouseUp)
+    discard emscripten_set_mousemove_callback(w.canvasId, cast[pointer](w), 0, onMouseMove)
+    discard emscripten_set_wheel_callback(w.canvasId, cast[pointer](w), 0, onMouseWheel)
 
     discard emscripten_set_keydown_callback(nil, cast[pointer](w), 1, onKeyDown)
     discard emscripten_set_keyup_callback(nil, cast[pointer](w), 1, onKeyUp)
@@ -127,7 +149,9 @@ proc initCommon(w: EmscriptenWindow, r: view.Rect) =
     discard emscripten_set_blur_callback(nil, cast[pointer](w), 1, onBlur)
     discard emscripten_set_focus_callback(nil, cast[pointer](w), 1, onFocus)
 
-    discard emscripten_set_webglcontextlost_callback(canvId, cast[pointer](w), 0, onContextLost)
+    discard emscripten_set_webglcontextlost_callback(w.canvasId, cast[pointer](w), 0, onContextLost)
+
+    discard emscripten_set_resize_callback(nil, cast[pointer](w), 0, onResize)
 
     #w.enableAnimation(true)
     mainApplication().addWindow(w)
