@@ -112,19 +112,21 @@ proc kindFromNative(k: NSString): string =
     if k == NSPasteboardTypeString: result = PboardKindString
     else: result = k
 
-proc pbWrite(p: Pasteboard, pi: PasteboardItem) =
+proc pbWrite(p: Pasteboard, pi_ar: varargs[PasteboardItem]) =
     let pb = MacPasteboard(p)
-    let npi = allocPasteboardItem().init()
-    let data = dataWithBytes(addr pi.data[0], pi.data.len)
-    discard npi.setDataForType(data, kindToNative(pi.kind))
     pb.p.clearContents()
-    pb.p.writeObjects(arrayWithObjects(npi))
-    npi.release()
+    for pi in pi_ar:
 
-proc pbRead(p: Pasteboard): PasteboardItem =
+        let npi = allocPasteboardItem().init()
+        let data = dataWithBytes(addr pi.data[0], pi.data.len)
+        discard npi.setDataForType(data, kindToNative(pi.kind))
+        pb.p.writeObjects(arrayWithObjects(npi))
+        npi.release()
+
+proc pbRead(p: Pasteboard, kind: string): PasteboardItem =
     let pb = MacPasteboard(p)
     let npi = pb.p.pasteboardItems[0]
-    let typ = npi.types[0]
+    let typ = kindToNative(kind)
     result.new()
     result.kind = kindFromNative(typ)
     let d = npi.dataForType(typ)

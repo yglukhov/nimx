@@ -8,8 +8,8 @@
 
 type
     Pasteboard* = ref object {.inheritable.}
-        writeImpl*: proc(pb: Pasteboard, pi: PasteboardItem) {.nimcall.}
-        readImpl*: proc(pb: Pasteboard): PasteboardItem {.nimcall.}
+        writeImpl*: proc(pb: Pasteboard, pi: varargs[PasteboardItem] ) {.nimcall.}
+        readImpl*: proc(pb: Pasteboard, kind: string): PasteboardItem {.nimcall.}
 
     PasteboardItem* = ref object
         kind*: string
@@ -30,13 +30,13 @@ proc newPasteboardItem*(kind, data: string): PasteboardItem =
 
 proc newPasteboardItem*(s: string): PasteboardItem = newPasteboardItem(PboardKindString, s)
 
-proc write*(pb: Pasteboard, pi: PasteboardItem) {.inline.} =
-    if not pb.writeImpl.isNil: pb.writeImpl(pb, pi)
-proc read*(pb: Pasteboard): PasteboardItem {.inline.} =
-    if not pb.readImpl.isNil: result = pb.readImpl(pb)
+proc write*(pb: Pasteboard, pi: varargs[PasteboardItem]) {.inline.} =
+    if not pb.writeImpl.isNil: pb.writeImpl(pb, @pi)
+proc read*(pb: Pasteboard, kind: string): PasteboardItem {.inline.} =
+    if not pb.readImpl.isNil: result = pb.readImpl(pb, kind)
 
 proc writeString*(pb: Pasteboard, s: string) = pb.write(newPasteboardItem(s))
 proc readString*(pb: Pasteboard): string =
-    let pi = pb.read()
+    let pi = pb.read(PboardKindString)
     if not pi.isNil and pi.kind == PboardKindString:
         result = pi.data
