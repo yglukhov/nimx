@@ -58,18 +58,12 @@ proc isClipboardFormatAvailable(format: UINT): WINBOOL {.winApi, importc: "IsCli
 #   _In_ UINT   uFlags,
 #   _In_ SIZE_T dwBytes
 # );
-proc globalAlloc(uFlags: UINT, dwBytes: int32): Handle {.winApi, importc: "GlobalAlloc".}
+proc globalAlloc(uFlags: UINT, dwBytes: csize): Handle {.winApi, importc: "GlobalAlloc".}
 
 # HGLOBAL WINAPI GlobalFree(
 #   _In_ HGLOBAL hMem
 # );
 proc globalFree(hMem: Handle): Handle {.winApi, importc: "GlobalFree".}
-
-# void * memcpy ( void * destination, const void * source, size_t num );
-proc c_memcpy(dest: pointer, sou: pointer, num: int32): pointer {.winApi, importc: "memcpy", header: "<string.h>" .}
-
-proc c_strlen(a: cstring): cint {.
-    importc: "strlen", header: "<string.h>", noSideEffect.}
 
 proc `*`(b: SomeOrdinal): bool = result = b != 0
 
@@ -93,21 +87,21 @@ proc getPasteboardItem(k: ClipboardFormat, lpstr: LPVOID): PasteboardItem =
         var str = cast[WideCString](lpstr)
         result = newPasteboardItem("unicodeString", $str)
 
-proc pbWrite(p: Pasteboard, pi_ar: varargs[PasteboardItem] )=
+proc pbWrite(p: Pasteboard, pi_ar: varargs[PasteboardItem])=
     if *openClipboard() and *emptyClipboard():
 
         for pi in pi_ar:
             let win_kind = getClipboardFormatByString(pi.kind)
             let cstr = pi.data.cstring
-            let size = cstr.len.int32 + 1
-            var allmem = globalAlloc(GMEM_MOVEABLE.UINT, size)
-            discard c_memcpy(globalLock(allmem), cstr, size)
-            discard globalUnlock(allmem)
-
-            discard setClipboardData(win_kind.UINT, allmem)
+            let size = csize(pi.data.len + 1)
+            var allmem = globalAlloc(GMEM_MOVEABLE.UINT, csize(pi.data.len + 1))
+            let pBuf = globalLock(allmem)
+            if not pBuf.isNil:
+                copyMem(pBuf, cstr, size)
+                discard globalUnlock(allmem)
+                discard setClipboardData(win_kind.UINT, allmem)
+                discard globalFree(allmem)
             discard closeClipboard()
-
-            discard globalFree(allmem)
 
     else:
         var error = getLastError()

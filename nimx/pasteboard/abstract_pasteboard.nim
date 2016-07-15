@@ -31,7 +31,7 @@ proc newPasteboardItem*(kind, data: string): PasteboardItem =
 proc newPasteboardItem*(s: string): PasteboardItem = newPasteboardItem(PboardKindString, s)
 
 proc write*(pb: Pasteboard, pi: varargs[PasteboardItem]) {.inline.} =
-    if not pb.writeImpl.isNil: pb.writeImpl(pb, @pi)
+    if not pb.writeImpl.isNil: pb.writeImpl(pb, pi)
 proc read*(pb: Pasteboard, kind: string): PasteboardItem {.inline.} =
     if not pb.readImpl.isNil: result = pb.readImpl(pb, kind)
 
