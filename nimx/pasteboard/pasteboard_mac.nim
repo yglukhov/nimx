@@ -4,6 +4,8 @@ export abstract_pasteboard
 {.pragma: appkit, header: "<AppKit/AppKit.h>", nodecl.}
 {.pragma: appkitType, importc, appkit, final.}
 
+{.passL: "-framework AppKit".}
+
 {.hint[XDeclaredButNotUsed]: off.}
 
 type NSObject {.appkitType.} = ptr object {.inheritable.}
@@ -12,11 +14,18 @@ type NSPasteboard {.appkitType.} = ptr object of NSObject
 type NSPasteboardItem {.appkitType.} = ptr object of NSObject
 type NSData {.appkitType.} = ptr object of NSObject
 type NSArrayAbstract {.appkit, importc: "NSArray", final.} = ptr object of NSObject
-type NSArray[T] = distinct NSArrayAbstract
+type NSMutableArrayAbstract {.appkit, importc: "NSMutableArray", final.} = ptr object of NSArrayAbstract
+type NSArray[T] = ptr object of NSArrayAbstract
+type NSMutableArray[T] = ptr object of NSArray[T]
 
 proc description(o: NSObject): NSString {.importobjc, nodecl.}
 
 proc arrayWithObjectsAndCount(objs: pointer, count: int): NSArrayAbstract {.importobjc: "NSArray arrayWithObjects", nodecl.}
+proc newMutableArrayAbstract(): NSMutableArrayAbstract {.importobjc: "NSMutableArray new", nodecl.}
+proc addObject(a: NSMutableArrayAbstract, o: NSObject) {.importobjc, nodecl.}
+template newMutableArray[T](): NSMutableArray[T] = cast[NSMutableArray[T]](newMutableArrayAbstract())
+
+template add[T](a: NSMutableArray[T], v: T) = cast[NSMutableArrayAbstract](a).addObject(v)
 
 proc count(a: NSArrayAbstract): int {.importobjc, nodecl.}
 proc objectAtIndex(a: NSArrayAbstract, i: int): NSObject {.importobjc, nodecl.}
@@ -115,13 +124,15 @@ proc kindFromNative(k: NSString): string =
 proc pbWrite(p: Pasteboard, pi_ar: varargs[PasteboardItem]) =
     let pb = MacPasteboard(p)
     pb.p.clearContents()
+    let items = newMutableArray[NSPasteboardItem]()
     for pi in pi_ar:
-
         let npi = allocPasteboardItem().init()
         let data = dataWithBytes(addr pi.data[0], pi.data.len)
         discard npi.setDataForType(data, kindToNative(pi.kind))
-        pb.p.writeObjects(arrayWithObjects(npi))
+        items.add(npi)
         npi.release()
+    pb.p.writeObjects(items)
+    items.release()
 
 proc pbRead(p: Pasteboard, kind: string): PasteboardItem =
     let pb = MacPasteboard(p)
