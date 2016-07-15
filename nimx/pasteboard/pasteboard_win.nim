@@ -75,27 +75,26 @@ proc globalFlags(hMem: Handle): UINT {.winApi, importc: "GlobalFlags".}
 # UINT WINAPI RegisterClipboardFormat(
 #   _In_ LPCTSTR lpszFormat
 # );
-proc registerClipboardFormat(lpszFormat: WideCString): UINT {.winApi, importc: "RegisterClipboardFormat".}
+proc registerClipboardFormat(lpszFormat: pointer): UINT {.winApi, importc: "RegisterClipboardFormat".}
 
 # int WINAPI GetClipboardFormatName(
 #   _In_  UINT   format,
 #   _Out_ LPTSTR lpszFormatName,
 #   _In_  int    cchMaxCount
 # );
-proc getClipboardFormatName(uFormat: UINT, lpszFormatName: WideCString, cchMaxCount: int32): int32 {.winApi, importc: "GetClipboardFormatName".}
+proc getClipboardFormatName(uFormat: UINT, lpszFormatName: pointer, cchMaxCount: int32): int32 {.winApi, importc: "GetClipboardFormatName".}
 
 proc `*`(b: SomeOrdinal): bool = result = b != 0
 
 proc error()=
-    raiseOSError("GetLastError: " $ getLastError())
+    raiseOSError("GetLastError: " & $getLastError())
 
 proc getClipboardFormatByString(str: string): UINT =
     case str
     of PboardKindString: result = CF_UNICODETEXT
     else:
-        var uFormat = registerClipboardFormat(newWideCString (str))
-        if not *uFormat:
-
+        var uFormat = registerClipboardFormat(str.cstring)
+        if not *uFormat: error()
         result = uFormat
 
 type WindowsPasteboard = ref object of Pasteboard
@@ -112,10 +111,10 @@ proc getPasteboardItem(k: UINT, lpstr: LPVOID, lpdat: Handle): PasteboardItem =
         result = newPasteboardItem(PboardKindString, data)
     else:
         let maxLen = MAX_FORMAT_NAME_LEN
-        var fName = newWideCString("", maxLen)
-        var L = getClipboardFormatName(k, fName, maxLen)
+        var fName = newString(maxLen)
+        var L = getClipboardFormatName(k, addr(fName[0]), maxLen)
         if L == 0'i32: error()
-        result = newPasteboardItem(fName$L, data)
+        result = newPasteboardItem(fName, data)
 
 proc pbWrite(p: Pasteboard, pi_ar: varargs[PasteboardItem])=
     if *openClipboard() and *emptyClipboard():
