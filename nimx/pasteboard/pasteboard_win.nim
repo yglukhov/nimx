@@ -1,20 +1,18 @@
 import abstract_pasteboard
 export abstract_pasteboard
 import winlean
+import os
+
 {.pragma: winApi, stdcall, nodecl.}
 
 type
     LPVOID = pointer
     UINT = cuint
-    # HANDLE = pointer
 
-type ClipboardFormat = enum
-    CF_NONE = 0
-    CF_TEXT = 1
-    CF_UNICODETEXT = 13
-
-type GlobalAllocFlag = enum
-    GMEM_MOVEABLE = 0x0002
+const
+    CF_UNICODETEXT: UINT = 13
+    GMEM_MOVEABLE: UINT = 0x0002
+    MAX_FORMAT_NAME_LEN = 512'i32
 
 # BOOL WINAPI OpenClipboard(
 #   _In_opt_ HWND hWndNewOwner
@@ -53,7 +51,6 @@ proc emptyClipboard(): WINBOOL {.winApi, importc: "EmptyClipboard".}
 # );
 proc isClipboardFormatAvailable(format: UINT): WINBOOL {.winApi, importc: "IsClipboardFormatAvailable".}
 
-
 # HGLOBAL WINAPI GlobalAlloc(
 #   _In_ UINT   uFlags,
 #   _In_ SIZE_T dwBytes
@@ -65,57 +62,91 @@ proc globalAlloc(uFlags: UINT, dwBytes: csize): Handle {.winApi, importc: "Globa
 # );
 proc globalFree(hMem: Handle): Handle {.winApi, importc: "GlobalFree".}
 
+# SIZE_T WINAPI GlobalSize(
+#   _In_ HGLOBAL hMem
+# );
+proc globalSize(hMem: Handle): csize {.winApi, importc: "GlobalSize".}
+
+# UINT WINAPI GlobalFlags(
+#   _In_ HGLOBAL hMem
+# );
+proc globalFlags(hMem: Handle): UINT {.winApi, importc: "GlobalFlags".}
+
+# UINT WINAPI RegisterClipboardFormat(
+#   _In_ LPCTSTR lpszFormat
+# );
+proc registerClipboardFormat(lpszFormat: pointer): UINT {.winApi, importc: "RegisterClipboardFormat".}
+
+# int WINAPI GetClipboardFormatName(
+#   _In_  UINT   format,
+#   _Out_ LPTSTR lpszFormatName,
+#   _In_  int    cchMaxCount
+# );
+proc getClipboardFormatName(uFormat: UINT, lpszFormatName: pointer, cchMaxCount: int32): int32 {.winApi, importc: "GetClipboardFormatName".}
+
 proc `*`(b: SomeOrdinal): bool = result = b != 0
 
-proc getClipboardFormatByString(str: string): ClipboardFormat =
+proc error()=
+    raiseOSError("GetLastError: " & $getLastError())
+
+proc getClipboardFormatByString(str: string): UINT =
     case str
-    of "string": result = CF_TEXT
-    of "unicodeString": result = CF_UNICODETEXT
-    else: result = CF_NONE
+    of PboardKindString: result = CF_UNICODETEXT
+    else:
+        var uFormat = registerClipboardFormat(str.cstring)
+        if not *uFormat: error()
+        result = uFormat
 
 type WindowsPasteboard = ref object of Pasteboard
 
-proc getPasteboardItem(k: ClipboardFormat, lpstr: LPVOID): PasteboardItem =
-    case k
-    of CF_NONE: result = nil
-    of CF_TEXT:
-        var cstr = cast[cstring](lpstr)
-        var str = $cstr
-        result = newPasteboardItem("string", str)
+proc getPasteboardItem(k: UINT, lpstr: LPVOID, lpdat: Handle): PasteboardItem =
+    var lpdatLen = globalSize(lpdat)
+    if not *lpdatLen: error()
+    var str = newWideCString("",lpdatLen)
+    copyMem(addr(str[0]), lpstr, csize(lpdatLen) )
 
+    var data = str$lpdatLen.int32
+    case k
     of CF_UNICODETEXT:
-        var str = cast[WideCString](lpstr)
-        result = newPasteboardItem("unicodeString", $str)
+        result = newPasteboardItem(PboardKindString, data)
+    else:
+        let maxLen = MAX_FORMAT_NAME_LEN
+        var fName = newString(maxLen)
+        var L = getClipboardFormatName(k, addr(fName[0]), maxLen)
+        if L == 0'i32: error()
+        result = newPasteboardItem(fName, data)
 
 proc pbWrite(p: Pasteboard, pi_ar: varargs[PasteboardItem])=
     if *openClipboard() and *emptyClipboard():
 
         for pi in pi_ar:
-            let win_kind = getClipboardFormatByString(pi.kind)
-            let cstr = pi.data.cstring
-            let size = csize(pi.data.len + 1)
-            var allmem = globalAlloc(GMEM_MOVEABLE.UINT, csize(pi.data.len + 1))
+            let fKind = getClipboardFormatByString(pi.kind)
+            let cwstr = newWideCString(pi.data)
+            let size = csize(cwstr.len + 1) * sizeof(Utf16Char)
+            var allmem = globalAlloc(GMEM_MOVEABLE, size)
             let pBuf = globalLock(allmem)
             if not pBuf.isNil:
-                copyMem(pBuf, cstr, size)
+                copyMem(pBuf, addr(cwstr[0]), size)
                 discard globalUnlock(allmem)
-                discard setClipboardData(win_kind.UINT, allmem)
+                discard setClipboardData(fKind, allmem)
                 discard globalFree(allmem)
-            discard closeClipboard()
+
+        discard closeClipboard()
 
     else:
-        var error = getLastError()
+        error()
 
 proc pbRead(p: Pasteboard, kind: string): PasteboardItem =
 
-    let win_kind = getClipboardFormatByString(kind)
-    if *openClipboard() and *isClipboardFormatAvailable(win_kind.UINT):
+    let fKind = getClipboardFormatByString(kind)
+    if *openClipboard():
+        if not *isClipboardFormatAvailable(fKind): return nil
 
-        var hglb = getClipboardData(win_kind.UINT)
+        var hglb = getClipboardData(fKind)
         var lpstr = globalLock(hglb)
 
         if not lpstr.isNil:
-            result = getPasteboardItem(win_kind, lpstr)
+            result = getPasteboardItem(fKind, lpstr, hglb)
         else:
             result = nil
 
@@ -123,7 +154,7 @@ proc pbRead(p: Pasteboard, kind: string): PasteboardItem =
         discard closeClipboard()
 
     else:
-        var error = getLastError()
+        error()
 
 proc pasteboardWithName*(name: string): Pasteboard=
     var res = new(WindowsPasteboard)
