@@ -40,6 +40,7 @@ iterator items[T](a: NSArray[T]): T =
 proc clearContents(p: NSPasteboard) {.importobjc, nodecl.}
 proc writeObjects(p: NSPasteboard, o: NSArray[NSPasteboardItem]) {.importobjc, nodecl.}
 proc pasteboardItems(p: NSPasteboard): NSArray[NSPasteboardItem] {.importobjc, nodecl.}
+proc dataForType(pi: NSPasteboard, t: NSString): NSData {.importobjc: "dataForType", nodecl.}
 
 proc length(p: NSData): int {.importobjc, nodecl.}
 proc getBytes(self: NSData, buffer: pointer, length: int) {.importobjc, nodecl.}
@@ -117,10 +118,6 @@ proc kindToNative(k: string): NSString =
     of PboardKindString: result = NSPasteboardTypeString
     else: result = k
 
-proc kindFromNative(k: NSString): string =
-    if k == NSPasteboardTypeString: result = PboardKindString
-    else: result = k
-
 proc pbWrite(p: Pasteboard, pi_ar: varargs[PasteboardItem]) =
     let pb = MacPasteboard(p)
     pb.p.clearContents()
@@ -136,14 +133,14 @@ proc pbWrite(p: Pasteboard, pi_ar: varargs[PasteboardItem]) =
 
 proc pbRead(p: Pasteboard, kind: string): PasteboardItem =
     let pb = MacPasteboard(p)
-    let npi = pb.p.pasteboardItems[0]
     let typ = kindToNative(kind)
-    result.new()
-    result.kind = kindFromNative(typ)
-    let d = npi.dataForType(typ)
-    let ln = d.length
-    result.data = newString(ln)
-    d.getBytes(addr result.data[0], ln)
+    let d = pb.p.dataForType(typ)
+    if not d.isNil:
+        result.new()
+        result.kind = kind
+        let ln = d.length
+        result.data = newString(ln)
+        d.getBytes(addr result.data[0], ln)
 
 proc pasteboardWithName*(name: string): Pasteboard =
     var res: MacPasteboard
