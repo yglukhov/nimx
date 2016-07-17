@@ -248,7 +248,10 @@ method deserialize(s: JsonDeserializer, v: var int32) = v = int32(s.deserializeJ
 method deserialize(s: JsonDeserializer, v: var int64) = v = int64(s.deserializeJsonNode().num)
 method deserialize(s: JsonDeserializer, v: var float32) = v = s.deserializeJsonNode().getFnum()
 method deserialize(s: JsonDeserializer, v: var float64) = v = s.deserializeJsonNode().getFnum()
-method deserialize(s: JsonDeserializer, v: var string) = v = s.deserializeJsonNode().str
+method deserialize(s: JsonDeserializer, v: var string) =
+    let n = s.deserializeJsonNode()
+    if n.kind == JString:
+        v = n.str
 
 method beginObject*(s: JsonDeserializer) = s.pushJsonNode()
 
