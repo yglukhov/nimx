@@ -15,6 +15,10 @@ import window_event_handling
 
 import nimx.property_editors.autoresizing_mask_editor # Imported here to be registered in the propedit registry
 import nimx.serializers
+import nimx.key_commands
+import nimx.pasteboard.pasteboard
+
+const ViewPboardKind = "io.github.yglukhov.nimx"
 
 type
     EventCatchingView = ref object of View
@@ -65,19 +69,45 @@ method onKeyUp(v: EventCatchingView, e : var Event): bool =
 
 method onKeyDown(v: EventCatchingView, e : var Event): bool =
     let u = v.editor.undoManager
-    when defined(macosx):
-        if e.keyCode == VirtualKey.Z and (alsoPressed(VirtualKey.LeftGUI) or alsoPressed(VirtualKey.RightGUI)):
-            if (alsoPressed(VirtualKey.LeftShift) or alsoPressed(VirtualKey.RightShift)) and u.canRedo():
-                u.redo()
-            elif u.canUndo():
-                u.undo()
-    else:
-        if e.keyCode == VirtualKey.Z and
-                (alsoPressed(VirtualKey.LeftControl) or alsoPressed(VirtualKey.RightControl)) and u.canUndo():
-            u.undo()
-        elif e.keyCode == VirtualKey.Y and
-                (alsoPressed(VirtualKey.LeftControl) or alsoPressed(VirtualKey.RightControl)) and u.canRedo():
-            u.redo()
+    let cmd = commandFromEvent(e)
+    case cmd
+    of kcUndo:
+        if u.canUndo(): u.undo()
+    of kcRedo:
+        if u.canRedo(): u.redo()
+    of kcCopy, kcCut:
+        let sv = v.selectedView
+        if not sv.isNil:
+            let s = newJsonSerializer()
+            s.serialize(sv)
+            let pbi = newPasteboardItem(ViewPboardKind, $s.jsonNode)
+            pasteboardWithName(PboardGeneral).write(pbi)
+            if cmd == kcCut:
+                let svSuperview = sv.superview
+                u.pushAndDo("Cut view") do():
+                    sv.removeFromSuperview()
+                    v.selectedView = nil
+                do():
+                    svSuperview.addSubview(sv)
+                    v.selectedView = sv
+    of kcPaste:
+        let pbi = pasteboardWithName(PboardGeneral).read(ViewPboardKind)
+        if not pbi.isNil:
+            let jn = parseJson(pbi.data)
+            echo jn
+            let s = newJsonDeserializer(parseJson(pbi.data))
+            var nv: View
+            s.deserialize(nv)
+            doAssert(not nv.isNil)
+            var targetView = v.selectedView
+            if targetView.isNil:
+                targetView = v.editor.editedView
+            u.pushAndDo("Paste view") do():
+                targetView.addSubview(nv)
+            do():
+                nv.removeFromSuperview()
+
+    else: discard
 
     if e.keyCode == VirtualKey.Delete:
         let sv = v.selectedView
