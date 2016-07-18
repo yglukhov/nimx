@@ -200,11 +200,15 @@ proc nimblePath(package: string): string =
     var nimblecmd = "nimble"
     when defined(windows):
         nimblecmd &= ".cmd"
-    var (nimbleNimxDir, err) = execCmdEx(nimblecmd & " path " & package)
+    var (packageDir, err) = execCmdEx(nimblecmd & " path " & package)
     if err == 0:
-        let lines = nimbleNimxDir.splitLines()
+        let lines = packageDir.splitLines()
         if lines.len > 1:
             result = lines[^2]
+
+proc nimbleNimxPath(): string =
+    result = nimblePath("nimx")
+    doAssert(not result.isNil, "Error: nimx does not seem to be installed with nimble!")
 
 proc newBuilderForCurrentPlatform(): Builder =
     when defined(macosx):
@@ -355,10 +359,8 @@ proc buildSDLForIOS(b: Builder, forSimulator: bool = false): string =
 proc makeAndroidBuildDir(b: Builder): string =
     let buildDir = b.buildRoot / b.javaPackageId
     if not dirExists buildDir:
-        let nimbleNimxDir = nimblePath("nimx")
-        doAssert(not nimbleNimxDir.isNil, "Error: nimx does not seem to be installed with nimble!")
+        let templateDir = nimbleNimxPath() / "test" / "android" / "template"
         createDir(buildDir)
-        let templateDir = nimbleNimxDir / "test" / "android" / "template"
         echo "Using Android app template: ", templateDir
         copyDir templateDir, buildDir
 
@@ -450,7 +452,10 @@ proc jsPostBuild(b: Builder) =
         closure_compiler.compileFileAndRewrite(b.buildRoot / "main.js", ADVANCED_OPTIMIZATIONS, b.enableClosureCompilerSourceMap)
 
     let sf = splitFile(b.mainFile)
-    copyFile(sf.dir / sf.name & ".html", b.buildRoot / "main.html")
+    var mainHTML = sf.dir / sf.name & ".html"
+    if not fileExists(mainHTML):
+        mainHTML = nimbleNimxPath() / "test" / "main.html"
+    copyFile(mainHTML, b.buildRoot / "main.html")
     if b.runAfterBuild:
         let settings = newSettings(staticDir = b.buildRoot)
         routes:
