@@ -21,8 +21,6 @@ method onTextInput*(w: Window, s: string): bool =
     if w.canPassEventToFirstResponder:
         result = w.firstResponder.onTextInput(s)
 
-let newTouch : bool = true
-
 var keyboardState: set[VirtualKey] = {}
 
 proc alsoPressed*(vk: VirtualKey): bool =
@@ -30,11 +28,10 @@ proc alsoPressed*(vk: VirtualKey): bool =
 
 method handleEvent*(w: Window, e: var Event): bool {.base.} =
     case e.kind:
-        of etMouse, etScroll, etTouch:
-            if newTouch:
-                result = w.processTouchEvent(e)
-            else:
-                result = w.recursiveHandleMouseEvent(e)
+        of etScroll:
+            result = w.processMouseWheelEvent(e)
+        of etMouse, etTouch:
+            result = w.processTouchEvent(e)
         of etKeyboard:
             if e.buttonState == bsDown:
                 keyboardState.incl(e.keyCode)

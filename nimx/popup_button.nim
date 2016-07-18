@@ -40,6 +40,8 @@ proc newPopupButton*(parent: View = nil, position: Point = newPoint(0, 0), size:
 proc selectedIndex*(b: PopupButton): int = b.mSelectedItem
   ## Returns selected item index
 
+proc selectedItem*(b: PopupButton): string = b.mItems[b.mSelectedItem].title
+
 proc `selectedIndex=`*(b: PopupButton, index: int) =
   ## Set selected item manually
   b.mSelectedItem = index

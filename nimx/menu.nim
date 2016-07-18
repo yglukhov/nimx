@@ -5,6 +5,8 @@ import context
 import app
 import view_event_handling
 
+import times
+
 type MenuItem* = ref object of RootObj
     title*: string
     subitems*: seq[MenuItem]
@@ -23,12 +25,14 @@ proc newMenu*(): Menu =
 
 type MenuView = ref object of View
     menuItems: seq[MenuItem]
+    highlightedRow: int
 
 const menuItemHeight = 20.Coord
 
 proc newViewWithMenuItems(items: seq[MenuItem]): MenuView =
     result = MenuView.new(newRect(0, 0, 150, items.len.Coord * menuItemHeight))
     result.menuItems = items
+    result.highlightedRow = -1
     var yOff = 0.Coord
     for i, item in items:
         let label = newLabel(newRect(0, 0, 150, menuItemHeight))
@@ -46,33 +50,36 @@ method draw(v: MenuView, r: Rect) =
     c.strokeWidth = 0
     c.drawRoundedRect(v.bounds, 5)
 
-method onMouseOver(v: MenuView, e: var Event) =
-    let highlightedRow = int(e.localPosition.y / menuItemHeight)
-    for sv in v.subviews:
-        TableViewCell(sv).selected = false
-    if highlightedRow >= 0 and highlightedRow < v.subviews.len:
-        TableViewCell(v.subviews[highlightedRow]).selected = true
-
-    v.setNeedsDisplay()
-
-method onTouchEv(mv: MenuView, e: var Event): bool =
-    if e.buttonState == bsDown:
-        mv.trackMouseOver(false)
-        var selected: int = 0
-        for sv in mv.subviews:
-            if not TableViewCell(sv).selected:
-                inc(selected)
-            else:
-                break
-        if selected < mv.subviews.len():
-            let item = mv.menuItems[selected]
-            if not item.action.isNil:
-                item.action()
-        mv.removeFromSuperview()
-    return true
-
 proc popupAtPoint*(m: Menu, v: View, p: Point) =
     let mv = newViewWithMenuItems(m.items)
     mv.setFrameOrigin(v.convertPointToWindow(p))
     v.window.addSubview(mv)
-    mv.trackMouseOver(true)
+
+    let popupTime = epochTime()
+
+    mainApplication().pushEventFilter do(e: var Event, control: var EventFilterControl) -> bool:
+        result = true
+        let localPos = mv.convertPointFromWindow(e.position)
+        if e.buttonState == bsDown:
+            if not localPos.inRect(mv.bounds):
+                control = efcBreak
+                mv.removeFromSuperview()
+        else:
+            if mv.highlightedRow != -1:
+                TableViewCell(mv.subviews[mv.highlightedRow]).selected = false
+
+            mv.highlightedRow = int(localPos.y / menuItemHeight)
+
+            if localPos.inRect(mv.bounds) and mv.highlightedRow >= 0 and mv.highlightedRow < mv.subviews.len:
+                TableViewCell(mv.subviews[mv.highlightedRow]).selected = true
+            else:
+                mv.highlightedRow = -1
+            v.setNeedsDisplay()
+
+            if e.buttonState == bsUp and (epochTime() - popupTime) > 0.3:
+                if mv.highlightedRow != -1:
+                    let item = mv.menuItems[mv.highlightedRow]
+                    if not item.action.isNil:
+                        item.action()
+                control = efcBreak
+                mv.removeFromSuperview()

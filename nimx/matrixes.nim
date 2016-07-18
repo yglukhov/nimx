@@ -739,10 +739,32 @@ proc frustum*(dest: var Matrix4, left, right, bottom, top, nearr, farr: Coord) =
     dest[15] = 0;
 
 proc perspective*(dest: var Matrix4, fovy, aspect, nearr, farr: Coord) =
-    let
-        top = nearr * tan(fovy * PI / 360.0)
-        right = top * aspect
-    dest.frustum(-right, right, -top, top, nearr, farr)
+    # column major version, compatible with maya cameras
+    let size = nearr * tan(degToRad(fovy) / 2.0)
+    let left = -size
+    let right = size
+    let bottom = -size / aspect
+    let top = size / aspect
+
+    dest[0] = 2.0 * nearr / (right - left)
+    dest[1] = 0.0
+    dest[2] = 0.0
+    dest[3] = 0.0
+
+    dest[4] = 0.0
+    dest[5] = 2.0 * nearr / (top - bottom)
+    dest[6] = 0.0
+    dest[7] = 0.0
+
+    dest[8] = (right + left) / (right - left)
+    dest[9] = (top + bottom) / (top - bottom)
+    dest[10] = -(farr + nearr) / (farr - nearr)
+    dest[11] = -1.0
+
+    dest[12] = 0.0
+    dest[13] = 0.0
+    dest[14] = -(2.0 * farr * nearr) / (farr - nearr)
+    dest[15] = 0.0
 
 proc ortho*(dest: var Matrix4, left, right, bottom, top, nearr, farr: Coord) =
     let
@@ -829,15 +851,15 @@ proc lookAt*(dest: var Matrix4, eye, center, up: Vector3) =
         y2 *= len
 
     dest[0] = x0;
-    dest[1] = y0;
-    dest[2] = z0;
+    dest[1] = x1;
+    dest[2] = x2;
     dest[3] = 0;
-    dest[4] = x1;
+    dest[4] = y0;
     dest[5] = y1;
-    dest[6] = z1;
+    dest[6] = y2;
     dest[7] = 0;
-    dest[8] = x2;
-    dest[9] = y2;
+    dest[8] = z0;
+    dest[9] = z1;
     dest[10] = z2;
     dest[11] = 0;
     dest[12] = -(x0 * eyex + x1 * eyey + x2 * eyez);
@@ -847,16 +869,16 @@ proc lookAt*(dest: var Matrix4, eye, center, up: Vector3) =
 
 proc tryGetTranslationFromModel*(mat: Matrix4, translation: var Vector3): bool =
     if mat[15] == 0: return false
-    translation = newVector3(mat[3], mat[7], mat[11]) / mat[15]
+    translation = newVector3(mat[12], mat[13], mat[14]) / mat[15]
     return true
 
 proc tryGetScaleRotationFromModel*(mat: Matrix4, scale: var Vector3, rotation: var Vector4): bool =
     if mat[15] == 0: return false
 
     var
-        row0 = newVector3(mat[0], mat[4], mat[8]) / mat[15]
-        row1 = newVector3(mat[1], mat[5], mat[9]) / mat[15]
-        row2 = newVector3(mat[2], mat[6], mat[10]) / mat[15]
+        row0 = newVector3(mat[0], mat[1], mat[2]) / mat[15]
+        row1 = newVector3(mat[4], mat[5], mat[6]) / mat[15]
+        row2 = newVector3(mat[8], mat[9], mat[10]) / mat[15]
 
     # scale skew
     scale[0] = row0.length()
@@ -919,6 +941,11 @@ proc tryGetScaleRotationFromModel*(mat: Matrix4, scale: var Vector3, rotation: v
     rotation = newVector4(x, y, z, w)
 
     return true
+
+proc transformDirection*(mat: Matrix4, dir: Vector3): Vector3 =
+    result.x = dir.x * mat[0] + dir.y * mat[4] + dir.z * mat[8]
+    result.y = dir.x * mat[1] + dir.y * mat[5] + dir.z * mat[9]
+    result.z = dir.x * mat[2] + dir.y * mat[6] + dir.z * mat[10]
 
 discard """
 mat4_t mat4_fromRotationTranslation(quat_t quat, vec3_t vec, mat4_t dest) {

@@ -42,4 +42,4 @@ method draw(v: ImageSampleView, r: Rect) =
     imageRect.size = v.generatedImage.size
     c.drawImage(v.generatedImage, imageRect)
 
-registerSample "Image", ImageSampleView.new(newRect(0, 0, 100, 100))
+registerSample(ImageSampleView, "Image")

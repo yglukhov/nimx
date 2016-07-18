@@ -36,6 +36,7 @@ type SdlWindow* = ref object of Window
 var animationEnabled = 0
 
 method enableAnimation*(w: SdlWindow, flag: bool) =
+    doAssert( (animationEnabled == 0 and flag) or (animationEnabled != 0 and not flag) )
     if flag:
         inc animationEnabled
         when defined(ios):
@@ -147,13 +148,14 @@ proc eventWithSDLEvent(event: ptr sdl2.Event): Event =
                 of FingerDown: bsDown
                 of FingerUp: bsUp
                 else: bsUnknown
+
             let touchEv = cast[TouchFingerEventPtr](event)
             result = newTouchEvent(
                                    newPoint(touchEv.x * defaultWindow.frame.width, touchEv.y * defaultWindow.frame.height),
                                    bs, int(touchEv.fingerID), touchEv.timestamp
                                    )
             result.window = defaultWindow
-            when defined(macosx):
+            when defined(macosx) and not defined(ios):
                 result.kind = etUnknown # TODO: Fix apple trackpad problem
 
         of WindowEvent:
@@ -213,8 +215,8 @@ proc eventWithSDLEvent(event: ptr sdl2.Event): Event =
         of KeyDown, KeyUp:
             let keyEv = cast[KeyboardEventPtr](event)
             let wnd = windowFromSDLEvent(keyEv)
-            result = newKeyboardEvent(virtualKeyFromNative(keyEv.keysym.sym), buttonStateFromSDLState(keyEv.state.KeyState), keyEv.repeat)
-            result.rune = keyEv.keysym.unicode.Rune
+            result = newKeyboardEvent(virtualKeyFromNative(cint(keyEv.keysym.scancode)), buttonStateFromSDLState(keyEv.state.KeyState), keyEv.repeat)
+            #result.rune = keyEv.keysym.unicode.Rune
             result.window = wnd
 
         of TextInput:
@@ -285,10 +287,18 @@ proc handleCallbackEvent(evt: UserEventPtr) =
     else:
         p(evt.data2)
 
+proc iPhoneSetEventPump(enabled: Bool32) {.importc: "SDL_iPhoneSetEventPump".}
+
 proc nextEvent(evt: var sdl2.Event) =
     when defined(ios):
-        if waitEvent(evt):
+        iPhoneSetEventPump(true)
+        pumpEvents()
+        iPhoneSetEventPump(false)
+        while pollEvent(evt):
             discard handleEvent(addr evt)
+
+        if animationEnabled == 0:
+            mainApplication().drawWindows()
     else:
         var doPoll = false
         if animationEnabled > 0:
@@ -304,7 +314,7 @@ proc nextEvent(evt: var sdl2.Event) =
                 if evt.kind == QuitEvent:
                     break
 
-    animateAndDraw()
+        animateAndDraw()
 
 method startTextInput*(w: SdlWindow, r: Rect) =
     startTextInput()
@@ -325,3 +335,12 @@ proc runUntilQuit*() =
             break
 
     discard quit(evt)
+
+template runApplication*(body: typed): stmt =
+    try:
+        body
+        runUntilQuit()
+    except:
+        logi "Exception caught: ", getCurrentExceptionMsg()
+        logi getCurrentException().getStackTrace()
+        quit 1

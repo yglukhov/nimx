@@ -1,15 +1,32 @@
 import strutils
 
-# Support logging on iOS and android
 when defined(js):
-    proc js_console_log(a: cstring) {.importc: "console.log".}
-
-    proc logi*(a: varargs[string, `$`]) =
-        js_console_log(a.join())
+    when defined(runAutoTests):
+        proc native_log(a: cstring) =
+            {.emit: """
+            if ('dump' in window)
+                window['dump'](`a` + '\n');
+            else
+                console.log(a);
+            """.}
+    else:
+        proc native_log(a: cstring) {.importc: "console.log".}
 elif defined(emscripten):
-    proc emscripten_log(flags: cint) {.importc, varargs.}
-    proc logi*(a: varargs[string, `$`]) =
-        emscripten_log(0, cstring("%s"), cstring(a.join()))
+    when defined(runAutoTests):
+        import emscripten
+        proc native_log(a: cstring) =
+            discard EM_ASM_INT("""
+            var s = Pointer_stringify($0);
+            if ('dump' in window)
+                window['dump'](s + '\n');
+            else
+                console.log(s);
+            return 0;
+            """, a)
+    else:
+        proc emscripten_log(flags: cint) {.importc, varargs.}
+        template native_log(a: cstring) =
+            emscripten_log(0, cstring("%s"), cstring(a))
 elif defined(macosx) or defined(ios):
     {.passL:"-framework Foundation"}
     {.emit: """
@@ -19,17 +36,37 @@ elif defined(macosx) or defined(ios):
 
     """.}
 
-    proc NSLog_imported(a: cstring) =
+    proc native_log(a: cstring) =
         {.emit: "NSLog(CFSTR(\"%s\"), `a`);" .}
-
-    proc logi*(a: varargs[string, `$`]) = NSLog_imported(a.join())
 elif defined(android):
     {.emit: """
     #include <android/log.h>
     """.}
 
-    proc droid_log_imported(a: cstring) =
+    proc native_log(a: cstring) =
         {.emit: """__android_log_write(ANDROID_LOG_INFO, "NIM_APP", `a`);""".}
-    proc logi*(a: varargs[string, `$`]) = droid_log_imported(a.join())
 else:
-    proc logi*(a: varargs[string, `$`]) = echo a.join()
+    template native_log(a: string) = echo a
+
+proc nimxPrivateStringify*[T](v: T): string {.inline.} = $v
+proc nimxPrivateStringify*(v: string): string {.inline.} =
+    result = v
+    if result.isNil: result = "(nil)"
+
+var currentOffset {.threadvar.}: string
+
+proc logi*(a: varargs[string, nimxPrivateStringify]) {.gcsafe.} =
+    if currentOffset.isNil: currentOffset = ""
+    native_log(currentOffset & a.join())
+
+proc increaseOffset() =
+    if currentOffset.isNil: currentOffset = "  "
+    else: currentOffset &= "  "
+
+template decreaseOffset() =
+    currentOffset.setLen(currentOffset.len - 2)
+
+template enterLog*() =
+    increaseOffset()
+    defer: decreaseOffset()
+

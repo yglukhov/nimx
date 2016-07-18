@@ -5,8 +5,10 @@ when defined(js):
     export startAnimation
 elif defined(emscripten):
     import emscripten_window
-    export runApplication
 else:
     import sdl_window
     export runUntilQuit
+
+export runApplication
+
 export abstract_window

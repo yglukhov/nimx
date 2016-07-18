@@ -5,6 +5,7 @@ import nimx.segmented_control
 import nimx.color_picker
 import nimx.button
 import nimx.image
+import nimx.image_view
 import nimx.text_field
 import nimx.types
 import nimx.slider
@@ -95,4 +96,12 @@ method init(v: ControlsSampleView, r: Rect) =
         discard
     v.addSubview(cp)
 
-registerSample "Controls", ControlsSampleView.new(newRect(0, 0, 100, 100))
+    setTimeout 0.2, proc() =
+        let imageView = newImageView(newRect(0, 400, 300, 150), imageWithResource("tile.png"))
+        v.addSubview(imageView)
+
+        let popupFillRule = newPopupButton(v, newPoint(420, 400), newSize(100, 20), ["NoFill", "Stretch", "Tile", "FitWidth", "FitHeight"])
+        popupFillRule.onAction do():
+            imageView.fillRule = popupFillRule.selectedIndex().ImageFillRule
+
+registerSample(ControlsSampleView, "Controls")

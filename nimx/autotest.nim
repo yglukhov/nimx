@@ -44,23 +44,6 @@ macro registeredUiTest*(name: untyped, body: typed): stmt =
     result.add(testSuiteDefinitionWithNameAndBody(name, body))
     result.add(newCall(bindsym "registerTest", name))
 
-when defined(emscripten):
-    import emscripten
-
-proc dump(s: string) =
-    when defined(js):
-        let cs : cstring = s
-        # The following ['dump'] is required this way because otherwise
-        # it will be stripped away by closure compiler as not a standard function.
-        {.emit: "if ('dump' in window) window['dump'](`cs` + '\\n');".}
-    elif defined(emscripten):
-        discard EM_ASM_INT("""
-        if ('dump' in window) window['dump'](Pointer_stringify($0) + '\n');
-        return 0;
-        """, cstring(s))
-    else:
-        logi s
-
 when true:
     proc sendMouseEvent*(wnd: Window, p: Point, bs: ButtonState) =
         var evt = newMouseButtonEvent(p, VirtualKey.MouseButtonPrimary, bs)
@@ -71,23 +54,20 @@ when true:
     proc sendMouseUpEvent*(wnd: Window, p: Point) = sendMouseEvent(wnd, p, bsUp)
 
     proc findButtonWithTitle*(v: View, t: string): Button =
-        try:
-            result = Button(v)
-        except:
-            discard
-        if result.isNil or result.title != t:
-            if not v.subviews.isNil:
-                for s in v.subviews:
-                    result = findButtonWithTitle(s, t)
-                    if not result.isNil: break
+        if v of Button:
+            let btn = Button(v)
+            if btn.title == t:
+                result = btn
+        else:
+            for s in v.subviews:
+                result = findButtonWithTitle(s, t)
+                if not result.isNil: break
 
     proc quitApplication*() =
-        when defined(js) or defined(emscripten):
+        when defined(js) or defined(emscripten) or defined(android):
             # Hopefully we're using nimx automated testing in Firefox
-            dump("---AUTO-TEST-QUIT---")
+            logi "---AUTO-TEST-QUIT---"
         else:
-            when defined(android):
-                logi "---AUTO-TEST-QUIT---"
             quit()
 
     template waitUntil*(e: bool): stmt =
@@ -117,8 +97,8 @@ proc startTest*(t: UITestSuite) =
 
     var tim : Timer
     tim = setInterval(0.5, proc() =
-        dump "RUNNING"
-        dump t[testRunnerContext.curTest].astrepr
+        logi "RUNNING"
+        logi t[testRunnerContext.curTest].astrepr
         t[testRunnerContext.curTest].code()
         inc testRunnerContext.curTest
         if testRunnerContext.curTest == t.len:
@@ -133,8 +113,8 @@ proc startRegisteredTests*() =
     var curTestSuite = 0
     var tim : Timer
     tim = setInterval(0.5, proc() =
-        dump "RUNNING"
-        dump registeredTests[curTestSuite][testRunnerContext.curTest].astrepr
+        logi "RUNNING"
+        logi registeredTests[curTestSuite][testRunnerContext.curTest].astrepr
         registeredTests[curTestSuite][testRunnerContext.curTest].code()
         inc testRunnerContext.curTest
         if testRunnerContext.curTest == registeredTests[curTestSuite].len:

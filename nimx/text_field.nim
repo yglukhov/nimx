@@ -9,14 +9,17 @@ import unicode
 import timer
 import table_view_cell
 import window_event_handling
+import property_visitor
+import serializers
 
 export control
 
 type TextField* = ref object of Control
     mText*: string
     editable*: bool
+    continuous*: bool
     textColor*: Color
-
+    mFont*: Font
     textSelection: tuple[selected: bool, inselection: bool, startIndex: int, endIndex: int]
 
 var cursorPos = 0
@@ -37,7 +40,6 @@ proc text*(tf: TextField) : string =
 proc newTextField*(r: Rect): TextField =
     result.new()
     result.init(r)
-    result.textColor = newGrayColor(0.0)
 
 proc newTextField*(parent: View = nil, position: Point = newPoint(0, 0), size: Size = newSize(100, 20), text: string = ""): TextField =
     result = newTextField(newRect(position.x, position.y, size.width, size.height))
@@ -61,6 +63,14 @@ method init*(t: TextField, r: Rect) =
     procCall t.Control.init(r)
     t.editable = true
     t.textSelection = (false, false, -1, -1)
+    t.textColor = newGrayColor(0.0)
+
+template `font=`*(t: TextField, f: Font) = t.mFont = f
+proc font*(t: TextField): Font =
+    if t.mFont.isNil:
+        result = systemFont()
+    else:
+        result = t.mFont
 
 proc isEditing*(t: TextField): bool =
     t.editable and t.isFirstResponder
@@ -83,6 +93,21 @@ proc bumpCursorVisibility(t: TextField) =
 
     cursorUpdateTimer = setInterval(0.5, p)
 
+proc selectInRange*(t: TextField, a, b: int) =
+    var aa = clamp(a, 0, t.mText.len)
+    var bb = clamp(b, 0, t.mText.len)
+    if bb < aa: swap(aa, bb)
+    if aa - bb == 0:
+        t.textSelection.selected = false
+        t.textSelection.startIndex = 0
+        t.textSelection.endIndex = 0
+    else:
+        t.textSelection.selected = true
+        t.textSelection.startIndex = aa
+        t.textSelection.endIndex = bb
+
+proc selectAll*(t: TextField) = t.selectInRange(0, t.mText.len)
+
 method draw*(t: TextField, r: Rect) =
     let c = currentContext()
     if t.editable:
@@ -91,7 +116,7 @@ method draw*(t: TextField, r: Rect) =
         c.strokeWidth = 1.0
         c.drawRect(t.bounds)
 
-    let font = systemFont()
+    let font = t.font()
 
     var textY = (t.bounds.height - font.size) / 2
 
@@ -116,13 +141,13 @@ method draw*(t: TextField, r: Rect) =
             c.fillColor = whiteColor()
         else:
             c.fillColor = t.textColor
-        c.drawText(systemFont(), pt, t.mText)
+        c.drawText(font, pt, t.mText)
 
     if t.isEditing:
         t.drawFocusRing()
         drawCursorWithRect(newRect(leftMargin + cursorOffset, textY, 2, font.size))
 
-method onTouchEv(t: TextField, e: var Event): bool =
+method onTouchEv*(t: TextField, e: var Event): bool =
     result = false
     var pt = e.localPosition
     case e.buttonState
@@ -133,7 +158,7 @@ method onTouchEv(t: TextField, e: var Event): bool =
                 cursorPos = 0
                 cursorOffset = 0
             else:
-                systemFont().getClosestCursorPositionToPointInString(t.text, pt, cursorPos, cursorOffset)
+                t.font.getClosestCursorPositionToPointInString(t.text, pt, cursorPos, cursorOffset)
 
             t.textSelection = (true, true, cursorPos, -1)
 
@@ -144,7 +169,7 @@ method onTouchEv(t: TextField, e: var Event): bool =
             else:
 
                 t.textSelection.inSelection = false
-                systemFont().getClosestCursorPositionToPointInString(t.text, pt, cursorPos, cursorOffset)
+                t.font.getClosestCursorPositionToPointInString(t.text, pt, cursorPos, cursorOffset)
 
                 t.textSelection.endIndex = cursorPos
                 if (t.textSelection.endIndex - t.textSelection.startIndex == 0) or t.textSelection.endIndex == -1:
@@ -157,14 +182,14 @@ method onTouchEv(t: TextField, e: var Event): bool =
     of bsUnknown:
         if t.editable:
             if t.textSelection.inSelection:
-                systemFont().getClosestCursorPositionToPointInString(t.text, pt, cursorPos, cursorOffset)
+                t.font.getClosestCursorPositionToPointInString(t.text, pt, cursorPos, cursorOffset)
                 t.textSelection.endIndex = cursorPos
                 t.setNeedsDisplay()
 
             result = false
 
 proc updateCursorOffset(t: TextField) =
-    cursorOffset = systemFont().cursorOffsetForPositionInString(t.mText, cursorPos)
+    cursorOffset = t.font.cursorOffsetForPositionInString(t.mText, cursorPos)
 
 proc clearSelection(t: TextField) =
     # Clears selected text
@@ -186,12 +211,17 @@ method onKeyDown*(t: TextField, e: var Event): bool =
         elif cursorPos > 0:
             t.mText.uniDelete(cursorPos - 1, cursorPos - 1)
             dec cursorPos
+            if t.continuous:
+                t.sendAction()
+
         t.updateCursorOffset()
         t.bumpCursorVisibility()
     elif e.keyCode == VirtualKey.Delete and not t.mText.isNil:
         if t.textSelection.selected: t.clearSelection()
         elif cursorPos < t.mText.runeLen:
             t.mText.uniDelete(cursorPos, cursorPos)
+            if t.continuous:
+                t.sendAction()
         t.bumpCursorVisibility()
     elif e.keyCode == VirtualKey.Left:
         dec cursorPos
@@ -258,6 +288,8 @@ method onTextInput*(t: TextField, s: string): bool =
     t.updateCursorOffset()
     t.bumpCursorVisibility()
 
+    if t.continuous:
+        t.sendAction()
 
 method viewShouldResignFirstResponder*(v: TextField, newFirstResponder: View): bool =
     result = true
@@ -267,7 +299,21 @@ method viewShouldResignFirstResponder*(v: TextField, newFirstResponder: View): b
     v.sendAction()
 
 method viewDidBecomeFirstResponder*(t: TextField) =
-    t.window.startTextInput(t.convertRectoToWindow(t.bounds))
+    t.window.startTextInput(t.convertRectToWindow(t.bounds))
     cursorPos = if t.mText.isNil: 0 else: t.mText.len
     t.updateCursorOffset()
     t.bumpCursorVisibility()
+
+method visitProperties*(v: TextField, pv: var PropertyVisitor) =
+    procCall v.Control.visitProperties(pv)
+    pv.visitProperty("text", v.text)
+
+method serializeFields*(v: TextField, s: Serializer) =
+    procCall v.View.serializeFields(s)
+    s.serialize("text", v.text)
+
+method deserializeFields*(v: TextField, s: Deserializer) =
+    procCall v.View.deserializeFields(s)
+    s.deserialize("text", v.mText)
+
+registerClass(TextField)

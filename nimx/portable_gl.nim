@@ -32,7 +32,7 @@ when defined js:
             VERTEX_SHADER* : GLenum
             FRAGMENT_SHADER* : GLenum
             TEXTURE_2D* : GLenum
-            ONE_MINUS_SRC_ALPHA*, ONE_MINUS_DST_ALPHA*, SRC_ALPHA*, DST_ALPHA*, ONE*, DST_COLOR* : GLenum
+            ONE_MINUS_SRC_ALPHA*, ONE_MINUS_DST_ALPHA*, SRC_ALPHA*, DST_ALPHA*, ONE*, DST_COLOR*, CONSTANT_COLOR*, ONE_MINUS_SRC_COLOR*: GLenum
             BLEND* : GLenum
             TRIANGLES*, TRIANGLE_FAN*, TRIANGLE_STRIP*, LINES* : GLenum
             COLOR_BUFFER_BIT*: int
@@ -73,6 +73,8 @@ when defined js:
     const invalidProgram* : ProgramRef = nil
     const invalidShader* : ShaderRef = nil
     const invalidBuffer* : BufferRef = nil
+    const invalidFrameBuffer* : FramebufferRef = nil
+    const invalidTexture* : TextureRef = nil
 
     {.push importcpp.}
 
@@ -95,6 +97,7 @@ when defined js:
     proc deleteFramebuffer*(gl: GL, name: FramebufferRef)
     proc deleteRenderbuffer*(gl: GL, name: RenderbufferRef)
     proc deleteBuffer*(gl: GL, name: BufferRef)
+    proc deleteTexture*(gl: GL, name: TextureRef)
 
     proc bindAttribLocation*(gl: GL, program: ProgramRef, index: GLuint, name: cstring)
     proc enableVertexAttribArray*(gl: GL, attrib: GLuint)
@@ -125,6 +128,7 @@ when defined js:
     proc clearColor*(gl: GL, r, g, b, a: GLfloat)
     proc clearStencil*(gl: GL, s: GLint)
     proc blendFunc*(gl: GL, sfactor, dfactor: GLenum)
+    proc blendColor*(gl: GL, r, g, b, a: Glfloat)
     proc blendFuncSeparate*(gl: GL, sfactor, dfactor, sfactorA, dfactorA: GLenum)
     proc texParameteri*(gl: GL, target, pname: GLenum, param: GLint)
 
@@ -166,10 +170,14 @@ else:
     const invalidProgram* : ProgramRef = 0
     const invalidShader* : ShaderRef = 0
     const invalidBuffer* : BufferRef = 0
+    const invalidFrameBuffer* : FramebufferRef = 0
+    const invalidTexture* : TextureRef = 0
 
     template VERTEX_SHADER*(gl: GL): GLenum = GL_VERTEX_SHADER
     template FRAGMENT_SHADER*(gl: GL): GLenum = GL_FRAGMENT_SHADER
     template TEXTURE_2D*(gl: GL): GLenum = GL_TEXTURE_2D
+    template CONSTANT_COLOR*(gl: GL): GLenum = GL_CONSTANT_COLOR
+    template ONE_MINUS_SRC_COLOR*(gl: GL): GLenum = GL_ONE_MINUS_SRC_COLOR
     template ONE_MINUS_SRC_ALPHA*(gl: GL): GLenum = GL_ONE_MINUS_SRC_ALPHA
     template ONE_MINUS_DST_ALPHA*(gl: GL): GLenum = GL_ONE_MINUS_DST_ALPHA
     template SRC_ALPHA*(gl: GL): GLenum = GL_SRC_ALPHA
@@ -201,7 +209,7 @@ else:
     template UNSIGNED_BYTE*(gl: GL): GLenum = GL_UNSIGNED_BYTE
     template COLOR_ATTACHMENT0*(gl: GL): GLenum = GL_COLOR_ATTACHMENT0
     template DEPTH_ATTACHMENT*(gl: GL): GLenum = GL_DEPTH_ATTACHMENT
-    template DEPTH_STENCIL_ATTACHMENT*(gl: GL): GLenum = GL_DEPTH_ATTACHMENT
+    template DEPTH_STENCIL_ATTACHMENT*(gl: GL): GLenum = GL_DEPTH_STENCIL_ATTACHMENT
     template DEPTH_COMPONENT16*(gl: GL): GLenum = GL_DEPTH_COMPONENT16
     template DEPTH_STENCIL*(gl: GL): GLenum = GL_DEPTH_STENCIL
     template DEPTH24_STENCIL8*(gl: GL): GLenum = GL_DEPTH24_STENCIL8
@@ -278,6 +286,9 @@ else:
     proc deleteBuffer*(gl: GL, name: BufferRef) {.inline.} =
         glDeleteBuffers(1, unsafeAddr name)
 
+    proc deleteTexture*(gl: GL, name: TextureRef) {.inline.} =
+        glDeleteTextures(1, unsafeAddr name)
+
     template bindAttribLocation*(gl: GL, program: ProgramRef, index: GLuint, name: cstring) = glBindAttribLocation(program, index, name)
     template enableVertexAttribArray*(gl: GL, attrib: GLuint) = glEnableVertexAttribArray(attrib)
     template disableVertexAttribArray*(gl: GL, attrib: GLuint) = glDisableVertexAttribArray(attrib)
@@ -312,6 +323,7 @@ else:
     template clearStencil*(gl: GL, s: GLint) = glClearStencil(s)
 
     template blendFunc*(gl: GL, sfactor, dfactor: GLenum) = glBlendFunc(sfactor, dfactor)
+    template blendColor*(gl: GL, r, g, b, a: Glfloat) = glBlendColor(r, g, b, a)
     template blendFuncSeparate*(gl: GL, sfactor, dfactor, sfactorA, dfactorA: GLenum) = glBlendFuncSeparate(sfactor, dfactor, sfactorA, dfactorA)
     template texParameteri*(gl: GL, target, pname: GLenum, param: GLint) = glTexParameteri(target, pname, param)
 
@@ -344,7 +356,7 @@ var globalGL: GL
 proc newGL*(canvas: ref RootObj): GL =
     when defined js:
         asm """
-            var options = {stencil: true, alpha: false, premultipliedAlpha: false};
+            var options = {stencil: true, alpha: false, premultipliedAlpha: false, antialias: false};
             try {
                 `result` = `canvas`.getContext("webgl", options);
             }

@@ -22,13 +22,14 @@ task "tests", "Build and run autotests":
         b.runAutotestsInFirefox()
 
 task "docs", "Build documentation":
-    withDir "./doc":
-        for t, f in walkDir "../nimx":
+    createDir "./build/doc"
+    withDir "./build/doc":
+        for t, f in walkDir "../../nimx":
             if f.endsWith(".nim"):
                 shell "nim doc2 -d:js " & f
 
-        for t, f in walkDir ".":
+        for t, f in walkDir "../../doc":
             if f.endsWith(".rst"):
                 direShell "nim rst2html " & f
 
-        copyDir "../build/js", "./livedemo"
+        copyDir "../js", "./livedemo"

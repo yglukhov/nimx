@@ -6,6 +6,7 @@ import tables
 import async_http_request
 import pathutils
 import variant
+import typetraits
 
 when not defined(js):
     import os
@@ -33,13 +34,23 @@ proc release*(rc: ResourceCache) =
 
 proc pathForResource*(name: string): string
 
+proc currentResourceCache*(): ResourceCache =
+    if resourceCaches.len > 0:
+        result = resourceCaches[^1]
+    else:
+        result = newResourceCache()
+
+template registerResource*(c: ResourceCache, name: string, r: Variant) =
+    c.cache[pathForResource(name)] = r
+
 template registerResource*[T](c: ResourceCache, name: string, r: T) =
-    c.cache[pathForResource(name)] = newVariant(r)
+    c.registerResource(name, newVariant(r))
+
+template registerResource*(name: string, r: Variant) =
+    currentResourceCache().registerResource(name, r)
 
 template registerResource*[T](name: string, r: T) =
-    if resourceCaches.len == 0: discard newResourceCache() # Create default resource cache
-    let rc = resourceCaches[^1]
-    rc.registerResource(name, r)
+    registerResource(name, newVariant(r))
 
 var warnWhenResourceNotCached* = false
 
@@ -53,6 +64,13 @@ proc findCachedResource*[T](name: string): T =
     for rc in resourceCaches:
         let v = rc.cache.getOrDefault(p)
         if not v.isEmpty: return v.get(T)
+
+proc findCachedResources*[T](): seq[T] =
+    result = newSeq[T]()
+    for rc in resourceCaches:
+        for v in rc.cache.values:
+            if not v.isEmpty and v.ofType(T):
+                result.add(v.get(T))
 
 proc resourceNotCached*(name: string) =
     if warnWhenResourceNotCached:
@@ -94,6 +112,14 @@ proc pathForResource*(name: string): string =
     result = pathForResourceAux(name)
     if not result.isNil:
         result.normalizePath()
+
+proc resourceNameForPathAux(path: string): string =
+    if parentResources.len > 0:
+        return relativePathToPath(parentResources[^1], path)
+    result = path
+
+proc resourceNameForPath*(path: string): string =
+    result = resourceNameForPathAux(path)
 
 when not defined(js):
     type
@@ -154,19 +180,22 @@ when defined(js):
 type ResourceLoadingError* = object
     description*: string
 
-when defined js:
+when defined(js) or defined(emscripten):
+    import jsbind
     proc loadJSResourceAsync*(resourceName: string, resourceType: cstring, onProgress: proc(p: float), onError: proc(e: ResourceLoadingError), onComplete: proc(result: ref RootObj)) =
-        let reqListener = proc(ev: ref RootObj) =
-            var data : ref RootObj
-            {.emit: "`data` = `ev`.target.response;".}
-            onComplete(data)
-
         let oReq = newXMLHTTPRequest()
+        var reqListener: proc()
+        reqListener = proc() =
+            onComplete(cast[ref RootObj](oReq.response))
+            jsUnref(reqListener)
+        jsRef(reqListener)
+
         oReq.responseType = resourceType
         oReq.addEventListener("load", reqListener)
         oReq.open("GET", pathForResource(resourceName))
         oReq.send()
-elif defined(emscripten):
+
+when defined(emscripten):
     import emscripten
 
 proc loadResourceAsync*(resourceName: string, handler: proc(s: Stream)) =

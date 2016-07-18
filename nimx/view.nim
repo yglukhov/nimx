@@ -1,9 +1,14 @@
-import typetraits
+import typetraits, tables, sequtils
 import types
 import context
 import animation
+import animation_runner
+import property_visitor
+import class_registry
+import serializers
 
 export types
+export animation_runner, class_registry
 
 type AutoresizingFlag* = enum
     afFlexibleMinX
@@ -36,10 +41,9 @@ type
 
     Window* = ref object of View
         firstResponder*: View
-        animations*: seq[Animation]
+        animationRunners*: seq[AnimationRunner]
         needsDisplay*: bool
         mouseOverListeners*: seq[View]
-
 
 
 method init*(v: View, frame: Rect) {.base.} =
@@ -75,6 +79,17 @@ proc trackMouseOver*(v: View, val: bool) =
 
 proc addGestureDetector*(v: View, d: GestureDetector) = v.gestureDetectors.add(d)
 
+proc removeGestureDetector*(v: View, d: GestureDetector) =
+    var index = 0
+    while index < v.gestureDetectors.len:
+        if v.gestureDetectors[index] == d:
+            v.gestureDetectors.delete(index)
+            break
+        else:
+            inc index
+
+proc removeAllGestureDetectors*(v: View) = v.gestureDetectors.setLen(0)
+
 proc new*[V](v: typedesc[V], frame: Rect): V =
     result.new()
     result.init(frame)
@@ -83,8 +98,8 @@ proc newView*(frame: Rect): View =
     result.new()
     result.init(frame)
 
-method convertPointToParent*(v: View, p: Point): Point {.base.} = p + v.frame.origin
-method convertPointFromParent*(v: View, p: Point): Point {.base.} = p - v.frame.origin
+method convertPointToParent*(v: View, p: Point): Point {.base.} = p + v.frame.origin - v.bounds.origin
+method convertPointFromParent*(v: View, p: Point): Point {.base.} = p - v.frame.origin + v.bounds.origin
 
 proc convertPointToWindow*(v: View, p: Point): Point =
     var curV = v
@@ -97,7 +112,7 @@ proc convertPointFromWindow*(v: View, p: Point): Point =
     if v == v.window: p
     else: v.convertPointFromParent(v.superview.convertPointFromWindow(p))
 
-proc convertRectoToWindow*(v: View, r: Rect): Rect =
+proc convertRectToWindow*(v: View, r: Rect): Rect =
     result.origin = v.convertPointToWindow(r.origin)
     # TODO: Respect bounds transformations
     result.size = r.size
@@ -277,6 +292,7 @@ method setFrameSize*(v: View, s: Size) {.base.} =
 
 method setFrameOrigin*(v: View, o: Point) {.base.} =
     v.frame.origin = o
+    v.setNeedsDisplay()
 
 method setFrame*(v: View, r: Rect) =
     if v.frame.origin != r.origin:
@@ -295,3 +311,32 @@ proc isDescendantOf*(subView, superview: View): bool =
         if vi == superview:
             return true
         vi = vi.superview
+
+template `originForEditor=`(v: View, p: Point) = v.setFrameOrigin(p)
+template originForEditor(v: View): Point = v.frame.origin
+template `sizeForEditor=`(v: View, p: Size) = v.setFrameSize(p)
+template sizeForEditor(v: View): Size = v.frame.size
+
+method visitProperties*(v: View, pv: var PropertyVisitor) {.base.} =
+    pv.visitProperty("origin", v.originForEditor)
+    pv.visitProperty("size", v.sizeForEditor)
+    pv.visitProperty("layout", v.autoresizingMask)
+    pv.visitProperty("color", v.backgroundColor)
+
+method serializeFields*(v: View, s: Serializer) =
+    s.serialize("frame", v.frame)
+    s.serialize("bounds", v.bounds)
+    s.serialize("subviews", v.subviews)
+
+method deserializeFields*(v: View, s: Deserializer) =
+    var fr: Rect
+    s.deserialize("frame", fr)
+    v.init(fr)
+    s.deserialize("bounds", v.bounds)
+    var subviews: seq[View]
+    s.deserialize("subviews", subviews)
+    for sv in subviews:
+        doAssert(not sv.isNil)
+        v.addSubview(sv)
+
+registerClass(View)

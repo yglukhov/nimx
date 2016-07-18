@@ -16,6 +16,7 @@ type Builder* = ref object
 
     androidSdk* : string
     androidNdk* : string
+    androidApi* : int
     sdlRoot* : string
 
     nimIncludeDir* : string
@@ -68,7 +69,7 @@ proc setBuilderSettings(b: Builder) =
         of cmdLongOption, cmdShortOption:
             case key
             of "define", "d":
-                if val in ["js", "android", "ios", "ios-sim", "emscripten"]:
+                if val in ["js", "android", "ios", "ios-sim", "emscripten", "windows"]:
                     b.platform = val
                 elif val == "release":
                     b.debugMode = false
@@ -98,7 +99,7 @@ proc newBuilder*(platform: string): Builder =
 
     b.platform = platform
     b.appName = "MyGame"
-    b.bundleId = "com.kromtech.testgame1"
+    b.bundleId = "com.mycompany.MyGame"
     b.javaPackageId = "com.mycompany.MyGame"
     b.disableClosureCompiler = false
 
@@ -167,9 +168,9 @@ proc newBuilder*(platform: string): Builder =
         b.appIconName = "MyGame.ico"
 
     b.macOSSDKVersion = "10.11"
-    b.macOSMinVersion = "10.6"
+    b.macOSMinVersion = "10.7"
 
-    b.iOSSDKVersion = "9.2"
+    b.iOSSDKVersion = "9.3"
     b.iOSMinVersion = b.iOSSDKVersion
 
     # Simulator device identifier should be set to run the simulator.
@@ -199,11 +200,15 @@ proc nimblePath(package: string): string =
     var nimblecmd = "nimble"
     when defined(windows):
         nimblecmd &= ".cmd"
-    var (nimbleNimxDir, err) = execCmdEx(nimblecmd & " path " & package)
+    var (packageDir, err) = execCmdEx(nimblecmd & " path " & package)
     if err == 0:
-        let lines = nimbleNimxDir.splitLines()
+        let lines = packageDir.splitLines()
         if lines.len > 1:
             result = lines[^2]
+
+proc nimbleNimxPath(): string =
+    result = nimblePath("nimx")
+    doAssert(not result.isNil, "Error: nimx does not seem to be installed with nimble!")
 
 proc newBuilderForCurrentPlatform(): Builder =
     when defined(macosx):
@@ -255,19 +260,21 @@ proc preprocessResourcesAux(b: Builder) =
         createDir(b.resourcePath)
         preprocessResources(b)
 
-proc infoPlistSetValueForKey(path, value, key: string) =
-    direShell "defaults", "write", path, key, value
-
 proc absPath(path: string): string =
     if path.isAbsolute(): path else: getCurrentDir() / path
 
 proc makeIosBundle(b: Builder) =
-    let bundlePath = b.buildRoot / b.bundleName
-    createDir bundlePath
-    let infoPlistPath = absPath(bundlePath / "Info")
-    infoPlistSetValueForKey(infoPlistPath, b.appName, "CFBundleName")
-    infoPlistSetValueForKey(infoPlistPath, b.bundleId, "CFBundleIdentifier")
-    infoPlistSetValueForKey(infoPlistPath, b.appName, "CFBundleExecutable")
+    let loadPath = b.originalResourcePath / "Info.plist"
+    var plist = loadPlist(loadPath)
+    if plist.isNil:
+        plist = newJObject()
+    plist["CFBundleName"] = %b.appName
+    plist["CFBundleIdentifier"] = %b.bundleId
+    plist["CFBundleExecutable"] = %b.appName
+
+    let savePath = b.buildRoot / b.bundleName
+    createDir savePath
+    plist.writePlist(savePath / "Info.plist")
 
 proc makeMacOsBundle(b: Builder) =
     let bundlePath = b.buildRoot / b.bundleName
@@ -284,15 +291,13 @@ proc makeWindowsResource(b: Builder) =
     let
         rcPath = b.buildRoot / "res" / (b.appName & ".rc")
         rcO = b.nimcachePath / (b.appName & "_res.o")
-    var createResource: bool = false
-
-    shell "type", "nul", ">", rcPath
+    var createResource = false
 
     if not isNil(b.appIconName):
-        let appIconPath = b.resourcePath / (b.appIconName)
+        let appIconPath = b.resourcePath / b.appIconName
 
         if fileExists(absPath(appIconPath)):
-            shell "echo", "AppIcon ICON \"$#\"" % [b.appIconName], ">>", rcPath
+            writeFile(rcPath, "AppIcon ICON \"$#\"" % [b.appIconName])
             shell "windres", "-i", rcPath, "-o", rcO
             createResource = true
         else:
@@ -354,10 +359,8 @@ proc buildSDLForIOS(b: Builder, forSimulator: bool = false): string =
 proc makeAndroidBuildDir(b: Builder): string =
     let buildDir = b.buildRoot / b.javaPackageId
     if not dirExists buildDir:
-        let nimbleNimxDir = nimblePath("nimx")
-        doAssert(not nimbleNimxDir.isNil, "Error: nimx does not seem to be installed with nimble!")
+        let templateDir = nimbleNimxPath() / "test" / "android" / "template"
         createDir(buildDir)
-        let templateDir = nimbleNimxDir / "test" / "android" / "template"
         echo "Using Android app template: ", templateDir
         copyDir templateDir, buildDir
 
@@ -449,7 +452,10 @@ proc jsPostBuild(b: Builder) =
         closure_compiler.compileFileAndRewrite(b.buildRoot / "main.js", ADVANCED_OPTIMIZATIONS, b.enableClosureCompilerSourceMap)
 
     let sf = splitFile(b.mainFile)
-    copyFile(sf.dir / sf.name & ".html", b.buildRoot / "main.html")
+    var mainHTML = sf.dir / sf.name & ".html"
+    if not fileExists(mainHTML):
+        mainHTML = nimbleNimxPath() / "test" / "main.html"
+    copyFile(mainHTML, b.buildRoot / "main.html")
     if b.runAfterBuild:
         let settings = newSettings(staticDir = b.buildRoot)
         routes:
@@ -474,7 +480,9 @@ proc signIosBundle(b: Builder) =
 proc ndkBuild(b: Builder) =
     withDir(b.buildRoot / b.javaPackageId):
         putEnv "NIM_INCLUDE_DIR", expandTilde(b.nimIncludeDir)
-        direShell b.androidSdk/"tools/android", "update", "project", "-p", ".", "-t", "android-22" # try with android-16
+        if b.androidApi == 0:
+            b.androidApi = 14 #default android-api level
+        direShell b.androidSdk/"tools/android", "update", "project", "-p", ".", "-t", "android-" & $b.androidApi # try with android-16
 
         var args = @[b.androidNdk/"ndk-build", "V=1"]
         if b.nimParallelBuild > 0:
@@ -557,6 +565,16 @@ proc build*(b: Builder) =
         b.linkerFlags.add(["-L/usr/local/lib", "-Wl,-rpath,/usr/local/lib", "-lpthread"])
     of "windows":
         b.executablePath &= ".exe"
+        when defined(macosx) or defined(linux):
+            # We are trying to build for windows, but we're not on windows.
+            # Use mxe cross-compiler
+            var mxeBin = findExe("i686-w64-mingw32.static-gcc")
+            if mxeBin.len == 0:
+                mxeBin = getEnv("MXE_BIN")
+                if mxeBin.len == 0:
+                    echo "Trying to cross-compile for windows, but mxe cross-compiler not found. Set MXE_BIN environment var to mxe gcc path."
+                    quit 1
+            b.nimFlags.add(["--cpu:i386", "--os:windows", "--cc:gcc", "--gcc.exe:" & mxeBin, "--gcc.linkerexe:" & mxeBin])
         b.makeWindowsResource()
     of "emscripten":
         b.executablePath = b.buildRoot / "main.js"
@@ -564,8 +582,8 @@ proc build*(b: Builder) =
             "--clang.exe=emcc", "--clang.linkerexe=emcc", "-d:SDL_Static"])
         b.additionalLinkerFlags.add(["--preload-file", b.resourcePath & "/OpenSans-Regular.ttf@/res/OpenSans-Regular.ttf"])
         b.additionalNimFlags.add("-d:noAutoGLerrorCheck")
-        b.additionalLinkerFlags.add(["-s", "FULL_ES2=1"])
-        b.additionalLinkerFlags.add(["-s", "ALLOW_MEMORY_GROWTH=1"])
+        b.additionalLinkerFlags.add(["-s\\ FULL_ES2=1"])
+        b.additionalLinkerFlags.add(["-s\\ ALLOW_MEMORY_GROWTH=1"])
 
         if not b.debugMode:
             b.additionalLinkerFlags.add("-O3")
@@ -628,10 +646,13 @@ proc build*(b: Builder) =
     elif b.platform == "ios":
         if not b.codesignIdentity.isNil:
             b.signIosBundle()
+            direShell "ios-deploy", "--debug", "--bundle", b.buildRoot / b.bundleName, "--no-wifi"
+
     elif b.platform == "android":
         b.ndkBuild()
 
-    if not afterBuild.isNil: afterBuild(b)
+    if not afterBuild.isNil:
+        afterBuild(b)
 
 proc runAutotestsInFirefox*(pathToMainHTML: string) =
     let ffbin = when defined(macosx):
@@ -640,8 +661,16 @@ proc runAutotestsInFirefox*(pathToMainHTML: string) =
             findExe("firefox")
     createDir("tempprofile")
     writeFile("tempprofile/user.js", """
-    pref("browser.shell.checkDefaultBrowser", false);
-    pref("browser.dom.window.dump.enabled", true);""")
+    user_pref("browser.shell.checkDefaultBrowser", false);
+    user_pref("browser.dom.window.dump.enabled", true);
+    user_pref("app.update.auto", false);
+    user_pref("app.update.enabled", false);
+    user_pref("dom.max_script_run_time", 0);
+    user_pref("dom.max_chrome_script_run_time", 0);
+    user_pref("extensions.update.enabled", false);
+    user_pref("extensions.update.autoUpdateDefault", false);
+    user_pref("webgl.disable-fail-if-major-performance-caveat", true);
+    """)
     let ffp = startProcess(ffbin, args = ["-profile", "./tempprofile", pathToMainHTML])
     let so = ffp.outputStream
     var line = ""
@@ -653,7 +682,10 @@ proc runAutotestsInFirefox*(pathToMainHTML: string) =
             ok = false
         else:
             echo line
+
     ffp.kill()
+    discard ffp.waitForExit()
+
     removeDir("tempprofile")
     doAssert(ok, "Firefox autotest failed")
 

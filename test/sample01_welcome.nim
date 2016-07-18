@@ -85,4 +85,4 @@ method draw(v: WelcomeView, r: Rect) =
     c.fillColor = whiteColor()
     c.drawText(v.welcomeFont, s.centerInRect(v.bounds), welcomeMessage)
 
-registerSample "Welcome", WelcomeView.new(newRect(0, 0, 100, 100))
+registerSample(WelcomeView, "Welcome")

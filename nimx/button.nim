@@ -9,6 +9,9 @@ import app
 import view_event_handling
 import view_event_handling_new
 import composition
+import property_visitor
+import serializers
+import resource
 
 export control
 
@@ -19,6 +22,7 @@ type ButtonStyle* = enum
     bsCheckbox
     bsRadiobox
     bsImage
+    bsNinePartImage
 
 type ButtonBehavior = enum
     bbMomentaryLight
@@ -26,13 +30,17 @@ type ButtonBehavior = enum
 
 type Button* = ref object of Control
     title*: string
+    image*: Image
+    imageMarginLeft*: Coord
+    imageMarginRight*: Coord
+    imageMarginTop*: Coord
+    imageMarginBottom*: Coord
     state*: ButtonState
     value*: int8
     enabled*: bool
     hasBezel*: bool
     style*: ButtonStyle
     behavior*: ButtonBehavior
-    image*: Image
 
 proc newButton*(r: Rect): Button =
     result.new()
@@ -70,6 +78,10 @@ method init(b: Button, frame: Rect) =
     b.enabled = true
     b.backgroundColor = whiteColor()
     b.hasBezel = true
+    b.imageMarginLeft = 2
+    b.imageMarginRight = 2
+    b.imageMarginTop = 2
+    b.imageMarginBottom = 2
 
 proc drawTitle(b: Button, xOffset: Coord) =
     if b.title != nil:
@@ -194,26 +206,34 @@ proc drawRadioboxStyle(b: Button, r: Rect) =
     b.drawTitle(bezelRect.width + 1)
 
 proc drawImageStyle(b: Button, r: Rect) =
-    regularButtonComposition.draw r:
-        if b.state == bsUp:
-            setUniform("uStrokeColor", newGrayColor(0.78))
-            setUniform("uFillColorStart", if b.enabled: b.backgroundColor else: grayColor())
-            setUniform("uFillColorEnd", if b.enabled: b.backgroundColor else: grayColor())
-        else:
-            setUniform("uStrokeColor", newColor(0.18, 0.50, 0.98))
-            setUniform("uFillColorStart", newColor(0.31, 0.60, 0.98))
-            setUniform("uFillColorEnd", newColor(0.09, 0.42, 0.88))
+    if b.hasBezel:
+        regularButtonComposition.draw r:
+            if b.state == bsUp:
+                setUniform("uStrokeColor", newGrayColor(0.78))
+                setUniform("uFillColorStart", if b.enabled: b.backgroundColor else: grayColor())
+                setUniform("uFillColorEnd", if b.enabled: b.backgroundColor else: grayColor())
+            else:
+                setUniform("uStrokeColor", newColor(0.18, 0.50, 0.98))
+                setUniform("uFillColorStart", newColor(0.31, 0.60, 0.98))
+                setUniform("uFillColorEnd", newColor(0.09, 0.42, 0.88))
     let c = currentContext()
-    const border = 2
-    c.drawImage(b.image, newRect(r.x + border, r.y + border, r.width - border * 2, r.height - border * 2))
+    c.drawImage(b.image, newRect(r.x + b.imageMarginLeft, r.y + b.imageMarginTop,
+        r.width - b.imageMarginLeft - b.imageMarginRight, r.height - b.imageMarginTop - b.imageMarginBottom))
+
+proc drawNinePartImageStyle(b: Button, r: Rect) =
+    let c = currentContext()
+    c.drawNinePartImage(b.image, b.bounds, b.imageMarginLeft, b.imageMarginTop, b.imageMarginRight, b.imageMarginBottom)
 
 method draw(b: Button, r: Rect) =
-    if b.style == bsRadiobox:
+    case b.style
+    of bsRadiobox:
         b.drawRadioboxStyle(r)
-    elif b.style == bsCheckbox:
+    of bsCheckbox:
         b.drawCheckboxStyle(r)
-    elif b.style == bsImage:
+    of bsImage:
         b.drawImageStyle(r)
+    of bsNinePartImage:
+        b.drawNinePartImageStyle(r)
     else:
         b.drawRegularStyle(r)
 
@@ -264,3 +284,51 @@ method onTouchEv(b: Button, e: var Event): bool =
                 b.value = toggleValue(b.value)
             b.sendAction(e)
     result = true
+
+method visitProperties*(v: Button, pv: var PropertyVisitor) =
+    procCall v.Control.visitProperties(pv)
+    pv.visitProperty("title", v.title)
+    pv.visitProperty("state", v.state)
+    pv.visitProperty("style", v.style)
+    pv.visitProperty("enabled", v.enabled)
+    pv.visitProperty("hasBezel", v.hasBezel)
+    pv.visitProperty("behavior", v.behavior)
+    pv.visitProperty("image", v.image)
+    pv.visitProperty("marginLeft", v.imageMarginLeft)
+    pv.visitProperty("marginRight", v.imageMarginRight)
+    pv.visitProperty("marginTop", v.imageMarginTop)
+    pv.visitProperty("marginBottom", v.imageMarginBottom)
+
+method serializeFields*(v: Button, s: Serializer) =
+    procCall v.Control.serializeFields(s)
+    s.serialize("title", v.title)
+    s.serialize("state", v.state)
+    s.serialize("style", v.style)
+    s.serialize("enabled", v.enabled)
+    s.serialize("hasBezel", v.hasBezel)
+    s.serialize("behavior", v.behavior)
+    s.serialize("image", resourceNameForPath(v.image.filePath))
+    s.serialize("marginLeft", v.imageMarginLeft)
+    s.serialize("marginRight", v.imageMarginRight)
+    s.serialize("marginTop", v.imageMarginTop)
+    s.serialize("marginBottom", v.imageMarginBottom)
+
+
+method deserializeFields*(v: Button, s: Deserializer) =
+    procCall v.Control.deserializeFields(s)
+    s.deserialize("title", v.title)
+    s.deserialize("state", v.state)
+    s.deserialize("style", v.style)
+    s.deserialize("enabled", v.enabled)
+    s.deserialize("hasBezel", v.hasBezel)
+    s.deserialize("behavior", v.behavior)
+    var imgName : string
+    s.deserialize("image", imgName)
+    if not imgName.isNil:
+        v.image = imageWithResource(imgName)
+    s.deserialize("marginLeft", v.imageMarginLeft)
+    s.deserialize("marginRight", v.imageMarginRight)
+    s.deserialize("marginTop", v.imageMarginTop)
+    s.deserialize("marginBottom", v.imageMarginBottom)
+
+registerClass(Button)

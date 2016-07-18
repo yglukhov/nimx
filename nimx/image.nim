@@ -51,6 +51,19 @@ method setFilePath*(i: SelfContainedImage, path: string) =
 method filePath*(i: Image): string {.base.} = discard
 method filePath*(i: SelfContainedImage): string = i.mFilePath
 
+when not defined(js):
+    proc finalizeImage(i: SelfContainedImage) =
+        if i.texture != invalidTexture:
+            glDeleteTextures(1, addr i.texture)
+        if i.framebuffer != invalidFrameBuffer:
+            glDeleteFramebuffers(1, addr i.framebuffer)
+
+proc newSelfContainedImage(): SelfContainedImage {.inline.} =
+    when defined(js):
+        result.new()
+    else:
+        result.new(finalizeImage)
+
 when not defined js:
     template offset(p: pointer, off: int): pointer =
         cast[pointer](cast[int](p) + off)
@@ -105,11 +118,11 @@ when not defined js:
         i.setFilePath(path)
 
     proc imageWithBitmap*(data: ptr uint8, x, y, comp: int): SelfContainedImage =
-        result.new()
+        result = newSelfContainedImage()
         result.initWithBitmap(data, x, y, comp)
 
     proc imageWithContentsOfFile*(path: string): SelfContainedImage =
-        result.new()
+        result = newSelfContainedImage()
         result.initWithContentsOfFile(path)
 
 proc initWithResource*(i: SelfContainedImage, name: string) =
@@ -121,6 +134,7 @@ proc initWithResource*(i: SelfContainedImage, name: string) =
         `i`.__image.src = `nativeName`;
         """.}
     else:
+        let path = pathForResource(name)
         loadResourceAsync(name) do(s: Stream):
             var data = s.readAll()
             s.close()
@@ -134,13 +148,13 @@ proc initWithResource*(i: SelfContainedImage, name: string) =
                 i.initWithBitmap(bitmap, x, y, comp)
                 stbi_image_free(bitmap)
 
-            i.setFilePath(pathForResource(name))
+            i.setFilePath(path)
 
 proc imageWithResource*(name: string): SelfContainedImage =
     result = findCachedResource[SelfContainedImage](name)
     if result.isNil:
         resourceNotCached(name)
-        result.new()
+        result = newSelfContainedImage()
         result.initWithResource(name)
 
 proc initSpriteImages(s: SpriteSheet, data: JsonNode) =
@@ -365,11 +379,11 @@ when asyncResourceLoad:
     proc loadComplete(ctx: pointer) {.cdecl.} =
         let c = cast[ImageLoadingCtx](ctx)
         GC_unref(c)
-        var i : SelfContainedImage
-        i.new()
+        var i = newSelfContainedImage()
         i.texture = c.texture
         i.texCoords = c.texCoords
         i.mSize = c.size
+        i.setFilePath(c.path)
         c.completionCallback(i)
 
     var ctxIsCurrent = false
@@ -401,6 +415,42 @@ when asyncResourceLoad:
         let p = cast[pointer](loadComplete)
         performOnMainThread(cast[proc(data: pointer){.cdecl, gcsafe.}](p), ctx)
 
+when defined(emscripten):
+    import emscripten
+
+    type ImageLoadingCtx = ref object
+        name, path: string
+        callback: proc(i: SelfContainedImage)
+        image: SelfContainedImage
+
+    proc nimxImagePrepareTexture(c: pointer, x, y: cint) {.EMSCRIPTEN_KEEPALIVE.} =
+        let ctx = cast[ImageLoadingCtx](c)
+        ctx.image = newSelfContainedImage()
+        glGenTextures(1, addr ctx.image.texture)
+        glBindTexture(GL_TEXTURE_2D, ctx.image.texture)
+        ctx.image.mSize = newSize(x.Coord, y.Coord)
+        let texWidth = if isPowerOfTwo(x): x.int else: nextPowerOfTwo(x)
+        let texHeight = if isPowerOfTwo(y): y.int else: nextPowerOfTwo(y)
+
+        ctx.image.texCoords[2] = 1.0
+        ctx.image.texCoords[3] = 1.0
+
+        if texWidth != x or texHeight != y:
+            ctx.image.texCoords[2] = x.Coord / texWidth.Coord
+            ctx.image.texCoords[3] = y.Coord / texHeight.Coord
+
+        ctx.image.mSize.width = x.Coord
+        ctx.image.mSize.height = y.Coord
+
+    proc nimxImageLoaded(c: pointer) {.EMSCRIPTEN_KEEPALIVE.} =
+        let ctx = cast[ImageLoadingCtx](c)
+        setupTexParams(nil)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
+        GC_unref(ctx)
+        ctx.image.setFilePath(ctx.path)
+        ctx.callback(ctx.image)
+
 registerResourcePreloader(["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga", "pvr"]) do(name: string, callback: proc(i: SelfContainedImage)):
     when defined(js):
         proc handler(r: ref RootObj) =
@@ -417,6 +467,47 @@ registerResourcePreloader(["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga", "p
             """.}
 
         loadJSResourceAsync(name, "blob", nil, nil, handler)
+    elif defined(emscripten):
+
+        var ctx: ImageLoadingCtx
+        ctx.new()
+        ctx.name = name
+        ctx.path = pathForResource(name)
+        ctx.callback = callback
+        GC_ref(ctx)
+        discard EM_ASM_INT("""
+        var i = new Image();
+        i.crossOrigin = '';
+        i.src = Pointer_stringify($1);
+        i.onload = function () {
+            _nimxImagePrepareTexture($0, i.width, i.height);
+            GLctx.pixelStorei(GLctx.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+            function nextPowerOfTwo(v) {
+                v--;
+                v|=v>>1;
+                v|=v>>2;
+                v|=v>>4;
+                v|=v>>8;
+                v|=v>>16;
+                return ++v;
+            }
+            var texWidth = nextPowerOfTwo(i.width);
+            var texHeight = nextPowerOfTwo(i.height);
+            if (texWidth != i.width || texHeight != i.height) {
+                var canvas = document.createElement('canvas');
+                canvas.width = texWidth;
+                canvas.height = texHeight;
+                var ctx2d = canvas.getContext('2d');
+                ctx2d.globalCompositeOperation = "copy";
+                ctx2d.drawImage(i, 0, 0);
+                GLctx.texImage2D(GLctx.TEXTURE_2D, 0, GLctx.RGBA, GLctx.RGBA, GLctx.UNSIGNED_BYTE, canvas);
+            }
+            else {
+                GLctx.texImage2D(GLctx.TEXTURE_2D, 0, GLctx.RGBA, GLctx.RGBA, GLctx.UNSIGNED_BYTE, i);
+            }
+            _nimxImageLoaded($0);
+        }
+        """, cast[pointer](ctx), cstring(ctx.path))
     elif asyncResourceLoad:
         var ctx: ImageLoadingCtx
         ctx.new()

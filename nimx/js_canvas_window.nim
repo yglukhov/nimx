@@ -41,6 +41,8 @@ proc setupWebGL() =
         window.__nimx_focused_canvas = event.target;
     }, false);
 
+
+
     window.__nimx_keys_down = {};
     """
 
@@ -147,6 +149,12 @@ proc setupEventHandlersForCanvas(w: JSCanvasWindow, c: Element) =
             evt.position.y = newHeight
             discard mainApplication().handleEvent(evt)
 
+    let onfocus = proc()=
+        w.onFocusChange(true)
+
+    let onblur = proc()=
+        w.onFocusChange(false)
+
     # TODO: Remove this hack, when handlers definition in dom.nim fixed.
     asm """
     `c`.onmousedown = `onmousedown`;
@@ -154,6 +162,8 @@ proc setupEventHandlersForCanvas(w: JSCanvasWindow, c: Element) =
     `c`.onmousemove = `onmousemove`;
     `c`.onwheel = `onscroll`;
     window.onresize = `onresize`;
+    window.onfocus = `onfocus`;
+    window.onblur = `onblur`;
     """
 
 proc requestAnimFrame(w: dom.Window, p: proc() {.nimcall.}) {.importcpp.}
@@ -286,3 +296,7 @@ method stopTextInput*(w: JSCanvasWindow) =
         window.__nimx_textinput.blur();
     }
     """.}
+
+template runApplication*(code: typed): stmt =
+    dom.window.onload = proc (e: dom.Event) =
+        code
