@@ -29,7 +29,7 @@ proc pbWrite(p: Pasteboard, pi_ar: varargs[PasteboardItem]) =
     pb.p.clearContents()
     let items = newMutableArray[NSPasteboardItem]()
     for pi in pi_ar:
-        let npi = allocPasteboardItem().init()
+        let npi = NSPasteboardItem.alloc().init()
         let data = dataWithBytes(addr pi.data[0], pi.data.len)
         discard npi.setDataForType(data, kindToNative(pi.kind))
         items.add(npi)

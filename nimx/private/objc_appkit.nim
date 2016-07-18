@@ -1,3 +1,4 @@
+import typetraits
 
 {.pragma: appkit, header: "<AppKit/AppKit.h>", nodecl.}
 {.pragma: appkitType, importc, appkit, final.}
@@ -18,6 +19,12 @@ type NSArrayAbstract {.appkit, importc: "NSArray", final.} = ptr object of NSObj
 type NSMutableArrayAbstract {.appkit, importc: "NSMutableArray", final.} = ptr object of NSArrayAbstract
 type NSArray*[T] = ptr object of NSArrayAbstract
 type NSMutableArray*[T] = ptr object of NSArray[T]
+
+{.push stackTrace: off.}
+proc alloc*(t: typedesc): t {.noInit.} =
+    const typeName = typetraits.name(t)
+    {.emit:"`result` = [" & typeName & " alloc];".}
+{.pop.}
 
 proc description*(o: NSObject): NSString {.importobjc, nodecl.}
 
@@ -52,8 +59,6 @@ proc types*(pi: NSPasteboardItem): NSArray[NSString] {.importobjc: "types", node
 proc dataForType*(pi: NSPasteboardItem, t: NSString): NSData {.importobjc: "dataForType", nodecl.}
 
 proc dataWithBytes*(bytes: cstring, length: int): NSData {.importobjc: "NSData dataWithBytes", nodecl.}
-
-proc allocPasteboardItem*(): NSPasteboardItem {.importobjc: "NSPasteboardItem alloc", nodecl.}
 
 proc setDataForType*(self: NSPasteboardItem, data: NSData, forType: NSString): bool {.importobjc: "setData", nodecl.}
 
