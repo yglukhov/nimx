@@ -44,7 +44,11 @@ when defined js:
             RENDERBUFFER* : GLenum
             ARRAY_BUFFER* : GLenum
             ELEMENT_ARRAY_BUFFER* : GLenum
+            R16F* : GLenum
+            R32F* : GLenum
+            RED* : GLenum
             RGBA* : GLenum
+            RGBA16F*: GLenum
             ALPHA* : GLenum
             UNSIGNED_BYTE* : GLenum
             COLOR_ATTACHMENT0* : GLenum
@@ -204,7 +208,11 @@ else:
     template RENDERBUFFER*(gl: GL): GLenum = GL_RENDERBUFFER
     template ARRAY_BUFFER*(gl: GL): GLenum = GL_ARRAY_BUFFER
     template ELEMENT_ARRAY_BUFFER*(gl: GL): GLenum = GL_ELEMENT_ARRAY_BUFFER
+    template RED*(gl: GL): expr = GL_RED
+    template R16F*(gl: GL): expr = GL_R16F
+    template R32F*(gl: GL): expr = GL_R32F
     template RGBA*(gl: GL): expr = GL_RGBA
+    template RGBA16F*(gl: GL): expr = GL_RGBA16F
     template ALPHA*(gl: GL): expr = GL_ALPHA
     template UNSIGNED_BYTE*(gl: GL): GLenum = GL_UNSIGNED_BYTE
     template COLOR_ATTACHMENT0*(gl: GL): GLenum = GL_COLOR_ATTACHMENT0
@@ -269,7 +277,7 @@ else:
     template linkProgram*(gl: GL, prog: ProgramRef) = glLinkProgram(prog)
 
     template drawArrays*(gl: GL, mode: GLenum, first: GLint, count: GLsizei) = glDrawArrays(mode, first, count)
-    template drawElements*(gl: GL, mode: GLenum, count: GLsizei, typ: GLenum) = glDrawElements(mode, count, typ, nil)
+    template drawElements*(gl: GL, mode: GLenum, count: GLsizei, typ: GLenum, alwaysZeroOffset: int = 0) = glDrawElements(mode, count, typ, cast[pointer](alwaysZeroOffset))
     template createShader*(gl: GL, shaderType: GLenum): ShaderRef = glCreateShader(shaderType)
     template createProgram*(gl: GL): ProgramRef = glCreateProgram()
     proc createTexture*(gl: GL): GLuint = glGenTextures(1, addr result)
