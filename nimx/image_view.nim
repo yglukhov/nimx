@@ -9,17 +9,22 @@ import nimx.resource
 type
     ImageFillRule* {.pure.} = enum
         ## Defines how image is drawn inside view
-        NoFill    ## Image is draw from top-left corner with its size
+        NoFill    ## Image is drawn from top-left corner with its size
         Stretch   ## Image is stretched to view size
         Tile      ## Image tiles all view
         FitWidth  ## Image fits view's width
-        FitHeight ## Image firs view's height
+        FitHeight ## Image fits view's height
+        NinePartImage
 
     ImageView* = ref object of View
         ## Image view is a view for drawing static images
         ## with certain view filling rules
         image:   Image
         fillRule: ImageFillRule
+        imageMarginLeft*: Coord
+        imageMarginRight*: Coord
+        imageMarginTop*: Coord
+        imageMarginBottom*: Coord
 
 proc newImageView*(r: Rect, image: Image = nil, fillRule = ImageFillRule.NoFill): ImageView =
     result.new
@@ -65,7 +70,7 @@ method draw(v: ImageView, r: Rect) =
                     let imageRect = newRect(col.Coord * v.image.size.width, row.Coord * v.image.size.height, v.image.size.width, v.image.size.height)
                     c.drawImage(v.image, imageRect)
         of ImageFillRule.FitWidth:
-            let 
+            let
                 stretchRatio = r.width / v.image.size.width
                 newWidth = r.width
                 newHeight = v.image.size.height * stretchRatio
@@ -80,16 +85,26 @@ method draw(v: ImageView, r: Rect) =
                 newY = 0.Coord
                 newX = if newWidth > r.width: 0.Coord else: r.width / 2 - newWidth / 2
             c.drawImage(v.image, newRect(newX, newY, newWidth, newHeight))
+        of ImageFillRule.NinePartImage:
+            c.drawNinePartImage(v.image, v.bounds, v.imageMarginLeft, v.imageMarginTop, v.imageMarginRight, v.imageMarginBottom)
 
 method visitProperties*(v: ImageView, pv: var PropertyVisitor) =
     procCall v.View.visitProperties(pv)
     pv.visitProperty("image", v.image)
     pv.visitProperty("fillRule", v.fillRule)
+    pv.visitProperty("marginLeft", v.imageMarginLeft)
+    pv.visitProperty("marginRight", v.imageMarginRight)
+    pv.visitProperty("marginTop", v.imageMarginTop)
+    pv.visitProperty("marginBottom", v.imageMarginBottom)
 
 method serializeFields*(v: ImageView, s: Serializer) =
     procCall v.View.serializeFields(s)
     s.serialize("image", resourceNameForPath(v.image.filePath))
     s.serialize("fillRule", v.fillRule)
+    s.serialize("marginLeft", v.imageMarginLeft)
+    s.serialize("marginRight", v.imageMarginRight)
+    s.serialize("marginTop", v.imageMarginTop)
+    s.serialize("marginBottom", v.imageMarginBottom)
 
 method deserializeFields*(v: ImageView, s: Deserializer) =
     procCall v.View.deserializeFields(s)
@@ -98,5 +113,9 @@ method deserializeFields*(v: ImageView, s: Deserializer) =
     s.deserialize("image", imgName)
     if not imgName.isNil:
         v.image = imageWithResource(imgName)
+    s.deserialize("marginLeft", v.imageMarginLeft)
+    s.deserialize("marginRight", v.imageMarginRight)
+    s.deserialize("marginTop", v.imageMarginTop)
+    s.deserialize("marginBottom", v.imageMarginBottom)
 
 registerClass(ImageView)
