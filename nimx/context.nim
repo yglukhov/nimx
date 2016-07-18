@@ -88,6 +88,7 @@ type GraphicsContext* = ref object of RootObj
     debugClipColor: Color
     alpha*: Coord
     quadIndexBuffer: BufferRef
+    gridIndexBuffer4x4: BufferRef
     vertexes: array[4 * 4 * 128, Coord]
 
 var gCurrentContext: GraphicsContext
@@ -108,9 +109,9 @@ template withTransform*(c: GraphicsContext, t: Transform3D, body: stmt) = c.with
 
 template transform*(c: GraphicsContext): var Transform3D = c.pTransform[]
 
-proc createQuadIndexBuffer(c: GraphicsContext) =
-    c.quadIndexBuffer = c.gl.createBuffer()
-    c.gl.bindBuffer(c.gl.ELEMENT_ARRAY_BUFFER, c.quadIndexBuffer)
+proc createQuadIndexBuffer(c: GraphicsContext, numberOfQuads: static[int]): BufferRef =
+    result = c.gl.createBuffer()
+    c.gl.bindBuffer(c.gl.ELEMENT_ARRAY_BUFFER, result)
 
     var indexData : array[128 * 6, GLushort]
     var i : GLushort
@@ -124,6 +125,37 @@ proc createQuadIndexBuffer(c: GraphicsContext) =
         indexData[id + 4] = vd + 3
         indexData[id + 5] = vd + 0
         inc i
+
+    c.gl.bufferData(c.gl.ELEMENT_ARRAY_BUFFER, indexData, c.gl.STATIC_DRAW)
+
+proc createGridIndexBuffer(c: GraphicsContext, width, height: static[int]): BufferRef =
+    result = c.gl.createBuffer()
+    c.gl.bindBuffer(c.gl.ELEMENT_ARRAY_BUFFER, result)
+
+    const numberOfQuadColumns = width - 1
+    const numberOIndices = numberOfQuadColumns * height * 2
+
+    var indexData : array[numberOIndices, GLushort]
+    var i = 0
+
+    var y, toRow: int
+    var dir = 1
+
+    for iCol in 0 ..< numberOfQuadColumns:
+        if dir == 1:
+            y = 0
+            toRow = height
+        else:
+            y = height - 1
+            toRow = -1
+
+        while y != toRow:
+            indexData[i] = GLushort(y * width + iCol)
+            inc i
+            indexData[i] = GLushort(y * width + iCol + 1)
+            inc i
+            y += dir
+        dir = -dir
 
     c.gl.bufferData(c.gl.ELEMENT_ARRAY_BUFFER, indexData, c.gl.STATIC_DRAW)
 
@@ -143,7 +175,8 @@ proc newGraphicsContext*(canvas: ref RootObj = nil): GraphicsContext =
     #result.gl.enable(result.gl.CULL_FACE)
     #result.gl.cullFace(result.gl.BACK)
 
-    result.createQuadIndexBuffer()
+    result.quadIndexBuffer = result.createQuadIndexBuffer(128)
+    result.gridIndexBuffer4x4 = result.createGridIndexBuffer(4, 4)
 
 proc setCurrentContext*(c: GraphicsContext): GraphicsContext {.discardable.} =
     result = gCurrentContext
@@ -524,6 +557,103 @@ proc drawImage*(c: GraphicsContext, i: Image, toRect: Rect, fromRect: Rect = zer
             setUniform("uImage", i)
             setUniform("uAlpha", alpha * c.alpha)
             setUniform("uFromRect", fr)
+
+let ninePartImageComposition = newComposition("""
+attribute vec4 aPosition;
+
+uniform mat4 uModelViewProjectionMatrix;
+varying vec2 vTexCoord;
+
+void main() {
+    vTexCoord = aPosition.zw;
+    gl_Position = uModelViewProjectionMatrix * vec4(aPosition.xy, 0, 1);
+}
+""",
+"""
+#ifdef GL_ES
+#extension GL_OES_standard_derivatives : enable
+precision mediump float;
+#endif
+
+varying vec2 vTexCoord;
+
+uniform sampler2D texUnit;
+uniform float uAlpha;
+
+void compose() {
+    gl_FragColor = texture2D(texUnit, vTexCoord);
+    gl_FragColor.a *= uAlpha;
+}
+""", false)
+
+proc drawNinePartImage*(c: GraphicsContext, i: Image, toRect: Rect, ml, mt, mr, mb: Coord, fromRect: Rect = zeroRect, alpha: ColorComponent = 1.0) =
+    if i.isLoaded:
+        let gl = c.gl
+        var cc = gl.getCompiledComposition(ninePartImageComposition)
+
+        var fuv : array[4, GLfloat]
+        let tex = getTextureQuad(i, gl, fuv)
+
+        var fr = fromRect
+        let sz = i.size
+        if fr == zeroRect:
+            fr = newRect(zeroPoint, sz)
+        else:
+            fuv[0] = fuv[0] + fromRect.x / sz.width
+            fuv[1] = fuv[1] + fromRect.y / sz.height
+            fuv[2] = fuv[2] - (sz.width - fromRect.maxX) / sz.width
+            fuv[3] = fuv[3] - (sz.height - fromRect.maxY) / sz.height
+
+        var vertexData: array[16 * 2 * 2, GLfloat]
+
+        template setVertex(index: int, x, y, u, v: GLfloat) =
+            vertexData[index * 2 * 2 + 0] = x
+            vertexData[index * 2 * 2 + 1] = y
+            vertexData[index * 2 * 2 + 2] = u
+            vertexData[index * 2 * 2 + 3] = v
+
+        let tml = ml / sz.width
+        let tmr = mr / sz.width
+        let tmt = mt / sz.height
+        let tmb = mb / sz.height
+
+        0.setVertex(toRect.x, toRect.y, fuv[0], fuv[1])
+        1.setVertex(toRect.x + ml, toRect.y, fuv[0] + tml, fuv[1])
+        2.setVertex(toRect.maxX - mr, toRect.y, fuv[2] - tmr, fuv[1])
+        3.setVertex(toRect.maxX, toRect.y, fuv[2], fuv[1])
+
+        4.setVertex(toRect.x, toRect.y + mt, fuv[0], fuv[1] + tmt)
+        5.setVertex(toRect.x + ml, toRect.y + mt, fuv[0] + tml, fuv[1] + tmt)
+        6.setVertex(toRect.maxX - mr, toRect.y + mt, fuv[2] - tmr, fuv[1] + tmt)
+        7.setVertex(toRect.maxX, toRect.y + mt, fuv[2], fuv[1] + tmt)
+
+        8.setVertex(toRect.x, toRect.maxY - mb, fuv[0], fuv[3] - tmb)
+        9.setVertex(toRect.x + ml, toRect.maxY - mb, fuv[0] + tml, fuv[3] - tmb)
+        10.setVertex(toRect.maxX - mr, toRect.maxY - mb, fuv[2] - tmr, fuv[3] - tmb)
+        11.setVertex(toRect.maxX, toRect.maxY - mb, fuv[2], fuv[3] - tmb)
+
+        12.setVertex(toRect.x, toRect.maxY, fuv[0], fuv[3])
+        13.setVertex(toRect.x + ml, toRect.maxY, fuv[0] + tml, fuv[3])
+        14.setVertex(toRect.maxX - mr, toRect.maxY, fuv[2] - tmr, fuv[3])
+        15.setVertex(toRect.maxX, toRect.maxY, fuv[2], fuv[3])
+
+        gl.useProgram(cc.program)
+        compositionDrawingDefinitions(cc, c, gl)
+
+        setUniform("uAlpha", alpha)
+
+        gl.uniformMatrix4fv(uniformLocation("uModelViewProjectionMatrix"), false, c.transform)
+        setupPosteffectUniforms(cc)
+
+        gl.activeTexture(GLenum(int(gl.TEXTURE0) + cc.iTexIndex))
+        gl.uniform1i(uniformLocation("texUnit"), cc.iTexIndex)
+        gl.bindTexture(gl.TEXTURE_2D, tex)
+
+        gl.enableVertexAttribArray(saPosition.GLuint)
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, c.gridIndexBuffer4x4)
+
+        gl.vertexAttribPointer(saPosition.GLuint, 4, false, 0, vertexData)
+        gl.drawElements(gl.TRIANGLE_STRIP, (4 - 1) * 4 * 2, gl.UNSIGNED_SHORT)
 
 proc drawPoly*(c: GraphicsContext, points: openArray[Coord]) =
     let shaderProg = c.testPolyShaderProgram
