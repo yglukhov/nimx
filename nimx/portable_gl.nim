@@ -90,7 +90,7 @@ when defined js:
 
     proc linkProgram*(gl: GL, prog: ProgramRef)
     proc drawArrays*(gl: GL, mode: GLenum, first: GLint, count: GLsizei)
-    proc drawElements*(gl: GL, mode: GLenum, count: GLsizei, typ: GLenum, alwaysZeroOffset: int = 0)
+    proc drawElements*(gl: GL, mode: GLenum, count: GLsizei, typ: GLenum, offset: int = 0)
     proc createShader*(gl: GL, shaderType: GLenum): ShaderRef
     proc createProgram*(gl: GL): ProgramRef
     proc createTexture*(gl: GL): TextureRef
@@ -277,7 +277,7 @@ else:
     template linkProgram*(gl: GL, prog: ProgramRef) = glLinkProgram(prog)
 
     template drawArrays*(gl: GL, mode: GLenum, first: GLint, count: GLsizei) = glDrawArrays(mode, first, count)
-    template drawElements*(gl: GL, mode: GLenum, count: GLsizei, typ: GLenum, alwaysZeroOffset: int = 0) = glDrawElements(mode, count, typ, cast[pointer](alwaysZeroOffset))
+    template drawElements*(gl: GL, mode: GLenum, count: GLsizei, typ: GLenum, offset: int = 0) = glDrawElements(mode, count, typ, cast[pointer](offset))
     template createShader*(gl: GL, shaderType: GLenum): ShaderRef = glCreateShader(shaderType)
     template createProgram*(gl: GL): ProgramRef = glCreateProgram()
     proc createTexture*(gl: GL): GLuint = glGenTextures(1, addr result)
