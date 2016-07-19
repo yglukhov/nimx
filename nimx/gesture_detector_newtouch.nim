@@ -190,7 +190,7 @@ method onGestEvent*(d: ScrollDetector, e: var Event) : bool =
 
 method onGestEvent*(d: TapGestureDetector, e: var Event) : bool =
     result = true
-    if e.pointerId != 0: result = false
+    if numberOfActiveTouches() > 1: result = false
     else:
         if e.isButtonDownEvent():
             d.down_position = e.position
@@ -309,7 +309,7 @@ proc checkFling*(d: FlingGestureDetector) =
 
 method onGestEvent*(d: FlingGestureDetector, e: var Event) : bool =
     result = true
-    if e.pointerId != 0:
+    if numberOfActiveTouches() > 1:
        return
     if e.buttonState == bsDown:
         d.prev_ev = e

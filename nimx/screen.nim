@@ -6,7 +6,7 @@ when defined(ios):
         {.emit: """
         `result` = [`s` respondsToSelector: @selector(nativeScale)] ? [`s` nativeScale] : 1.0f;
         """.}
-        result = 1.0 # TODO: Fix this
+        # result = 1.0 # TODO: Fix this
 elif defined(macosx):
     {.emit: "#import <AppKit/AppKit.h>".}
     type NSScreen {.importc, header: "<AppKit/AppKit.h>", final.} = distinct int

@@ -7,6 +7,7 @@ import system_logger
 import types
 import sequtils
 import oswalkdir
+import variant
 
 const debugResCache = false
 
@@ -17,6 +18,7 @@ type ResourceLoader* = ref object
     itemsLoaded: int
     onComplete*: proc()
     onProgress*: proc(p: float)
+    resourceCache*: ResourceCache # Cache to put the loaded resources to. If nil, default cache is used.
     when debugResCache:
         resourcesToLoad: seq[string]
 
@@ -36,7 +38,7 @@ proc onResourceLoaded(ld: ResourceLoader, name: string) =
     if not ld.onProgress.isNil:
         ld.onProgress( ld.itemsLoaded.float / ld.itemsToLoad.float)
 
-type ResourceLoaderProc* = proc(name: string, completionCallback: proc())
+type ResourceLoaderProc = proc(name: string, completionCallback: proc(r: Variant))
 
 var resourcePreloaders = newSeq[tuple[fileExtensions: seq[string], loader: ResourceLoaderProc]]()
 
@@ -45,7 +47,8 @@ proc startPreloadingResource(ld: ResourceLoader, name: string) =
 
     for rp in resourcePreloaders:
         if extension in rp.fileExtensions:
-            rp.loader name, proc() =
+            rp.loader name, proc(r: Variant) =
+                ld.resourceCache.registerResource(name, r)
                 ld.onResourceLoaded(name)
             return
 
@@ -53,14 +56,10 @@ proc startPreloadingResource(ld: ResourceLoader, name: string) =
     logi "WARNING: Unknown resource type: ", name
     #raise newException(Exception, "Unknown resource type: " & name)
 
-proc registerResourcePreloader*(fileExtensions: openarray[string], loader: proc(name: string, callback: proc())) {.deprecated.} =
-    resourcePreloaders.add((@fileExtensions, loader))
-
 proc registerResourcePreloader*[T](fileExtensions: openarray[string], loader: proc(name: string, callback: proc(r: T))) =
-    proc wrapCb(name: string, callback: proc()) =
+    proc wrapCb(name: string, callback: proc(r: Variant)) =
         loader(name) do(r: T):
-            registerResource(name, r)
-            callback()
+            callback(newVariant(r))
     resourcePreloaders.add((@fileExtensions, wrapCb))
 
 registerResourcePreloader(["json", "zsm"]) do(name: string, callback: proc(j: JsonNode)):
@@ -82,6 +81,8 @@ registerResourcePreloader(["obj", "txt"]) do(name: string, callback: proc(s: str
 proc preloadResources*(ld: ResourceLoader, resourceNames: openarray[string]) =
     ld.itemsLoaded = ld.itemsToLoad
     ld.itemsToLoad += resourceNames.len
+    if ld.resourceCache.isNil:
+        ld.resourceCache = currentResourceCache()
     when debugResCache:
         ld.resourcesToLoad = @resourceNames
     let oldWarn = warnWhenResourceNotCached

@@ -15,13 +15,16 @@ import window_event_handling
 
 import nimx.property_editors.autoresizing_mask_editor # Imported here to be registered in the propedit registry
 import nimx.serializers
+import nimx.key_commands
+import nimx.pasteboard.pasteboard
+
+const ViewPboardKind = "io.github.yglukhov.nimx"
 
 type
     EventCatchingView = ref object of View
         keyUpDelegate*: proc (event: var Event)
         keyDownDelegate*: proc (event: var Event)
         mouseScrrollDelegate*: proc (event: var Event)
-        selectedView: View # View that we currently draw selection rect around
         panningView: View # View that we're currently moving/resizing with `panOp`
         editor: Editor
         panOp: PanOperation
@@ -35,6 +38,7 @@ type
         undoManager: UndoManager
         toolbar: Toolbar
         inspector: InspectorPanel
+        mSelectedView: View # View that we currently draw selection rect around
 
     PanOperation = enum
         poDrag
@@ -47,6 +51,15 @@ type
         poDragL
         poDragR
 
+proc `selectedView=`(e: Editor, v: View) =
+    e.mSelectedView = v
+    e.inspector.setInspectedObject(v)
+
+template selectedView(e: Editor): View = e.mSelectedView
+
+template `selectedView=`(e: EventCatchingView, v: View) = e.editor.selectedView = v
+template selectedView(e: EventCatchingView): View = e.editor.selectedView
+
 method acceptsFirstResponder(v: EventCatchingView): bool = true
 
 method onKeyUp(v: EventCatchingView, e : var Event): bool =
@@ -56,19 +69,45 @@ method onKeyUp(v: EventCatchingView, e : var Event): bool =
 
 method onKeyDown(v: EventCatchingView, e : var Event): bool =
     let u = v.editor.undoManager
-    when defined(macosx):
-        if e.keyCode == VirtualKey.Z and (alsoPressed(VirtualKey.LeftGUI) or alsoPressed(VirtualKey.RightGUI)):
-            if (alsoPressed(VirtualKey.LeftShift) or alsoPressed(VirtualKey.RightShift)) and u.canRedo():
-                u.redo()
-            elif u.canUndo():
-                u.undo()
-    else:
-        if e.keyCode == VirtualKey.Z and
-                (alsoPressed(VirtualKey.LeftControl) or alsoPressed(VirtualKey.RightControl)) and u.canUndo():
-            u.undo()
-        elif e.keyCode == VirtualKey.Y and
-                (alsoPressed(VirtualKey.LeftControl) or alsoPressed(VirtualKey.RightControl)) and u.canRedo():
-            u.redo()
+    let cmd = commandFromEvent(e)
+    case cmd
+    of kcUndo:
+        if u.canUndo(): u.undo()
+    of kcRedo:
+        if u.canRedo(): u.redo()
+    of kcCopy, kcCut:
+        let sv = v.selectedView
+        if not sv.isNil:
+            let s = newJsonSerializer()
+            s.serialize(sv)
+            let pbi = newPasteboardItem(ViewPboardKind, $s.jsonNode)
+            pasteboardWithName(PboardGeneral).write(pbi)
+            if cmd == kcCut:
+                let svSuperview = sv.superview
+                u.pushAndDo("Cut view") do():
+                    sv.removeFromSuperview()
+                    v.selectedView = nil
+                do():
+                    svSuperview.addSubview(sv)
+                    v.selectedView = sv
+    of kcPaste:
+        let pbi = pasteboardWithName(PboardGeneral).read(ViewPboardKind)
+        if not pbi.isNil:
+            let jn = parseJson(pbi.data)
+            echo jn
+            let s = newJsonDeserializer(parseJson(pbi.data))
+            var nv: View
+            s.deserialize(nv)
+            doAssert(not nv.isNil)
+            var targetView = v.selectedView
+            if targetView.isNil:
+                targetView = v.editor.editedView
+            u.pushAndDo("Paste view") do():
+                targetView.addSubview(nv)
+            do():
+                nv.removeFromSuperview()
+
+    else: discard
 
     if e.keyCode == VirtualKey.Delete:
         let sv = v.selectedView
@@ -173,16 +212,20 @@ proc startEditingInView*(editedView, editingView: View): Editor =
     editor.inspector = InspectorPanel.new(newRect(680, 100, 300, 600))
     editingView.addSubview(editor.inspector)
 
-proc findSubviewAtPoint(v: View, p: Point): View =
+proc findSubviewAtPointAux(v: View, p: Point): View =
     for i in countdown(v.subviews.len - 1, 0):
         let s = v.subviews[i]
         var pp = s.convertPointFromParent(p)
         if pp.inRect(s.bounds):
-            result = s.findSubviewAtPoint(pp)
+            result = s.findSubviewAtPointAux(pp)
             if not result.isNil:
                 break
     if result.isNil:
         result = v
+
+proc findSubviewAtPoint(v: View, p: Point): View =
+    result = v.findSubviewAtPointAux(p)
+    if result == v: result = nil
 
 proc knobRect(b: Rect, po: PanOperation): Rect =
     const cornerKnobRadius = 4
@@ -227,46 +270,47 @@ method onTouchEv*(v: EventCatchingView, e: var Event): bool =
         let lpos = v.editor.editedView.convertPointFromWindow(v.convertPointToWindow(e.localPosition))
         v.panningView = v.editor.editedView.findSubviewAtPoint(lpos)
 
-        v.origPanRect = v.panningView.frame
+        if not v.panningView.isNil:
+            v.origPanRect = v.panningView.frame
 
-        v.panOp = poDrag
-        if v.panningView == v.selectedView:
-            v.panOp = panOperation(v.selectionRect, e.localPosition)
+            v.panOp = poDrag
+            if v.panningView == v.selectedView:
+                v.panOp = panOperation(v.selectionRect, e.localPosition)
 
-        v.setNeedsDisplay()
+            v.setNeedsDisplay()
     of bsUp:
         if epochTime() - v.dragStartTime < 0.3:
             v.selectedView = v.panningView
-            v.editor.inspector.setInspectedObject(v.selectedView)
             v.setNeedsDisplay()
         else:
             let pv = v.panningView
-            let origFrame = v.origPanRect
-            let newFrame = pv.frame
-            v.editor.undoManager.pushAndDo("Move/resize view") do():
-                pv.setFrame(newFrame)
-            do():
-                pv.setFrame(origFrame)
-
+            if not pv.isNil:
+                let origFrame = v.origPanRect
+                let newFrame = pv.frame
+                v.editor.undoManager.pushAndDo("Move/resize view") do():
+                    pv.setFrame(newFrame)
+                do():
+                    pv.setFrame(origFrame)
     else:
-        let delta = e.localPosition - v.origPanPoint
-        var newFrame = v.origPanRect
-        if v.panOp in { poDragTL, poDragBL, poDragL }:
-            newFrame.origin.x = newFrame.x + delta.x
-            newFrame.size.width -= delta.x
-        elif v.panOp in { poDragTR, poDragBR, poDragR }:
-            newFrame.size.width += delta.x
+        if not v.panningView.isNil:
+            let delta = e.localPosition - v.origPanPoint
+            var newFrame = v.origPanRect
+            if v.panOp in { poDragTL, poDragBL, poDragL }:
+                newFrame.origin.x = newFrame.x + delta.x
+                newFrame.size.width -= delta.x
+            elif v.panOp in { poDragTR, poDragBR, poDragR }:
+                newFrame.size.width += delta.x
 
-        if v.panOp in { poDragTL, poDragTR, poDragT }:
-            newFrame.origin.y = newFrame.y + delta.y
-            newFrame.size.height -= delta.y
-        elif v.panOp in { poDragBL, poDragBR, poDragB }:
-            newFrame.size.height += delta.y
+            if v.panOp in { poDragTL, poDragTR, poDragT }:
+                newFrame.origin.y = newFrame.y + delta.y
+                newFrame.size.height -= delta.y
+            elif v.panOp in { poDragBL, poDragBR, poDragB }:
+                newFrame.size.height += delta.y
 
-        if v.panOp == poDrag:
-            newFrame.origin += delta
+            if v.panOp == poDrag:
+                newFrame.origin += delta
 
-        v.panningView.setFrame(newFrame)
+            v.panningView.setFrame(newFrame)
 
     result = true
 

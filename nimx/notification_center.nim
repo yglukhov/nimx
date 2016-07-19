@@ -5,12 +5,12 @@ export variant
 
 when defined(js):
     {.emit:"""
-    var observerIdCounter = 0;
+    var _nimx_observerIdCounter = 0;
     """.}
 
 type NCObserverID = int
 type NCCallback = proc(args: Variant)
-type NCCallbackTable = Table[NCObserverID, NCCallback]
+type NCCallbackTable = TableRef[NCObserverID, NCCallback]
 type NotificationCenter* = ref object of RootObj
     observers: Table[string, NCCallbackTable]
 
@@ -22,37 +22,39 @@ proc sharedNotificationCenter*(): NotificationCenter=
         gNotifCenter.observers = initTable[string, NCCallbackTable]()
     result = gNotifCenter
 
-proc removeObserver*(nc: NotificationCenter, ev: string)=
-    if nc.observers.hasKey(ev):
-        nc.observers.del(ev)
-
 proc getObserverID(rawId: ref | SomeOrdinal): int =
-    var obsId : int
     when defined(js):
         when rawId is ref:
             {.emit: """
             if (`rawId`.__nimx_observer_id === undefined) {
-                `rawId`["__nimx_observer_id"] = --observerIdCounter;
-                console.log("newObserverId " , observerIdCounter)
+                `rawId`["__nimx_observer_id"] = --_nimx_observerIdCounter;
             }
-            `obsId` = `rawId`.__nimx_observer_id;
+            `result` = `rawId`.__nimx_observer_id;
             """.}
         else:
-            obsId = rawId.int
+            result = rawId.int
     else:
-        obsId = cast[int](rawId)
-    result = obsId
+        result = cast[int](rawId)
 
-proc deleteWithLen(t: var NCCallbackTable, id: int): int=
-    t.del(id)
-    result = t.len
+proc removeObserver*(nc: NotificationCenter, ev: string, observerId: ref | SomeOrdinal) =
+    let obsId = getObserverID(observerId)
+    let o = nc.observers.getOrDefault(ev)
+    if not o.isNil:
+        o.del(obsId)
+        if o.len == 0:
+            nc.observers.del(ev)
+
+# use removeObserver*(nc: NotificationCenter, ev: string, observerId: ref | SomeOrdinal)
+proc removeObserver*(nc: NotificationCenter,ev: string) {.deprecated.} =
+    nc.observers.del(ev)
 
 proc removeObserver*(nc: NotificationCenter, observerId: ref | SomeOrdinal) =
     let obsId = getObserverID(observerId)
     var toRemoveKeys = newSeq[string]()
 
-    for key in nc.observers.keys:
-        if nc.observers[key].deleteWithLen(obsId) == 0:
+    for key, val in pairs(nc.observers):
+        val.del(obsId)
+        if val.len == 0:
             toRemoveKeys.add(key)
 
     for key in toRemoveKeys:
@@ -60,28 +62,24 @@ proc removeObserver*(nc: NotificationCenter, observerId: ref | SomeOrdinal) =
 
 proc addObserver*(nc: NotificationCenter, ev: string, observerId: ref | SomeOrdinal, cb: NCCallback) =
     let obsId = getObserverID(observerId)
-
-    if not nc.observers.hasKey(ev):
-        var obTable = initTable[int, NCCallback]()
-        nc.observers.add(ev, obTable)
-
-    nc.observers[ev].add(obsId, cb)
+    var o = nc.observers.getOrDefault(ev)
+    if o.isNil:
+        o = newTable[int, NCCallback]()
+        nc.observers[ev] = o
+    o.add(obsId, cb)
 
 proc postNotification*(nc: NotificationCenter, ev: string, args: Variant) =
-    if nc.observers.hasKey(ev):
-
-        var observers = nc.observers[ev]
-
-        for key, val in observers:
-            val(args)
+    let o = nc.observers.getOrDefault(ev)
+    if not o.isNil:
+        for v in o.values:
+            v(args)
 
 proc postNotification*(nc: NotificationCenter, ev: string)=
     nc.postNotification(ev, newVariant())
 
 
 when isMainModule:
-
-    proc tests(nc:NotificationCenter)=
+    proc tests*(nc:NotificationCenter)=
         const test1arg = "some string"
         var step = 0
 
@@ -98,7 +96,7 @@ when isMainModule:
             inc step
 
             nc.addObserver("test3", nc, proc(args: Variant)=
-                nc.removeObserver("test3")
+                nc.removeObserver("test3", nc)
                 inc step
             )
         )
@@ -119,7 +117,10 @@ when isMainModule:
         nc.postNotification("test2", newVariant(test1arg))
 
         doAssert(nc.observers.len == 1)
-        nc.removeObserver("test1")
+        nc.removeObserver("test1", 15)
+        nc.removeObserver("test1", 19)
+        nc.removeObserver("test1", 13)
+        nc.removeObserver("test1", 17)
         doAssert(nc.observers.len == 0)
         doAssert(step == 4)
 

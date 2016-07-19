@@ -312,6 +312,10 @@ const preferredFonts = when defined(js) or defined(windows) or defined(emscripte
             "Arial",
             "OpenSans-Regular"
         ]
+    elif defined(ios):
+        [
+            "OpenSans-Regular"
+        ]
     elif defined(macosx):
         [
             "Arial",
@@ -359,6 +363,7 @@ when not defined js:
         when not defined(emscripten):
             yield getAppDir() / "res" / face & ".ttf"
             yield getAppDir() /../ "Resources" / face & ".ttf"
+            yield getAppDir() / face & ".ttf"
 
     proc findFontFileForFace(face: string): string =
         for f in potentialFontFilesForFace(face):
