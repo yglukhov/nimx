@@ -240,7 +240,7 @@ proc bakeChars(f: Font, start: int32, res: CharInfo) =
         var rawData = readFile(f.filePath)
 
         var fontinfo: stbtt_fontinfo
-        if stbtt_InitFont(fontinfo, cast[font_type](rawData.cstring), 0) == 0:
+        if stbtt_InitFont(fontinfo, cast[ptr font_type](rawData.cstring), 0) == 0:
             logi "Could not init font"
             raise newException(Exception, "Could not init font")
 
