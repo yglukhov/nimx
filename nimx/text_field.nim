@@ -87,11 +87,9 @@ proc bumpCursorVisibility(t: TextField) =
     cursorUpdateTimer.clear()
     t.setNeedsDisplay()
 
-    let p = proc() =
+    cursorUpdateTimer = setInterval(0.5) do():
         cursorVisible = not cursorVisible
         t.setNeedsDisplay()
-
-    cursorUpdateTimer = setInterval(0.5, p)
 
 proc selectInRange*(t: TextField, a, b: int) =
     var aa = clamp(a, 0, t.mText.len)
