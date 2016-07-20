@@ -196,6 +196,10 @@ proc newBuilder*(platform: string): Builder =
 
     b.buildRoot = "build"
     b.originalResourcePath = "res"
+
+    if platform == "emscripten":
+        b.additionalNimFlags.add("-d:useRealtimeGC")
+
     b.setBuilderSettings()
 
 proc nimblePath(package: string): string =
@@ -212,16 +216,13 @@ proc nimbleNimxPath(): string =
     result = nimblePath("nimx")
     doAssert(not result.isNil, "Error: nimx does not seem to be installed with nimble!")
 
-proc newBuilderForCurrentPlatform(): Builder =
+proc newBuilder*(): Builder =
     when defined(macosx):
         newBuilder("macosx")
     elif defined(windows):
         newBuilder("windows")
     else:
         newBuilder("linux")
-
-proc newBuilder*(): Builder =
-    result = newBuilderForCurrentPlatform()
 
 var
     preprocessResources* : proc(b: Builder)
@@ -746,7 +747,7 @@ task defaultTask, "Build and run":
     newBuilder().build()
 
 task "build", "Build and don't run":
-    let b = newBuilderForCurrentPlatform()
+    let b = newBuilder()
     b.runAfterBuild = false
     b.build()
 

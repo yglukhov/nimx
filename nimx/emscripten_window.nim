@@ -397,18 +397,22 @@ proc runUntilQuit*() =
     discard quit(evt)
 ]#
 
-var lastCollectionTime = 0.0
+when not defined(useRealtimeGC):
+    var lastCollectionTime = 0.0
 
 proc mainLoop() {.cdecl.} =
     mainApplication().runAnimations()
     mainApplication().drawWindows()
 
-    # TODO: Use real-timish mode here.
-    let t = epochTime()
-    if t > lastCollectionTime + 2:
-        GC_enable()
-        GC_fullCollect()
-        GC_disable()
+    when defined(useRealtimeGC):
+        GC_step(1000, true)
+    else:
+        {.hint: "It is recommended to compile your project with -d:useRealtimeGC for emscripten".}
+        let t = epochTime()
+        if t > lastCollectionTime + 10:
+            GC_enable()
+            GC_fullCollect()
+            GC_disable()
         lastCollectionTime = t
 
 var initFunc : proc()
