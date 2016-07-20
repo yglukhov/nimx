@@ -211,7 +211,7 @@ template setInterpolationAnimation(a: Animation, ident: expr, fromVal, toVal: ex
     let fv = fromVal
     let tv = toVal
     a.onAnimate = proc(p: float) =
-        let `ident` {.inject.} = interpolate(fv, tv, p)
+        let `ident` {.inject, hint[XDeclaredButNotUsed]: off.} = interpolate(fv, tv, p)
         body
 
 macro animate*(a: Animation, what: expr, how: stmt): stmt {.immediate.} =
