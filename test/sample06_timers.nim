@@ -29,7 +29,7 @@ method init(t: TimersSampleView, r: Rect) =
         t.timer.clear()
         firesLabel.text = "fires: "
         t.timer = newTimer(parseFloat(intervalTextField.text), periodicButton.boolValue, proc() =
-            firesLabel.text = "fires: " & "O"
+            firesLabel.text = firesLabel.text & "O"
             )
     t.addSubview(startButton)
 
@@ -42,7 +42,8 @@ method init(t: TimersSampleView, r: Rect) =
     let pauseButton = newButton(newRect(20, 140, 100, 20))
     pauseButton.title = "Pause"
     pauseButton.onAction do():
-        t.timer.pause()
+        if not t.timer.isNil:
+            t.timer.pause()
     t.addSubview(pauseButton)
 
     let resumeButton = newButton(newRect(20, 170, 100, 20))
@@ -60,7 +61,7 @@ method init(t: TimersSampleView, r: Rect) =
             secs = 0
         secondsLabel.text = "seconds: "
         for i in 0 ..< secs:
-            secondsLabel.text = "seconds: " & "O"
+            secondsLabel.text = secondsLabel.text & "O"
 
     firesLabel = t.newLabel(newPoint(20, 230), newSize(120, 20), "fires: ")
 

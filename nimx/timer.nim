@@ -1,221 +1,145 @@
-import times
+import times, system_logger
 
-const jsCompatibleAPI = defined(js) or defined(emscripten)
-
-when defined(js):
-    type TimerID {.importc.} = ref object
-    const nilTimer : TimerID = nil
-
-    proc setInterval(p: proc(), timeout: float): TimerID {.importc.}
-    proc setTimeout(p: proc(), timeout: float): TimerID {.importc.}
-    proc clearInterval(t: TimerID) {.importc.}
-    proc clearTimeout(t: TimerID) {.importc.}
-elif defined(emscripten):
-    import emscripten
+when defined(js) or defined(emscripten):
+    import jsbind
+    type TimerID = ref object of JSObj
+elif (defined(macosx) or defined(ios)) and defined(nimxAvoidSDL):
     type TimerID = pointer
-    const nilTimer : TimerID = nil
-
-    type Context = ref object
-        handler: proc()
-
-    proc initTimers() =
-        EM_ASM """
-        window.__nimx_timers = {};
-        """
-
-    initTimers()
-
-    proc timerCallback(c: pointer) {.EMSCRIPTEN_KEEPALIVE.} =
-        let ctx = cast[Context](c)
-        ctx.handler()
-
-    proc deleteTimerContext(c: pointer) {.EMSCRIPTEN_KEEPALIVE.} =
-        let ctx = cast[Context](c)
-        GC_unref(ctx)
-
-    proc setInterval(p: proc(), timeout: float): TimerID =
-        let ctx = Context.new()
-        ctx.handler = p
-        GC_ref(ctx)
-        result = cast[pointer](ctx)
-        discard EM_ASM_INT("""
-        var timer = setInterval(function() {
-            _timerCallback($1);
-        }, $0);
-        window.__nimx_timers[$1] = timer;
-        return 0;
-        """, cfloat(timeout), cast[pointer](ctx))
-
-    proc setTimeout(p: proc(), timeout: float): TimerID =
-        let ctx = Context.new()
-        ctx.handler = p
-        GC_ref(ctx)
-        result = cast[pointer](ctx)
-        discard EM_ASM_INT("""
-        var timer = setTimeout(function() {
-            _timerCallback($1);
-            var t = window.__nimx_timers[$1];
-            if (t !== undefined) {
-                _deleteTimerContext($1);
-                delete window.__nimx_timers[$1];
-            }
-        }, $0);
-        window.__nimx_timers[$1] = timer;
-        return 0;
-        """, cfloat(timeout), cast[pointer](ctx))
-
-    proc clearInterval(t: TimerID) =
-        discard EM_ASM_INT("""
-        var t = window.__nimx_timers[$0];
-        if (t !== undefined) {
-            clearInterval(t);
-            delete window.__nimx_timers[$0];
-            _deleteTimerContext($0);
-        }
-        """, t)
-
-    proc clearTimeout(t: TimerID) =
-        discard EM_ASM_INT("""
-        var t = window.__nimx_timers[$0];
-        if (t !== undefined) {
-            clearTimeout(t);
-            delete window.__nimx_timers[$0];
-            _deleteTimerContext($0);
-        }
-        """, t)
-
 else:
-    import sdl2, sdl_perform_on_main_thread, tables
+    import sdl2
 
-type UserData = ref object
-    id: int
-    isHandled: bool
+type TimerState = enum
+    tsInvalid
+    tsRunning
+    tsPaused
 
 type Timer* = ref object
     callback: proc()
+    origCallback: proc()
     timer: TimerID
-    nextFireTime: float
     interval: float
     isPeriodic: bool
-    isRescheduling: bool
-    when not defined(js):
-        id: int
-        userData: UserData
+    scheduleTime: float
+    state: TimerState
+    ready: bool
 
-template fireCallbackAux(t: Timer) =
-    t.callback()
-    if t.isPeriodic:
-        t.nextFireTime = epochTime() + t.interval
-        if t.isRescheduling:
-            discard
+when defined(js) or defined(emscripten):
+    proc setInterval(p: proc(), timeout: float): TimerID {.jsImportg.}
+    proc setTimeout(p: proc(), timeout: float): TimerID {.jsImportg.}
+    proc clearInterval(t: TimerID) {.jsImportg.}
+    proc clearTimeout(t: TimerID) {.jsImportg.}
 
-when not jsCompatibleAPI:
-    # Due to SDL timers are running on a separate thread there is no way to
-    # safely pass pointers/references as timer context because there is no
-    # way to tell which thread touches the context last and has to dispose it.
-    # Solution to this is a global map of active timers.
+    proc schedule(t: Timer) =
+        if t.isPeriodic:
+            t.timer = setInterval(t.callback, t.interval * 1000)
+        else:
+            t.timer = setTimeout(t.callback, t.interval * 1000)
 
-    var allTimers = initTable[int, Timer]()
+    template cancel(t: Timer) =
+        if t.isPeriodic:
+            clearInterval(t.timer)
+        else:
+            clearTimeout(t.timer)
 
-    proc deleteTimerFromSDL(t: Timer) =
-        discard removeTimer(t.timer)
-        t.timer = 0
-        allTimers.del(t.id)
-        t.id = 0
+elif (defined(macosx) or defined(ios)) and defined(nimxAvoidSDL):
+    {.emit: """
+    #include <CoreFoundation/CoreFoundation.h>
+    """.}
+    proc cftimerCallback(cfTimer: pointer, t: Timer) {.cdecl.} =
+        if not t.isPeriodic:
+            t.timer = 0
+        t.callback()
 
-    proc nextTimerId(): int =
-        var idCounter {.global.} = 0
-        inc idCounter
-        result = idCounter
+    proc schedule(t: Timer) =
+        var interval = t.interval
+        var repeats = t.isPeriodic
+        var cfTimer: TimerID
+        {.emit: """
+        CFAbsoluteTime nextFireTime = CFAbsoluteTimeGetCurrent() + `interval`;
+        if (!`repeats`) `interval` = 0;
+        CFRunLoopTimerContext context;
+        context.version = 0;
+        context.info = `t`;
+        context.retain = NULL;
+        context.release = NULL;
+        context.copyDescription = NULL;
+        CFRunLoopTimerRef tr = CFRunLoopTimerCreate(NULL, nextFireTime, `interval`, 0, 0, `cftimerCallback`, &context);
+        CFRunLoopAddTimer(CFRunLoopGetCurrent(), tr, kCFRunLoopCommonModes);
+        `cfTimer` = tr;
+        CFRelease(tr);
+        """.}
+        t.timer = cfTimer
 
-    proc timeoutThreadCallback(interval: uint32, data: pointer): uint32 {.cdecl.}
+    template cancel(t: Timer) =
+        let cfTimer = t.timer
+        {.emit: """
+        CFRunLoopTimerInvalidate(`cfTimer`);
+        """.}
+else:
+    import sdl_perform_on_main_thread
 
-    proc fireCallback(data: pointer) {.cdecl.} =
-        var ud = cast[UserData](data)
-        let t = allTimers.getOrDefault(ud.id)
-        if not t.isNil:
-            t.fireCallbackAux()
-
-            if not t.isPeriodic:
-                t.deleteTimerFromSDL()
-            elif t.isRescheduling:
-                t.deleteTimerFromSDL()
-                t.id = nextTimerId()
-                t.isRescheduling = false
-                allTimers[t.id] = t
-                t.timer = addTimer(uint32(t.interval * 1000), timeoutThreadCallback, cast[pointer](t.userData))
-
-            t.userData.isHandled = false
+    proc fireCallback(timer: pointer) {.cdecl.} =
+        var t = cast[Timer](timer)
+        t.callback()
+        t.ready = true
 
     # Nim is hostile when it's callbacks are called from an "unknown" thread.
     # The following function can not use nim's stack trace and GC.
-    {.push stack_trace:off.}
-    proc timeoutThreadCallback(interval: uint32, data: pointer): uint32 =
+
+    {.push stackTrace: off.}
+    proc timeoutThreadCallback(interval: uint32, timer: pointer): uint32 {.cdecl.} =
         # This proc is run on a foreign thread!
+        let t = cast[ptr type(cast[Timer](timer)[])](timer)
 
-        var ud = cast[UserData](data)
-        if not ud.isHandled:
+        if t.ready:
+            t.ready = false
+            performOnMainThread(fireCallback, timer)
 
-            var res = performOnMainThread(fireCallback, data)
-
-            if  res == 1:   # success
-                ud.isHandled = true
-            elif res == 0:  # event filtered
-                # Assume that event filter handles our timer correctly.
-                ud.isHandled = true
-            else:           # -1 error or event stack full
-                ud.isHandled = false
-
-        result = interval
+        if t.isPeriodic:
+            result = interval
+        else:
+            result = 0
     {.pop.}
 
-template isTimerValid(t: Timer): bool =
-    when jsCompatibleAPI:
-        not t.timer.isNil
-    else:
-        t.timer != 0
+    proc schedule(t: Timer) =
+        t.timer = addTimer(uint32(t.interval * 1000), timeoutThreadCallback, cast[pointer](t))
+
+    template cancel(t: Timer) =
+        discard removeTimer(t.timer)
+        t.ready = false
 
 proc clear*(t: Timer) =
     if not t.isNil:
-        if t.isTimerValid:
-            when jsCompatibleAPI:
-                if t.isPeriodic and not t.isRescheduling:
-                    clearInterval(t.timer)
-                else:
-                    clearTimeout(t.timer)
-                t.timer = nilTimer
-            else:
-                t.deleteTimerFromSDL()
-            t.nextFireTime = t.nextFireTime - epochTime()
+        var emptyId: TimerID
+        if t.timer != emptyId:
+            t.cancel()
+            t.timer = emptyId
+            t.state = tsInvalid
+            when not defined(js):
+                GC_unref(t)
 
 proc newTimer*(interval: float, repeat: bool, callback: proc()): Timer =
     assert(not callback.isNil)
     result.new()
-    result.callback = callback
-    result.isPeriodic = repeat
-    result.nextFireTime = epochTime() + interval
-    result.interval = interval
-
-    when jsCompatibleAPI:
-        let t = result
-        let cb = proc() =
-            fireCallbackAux(t)
-        if t.isPeriodic:
-            result.timer = setInterval(cb, interval * 1000)
-        else:
-            result.timer = setTimeout(cb, interval * 1000)
+    result.origCallback = callback
+    when defined(js):
+        result.callback = callback
     else:
-        var sdlInitialized {.global.} = false
-        if not sdlInitialized:
-            sdl2.init(INIT_TIMER)
-            sdlInitialized = true
+        let t = result
+        GC_ref(t)
+        if repeat:
+            t.callback = callback
+        else:
+            t.callback = proc() =
+                t.origCallback()
+                t.clear()
 
-        result.id = nextTimerId()
-        allTimers[result.id] = result
-        result.userData = new(UserData)
-        result.userData.id = result.id
-        result.userData.isHandled = false
-        result.timer = addTimer(uint32(interval * 1000), timeoutThreadCallback, cast[pointer](result.userData))
+    result.isPeriodic = repeat
+    result.interval = interval
+    result.scheduleTime = epochTime()
+    result.state = tsRunning
+    result.ready = true
+    result.schedule()
 
 proc setTimeout*(interval: float, callback: proc()): Timer {.discardable.} =
     newTimer(interval, false, callback)
@@ -223,33 +147,34 @@ proc setTimeout*(interval: float, callback: proc()): Timer {.discardable.} =
 proc setInterval*(interval: float, callback: proc()): Timer {.discardable.} =
     newTimer(interval, true, callback)
 
+proc timeLeftUntilNextFire(t: Timer): float =
+    let curTime = epochTime()
+    let firedTimes = int((curTime - t.scheduleTime) / t.interval) + 1
+    result = t.scheduleTime + float(firedTimes) * t.interval
+    result = result - curTime
+
 proc pause*(t: Timer) =
-  if not t.isNil:
-    if t.isTimerValid:
-        when jsCompatibleAPI:
-            t.clear()
-        else:
-            discard removeTimer(t.timer)
-            t.timer = 0
+    if t.state != tsPaused:
+        t.clear()
+        t.scheduleTime = t.timeLeftUntilNextFire()
+        t.state = tsPaused
 
 proc resume*(t: Timer) =
-    if not t.isTimerValid:
-        when jsCompatibleAPI:
-            if t.isPeriodic:
-                let cb = proc() =
-                    t.fireCallbackAux()
-                    let newcb = proc() =
-                        t.fireCallbackAux()
-                    t.timer = setInterval(newcb, t.interval * 1000)
-                    t.isRescheduling = false
-
-                t.timer = setTimeout(cb, t.nextFireTime * 1000)
-                t.isRescheduling = true
-            else:
-                t.timer = setTimeout(t.callback, t.nextFireTime * 1000)
+    if t.state == tsPaused:
+        # At this point t.scheduleTime is equal to number of seconds remaining
+        # until next fire.
+        let interval = t.interval
+        t.interval = t.scheduleTime
+        t.scheduleTime = epochTime() - (interval - t.scheduleTime)
+        if t.isPeriodic:
+            t.isPeriodic = false
+            t.callback = proc() =
+                t.callback = t.origCallback
+                t.origCallback()
+                t.schedule()
+            t.schedule()
+            t.isPeriodic = true
         else:
-            t.isRescheduling = true
-            allTimers[t.id] = t
-            t.timer = addTimer(uint32(t.nextFireTime * 1000), timeoutThreadCallback, cast[pointer](t.userData))
-
-        t.nextFireTime = t.nextFireTime + epochTime()
+            t.schedule()
+        t.interval = interval
+        t.state = tsRunning
