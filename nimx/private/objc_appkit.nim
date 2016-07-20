@@ -8,7 +8,17 @@ import typetraits
 template enableObjC*() =
     ## Should be called in global scope of a nim file to ensure it will be
     ## translated to Objective-C
-    proc dummyWithNoParticularMeaning() {.importobjc: "NSObject description".}
+    proc dummyWithNoParticularMeaning() {.importobjc.}
+
+type NSPoint* {.importc: "CGPoint", header: "<CoreGraphics/CoreGraphics.h>".} = object
+    x*, y*: float32
+
+type NSSize* {.importc: "CGSize", header: "<CoreGraphics/CoreGraphics.h>".} = object
+    width*, height*: float32
+
+type NSRect* {.importc: "CGRect", header: "<CoreGraphics/CoreGraphics.h>".} = object
+    origin*: NSPoint
+    size*: NSSize
 
 type NSObject* {.appkitType.} = ptr object {.inheritable.}
 type NSString* {.appkitType.} = ptr object of NSObject
@@ -19,6 +29,53 @@ type NSArrayAbstract {.appkit, importc: "NSArray", final.} = ptr object of NSObj
 type NSMutableArrayAbstract {.appkit, importc: "NSMutableArray", final.} = ptr object of NSArrayAbstract
 type NSArray*[T] = ptr object of NSArrayAbstract
 type NSMutableArray*[T] = ptr object of NSArray[T]
+
+type NSEvent* {.appkitType.} = ptr object of NSObject
+type NSView* {.appkitType.} = ptr object of NSObject
+
+type NSEventKind* = enum
+    NSLeftMouseDown      = 1,
+    NSLeftMouseUp        = 2,
+    NSRightMouseDown     = 3,
+    NSRightMouseUp       = 4,
+    NSMouseMoved         = 5,
+    NSLeftMouseDragged   = 6,
+    NSRightMouseDragged  = 7,
+    NSMouseEntered       = 8,
+    NSMouseExited        = 9,
+    NSKeyDown            = 10,
+    NSKeyUp              = 11,
+    NSFlagsChanged       = 12,
+    NSAppKitDefined      = 13,
+    NSSystemDefined      = 14,
+    NSApplicationDefined = 15,
+    NSPeriodic           = 16,
+    NSCursorUpdate       = 17,
+    NSEventTypeRotate    = 18,
+    NSEventTypeBeginGesture = 19,
+    NSEventTypeEndGesture   = 20
+    NSScrollWheel        = 22,
+    NSTabletPoint        = 23,
+    NSTabletProximity    = 24,
+    NSOtherMouseDown     = 25,
+    NSOtherMouseUp       = 26,
+    NSOtherMouseDragged  = 27
+    NSEventTypeGesture   = 29,
+    NSEventTypeMagnify   = 30,
+    NSEventTypeSwipe     = 31,
+    NSEventTypeSmartMagnify = 32,
+    NSEventTypeQuickLook   = 33
+    NSEventTypePressure   = 34
+
+proc kind*(e: NSEvent): NSEventKind {.importobjc: "type".}
+proc locationInWindow*(e: NSEvent): NSPoint {.importobjc.}
+
+proc convertPointFromView*(v: NSView, point: NSPoint, fromView: NSView): NSPoint {.importobjc: "convertPoint".}
+proc convertPointToView*(v: NSView, point: NSPoint, toView: NSView): NSPoint {.importobjc: "convertPoint".}
+proc frame*(v: NSView): NSRect {.importobjc.}
+proc bounds*(v: NSView): NSRect {.importobjc.}
+
+proc NSLog*(fmt: NSString) {.appkit, varargs.}
 
 {.push stackTrace: off.}
 proc alloc*(t: typedesc): t {.noInit.} =

@@ -170,9 +170,16 @@ proc moveToWindow(v: View, w: Window) =
     for s in v.subviews:
         s.moveToWindow(w)
 
+method markNeedsDisplay*(w: Window) {.base.} =
+    # Should not be called directly
+    discard
+
 template setNeedsDisplay*(v: View) =
-    if v.window != nil:
-        v.window.needsDisplay = true
+    let w = v.window
+    if not w.isNil:
+        if not w.needsDisplay:
+            w.needsDisplay = true
+            w.markNeedsDisplay()
 
 proc removeSubview(v: View, s: View) =
     for i, ss in v.subviews:

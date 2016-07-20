@@ -63,6 +63,8 @@ type Builder* = ref object
     compilerFlags: seq[string]
     linkerFlags: seq[string]
 
+    avoidSDL*: bool # Experimental feature.
+
 proc setBuilderSettings(b: Builder) =
     for kind, key, val in getopt():
         case kind
@@ -593,7 +595,7 @@ proc build*(b: Builder) =
 
     if b.platform != "js" and b.platform != "emscripten":
         b.nimFlags.add("--threads:on")
-        if b.platform != "windows":
+        if b.platform != "windows" and not b.avoidSDL:
             b.linkerFlags.add("-lSDL2")
 
     if b.runAfterBuild and b.platform != "android" and b.platform != "ios" and
@@ -606,8 +608,10 @@ proc build*(b: Builder) =
                 "--parallelBuild:" & $b.nimParallelBuild, "--out:" & b.executablePath,
                 "--nimcache:" & b.nimcachePath])
 
-    if b.platform != "windows":
+    if b.platform != "windows" and not b.avoidSDL:
         b.nimFlags.add("--noMain")
+
+    if b.avoidSDL: b.nimFlags.add("-d:nimxAvoidSDL")
 
     if b.debugMode:
         b.nimFlags.add(["-d:debug"])

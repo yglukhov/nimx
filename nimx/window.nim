@@ -5,6 +5,8 @@ when defined(js):
     export startAnimation
 elif defined(emscripten):
     import emscripten_window
+elif defined(macosx) and not defined(ios) and defined(nimxAvoidSDL):
+    import appkit_window
 else:
     import sdl_window
     export runUntilQuit
