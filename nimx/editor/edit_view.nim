@@ -1,4 +1,4 @@
-import times, json
+import times, json, math
 
 const savingAndLoadingEnabled = not defined(js) and not defined(emscripten) and
         not defined(ios) and not defined(android)
@@ -31,6 +31,7 @@ type
         dragStartTime: float
         origPanRect: Rect
         origPanPoint: Point
+        gridSize: Size
 
     Editor* = ref object
         editedView: View
@@ -119,6 +120,12 @@ method onKeyDown(v: EventCatchingView, e : var Event): bool =
             do():
                 svSuper.addSubview(sv)
                 v.selectedView = sv
+    elif e.keyCode == VirtualKey.G:
+        if v.gridSize == zeroSize:
+            v.gridSize = newSize(24, 24)
+        else:
+            v.gridSize = zeroSize
+        v.setNeedsDisplay()
 
     if not v.keyDownDelegate.isNil:
         v.keyDownDelegate(e)
@@ -257,6 +264,17 @@ proc selectionRect(v: EventCatchingView): Rect =
     if not s.isNil:
         result = v.localRectOfEditedView(s)
 
+proc nearestOf(v: Coord, t: Coord): Coord =
+    round(v / t) * t
+
+proc nearestToGridX(v: EventCatchingView, val: Coord): Coord =
+    result = val
+    if v.gridSize.width > 0: result = nearestOf(val, v.gridSize.width)
+
+proc nearestToGridY(v: EventCatchingView, val: Coord): Coord =
+    result = val
+    if v.gridSize.height > 0: result = nearestOf(val, v.gridSize.height)
+
 method onTouchEv*(v: EventCatchingView, e: var Event): bool =
     result = procCall v.View.onTouchEv(e)
 
@@ -296,19 +314,25 @@ method onTouchEv*(v: EventCatchingView, e: var Event): bool =
             let delta = e.localPosition - v.origPanPoint
             var newFrame = v.origPanRect
             if v.panOp in { poDragTL, poDragBL, poDragL }:
-                newFrame.origin.x = newFrame.x + delta.x
-                newFrame.size.width -= delta.x
+                let mx = newFrame.maxX
+                newFrame.origin.x = v.nearestToGridX(newFrame.x + delta.x)
+                newFrame.size.width = mx - newFrame.origin.x
             elif v.panOp in { poDragTR, poDragBR, poDragR }:
-                newFrame.size.width += delta.x
+                let mx = v.nearestToGridX(newFrame.maxX + delta.x)
+                newFrame.size.width = mx - newFrame.origin.x
 
             if v.panOp in { poDragTL, poDragTR, poDragT }:
-                newFrame.origin.y = newFrame.y + delta.y
-                newFrame.size.height -= delta.y
+                let my = newFrame.maxY
+                newFrame.origin.y = v.nearestToGridY(newFrame.y + delta.y)
+                newFrame.size.height = my - newFrame.origin.y
             elif v.panOp in { poDragBL, poDragBR, poDragB }:
-                newFrame.size.height += delta.y
+                let my = v.nearestToGridY(newFrame.maxY + delta.y)
+                newFrame.size.height = my - newFrame.origin.y
 
             if v.panOp == poDrag:
                 newFrame.origin += delta
+                newFrame.origin.x = v.nearestToGridX(newFrame.origin.x)
+                newFrame.origin.y = v.nearestToGridY(newFrame.origin.y)
 
             v.panningView.setFrame(newFrame)
 
@@ -329,7 +353,28 @@ proc drawSelectionRect(v: EventCatchingView) =
     for po in poDragTL .. poDragR:
         c.drawEllipseInRect(knobRect(sr, po))
 
+proc drawGrid(v: EventCatchingView) =
+    let c = currentContext()
+    c.fillColor = newGrayColor(0.0, 0.5)
+    c.strokeWidth = 0
+    var r = newRect(0, 0, 1, v.bounds.height)
+    if v.gridSize.width > 0:
+        for x in countup(0, int(v.bounds.width), int(v.gridSize.width)):
+            r.origin.x = Coord(x)
+            c.drawRect(r)
+    if v.gridSize.height > 0:
+        r.origin.x = 0
+        r.size.width = v.bounds.width
+        r.size.height = 1
+        for y in countup(0, int(v.bounds.height), int(v.gridSize.height)):
+            r.origin.y = Coord(y)
+            c.drawRect(r)
+
 method draw*(v: EventCatchingView, r: Rect) =
     procCall v.View.draw(r)
+
+    if v.gridSize != zeroSize:
+        v.drawGrid()
+
     if not v.selectedView.isNil:
         v.drawSelectionRect()
