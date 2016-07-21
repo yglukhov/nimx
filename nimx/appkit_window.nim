@@ -122,6 +122,7 @@ method drawWindow(w: AppkitWindow) =
         procCall w.Window.drawWindow()
     let nv = w.nativeView
     {.emit: "[[`nv` openGLContext] flushBuffer];".}
+    setCurrentContext(oldContext)
 
 proc markNeedsDisplayAux(w: AppkitWindow) =
     let nv = w.nativeView

@@ -135,12 +135,13 @@ when dumpDebugBitmaps and defined(js):
 
 template isPrintableCodePoint(c: int): bool = not (i <= 0x1f or i == 0x7f or (i >= 0x80 and i <= 0x9F))
 
-template dumpBitmaps(bitmap: seq[byte], width, height, start: int, fSize: float) =
-    var bmp = newSeq[byte](width * height * 3)
-    for i in 0 .. < width * height:
-        bmp[3*i] = bitmap[i]
+when dumpDebugBitmaps:
+    template dumpBitmaps(bitmap: seq[byte], width, height, start: int, fSize: float) =
+        var bmp = newSeq[byte](width * height * 3)
+        for i in 0 .. < width * height:
+            bmp[3*i] = bitmap[i]
 
-    discard stbi_write_bmp("atlas_nimx_alpha_" & $fSize & "_" & $start & "_" & $width & "x" & $height & ".bmp", width.cint, height.cint, 3.cint, addr bmp[0])
+        discard stbi_write_bmp("atlas_nimx_alpha_" & $fSize & "_" & $start & "_" & $width & "x" & $height & ".bmp", width.cint, height.cint, 3.cint, addr bmp[0])
 
 proc bakeChars(f: Font, start: int32, res: CharInfo) =
     let startChar = start * charChunkLength

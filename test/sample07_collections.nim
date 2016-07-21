@@ -2,7 +2,6 @@ import sample_registry
 
 import nimx.collection_view
 import nimx.image
-import nimx.image_view
 import nimx.popup_button
 import nimx.slider
 import nimx.text_field
@@ -16,11 +15,10 @@ method init(v: CollectionsSampleView, r: Rect) =
     procCall v.View.init(r)
 
     setTimeout 0.2, proc() =
-        let imgView = newImageView(newRect(0, 0, 100, 100), imageWithResource("tile.png"))
         let collection = @["one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven"]
-        
+
         let collectionView = newCollectionView(newRect(0, 0, 450, 250), newSize(50, 50), LayoutDirection.LeftToRight)
-        collectionView.numberOfItems = proc(): int = 
+        collectionView.numberOfItems = proc(): int =
             return collection.len()
         collectionView.viewForItem = proc(i: int): View =
             result = newView(newRect(0, 0, 100, 100))

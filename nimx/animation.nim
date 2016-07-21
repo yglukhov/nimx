@@ -110,7 +110,7 @@ proc processRemainingHandlersInLoop(handlers: openarray[ProgressHandler], it: va
         inc it
     it = 0
 
-method onProgress*(a: Animation, p: float)=
+method onProgress*(a: Animation, p: float) {.base.} =
     if not a.onAnimate.isNil:
         var curvedProgress = p
         if a.loopPattern == lpStartToEndToStart:
@@ -122,7 +122,7 @@ method onProgress*(a: Animation, p: float)=
             curvedProgress = a.timingFunction(curvedProgress)
         a.onAnimate(curvedProgress)
 
-method tick*(a: Animation, t: float) =
+method tick*(a: Animation, t: float) {.base.} =
     if a.pauseTime != 0: return
 
     let duration = t - a.startTime

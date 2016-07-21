@@ -249,9 +249,9 @@ method drawWindow*(w: JSCanvasWindow) =
     let c = w.renderingContext
     c.gl.clear(c.gl.COLOR_BUFFER_BIT or c.gl.STENCIL_BUFFER_BIT or c.gl.DEPTH_BUFFER_BIT)
     let oldContext = setCurrentContext(c)
-    # defer: setCurrentContext(oldContext)
     c.withTransform ortho(0, w.frame.width, w.frame.height, 0, -1, 1):
         procCall w.Window.drawWindow()
+    setCurrentContext(oldContext)
 
 method onResize*(w: JSCanvasWindow, newSize: Size) =
     w.renderingContext.gl.viewport(0, 0, GLSizei(newSize.width), GLsizei(newSize.height))

@@ -178,6 +178,9 @@ proc newGraphicsContext*(canvas: ref RootObj = nil): GraphicsContext =
     result.quadIndexBuffer = result.createQuadIndexBuffer(128)
     result.gridIndexBuffer4x4 = result.createGridIndexBuffer(4, 4)
 
+    if gCurrentContext.isNil:
+        gCurrentContext = result
+
 proc setCurrentContext*(c: GraphicsContext): GraphicsContext {.discardable.} =
     result = gCurrentContext
     gCurrentContext = c

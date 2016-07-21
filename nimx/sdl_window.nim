@@ -114,17 +114,14 @@ method title*(w: SdlWindow): string = $w.impl.getTitle()
 
 method drawWindow(w: SdlWindow) =
     let c = w.renderingContext
-    #c.gl.viewport(0, 0, w.frame.width.GLsizei, w.frame.height.GLsizei)
     c.gl.stencilMask(0xFF) # Android requires setting stencil mask to clear
     c.gl.clear(c.gl.COLOR_BUFFER_BIT or c.gl.STENCIL_BUFFER_BIT or c.gl.DEPTH_BUFFER_BIT)
     c.gl.stencilMask(0x00)
     let oldContext = setCurrentContext(c)
-
-    # TODO currentContext() return nil if exist save\open dialog window
-    # defer: setCurrentContext(oldContext)
     c.withTransform ortho(0, w.frame.width, w.frame.height, 0, -1, 1):
         procCall w.Window.drawWindow()
     w.impl.glSwapWindow() # Swap the front and back frame buffers (double buffering)
+    setCurrentContext(oldContext)
 
 proc windowFromSDLEvent[T](event: T): SdlWindow =
     let sdlWndId = event.windowID
@@ -261,15 +258,16 @@ method onResize*(w: SdlWindow, newSize: Size) =
     glViewport(0, 0, GLSizei(newSize.width * sf), GLsizei(newSize.height * sf))
     procCall w.Window.onResize(newSize)
 
-# Framerate limiter
-let MAXFRAMERATE: uint32 = 20 # milli seconds
-var frametime: uint32
+when false:
+    # Framerate limiter
+    let MAXFRAMERATE: uint32 = 20 # milli seconds
+    var frametime: uint32
 
-proc limitFramerate() =
-    var now = getTicks()
-    if frametime > now:
-        delay(frametime - now)
-    frametime = frametime + MAXFRAMERATE
+    proc limitFramerate() =
+        var now = getTicks()
+        if frametime > now:
+            delay(frametime - now)
+        frametime = frametime + MAXFRAMERATE
 
 proc animateAndDraw() =
     when not defined ios:
@@ -280,17 +278,10 @@ proc animateAndDraw() =
             mainApplication().runAnimations()
             mainApplication().drawWindows()
 
-proc handleCallbackEvent(evt: UserEventPtr) =
-    let p = cast[proc (data: pointer) {.cdecl.}](evt.data1)
-    if p.isNil:
-        logi "WARNING: UserEvent5 with nil proc"
-    else:
-        p(evt.data2)
-
-proc iPhoneSetEventPump(enabled: Bool32) {.importc: "SDL_iPhoneSetEventPump".}
-
 proc nextEvent(evt: var sdl2.Event) =
     when defined(ios):
+        proc iPhoneSetEventPump(enabled: Bool32) {.importc: "SDL_iPhoneSetEventPump".}
+
         iPhoneSetEventPump(true)
         pumpEvents()
         iPhoneSetEventPump(false)

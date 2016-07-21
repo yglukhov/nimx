@@ -37,14 +37,15 @@ proc fps(): int =
     result = (1.0 / lastFrame).int
     lastTime = curTime
 
-proc getTextureMemory(): int =
-    var memory = 0.int
-    var selfImages = findCachedResources[SelfContainedImage]()
-    for img in selfImages:
-        memory += int(img.size.width * img.size.height)
+when false:
+    proc getTextureMemory(): int =
+        var memory = 0.int
+        var selfImages = findCachedResources[SelfContainedImage]()
+        for img in selfImages:
+            memory += int(img.size.width * img.size.height)
 
-    memory = int(4 * memory / 1024 / 1024)
-    return memory
+        memory = int(4 * memory / 1024 / 1024)
+        return memory
 
 method drawWindow*(w: Window) {.base.} =
     w.needsDisplay = false

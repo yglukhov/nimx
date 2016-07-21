@@ -185,6 +185,7 @@ method drawWindow(w: EmscriptenWindow) =
 
     c.withTransform ortho(0, w.frame.width, w.frame.height, 0, -1, 1):
         procCall w.Window.drawWindow()
+    setCurrentContext(oldContext)
 
 #[
 proc windowFromSDLEvent[T](event: T): EmscriptenWindow =

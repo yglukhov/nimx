@@ -293,7 +293,6 @@ proc setBounds*(v: View, b: Rect) =
     v.setBoundsSize(b.size)
 
 method setFrameSize*(v: View, s: Size) {.base.} =
-    let oldSize = v.bounds.size
     v.frame.size = s
     v.setBoundsSize(s)
 
