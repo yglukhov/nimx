@@ -80,6 +80,25 @@ proc blackColor*(): Color = newGrayColor(0)
 proc grayColor*(): Color = newGrayColor(0.75)
 proc clearColor*(): Color = newGrayColor(0, 0)
 
+proc `*`*(color: Color, value: float): Color =
+    result.r = color.r * value
+    result.g = color.g * value
+    result.b = color.b * value
+    result.a = color.a * value
+
+proc `+`*(color: Color, value: float): Color =
+    result.r = color.r + value
+    result.g = color.g + value
+    result.b = color.b + value
+    result.a = color.a + value
+
+proc `+`*(c1, c2: Color): Color =
+    result.r = c1.r + c2.r
+    result.g = c1.g + c2.g
+    result.b = c1.b + c2.b
+    result.a = c1.a + c2.a
+
+
 proc minCorner*(r: Rect): Point = r.origin
 proc maxCorner*(r: Rect): Point = newPoint(r.maxX, r.maxY)
 
