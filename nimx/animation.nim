@@ -311,13 +311,13 @@ method tick*(a: MetaAnimation, t: float) =
         return
 
     var
-        duration = t - a.startTime
+        #duration = t - a.startTime
         updateAnims: seq[Animation]
         animsFinished = true
         needPrepare = a.curIndex == -1 or (not a.parallelMode and a.animations[a.curIndex].startTime == 0)
         curTime = epochTime()
 
-    var prevLoopPattern = a.currentLoopPattern
+    #var prevLoopPattern = a.currentLoopPattern
 
     if a.curIndex == -1:
         a.nextIndex()
