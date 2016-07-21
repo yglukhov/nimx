@@ -80,8 +80,9 @@ else:
 
     proc fireCallback(timer: pointer) {.cdecl.} =
         var t = cast[Timer](timer)
-        t.callback()
-        t.ready = true
+        if t.state == tsRunning:
+            t.callback()
+            t.ready = true
 
     # Nim is hostile when it's callbacks are called from an "unknown" thread.
     # The following function can not use nim's stack trace and GC.
