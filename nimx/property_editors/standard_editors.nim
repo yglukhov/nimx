@@ -223,9 +223,15 @@ proc newEnumPropertyView(setter: proc(s: EnumValue), getter: proc(): EnumValue):
         items.add(k)
 
     sort(items, system.cmp)
+    var startVal = 0
+    for i, v in items:
+        if val.possibleValues[v] == val.curValue:
+            startVal = i
+            break
+
     var enumChooser = newPopupButton(pv,
         newPoint(0.0, 0.0), newSize(208, editorRowHeight),
-        items, val.curValue)
+        items, startVal)
 
     enumChooser.autoresizingMask = {afFlexibleWidth, afFlexibleMaxY}
 
