@@ -597,11 +597,8 @@ proc drawNinePartImage*(c: GraphicsContext, i: Image, toRect: Rect, ml, mt, mr, 
         var fuv : array[4, GLfloat]
         let tex = getTextureQuad(i, gl, fuv)
 
-        var fr = fromRect
         let sz = i.size
-        if fr == zeroRect:
-            fr = newRect(zeroPoint, sz)
-        else:
+        if fromRect != zeroRect:
             fuv[0] = fuv[0] + fromRect.x / sz.width
             fuv[1] = fuv[1] + fromRect.y / sz.height
             fuv[2] = fuv[2] - (sz.width - fromRect.maxX) / sz.width
@@ -615,10 +612,13 @@ proc drawNinePartImage*(c: GraphicsContext, i: Image, toRect: Rect, ml, mt, mr, 
             vertexData[index * 2 * 2 + 2] = u
             vertexData[index * 2 * 2 + 3] = v
 
-        let tml = ml / sz.width
-        let tmr = mr / sz.width
-        let tmt = mt / sz.height
-        let tmb = mb / sz.height
+        let duvx = fuv[2] - fuv[0]
+        let duvy = fuv[3] - fuv[1]
+
+        let tml = ml / sz.width * duvx
+        let tmr = mr / sz.width * duvx
+        let tmt = mt / sz.height * duvy
+        let tmb = mb / sz.height * duvy
 
         0.setVertex(toRect.x, toRect.y, fuv[0], fuv[1])
         1.setVertex(toRect.x + ml, toRect.y, fuv[0] + tml, fuv[1])
