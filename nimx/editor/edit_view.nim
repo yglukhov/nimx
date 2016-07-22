@@ -1,11 +1,5 @@
 import times, json, math
 
-const savingAndLoadingEnabled = not defined(js) and not defined(emscripten) and
-        not defined(ios) and not defined(android)
-
-when savingAndLoadingEnabled:
-    import native_dialogs
-
 import view, panel_view, context, undo_manager, toolbar, button, menu, resource
 import inspector_panel
 
@@ -18,7 +12,7 @@ import nimx.serializers
 import nimx.key_commands
 import nimx.pasteboard.pasteboard
 
-const ViewPboardKind = "io.github.yglukhov.nimx"
+import ui_document
 
 type
     EventCatchingView = ref object of View
@@ -34,12 +28,11 @@ type
         gridSize: Size
 
     Editor* = ref object
-        editedView: View
         eventCatchingView: EventCatchingView
-        undoManager: UndoManager
         toolbar: Toolbar
         inspector: InspectorPanel
         mSelectedView: View # View that we currently draw selection rect around
+        document: UIDocument
 
     PanOperation = enum
         poDrag
@@ -69,7 +62,7 @@ method onKeyUp(v: EventCatchingView, e : var Event): bool =
         v.keyUpDelegate(e)
 
 method onKeyDown(v: EventCatchingView, e : var Event): bool =
-    let u = v.editor.undoManager
+    let u = v.editor.document.undoManager
     let cmd = commandFromEvent(e)
     case cmd
     of kcUndo:
@@ -102,12 +95,17 @@ method onKeyDown(v: EventCatchingView, e : var Event): bool =
             doAssert(not nv.isNil)
             var targetView = v.selectedView
             if targetView.isNil:
-                targetView = v.editor.editedView
+                targetView = v.editor.document.view
             u.pushAndDo("Paste view") do():
                 targetView.addSubview(nv)
             do():
                 nv.removeFromSuperview()
-
+    of kcOpen:
+        v.editor.document.open()
+    of kcSave:
+        v.editor.document.save()
+    of kcSaveAs:
+        v.editor.document.saveAs()
     else: discard
 
     if e.keyCode == VirtualKey.Delete:
@@ -151,7 +149,7 @@ proc createNewViewButton(e: Editor) =
                         e.eventCatchingView.selectedView.addSubview(v)
                     else:
                         v.init(newRect(200, 200, 100, 100))
-                        e.editedView.addSubview(v)
+                        e.document.view.addSubview(v)
                     e.eventCatchingView.selectedView = v
                 items.add(menuItem)
 
@@ -162,49 +160,31 @@ proc createNewViewButton(e: Editor) =
 when savingAndLoadingEnabled:
     proc createLoadButton(e: Editor) =
         let b = Button.new(newRect(0, 30, 120, 20))
-        b.title = "Load"
+        b.title = "Open"
         b.onAction do():
-            let path = callDialogFileOpen("Open")
-            if not path.isNil:
-                let j = try: parseFile(path) except: nil
-                if not j.isNil:
-                    let s = newJsonDeserializer(j)
-                    pushParentResource(path)
-                    var v: View
-                    s.deserialize(v)
-                    popParentResource()
-                    doAssert(not v.isNil)
-                    let sup = e.editedView.superview
-                    e.editedView.removeFromSuperview()
-                    e.editedView = v
-                    sup.addSubview(v)
-
+            e.selectedView = nil
+            e.document.open()
         e.toolbar.addSubview(b)
 
     proc createSaveButton(e: Editor) =
         let b = Button.new(newRect(0, 30, 120, 20))
-        b.title = "Save"
+        b.title = "Save As..."
         b.onAction do():
-            let path = callDialogFileSave("Save")
-            if not path.isNil:
-                let s = newJsonSerializer()
-                pushParentResource(path)
-                s.serialize(e.editedView)
-                popParentResource()
-                writeFile(path, $s.jsonNode())
+            e.document.saveAs()
         e.toolbar.addSubview(b)
 
 proc startEditingInView*(editedView, editingView: View): Editor =
     ## editedView - the view to edit
     ## editingView - parent view for the editor UI
     result.new()
-    result.editedView = editedView
-    result.undoManager = newUndoManager()
+    result.document = newUIDocument()
+    result.document.view = editedView
 
     let editor = result
 
     editor.eventCatchingView = EventCatchingView.new(editingView.bounds)
     editor.eventCatchingView.editor = editor
+    editor.eventCatchingView.autoresizingMask = {afFlexibleWidth, afFlexibleHeight}
     editingView.addSubview(editor.eventCatchingView)
 
     const toolbarHeight = 30
@@ -285,8 +265,8 @@ method onTouchEv*(v: EventCatchingView, e: var Event): bool =
         v.origPanPoint = e.localPosition
 
         # Convert to coordinates of edited view
-        let lpos = v.editor.editedView.convertPointFromWindow(v.convertPointToWindow(e.localPosition))
-        v.panningView = v.editor.editedView.findSubviewAtPoint(lpos)
+        let lpos = v.editor.document.view.convertPointFromWindow(v.convertPointToWindow(e.localPosition))
+        v.panningView = v.editor.document.view.findSubviewAtPoint(lpos)
 
         if not v.panningView.isNil:
             v.origPanRect = v.panningView.frame
@@ -305,7 +285,7 @@ method onTouchEv*(v: EventCatchingView, e: var Event): bool =
             if not pv.isNil:
                 let origFrame = v.origPanRect
                 let newFrame = pv.frame
-                v.editor.undoManager.pushAndDo("Move/resize view") do():
+                v.editor.document.undoManager.pushAndDo("Move/resize view") do():
                     pv.setFrame(newFrame)
                 do():
                     pv.setFrame(origFrame)
