@@ -325,6 +325,13 @@ proc findSubviewWithName*(v: View, name: string): View =
         result = c.findSubviewWithName(name)
         if not result.isNil: break
 
+proc enclosingViewOfType*(v: View, T: typedesc): T =
+    type TT = T
+    var r = v.superview
+    while not r.isNil and not (r of T):
+        r = r.superview
+    if not r.isNil: result = TT(r)
+
 template `originForEditor=`(v: View, p: Point) = v.setFrameOrigin(p)
 template originForEditor(v: View): Point = v.frame.origin
 template `sizeForEditor=`(v: View, p: Size) = v.setFrameSize(p)
