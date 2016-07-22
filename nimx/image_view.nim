@@ -34,7 +34,6 @@ proc newImageView*(r: Rect, image: Image = nil, fillRule = ImageFillRule.NoFill)
 
 method init*(v: ImageView, r: Rect) =
     procCall v.View.init(r)
-    v.backgroundColor = newColor(1.0, 1.0, 1.0, 1.0)
 
 proc image*(v: ImageView): Image = v.image
 proc `image=`*(v: ImageView, image: Image) =
