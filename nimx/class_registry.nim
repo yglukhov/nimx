@@ -44,7 +44,8 @@ proc isSubtypeOf(tself, tsuper: TypeId): bool = tself != tsuper and isTypeOf(tse
 {.pop.}
 
 template registerClass*(a: typedesc) =
-    method className*(o: a): string = a.name
+    const TName = typetraits.name(a)
+    method className*(o: a): string = TName
     registerTypeRelation(a)
     #superTypeRelations[getTypeId(a)] = getTypeId(superType(a))
     var info: ClassInfo
@@ -53,7 +54,7 @@ template registerClass*(a: typedesc) =
         r.new()
         result = r
     info.typ = getTypeId(a)
-    classFactory[a.name] = info
+    classFactory[TName] = info
 
 template isClassRegistered*(name: string): bool = name in classFactory
 
