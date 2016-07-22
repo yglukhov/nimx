@@ -257,7 +257,9 @@ method beginObject*(s: JsonDeserializer) = s.pushJsonNode()
 
 method beginArray*(s: JsonDeserializer): int =
     s.pushJsonNode()
-    result = s.nodeStack[^1].len
+    let ln = s.nodeStack[^1]
+    if not ln.isNil:
+        result = ln.len
 
 method endObjectOrArray*(s: JsonDeserializer) =
     let ln = s.nodeStack.len
