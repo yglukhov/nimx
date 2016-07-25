@@ -243,7 +243,6 @@ proc newEnumPropertyView(setter: proc(s: EnumValue), getter: proc(): EnumValue):
 
     result = pv
 
-template closureScope*(body: untyped): stmt = (proc() = body)()
 proc newScalarSeqPropertyView[T](setter: proc(s: seq[T]), getter: proc(): seq[T]): PropertyEditorView =
     var val = getter()
     var height = val.len() * 26 + 26
