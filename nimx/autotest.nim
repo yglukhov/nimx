@@ -2,7 +2,7 @@ import macros
 import nimx.timer
 import nimx.app
 import nimx.event
-import nimx.abstract_window
+import nimx.window.abstract_window
 import nimx.button
 import nimx.system_logger
 

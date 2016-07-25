@@ -1,14 +1,14 @@
 # Platform specific implementations follow
-import abstract_window
+import window.abstract_window
 when defined(js):
-    import js_canvas_window
+    import window.js_canvas_window
     export startAnimation
 elif defined(emscripten):
-    import emscripten_window
+    import window.emscripten_window
 elif defined(macosx) and not defined(ios) and defined(nimxAvoidSDL):
-    import appkit_window
+    import window.appkit_window
 else:
-    import sdl_window
+    import window.sdl_window
     export runUntilQuit
 
 export runApplication

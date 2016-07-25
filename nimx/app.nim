@@ -1,6 +1,6 @@
 import sequtils
 
-import abstract_window
+import window.abstract_window
 import event
 import window_event_handling
 
