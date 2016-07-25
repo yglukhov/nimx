@@ -926,7 +926,7 @@ proc tryGetScaleRotationFromModel*(mat: Matrix4, scale: var Vector3, rotation: v
         z = (row0[2] + row2[0]) / s
         w = (row2[1] - row1[2]) / s
     elif row1[1] > row2[2]:
-        s = sqrt (1.0 + row1[1] - row0[0] - row2[2]) * 2.0
+        s = sqrt(1.0 + row1[1] - row0[0] - row2[2]) * 2.0
         x = (row0[1] + row1[0]) / s
         y = 0.25 * s
         z = (row1[2] + row2[1]) / s

@@ -15,7 +15,7 @@ import app
 
 import intsets
 
-type SelectionMode = enum
+type SelectionMode* = enum
     smNone
     smSingleSelection
     smMultipleSelection

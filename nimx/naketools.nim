@@ -63,6 +63,8 @@ type Builder* = ref object
     compilerFlags: seq[string]
     linkerFlags: seq[string]
 
+    avoidSDL*: bool # Experimental feature.
+
 proc setBuilderSettings(b: Builder) =
     for kind, key, val in getopt():
         case kind
@@ -194,6 +196,10 @@ proc newBuilder*(platform: string): Builder =
 
     b.buildRoot = "build"
     b.originalResourcePath = "res"
+
+    if platform == "emscripten":
+        b.additionalNimFlags.add("-d:useRealtimeGC")
+
     b.setBuilderSettings()
 
 proc nimblePath(package: string): string =
@@ -210,16 +216,13 @@ proc nimbleNimxPath(): string =
     result = nimblePath("nimx")
     doAssert(not result.isNil, "Error: nimx does not seem to be installed with nimble!")
 
-proc newBuilderForCurrentPlatform(): Builder =
+proc newBuilder*(): Builder =
     when defined(macosx):
         newBuilder("macosx")
     elif defined(windows):
         newBuilder("windows")
     else:
         newBuilder("linux")
-
-proc newBuilder*(): Builder =
-    result = newBuilderForCurrentPlatform()
 
 var
     preprocessResources* : proc(b: Builder)
@@ -593,7 +596,7 @@ proc build*(b: Builder) =
 
     if b.platform != "js" and b.platform != "emscripten":
         b.nimFlags.add("--threads:on")
-        if b.platform != "windows":
+        if b.platform != "windows" and not b.avoidSDL:
             b.linkerFlags.add("-lSDL2")
 
     if b.runAfterBuild and b.platform != "android" and b.platform != "ios" and
@@ -606,8 +609,10 @@ proc build*(b: Builder) =
                 "--parallelBuild:" & $b.nimParallelBuild, "--out:" & b.executablePath,
                 "--nimcache:" & b.nimcachePath])
 
-    if b.platform != "windows":
+    if b.platform != "windows" and not b.avoidSDL:
         b.nimFlags.add("--noMain")
+
+    if b.avoidSDL: b.nimFlags.add("-d:nimxAvoidSDL")
 
     if b.debugMode:
         b.nimFlags.add(["-d:debug"])
@@ -742,7 +747,7 @@ task defaultTask, "Build and run":
     newBuilder().build()
 
 task "build", "Build and don't run":
-    let b = newBuilderForCurrentPlatform()
+    let b = newBuilder()
     b.runAfterBuild = false
     b.build()
 

@@ -8,6 +8,7 @@ import composition
 import resource
 import image
 import notification_center
+import mini_profiler
 export view
 
 # Window type is defined in view module
@@ -36,36 +37,44 @@ proc fps(): int =
     result = (1.0 / lastFrame).int
     lastTime = curTime
 
-proc getTextureMemory(): int =
-    var memory = 0.int
-    var selfImages = findCachedResources[SelfContainedImage]()
-    for img in selfImages:
-        memory += int(img.size.width * img.size.height)
+when false:
+    proc getTextureMemory(): int =
+        var memory = 0.int
+        var selfImages = findCachedResources[SelfContainedImage]()
+        for img in selfImages:
+            memory += int(img.size.width * img.size.height)
 
-    memory = int(4 * memory / 1024 / 1024)
-    return memory
+        memory = int(4 * memory / 1024 / 1024)
+        return memory
 
 method drawWindow*(w: Window) {.base.} =
     w.needsDisplay = false
 
     w.recursiveDrawSubviews()
-    let c = currentContext()
-    c.fillColor = newColor(1, 0, 0, 1)
 
-    when enableGraphicsProfiling:
+    let profiler = sharedProfiler()
+    if profiler.enabled:
+        const fontSize = 14
+        const profilerWidth = 110
+        let c = currentContext()
         var font = systemFont()
         let old_size = font.size
-        font.size = 14
-        var pt = newPoint(w.frame.width - 100, 5)
-        var pt2 = newPoint(w.frame.width - 100, 20)
-        var pt3 = newPoint(w.frame.width - 100, 35)
-        var pt4 = newPoint(w.frame.width - 100, 50)
-        var pt5 = newPoint(w.frame.width - 100, 65)
-        c.drawText(font, pt, "FPS: " & $fps())
-        c.drawText(font, pt2, "Overdraw: " & $GetOverdrawValue())
-        c.drawText(font, pt3, "DIPs: " & $GetDIPValue())
-        c.drawText(font, pt4, "Animations: " & $totalAnims)
-        # c.drawText(font, pt5, "TexMem: " & $getTextureMemory())
+        font.size = fontSize
+        var rect = newRect(w.frame.width - profilerWidth, 5, profilerWidth - 5, Coord(profiler.len * fontSize))
+        c.fillColor = newGrayColor(1, 0.8)
+        c.strokeWidth = 0
+        c.drawRect(rect)
+
+        profiler["FPS"] = fps()
+        profiler["Overdraw"] = GetOverdrawValue()
+        profiler["DIPs"] = GetDIPValue()
+        profiler["Animations"] = totalAnims
+        var pt = newPoint(0, 5)
+        c.fillColor = blackColor()
+        for k, v in profiler:
+            pt.x = w.frame.width - profilerWidth
+            c.drawText(font, pt, k & ": " & v)
+            pt.y = pt.y + fontSize
         font.size = old_size
         ResetOverdrawValue()
         ResetDIPValue()

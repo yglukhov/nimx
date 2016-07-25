@@ -4,188 +4,131 @@ import view
 import opengl
 import context
 import event
-import font
 import unicode, times
 import app
 import linkage_details
 import portable_gl
 import screen
-import emscripten
+import nimx.private.objc_appkit
 
-import private.js_vk_map
+enableObjC()
 
-type EmscriptenWindow* = ref object of Window
-    ctx: EMSCRIPTEN_WEBGL_CONTEXT_HANDLE
+{.emit: """
+#include <AppKit/AppKit.h>
+
+@interface __NimxView__ : NSOpenGLView {
+    @public
+    void* w;
+}
+@end
+
+@interface __NimxAppDelegate__ : NSObject {
+    @public
+    void* d;
+}
+@end
+
+@interface __NimxWindow__ : NSWindow {
+    @public
+    void* w;
+}
+@end
+
+""".}
+
+type AppkitWindow* = ref object of Window
+    nativeWindow: pointer # __NimxWindow__
+    mNativeView: pointer # __NimxView__
     renderingContext: GraphicsContext
-    canvasId: string
+    inLiveResize: bool
+
+type AppDelegate = ref object
+    init: proc()
 
 var animationEnabled = 0
 
-method enableAnimation*(w: EmscriptenWindow, flag: bool) =
+method enableAnimation*(w: AppkitWindow, flag: bool) =
     discard
 
-# SDL does not provide window id in touch event info, so we add this workaround
-# assuming that touch devices may have only one window.
-var defaultWindow: EmscriptenWindow
-
-proc onMouseButton(eventType: cint, mouseEvent: ptr EmscriptenMouseEvent, userData: pointer, bs: ButtonState): EM_BOOL =
-    let w = cast[EmscriptenWindow](userData)
-    template bcFromE(): VirtualKey =
-        case mouseEvent.button:
-        of 0: VirtualKey.MouseButtonPrimary
-        of 2: VirtualKey.MouseButtonSecondary
-        of 1: VirtualKey.MouseButtonMiddle
-        else: VirtualKey.Unknown
-
-    var evt = newMouseButtonEvent(newPoint(Coord(mouseEvent.targetX), Coord(mouseEvent.targetY)), bcFromE(), bs, uint32(mouseEvent.timestamp))
-    evt.window = w
-    if mainApplication().handleEvent(evt): result = 1
-
-proc onMouseDown(eventType: cint, mouseEvent: ptr EmscriptenMouseEvent, userData: pointer): EM_BOOL {.cdecl.} =
-    onMouseButton(eventType, mouseEvent, userData, bsDown)
-
-proc onMouseUp(eventType: cint, mouseEvent: ptr EmscriptenMouseEvent, userData: pointer): EM_BOOL {.cdecl.} =
-    onMouseButton(eventType, mouseEvent, userData, bsUp)
-
-proc onMouseMove(eventType: cint, mouseEvent: ptr EmscriptenMouseEvent, userData: pointer): EM_BOOL {.cdecl.} =
-    let w = cast[EmscriptenWindow](userData)
-    var evt = newMouseMoveEvent(newPoint(Coord(mouseEvent.targetX), Coord(mouseEvent.targetY)), uint32(mouseEvent.timestamp))
-    evt.window = w
-    if mainApplication().handleEvent(evt): result = 1
-
-proc onMouseWheel(eventType: cint, wheelEvent: ptr EmscriptenWheelEvent, userData: pointer): EM_BOOL {.cdecl.} =
-    let w = cast[EmscriptenWindow](userData)
-    let pos = newPoint(Coord(wheelEvent.mouse.targetX), Coord(wheelEvent.mouse.targetY))
-    var evt = newEvent(etScroll, pos)
-    evt.window = w
-    evt.offset.x = wheelEvent.deltaX.Coord
-    evt.offset.y = wheelEvent.deltaY.Coord
-    if mainApplication().handleEvent(evt): result = 1
-
-proc onKey(keyEvent: ptr EmscriptenKeyboardEvent, userData: pointer, buttonState: ButtonState): EM_BOOL =
-    var e = newKeyboardEvent(virtualKeyFromNative(int(keyEvent.keyCode)), buttonState, bool(keyEvent.repeat))
-    e.window = cast[EmscriptenWindow](userData)
-    if mainApplication().handleEvent(e): result = 1
-
-proc onKeyDown(eventType: cint, keyEvent: ptr EmscriptenKeyboardEvent, userData: pointer): EM_BOOL {.cdecl.} =
-    onKey(keyEvent, userData, bsDown)
-
-proc onKeyUp(eventType: cint, keyEvent: ptr EmscriptenKeyboardEvent, userData: pointer): EM_BOOL {.cdecl.} =
-    onKey(keyEvent, userData, bsUp)
-
-proc onFocus(eventType: cint, keyEvent: ptr EmscriptenFocusEvent, userData: pointer): EM_BOOL {.cdecl.} =
-    let w = cast[EmscriptenWindow](userData)
-    w.onFocusChange(true)
-    result = 0
-
-proc onBlur(eventType: cint, keyEvent: ptr EmscriptenFocusEvent, userData: pointer): EM_BOOL {.cdecl.} =
-    let w = cast[EmscriptenWindow](userData)
-    w.onFocusChange(false)
-    result = 0
-
-proc onResize(eventType: cint, uiEvent: ptr EmscriptenUiEvent, userData: pointer): EM_BOOL {.cdecl.} =
-    let w = cast[EmscriptenWindow](userData)
-
-    const maxWidth = 1280
-    const maxHeight = 800
-
-    var width = uiEvent.documentBodyClientWidth.cdouble
-    var height = uiEvent.documentBodyClientHeight.cdouble
-    if width > maxWidth: width = maxWidth
-    if height > maxHeight: height = maxHeight
-
-    discard emscripten_set_element_css_size(w.canvasId, width, height)
-    discard EM_ASM_INT("""
-    var c = document.getElementById(Pointer_stringify($0));
-    c.width = $1;
-    c.height = $2;
-    """, cstring(w.canvasId), width, height)
-
-    w.onResize(newSize(width, height))
-    result = 0
-
-proc onContextLost(eventType: cint, reserved: pointer, userData: pointer): EM_BOOL {.cdecl.} =
-    discard EM_ASM_INT("""
-    alert("Context lost!");
-    """)
-
-proc initCommon(w: EmscriptenWindow, r: view.Rect) =
+proc initCommon(w: AppkitWindow, r: view.Rect) =
     procCall init(w.Window, r)
 
-    let id = EM_ASM_INT("""
-    if (window.__nimx_canvas_id === undefined) {
-        window.__nimx_canvas_id = 0;
-    } else {
-        ++window.__nimx_canvas_id;
+    var nativeWnd, nativeView: pointer
+    let x = r.x
+    let y = r.y
+    let width = r.width
+    let height = r.height
+
+    {.emit: """
+    NSRect frame = NSMakeRect(`x`, `y`, `width`, `height`);
+    NSUInteger styleMask = NSTitledWindowMask | NSClosableWindowMask | NSMiniaturizableWindowMask | NSResizableWindowMask;
+    __NimxWindow__* win = [[__NimxWindow__ alloc] initWithContentRect: frame
+					styleMask: styleMask
+					backing: NSBackingStoreBuffered
+					defer: YES];
+    win->w = `w`;
+    __NimxView__* glView = [[__NimxView__ alloc] initWithFrame: [win frame]
+                colorBits:16 depthBits:16 fullscreen: FALSE];
+    if (glView)
+    {
+        glView->w = `w`;
+        [glView setWantsBestResolutionOpenGLSurface:YES];
+        [win setContentView:glView];
+        [win makeKeyAndOrderFront:nil];
+        [glView release];
     }
-    var canvas = document.createElement("canvas");
-    canvas.id = "nimx_canvas" + window.__nimx_canvas_id;
-    canvas.width = $0;
-    canvas.height = $1;
-    document.body.appendChild(canvas);
-    return window.__nimx_canvas_id;
-    """, r.width, r.height)
+    `nativeWnd` = win;
+    `nativeView` = glView;
+    """.}
+    w.nativeWindow = nativeWnd
+    w.mNativeView = nativeView
 
-    w.canvasId = "nimx_canvas" & $id
-
-    var attrs: EmscriptenWebGLContextAttributes
-    emscripten_webgl_init_context_attributes(addr attrs)
-    attrs.premultipliedAlpha = 0
-    attrs.alpha = 0
-    attrs.antialias = 0
-    attrs.stencil = 1
-    w.ctx = emscripten_webgl_create_context(w.canvasId, addr attrs)
-    discard emscripten_webgl_make_context_current(w.ctx)
     w.renderingContext = newGraphicsContext()
-
-    discard emscripten_set_mousedown_callback(w.canvasId, cast[pointer](w), 0, onMouseDown)
-    discard emscripten_set_mouseup_callback(w.canvasId, cast[pointer](w), 0, onMouseUp)
-    discard emscripten_set_mousemove_callback(w.canvasId, cast[pointer](w), 0, onMouseMove)
-    discard emscripten_set_wheel_callback(w.canvasId, cast[pointer](w), 0, onMouseWheel)
-
-    discard emscripten_set_keydown_callback(nil, cast[pointer](w), 1, onKeyDown)
-    discard emscripten_set_keyup_callback(nil, cast[pointer](w), 1, onKeyUp)
-
-    discard emscripten_set_blur_callback(nil, cast[pointer](w), 1, onBlur)
-    discard emscripten_set_focus_callback(nil, cast[pointer](w), 1, onFocus)
-
-    discard emscripten_set_webglcontextlost_callback(w.canvasId, cast[pointer](w), 0, onContextLost)
-
-    discard emscripten_set_resize_callback(nil, cast[pointer](w), 0, onResize)
-
-    #w.enableAnimation(true)
     mainApplication().addWindow(w)
     w.onResize(r.size)
 
-proc initFullscreen*(w: EmscriptenWindow) =
+template nativeView(w: AppkitWindow): NSView = cast[NSView](w.mNativeView)
+
+proc initFullscreen*(w: AppkitWindow) =
     w.initCommon(newRect(0, 0, 800, 600))
 
-method init*(w: EmscriptenWindow, r: view.Rect) =
+method init*(w: AppkitWindow, r: view.Rect) =
     w.initCommon(r)
 
-proc newFullscreenEmscriptenWindow*(): EmscriptenWindow =
+proc newFullscreenAppkitWindow(): AppkitWindow =
     result.new()
     result.initFullscreen()
 
-proc newEmscriptenWindow*(r: view.Rect): EmscriptenWindow =
+proc newAppkitWindow(r: view.Rect): AppkitWindow =
     result.new()
     result.init(r)
 
 newWindow = proc(r: view.Rect): Window =
-    result = newEmscriptenWindow(r)
+    result = newAppkitWindow(r)
 
 newFullscreenWindow = proc(): Window =
-    result = newFullscreenEmscriptenWindow()
+    result = newFullscreenAppkitWindow()
 
-method drawWindow(w: EmscriptenWindow) =
+method drawWindow(w: AppkitWindow) =
+    if w.inLiveResize:
+        let s = w.nativeView.bounds.size
+        w.onResize(newSize(s.width, s.height))
+
     let c = w.renderingContext
-    c.gl.viewport(0, 0, w.frame.width.GLsizei, w.frame.height.GLsizei)
     c.gl.clear(c.gl.COLOR_BUFFER_BIT or c.gl.STENCIL_BUFFER_BIT or c.gl.DEPTH_BUFFER_BIT)
     let oldContext = setCurrentContext(c)
 
     c.withTransform ortho(0, w.frame.width, w.frame.height, 0, -1, 1):
         procCall w.Window.drawWindow()
+    let nv = w.nativeView
+    {.emit: "[[`nv` openGLContext] flushBuffer];".}
     setCurrentContext(oldContext)
+
+proc markNeedsDisplayAux(w: AppkitWindow) =
+    let nv = w.nativeView
+    {.emit: "[`nv` setNeedsDisplay: YES];".}
+
+method markNeedsDisplay*(w: AppkitWindow) = w.markNeedsDisplayAux()
 
 #[
 proc windowFromSDLEvent[T](event: T): EmscriptenWindow =
@@ -325,8 +268,8 @@ proc handleEvent(event: ptr sdl2.Event): Bool32 =
             discard mainApplication().handleEvent(e)
     result = True32
 ]#
-method onResize*(w: EmscriptenWindow, newSize: Size) =
-    let sf = 1.0 #screenScaleFactor()
+method onResize*(w: AppkitWindow, newSize: Size) =
+    let sf = screenScaleFactor()
     glViewport(0, 0, GLSizei(newSize.width * sf), GLsizei(newSize.height * sf))
     procCall w.Window.onResize(newSize)
 #[
@@ -382,59 +325,167 @@ method startTextInput*(w: EmscriptenWindow, r: Rect) =
 
 method stopTextInput*(w: EmscriptenWindow) =
     stopTextInput()
-
-proc runUntilQuit*() =
-    # Initialize fist dummy event. The kind should be any unused kind.
-    var evt = sdl2.Event(kind: UserEvent1)
-    #setEventFilter(eventFilter, nil)
-    animateAndDraw()
-
-    # Main loop
-    while true:
-        nextEvent(evt)
-        if evt.kind == QuitEvent:
-            break
-
-    discard quit(evt)
 ]#
 
-when not defined(useRealtimeGC):
-    var lastCollectionTime = 0.0
+proc runUntilQuit(d: AppDelegate) =
+    {.emit:"""
+	NSAutoreleasePool *pool = [NSAutoreleasePool new];
+	id app = [NSApplication sharedApplication];
+    __NimxAppDelegate__* appDelegate = [[__NimxAppDelegate__ alloc] init];
+    appDelegate->d = `d`;
+	[app setDelegate: appDelegate];
+	[app run];
+	[app setDelegate: nil];
+	[appDelegate release];
+	SInt32 result = 0;
+	[pool drain];
+    """.}
 
-proc mainLoop() {.cdecl.} =
-    mainApplication().runAnimations()
-    mainApplication().drawWindows()
+    # # Initialize fist dummy event. The kind should be any unused kind.
+    # var evt = sdl2.Event(kind: UserEvent1)
+    # #setEventFilter(eventFilter, nil)
+    # animateAndDraw()
 
-    when defined(useRealtimeGC):
-        GC_step(1000, true)
+    # # Main loop
+    # while true:
+    #     nextEvent(evt)
+    #     if evt.kind == QuitEvent:
+    #         break
+
+    # discard quit(evt)
+
+template runApplication*(body: typed): stmt =
+    try:
+        let appDelegate = AppDelegate.new()
+        appDelegate.init = proc() =
+            body
+        runUntilQuit(appDelegate)
+    except:
+        logi "Exception caught: ", getCurrentExceptionMsg()
+        logi getCurrentException().getStackTrace()
+        quit 1
+
+
+proc appDidFinishLaunching(d: AppDelegate) =
+    if not d.init.isNil:
+        d.init()
+        d.init = nil
+
+proc pointFromNSEvent(w: AppkitWindow, e: NSEvent): Point =
+    let v = w.nativeView
+    var pt = v.convertPointFromView(e.locationInWindow, nil)
+    result.x = pt.x
+    result.y = v.frame.size.height - pt.y
+
+proc eventWithNSEvent(w: AppkitWindow, e: NSEvent): Event =
+    case e.kind
+    of NSLeftMouseDown:
+        result = newMouseButtonEvent(w.pointFromNSEvent(e), VirtualKey.MouseButtonPrimary, bsDown)
+    of NSLeftMouseUp:
+        result = newMouseButtonEvent(w.pointFromNSEvent(e), VirtualKey.MouseButtonPrimary, bsUp)
+    of NSLeftMouseDragged:
+        result = newMouseButtonEvent(w.pointFromNSEvent(e), VirtualKey.MouseButtonPrimary, bsUnknown)
+    of NSRightMouseDown:
+        result = newMouseButtonEvent(w.pointFromNSEvent(e), VirtualKey.MouseButtonSecondary, bsDown)
+    of NSRightMouseUp:
+        result = newMouseButtonEvent(w.pointFromNSEvent(e), VirtualKey.MouseButtonSecondary, bsUp)
+    of NSRightMouseDragged:
+        result = newMouseButtonEvent(w.pointFromNSEvent(e), VirtualKey.MouseButtonSecondary, bsUnknown)
     else:
-        {.hint: "It is recommended to compile your project with -d:useRealtimeGC for emscripten".}
-        let t = epochTime()
-        if t > lastCollectionTime + 10:
-            GC_enable()
-            GC_fullCollect()
-            GC_disable()
-        lastCollectionTime = t
+        discard
 
-var initFunc : proc()
+    result.window = w
 
-var initDone = false
-proc mainLoopPreload() {.cdecl.} =
-    if initDone:
-        mainLoop()
-    else:
-        let r = EM_ASM_INT """
-        if (document.readyState === 'complete') {
-            return 1;
+proc sendEvent(w: AppkitWindow, e: NSEvent) =
+    var evt = w.eventWithNSEvent(e)
+    discard mainApplication().handleEvent(evt)
+
+proc viewWillStartLiveResize(w: AppkitWindow) =
+    w.inLiveResize = true
+
+proc viewDidEndLiveResize(w: AppkitWindow) =
+    w.inLiveResize = false
+    let s = w.nativeView.bounds.size
+    w.onResize(newSize(s.width, s.height))
+
+{.emit: """
+@implementation __NimxView__
+
+/*
+ * Create a pixel format and possible switch to full screen mode
+ */
+NSOpenGLPixelFormat* createPixelFormat(NSRect frame, int colorBits, int depthBits) {
+   NSOpenGLPixelFormatAttribute pixelAttribs[ 16 ];
+   int pixNum = 0;
+   NSDictionary *fullScreenMode;
+
+   pixelAttribs[pixNum++] = NSOpenGLPFADoubleBuffer;
+   pixelAttribs[pixNum++] = NSOpenGLPFAAccelerated;
+   pixelAttribs[pixNum++] = NSOpenGLPFAColorSize;
+   pixelAttribs[pixNum++] = colorBits;
+   pixelAttribs[pixNum++] = NSOpenGLPFADepthSize;
+   pixelAttribs[pixNum++] = depthBits;
+/*
+   if( runningFullScreen )  // Do this before getting the pixel format
+   {
+      pixelAttribs[pixNum++] = NSOpenGLPFAFullScreen;
+      fullScreenMode = (NSDictionary *) CGDisplayBestModeForParameters(
+                                           kCGDirectMainDisplay,
+                                           colorBits, frame.size.width,
+                                           frame.size.height, NULL );
+      CGDisplayCapture( kCGDirectMainDisplay );
+      CGDisplayHideCursor( kCGDirectMainDisplay );
+      CGDisplaySwitchToMode( kCGDirectMainDisplay,
+                             (CFDictionaryRef) fullScreenMode );
+   }*/
+   pixelAttribs[pixNum] = 0;
+   return [[NSOpenGLPixelFormat alloc] initWithAttributes:pixelAttribs];
+}
+
+- (id) initWithFrame:(NSRect)frame colorBits:(int)numColorBits
+       depthBits:(int)numDepthBits fullscreen:(BOOL)runFullScreen
+{
+    NSOpenGLPixelFormat *pixelFormat;
+
+    pixelFormat = createPixelFormat(frame, numColorBits, numDepthBits);
+    if( pixelFormat != nil )
+    {
+        self = [ super initWithFrame:frame pixelFormat:pixelFormat ];
+        [ pixelFormat release ];
+        if( self )
+        {
+            [ [ self openGLContext ] makeCurrentContext ];
+            [ self reshape ];
         }
-        return 0;
-        """
-        if r == 1:
-            GC_disable() # GC Should only be called close to the bottom of the stack on emscripten.
-            initFunc()
-            initDone = true
+    }
+    else
+        self = nil;
 
-template runApplication*(initCode: typed): stmt =
-    initFunc = proc() =
-        initCode
-    emscripten_set_main_loop(mainLoopPreload, 0, 1)
+    return self;
+}
+
+- (void)drawRect:(NSRect)r { `drawWindow`(w); }
+
+- (void)viewWillStartLiveResize { `viewWillStartLiveResize`(w); }
+- (void)viewDidEndLiveResize { `viewDidEndLiveResize`(w); }
+
+@end
+
+@implementation __NimxWindow__
+- (BOOL) canBecomeKeyWindow
+{
+	return YES;
+}
+
+- (void) sendEvent:(NSEvent *)theEvent
+{
+	[super sendEvent: theEvent];
+    `sendEvent`(w, theEvent);
+}
+@end
+
+@implementation __NimxAppDelegate__
+- (void)applicationDidFinishLaunching:(NSNotification *)aNotification { `appDidFinishLaunching`(d); }
+@end
+
+""".}

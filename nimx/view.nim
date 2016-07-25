@@ -27,6 +27,7 @@ type
 
     View* = ref object of RootObj
         window*: Window
+        name*: string
         frame: Rect
         bounds: Rect
         subviews*: seq[View]
@@ -170,9 +171,16 @@ proc moveToWindow(v: View, w: Window) =
     for s in v.subviews:
         s.moveToWindow(w)
 
+method markNeedsDisplay*(w: Window) {.base.} =
+    # Should not be called directly
+    discard
+
 template setNeedsDisplay*(v: View) =
-    if v.window != nil:
-        v.window.needsDisplay = true
+    let w = v.window
+    if not w.isNil:
+        if not w.needsDisplay:
+            w.needsDisplay = true
+            w.markNeedsDisplay()
 
 proc removeSubview(v: View, s: View) =
     for i, ss in v.subviews:
@@ -286,7 +294,6 @@ proc setBounds*(v: View, b: Rect) =
     v.setBoundsSize(b.size)
 
 method setFrameSize*(v: View, s: Size) {.base.} =
-    let oldSize = v.bounds.size
     v.frame.size = s
     v.setBoundsSize(s)
 
@@ -312,31 +319,51 @@ proc isDescendantOf*(subView, superview: View): bool =
             return true
         vi = vi.superview
 
+proc findSubviewWithName*(v: View, name: string): View =
+    for c in v.subviews:
+        if c.name == name: return c
+        result = c.findSubviewWithName(name)
+        if not result.isNil: break
+
+proc enclosingViewOfType*(v: View, T: typedesc): T =
+    type TT = T
+    var r = v.superview
+    while not r.isNil and not (r of T):
+        r = r.superview
+    if not r.isNil: result = TT(r)
+
 template `originForEditor=`(v: View, p: Point) = v.setFrameOrigin(p)
 template originForEditor(v: View): Point = v.frame.origin
 template `sizeForEditor=`(v: View, p: Size) = v.setFrameSize(p)
 template sizeForEditor(v: View): Size = v.frame.size
 
 method visitProperties*(v: View, pv: var PropertyVisitor) {.base.} =
+    pv.visitProperty("name", v.name)
     pv.visitProperty("origin", v.originForEditor)
     pv.visitProperty("size", v.sizeForEditor)
     pv.visitProperty("layout", v.autoresizingMask)
     pv.visitProperty("color", v.backgroundColor)
 
 method serializeFields*(v: View, s: Serializer) =
+    s.serialize("name", v.name)
     s.serialize("frame", v.frame)
     s.serialize("bounds", v.bounds)
     s.serialize("subviews", v.subviews)
+    s.serialize("arMask", v.autoresizingMask)
+    s.serialize("color", v.backgroundColor)
 
 method deserializeFields*(v: View, s: Deserializer) =
     var fr: Rect
     s.deserialize("frame", fr)
     v.init(fr)
     s.deserialize("bounds", v.bounds)
+    s.deserialize("name", v.name)
     var subviews: seq[View]
     s.deserialize("subviews", subviews)
     for sv in subviews:
         doAssert(not sv.isNil)
         v.addSubview(sv)
+    s.deserialize("arMask", v.autoresizingMask)
+    s.deserialize("color", v.backgroundColor)
 
 registerClass(View)

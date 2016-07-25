@@ -307,7 +307,8 @@ method serializeFields*(v: Button, s: Serializer) =
     s.serialize("enabled", v.enabled)
     s.serialize("hasBezel", v.hasBezel)
     s.serialize("behavior", v.behavior)
-    s.serialize("image", resourceNameForPath(v.image.filePath))
+    let imagePath = if v.image.isNil: nil else: v.image.filePath
+    s.serialize("image", imagePath)
     s.serialize("marginLeft", v.imageMarginLeft)
     s.serialize("marginRight", v.imageMarginRight)
     s.serialize("marginTop", v.imageMarginTop)

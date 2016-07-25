@@ -182,7 +182,6 @@ method onGestEvent*(d: ScrollDetector, e: var Event) : bool =
     if d.pointers.len > 0:
         d.last_active_point = getPointersCenter(d.pointers)
         if not d.listener.isNil:
-            let cen = getPointersCenter(d.pointers)
             d.last_fired_dx = d.last_active_point.x - d.tap_down.x + d.dx_offset
             d.last_fired_dy = d.last_active_point.y - d.tap_down.y + d.dy_offset
             d.listener.onScrollProgress(d.last_fired_dx, d.last_fired_dy, e)
@@ -299,7 +298,7 @@ method onGestEvent*(d: RotateGestureDetector, e: var Event) : bool =
             d.listener.onRotateProgress(d.angle)
 
 proc checkFling*(d: FlingGestureDetector) =
-    let dist = d.prev_ev.position.distanceTo(d.this_ev.position)
+    #let dist = d.prev_ev.position.distanceTo(d.this_ev.position)
     let timedelta = d.this_ev.timestamp - d.prev_ev.timestamp
     if not d.flingListener.isNil:
         let vx = 1000'f32 * (d.this_ev.position.x - d.prev_ev.position.x) / float32(timedelta)

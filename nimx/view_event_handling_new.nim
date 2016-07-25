@@ -26,8 +26,6 @@ method onInterceptTouchEv*(v: View, e: var Event): bool {.base.} =
 proc isMainWindow(v: View, e : var Event): bool =
     result = v == e.window
 
-var pointers = 0
-
 method onMouseIn*(v: View, e: var Event) {.base.} =
     discard
 

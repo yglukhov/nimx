@@ -1,10 +1,4 @@
-import times, json
-
-const savingAndLoadingEnabled = not defined(js) and not defined(emscripten) and
-        not defined(ios) and not defined(android)
-
-when savingAndLoadingEnabled:
-    import native_dialogs
+import times, json, math
 
 import view, panel_view, context, undo_manager, toolbar, button, menu, resource
 import inspector_panel
@@ -18,7 +12,7 @@ import nimx.serializers
 import nimx.key_commands
 import nimx.pasteboard.pasteboard
 
-const ViewPboardKind = "io.github.yglukhov.nimx"
+import ui_document
 
 type
     EventCatchingView = ref object of View
@@ -31,14 +25,14 @@ type
         dragStartTime: float
         origPanRect: Rect
         origPanPoint: Point
+        gridSize: Size
 
     Editor* = ref object
-        editedView: View
         eventCatchingView: EventCatchingView
-        undoManager: UndoManager
         toolbar: Toolbar
         inspector: InspectorPanel
         mSelectedView: View # View that we currently draw selection rect around
+        document: UIDocument
 
     PanOperation = enum
         poDrag
@@ -68,7 +62,7 @@ method onKeyUp(v: EventCatchingView, e : var Event): bool =
         v.keyUpDelegate(e)
 
 method onKeyDown(v: EventCatchingView, e : var Event): bool =
-    let u = v.editor.undoManager
+    let u = v.editor.document.undoManager
     let cmd = commandFromEvent(e)
     case cmd
     of kcUndo:
@@ -101,12 +95,17 @@ method onKeyDown(v: EventCatchingView, e : var Event): bool =
             doAssert(not nv.isNil)
             var targetView = v.selectedView
             if targetView.isNil:
-                targetView = v.editor.editedView
+                targetView = v.editor.document.view
             u.pushAndDo("Paste view") do():
                 targetView.addSubview(nv)
             do():
                 nv.removeFromSuperview()
-
+    of kcOpen:
+        v.editor.document.open()
+    of kcSave:
+        v.editor.document.save()
+    of kcSaveAs:
+        v.editor.document.saveAs()
     else: discard
 
     if e.keyCode == VirtualKey.Delete:
@@ -119,6 +118,12 @@ method onKeyDown(v: EventCatchingView, e : var Event): bool =
             do():
                 svSuper.addSubview(sv)
                 v.selectedView = sv
+    elif e.keyCode == VirtualKey.G:
+        if v.gridSize == zeroSize:
+            v.gridSize = newSize(24, 24)
+        else:
+            v.gridSize = zeroSize
+        v.setNeedsDisplay()
 
     if not v.keyDownDelegate.isNil:
         v.keyDownDelegate(e)
@@ -144,7 +149,7 @@ proc createNewViewButton(e: Editor) =
                         e.eventCatchingView.selectedView.addSubview(v)
                     else:
                         v.init(newRect(200, 200, 100, 100))
-                        e.editedView.addSubview(v)
+                        e.document.view.addSubview(v)
                     e.eventCatchingView.selectedView = v
                 items.add(menuItem)
 
@@ -155,49 +160,31 @@ proc createNewViewButton(e: Editor) =
 when savingAndLoadingEnabled:
     proc createLoadButton(e: Editor) =
         let b = Button.new(newRect(0, 30, 120, 20))
-        b.title = "Load"
+        b.title = "Open"
         b.onAction do():
-            let path = callDialogFileOpen("Open")
-            if not path.isNil:
-                let j = try: parseFile(path) except: nil
-                if not j.isNil:
-                    let s = newJsonDeserializer(j)
-                    pushParentResource(path)
-                    var v: View
-                    s.deserialize(v)
-                    popParentResource()
-                    doAssert(not v.isNil)
-                    let sup = e.editedView.superview
-                    e.editedView.removeFromSuperview()
-                    e.editedView = v
-                    sup.addSubview(v)
-
+            e.selectedView = nil
+            e.document.open()
         e.toolbar.addSubview(b)
 
     proc createSaveButton(e: Editor) =
         let b = Button.new(newRect(0, 30, 120, 20))
-        b.title = "Save"
+        b.title = "Save As..."
         b.onAction do():
-            let path = callDialogFileSave("Save")
-            if not path.isNil:
-                let s = newJsonSerializer()
-                pushParentResource(path)
-                s.serialize(e.editedView)
-                popParentResource()
-                writeFile(path, $s.jsonNode())
+            e.document.saveAs()
         e.toolbar.addSubview(b)
 
 proc startEditingInView*(editedView, editingView: View): Editor =
     ## editedView - the view to edit
     ## editingView - parent view for the editor UI
     result.new()
-    result.editedView = editedView
-    result.undoManager = newUndoManager()
+    result.document = newUIDocument()
+    result.document.view = editedView
 
     let editor = result
 
     editor.eventCatchingView = EventCatchingView.new(editingView.bounds)
     editor.eventCatchingView.editor = editor
+    editor.eventCatchingView.autoresizingMask = {afFlexibleWidth, afFlexibleHeight}
     editingView.addSubview(editor.eventCatchingView)
 
     const toolbarHeight = 30
@@ -257,6 +244,17 @@ proc selectionRect(v: EventCatchingView): Rect =
     if not s.isNil:
         result = v.localRectOfEditedView(s)
 
+proc nearestOf(v: Coord, t: Coord): Coord =
+    round(v / t) * t
+
+proc nearestToGridX(v: EventCatchingView, val: Coord): Coord =
+    result = val
+    if v.gridSize.width > 0: result = nearestOf(val, v.gridSize.width)
+
+proc nearestToGridY(v: EventCatchingView, val: Coord): Coord =
+    result = val
+    if v.gridSize.height > 0: result = nearestOf(val, v.gridSize.height)
+
 method onTouchEv*(v: EventCatchingView, e: var Event): bool =
     result = procCall v.View.onTouchEv(e)
 
@@ -267,8 +265,8 @@ method onTouchEv*(v: EventCatchingView, e: var Event): bool =
         v.origPanPoint = e.localPosition
 
         # Convert to coordinates of edited view
-        let lpos = v.editor.editedView.convertPointFromWindow(v.convertPointToWindow(e.localPosition))
-        v.panningView = v.editor.editedView.findSubviewAtPoint(lpos)
+        let lpos = v.editor.document.view.convertPointFromWindow(v.convertPointToWindow(e.localPosition))
+        v.panningView = v.editor.document.view.findSubviewAtPoint(lpos)
 
         if not v.panningView.isNil:
             v.origPanRect = v.panningView.frame
@@ -287,7 +285,7 @@ method onTouchEv*(v: EventCatchingView, e: var Event): bool =
             if not pv.isNil:
                 let origFrame = v.origPanRect
                 let newFrame = pv.frame
-                v.editor.undoManager.pushAndDo("Move/resize view") do():
+                v.editor.document.undoManager.pushAndDo("Move/resize view") do():
                     pv.setFrame(newFrame)
                 do():
                     pv.setFrame(origFrame)
@@ -296,19 +294,25 @@ method onTouchEv*(v: EventCatchingView, e: var Event): bool =
             let delta = e.localPosition - v.origPanPoint
             var newFrame = v.origPanRect
             if v.panOp in { poDragTL, poDragBL, poDragL }:
-                newFrame.origin.x = newFrame.x + delta.x
-                newFrame.size.width -= delta.x
+                let mx = newFrame.maxX
+                newFrame.origin.x = v.nearestToGridX(newFrame.x + delta.x)
+                newFrame.size.width = mx - newFrame.origin.x
             elif v.panOp in { poDragTR, poDragBR, poDragR }:
-                newFrame.size.width += delta.x
+                let mx = v.nearestToGridX(newFrame.maxX + delta.x)
+                newFrame.size.width = mx - newFrame.origin.x
 
             if v.panOp in { poDragTL, poDragTR, poDragT }:
-                newFrame.origin.y = newFrame.y + delta.y
-                newFrame.size.height -= delta.y
+                let my = newFrame.maxY
+                newFrame.origin.y = v.nearestToGridY(newFrame.y + delta.y)
+                newFrame.size.height = my - newFrame.origin.y
             elif v.panOp in { poDragBL, poDragBR, poDragB }:
-                newFrame.size.height += delta.y
+                let my = v.nearestToGridY(newFrame.maxY + delta.y)
+                newFrame.size.height = my - newFrame.origin.y
 
             if v.panOp == poDrag:
                 newFrame.origin += delta
+                newFrame.origin.x = v.nearestToGridX(newFrame.origin.x)
+                newFrame.origin.y = v.nearestToGridY(newFrame.origin.y)
 
             v.panningView.setFrame(newFrame)
 
@@ -329,7 +333,28 @@ proc drawSelectionRect(v: EventCatchingView) =
     for po in poDragTL .. poDragR:
         c.drawEllipseInRect(knobRect(sr, po))
 
+proc drawGrid(v: EventCatchingView) =
+    let c = currentContext()
+    c.fillColor = newGrayColor(0.0, 0.5)
+    c.strokeWidth = 0
+    var r = newRect(0, 0, 1, v.bounds.height)
+    if v.gridSize.width > 0:
+        for x in countup(0, int(v.bounds.width), int(v.gridSize.width)):
+            r.origin.x = Coord(x)
+            c.drawRect(r)
+    if v.gridSize.height > 0:
+        r.origin.x = 0
+        r.size.width = v.bounds.width
+        r.size.height = 1
+        for y in countup(0, int(v.bounds.height), int(v.gridSize.height)):
+            r.origin.y = Coord(y)
+            c.drawRect(r)
+
 method draw*(v: EventCatchingView, r: Rect) =
     procCall v.View.draw(r)
+
+    if v.gridSize != zeroSize:
+        v.drawGrid()
+
     if not v.selectedView.isNil:
         v.drawSelectionRect()

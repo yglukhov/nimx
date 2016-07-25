@@ -110,7 +110,7 @@ proc processRemainingHandlersInLoop(handlers: openarray[ProgressHandler], it: va
         inc it
     it = 0
 
-method onProgress*(a: Animation, p: float)=
+method onProgress*(a: Animation, p: float) {.base.} =
     if not a.onAnimate.isNil:
         var curvedProgress = p
         if a.loopPattern == lpStartToEndToStart:
@@ -122,7 +122,7 @@ method onProgress*(a: Animation, p: float)=
             curvedProgress = a.timingFunction(curvedProgress)
         a.onAnimate(curvedProgress)
 
-method tick*(a: Animation, t: float) =
+method tick*(a: Animation, t: float) {.base.} =
     if a.pauseTime != 0: return
 
     let duration = t - a.startTime
@@ -211,7 +211,7 @@ template setInterpolationAnimation(a: Animation, ident: expr, fromVal, toVal: ex
     let fv = fromVal
     let tv = toVal
     a.onAnimate = proc(p: float) =
-        let `ident` {.inject.} = interpolate(fv, tv, p)
+        let `ident` {.inject, hint[XDeclaredButNotUsed]: off.} = interpolate(fv, tv, p)
         body
 
 macro animate*(a: Animation, what: expr, how: stmt): stmt {.immediate.} =
@@ -311,13 +311,13 @@ method tick*(a: MetaAnimation, t: float) =
         return
 
     var
-        duration = t - a.startTime
+        #duration = t - a.startTime
         updateAnims: seq[Animation]
         animsFinished = true
         needPrepare = a.curIndex == -1 or (not a.parallelMode and a.animations[a.curIndex].startTime == 0)
         curTime = epochTime()
 
-    var prevLoopPattern = a.currentLoopPattern
+    #var prevLoopPattern = a.currentLoopPattern
 
     if a.curIndex == -1:
         a.nextIndex()

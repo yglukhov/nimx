@@ -25,8 +25,6 @@ when defined(js):
 elif not defined(android) and not defined(ios) and not defined(emscripten):
     import native_dialogs
 
-var gColorPicker*: ColorPickerView
-
 template toStr(v: SomeReal, precision: uint): string = formatFloat(v, ffDecimal, precision)
 template toStr(v: SomeInteger): string = $v
 
@@ -88,20 +86,36 @@ proc newVecPropertyView[T](setter: proc(s: T), getter: proc(): T): PropertyEdito
         textField.onAction complexSetter
         horLayout.addSubview(textField)
 
+type ColorComponentTextField = ref object of NumericTextField
+    onBecomeFirstResponder: proc()
+    onResignFirstResponder: proc()
+
+method viewDidBecomeFirstResponder*(t: ColorComponentTextField) =
+    procCall t.NumericTextField.viewDidBecomeFirstResponder()
+    if not t.onBecomeFirstResponder.isNil: t.onBecomeFirstResponder()
+
+method viewShouldResignFirstResponder*(t: ColorComponentTextField, newFirstResponder: View): bool =
+    result = procCall t.NumericTextField.viewShouldResignFirstResponder(newFirstResponder)
+    if result and not t.onResignFirstResponder.isNil: t.onResignFirstResponder()
+
 proc newColorPropertyView(setter: proc(s: Color), getter: proc(): Color): PropertyEditorView =
     result = PropertyEditorView.new(newRect(0, 0, 208, editorRowHeight))
     const vecLen = 3 + 1
 
-    let colorView = View.new(newRect(0, 0, editorRowHeight, editorRowHeight))
+    var beginColorPicker: proc()
+    var colorInColorPickerSelected: proc(pc: Color)
+
+    let colorView = Button.new(newRect(0, 0, editorRowHeight, editorRowHeight))
     colorView.backgroundColor = getter()
     result.addSubview(colorView)
-
-    var prevColor: Color
+    colorView.hasBezel = false
+    colorView.onAction beginColorPicker
 
     let horLayout = newHorizontalLayout(newRect(editorRowHeight, 0, result.bounds.width - editorRowHeight, editorRowHeight))
     horLayout.autoresizingMask = {afFlexibleWidth, afFlexibleMaxY}
     result.addSubview(horLayout)
 
+    let colorPicker = sharedColorPicker()
     proc complexSetter() =
         try:
             let c = newColor(
@@ -113,58 +127,40 @@ proc newColorPropertyView(setter: proc(s: Color), getter: proc(): Color): Proper
             setter(c)
             colorView.backgroundColor = c
 
-            prevColor = c
-
-            if not gColorPicker.isNil:
-                gColorPicker.colorHasChanged(rgbToHSV(c.r, c.g, c.b))
-                gColorPicker.removeFromSuperview()
-                gColorPicker = nil
-
-            if gColorPicker.isNil:
-                gColorPicker = newColorPickerView(newRect(0, 0, 300, 200))
-                gColorPicker.setFrameOrigin(newPoint(horLayout.frame.x+140+300, 0))
-
-                let pickerCloseButton = Button.new(newRect(0, 0, 25, 25))
-                pickerCloseButton.title = "x"
-                pickerCloseButton.onAction do():
-                    gColorPicker.removeFromSuperview()
-                    gColorPicker = nil
-                let pickerCancelButton = Button.new(newRect(0, 25, 25, 25))
-                pickerCancelButton.title = "c"
-                pickerCancelButton.onAction do():
-                    TextField(horLayout.subviews[0]).text = $prevColor.r
-                    TextField(horLayout.subviews[1]).text = $prevColor.g
-                    TextField(horLayout.subviews[2]).text = $prevColor.b
-                    TextField(horLayout.subviews[3]).text = $prevColor.a
-
-                    setter(prevColor)
-                    colorView.backgroundColor = prevColor
-                    gColorPicker.colorHasChanged(rgbToHSV(prevColor.r, prevColor.g, prevColor.b))
-
-                gColorPicker.addSubview(pickerCloseButton)
-                gColorPicker.addSubview(pickerCancelButton)
-                horLayout.window.addSubview(gColorPicker)
-
-                gColorPicker.colorHasChanged(rgbToHSV(c.r, c.g, c.b))
-                gColorPicker.onColorSelected = proc(pc: Color) =
-                    TextField(horLayout.subviews[0]).text = $pc.r
-                    TextField(horLayout.subviews[1]).text = $pc.g
-                    TextField(horLayout.subviews[2]).text = $pc.b
-                    TextField(horLayout.subviews[3]).text = $pc.a
-
-                    setter(pc)
-                    colorView.backgroundColor = pc
-
+            if colorPicker.onColorSelected == colorInColorPickerSelected:
+                colorPicker.color = c
         except ValueError:
             discard
+
+    colorInColorPickerSelected = proc(pc: Color) =
+        TextField(horLayout.subviews[0]).text = toStr(pc.r, 2)
+        TextField(horLayout.subviews[1]).text = toStr(pc.g, 2)
+        TextField(horLayout.subviews[2]).text = toStr(pc.b, 2)
+        var c = pc
+        c.a = try: TextField(horLayout.subviews[3]).text.parseFloat() except: 1.0
+        setter(c)
+        colorView.backgroundColor = c
+
+    beginColorPicker = proc() =
+        colorPicker.color = getter()
+        colorPicker.onColorSelected = colorInColorPickerSelected
+        colorPicker.popupAtPoint(colorView, newPoint(0, colorView.bounds.maxY))
+
+    proc endColorPicker() =
+        if colorPicker.onColorSelected == colorInColorPickerSelected:
+            colorPicker.onColorSelected = nil
+            colorPicker.removeFromSuperview()
 
     template toVector(c: Color): Vector4 = newVector4(c.r, c.g, c.b, c.a)
 
     for i in 0 ..< vecLen:
-        let textField = newNumericTextField(zeroRect)
+        let textField = ColorComponentTextField.new(zeroRect)
         textField.font = editorFont()
         textField.text = toStr(getter().toVector[i], textField.precision)
         textField.onAction complexSetter
+        textField.onBecomeFirstResponder = beginColorPicker
+        textField.onResignFirstResponder = endColorPicker
+        textField.continuous = true
         horLayout.addSubview(textField)
 
 proc newSizePropertyView(setter: proc(s: Size), getter: proc(): Size): PropertyEditorView =
@@ -227,9 +223,15 @@ proc newEnumPropertyView(setter: proc(s: EnumValue), getter: proc(): EnumValue):
         items.add(k)
 
     sort(items, system.cmp)
+    var startVal = 0
+    for i, v in items:
+        if val.possibleValues[v] == val.curValue:
+            startVal = i
+            break
+
     var enumChooser = newPopupButton(pv,
         newPoint(0.0, 0.0), newSize(208, editorRowHeight),
-        items, val.curValue)
+        items, startVal)
 
     enumChooser.autoresizingMask = {afFlexibleWidth, afFlexibleMaxY}
 
@@ -241,7 +243,6 @@ proc newEnumPropertyView(setter: proc(s: EnumValue), getter: proc(): EnumValue):
 
     result = pv
 
-template closureScope*(body: untyped): stmt = (proc() = body)()
 proc newScalarSeqPropertyView[T](setter: proc(s: seq[T]), getter: proc(): seq[T]): PropertyEditorView =
     var val = getter()
     var height = val.len() * 26 + 26

@@ -7,6 +7,8 @@ type KeyCommand* = enum
     kcPaste
     kcUndo
     kcRedo
+    kcNew
+    kcOpen
     kcSave
     kcSaveAs
 
@@ -39,6 +41,8 @@ proc commandFromEvent*(e: Event): KeyCommand =
             defineCmd kcCut, VirtualKey.X, {Gui}
             defineCmd kcPaste, VirtualKey.V, {Gui}
 
+            defineCmd kcNew, VirtualKey.N, {Gui}
+            defineCmd kcOpen, VirtualKey.O, {Gui}
             defineCmd kcSave, VirtualKey.S, {Gui}
             defineCmd kcSaveAs, VirtualKey.S, {Shift, Gui}
         else:
@@ -49,5 +53,7 @@ proc commandFromEvent*(e: Event): KeyCommand =
             defineCmd kcCut, VirtualKey.X, {Ctrl}
             defineCmd kcPaste, VirtualKey.V, {Ctrl}
 
+            defineCmd kcNew, VirtualKey.N, {Ctrl}
+            defineCmd kcOpen, VirtualKey.O, {Ctrl}
             defineCmd kcSave, VirtualKey.S, {Ctrl}
             defineCmd kcSaveAs, VirtualKey.S, {Shift, Ctrl}

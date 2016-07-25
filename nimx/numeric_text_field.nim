@@ -20,6 +20,10 @@ proc newNumericTextField*(r: Rect, precision: uint = 2): NumericTextField =
     result.init(r)
     result.precision = precision
 
+method init*(v: NumericTextField, r: Rect) =
+    procCall v.TextField.init(r)
+    v.precision = 2
+
 #[
 method onScroll*(v: NumericTextField, e: var Event): bool =
     result = true
