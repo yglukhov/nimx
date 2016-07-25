@@ -79,7 +79,7 @@ proc resourceNotCached*(name: string) =
 var parentResources = newSeq[string]()
 
 proc pushParentResource*(name: string) =
-    parentResources.add(pathForResource(name).parentDir)
+    parentResources.add(name.parentDir)
 
 proc popParentResource*() =
     parentResources.setLen(parentResources.len - 1)
