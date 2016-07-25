@@ -3,7 +3,7 @@ export view
 
 import composition
 import animation
-import window.abstract_window
+import abstract_window
 
 import times
 import math

@@ -3,7 +3,7 @@ import context
 import font
 import types
 import event
-import window.abstract_window
+import abstract_window
 import unistring
 import unicode
 import timer

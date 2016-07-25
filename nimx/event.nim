@@ -1,6 +1,6 @@
 import types
 import unicode
-import window.abstract_window
+import abstract_window
 
 import keyboard
 export VirtualKey
