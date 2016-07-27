@@ -263,18 +263,22 @@ method onTouchEv*(v: EventCatchingView, e: var Event): bool =
         v.dragStartTime = epochTime()
 
         v.origPanPoint = e.localPosition
+        v.panningView = v.selectedView
+        v.panOp = poDrag
+        let sr = v.selectionRect
+        if not v.panningView.isNil:
+            v.panOp = panOperation(sr, e.localPosition)
 
-        # Convert to coordinates of edited view
-        let lpos = v.editor.document.view.convertPointFromWindow(v.convertPointToWindow(e.localPosition))
-        v.panningView = v.editor.document.view.findSubviewAtPoint(lpos)
+        if v.panOp == poDrag and not e.localPosition.inRect(sr):
+            # Either there is no view selected, or mousedown missed selected
+            # view. Find some view under mouse and start dragging it.
+
+            # Convert to coordinates of edited view
+            let lpos = v.editor.document.view.convertPointFromWindow(v.convertPointToWindow(e.localPosition))
+            v.panningView = v.editor.document.view.findSubviewAtPoint(lpos)
 
         if not v.panningView.isNil:
             v.origPanRect = v.panningView.frame
-
-            v.panOp = poDrag
-            if v.panningView == v.selectedView:
-                v.panOp = panOperation(v.selectionRect, e.localPosition)
-
             v.setNeedsDisplay()
     of bsUp:
         if epochTime() - v.dragStartTime < 0.3:
