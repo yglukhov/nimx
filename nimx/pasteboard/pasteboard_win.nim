@@ -3,7 +3,7 @@ export abstract_pasteboard
 import winlean
 import os
 
-{.pragma: winApi, stdcall, nodecl.}
+{.pragma: winApi, stdcall, nodecl, dynlib: "user32", header:"windows.h".}
 
 type
     LPVOID = pointer
@@ -67,11 +67,6 @@ proc globalFree(hMem: Handle): Handle {.winApi, importc: "GlobalFree".}
 # );
 proc globalSize(hMem: Handle): csize {.winApi, importc: "GlobalSize".}
 
-# UINT WINAPI GlobalFlags(
-#   _In_ HGLOBAL hMem
-# );
-proc globalFlags(hMem: Handle): UINT {.winApi, importc: "GlobalFlags".}
-
 # UINT WINAPI RegisterClipboardFormat(
 #   _In_ LPCTSTR lpszFormat
 # );
@@ -87,7 +82,7 @@ proc getClipboardFormatName(uFormat: UINT, lpszFormatName: pointer, cchMaxCount:
 proc `*`(b: SomeOrdinal): bool = result = b != 0
 
 proc error()=
-    raiseOSError("GetLastError: " & $getLastError())
+    raiseOSError(getLastError().OSErrorCode)
 
 proc getClipboardFormatByString(str: string): UINT =
     case str
