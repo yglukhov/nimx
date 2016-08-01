@@ -164,6 +164,10 @@ proc eventWithSDLEvent(event: ptr sdl2.Event): Event =
                     result.window = wnd
                     result.position.x = wndEv.data1.Coord
                     result.position.y = wndEv.data2.Coord
+                of WindowEvent_FocusGained:
+                    wnd.onFocusChange(true)
+                of WindowEvent_FocusLost:
+                    wnd.onFocusChange(false)
                 else:
                     discard
 
