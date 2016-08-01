@@ -582,3 +582,6 @@ proc clearWithColor*(gl: GL, r, g, b, a: GLfloat) =
     gl.getClearColor(oldColor)
     gl.clear(gl.COLOR_BUFFER_BIT or gl.STENCIL_BUFFER_BIT or gl.DEPTH_BUFFER_BIT)
     gl.clearColor(oldColor[0], oldColor[1], oldColor[2], oldColor[3])
+
+proc clearDepthStencil*(gl: GL) =
+    gl.clear(gl.STENCIL_BUFFER_BIT or gl.DEPTH_BUFFER_BIT)

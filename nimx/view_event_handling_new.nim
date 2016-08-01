@@ -23,6 +23,9 @@ method onTouchEv*(v: View, e: var Event): bool {.base.} =
 method onInterceptTouchEv*(v: View, e: var Event): bool {.base.} =
     discard
 
+method onListenTouchEv*(v: View, e: var Event): bool {.base.} =
+    discard
+
 proc isMainWindow(v: View, e : var Event): bool =
     result = v == e.window
 
@@ -71,6 +74,9 @@ proc processTouchEvent*(v: View, e : var Event): bool =
                         if result:
                             v.touchTarget = s
                             break
+
+                if result and v.onListenTouchEv(e):
+                    discard v.onTouchEv(e)
                 if not result:
                     e.localPosition = localPosition
                     result = v.onTouchEv(e)
@@ -94,6 +100,8 @@ proc processTouchEvent*(v: View, e : var Event): bool =
                             let target = v.touchTarget
                             var localPosition = e.localPosition
                             e.localPosition = target.convertPointFromParent(localPosition)
+                            if v.onListenTouchEv(e):
+                                discard v.onTouchEv(e)
                             result = target.processTouchEvent(e)
                             e.localPosition = localPosition
                         else:
