@@ -71,8 +71,6 @@ proc newShaderProgram*(gl: GL, vs, fs: string,
 proc newShaderProgram(gl: GL, vs, fs: string): ProgramRef {.inline.} = # Deprecated. kinda.
     gl.newShaderProgram(vs, fs, [(saPosition.GLuint, "position")])
 
-include shaders
-
 when defined js:
     type Transform3DRef = ref Transform3D
 else:
@@ -84,7 +82,6 @@ type GraphicsContext* = ref object of RootObj
     fillColor*: Color
     strokeColor*: Color
     strokeWidth*: Coord
-    testPolyShaderProgram: ProgramRef
     debugClipColor: Color
     alpha*: Coord
     quadIndexBuffer: BufferRef
@@ -165,7 +162,6 @@ proc newGraphicsContext*(canvas: ref RootObj = nil): GraphicsContext =
     when not defined(ios) and not defined(android) and not defined(js) and not defined(emscripten):
         loadExtensions()
 
-    #result.testPolyShaderProgram = result.gl.newShaderProgram(testPolygonVertexShader, testPolygonFragmentShader)
     result.gl.clearColor(0.93, 0.93, 0.93, 0.0)
     result.alpha = 1.0
 
@@ -658,22 +654,6 @@ proc drawNinePartImage*(c: GraphicsContext, i: Image, toRect: Rect, ml, mt, mr, 
         gl.vertexAttribPointer(saPosition.GLuint, 4, false, 0, vertexData)
         gl.drawElements(gl.TRIANGLE_STRIP, (4 - 1) * 4 * 2, gl.UNSIGNED_SHORT)
 
-proc drawPoly*(c: GraphicsContext, points: openArray[Coord]) =
-    let shaderProg = c.testPolyShaderProgram
-    c.gl.useProgram(shaderProg)
-    c.gl.enable(c.gl.BLEND)
-    c.gl.blendFunc(c.gl.SRC_ALPHA, c.gl.ONE_MINUS_SRC_ALPHA)
-    c.gl.enableVertexAttribArray(saPosition.GLuint)
-    const componentCount = 2
-    let numberOfVertices = points.len / componentCount
-    c.gl.vertexAttribPointer(saPosition.GLuint, componentCount.GLint, false, 0, points)
-    #c.setFillColorUniform(c.shaderProg)
-    #glUniform1i(c.gl.getUniformLocation(shaderProg, "numberOfVertices"), GLint(numberOfVertices))
-    c.setTransformUniform(shaderProg)
-    #glUniform4fv(c.gl.getUniformLocation(shaderProg, "fillColor"), 1, cast[ptr GLfloat](addr c.fillColor))
-    #c.gl.drawArrays(cast[GLenum](c.gl.TRIANGLE_FAN), 0, GLsizei(numberOfVertices))
-
-
 var lineComposition = newComposition """
 uniform float uStrokeWidth;
 uniform vec4  uStrokeColor;
@@ -714,18 +694,6 @@ proc drawLine*(c: GraphicsContext, pointFrom: Point, pointTo: Point) =
         setUniform("uStrokeColor", c.strokeColor)
         setUniform("A", pointFrom)
         setUniform("B", pointTo)
-
-proc testPoly*(c: GraphicsContext) =
-    let points = [
-        Coord(500.0), 400,
-        #600, 400,
-
-        #700, 450,
-
-        600, 500,
-        500, 500
-        ]
-    c.drawPoly(points)
 
 # TODO: This should probaly be a property of current context!
 var clippingDepth: GLint = 0

@@ -13,6 +13,7 @@ import nimx.key_commands
 import nimx.pasteboard.pasteboard
 
 import ui_document
+import grid_drawing
 
 type
     EventCatchingView = ref object of View
@@ -263,18 +264,22 @@ method onTouchEv*(v: EventCatchingView, e: var Event): bool =
         v.dragStartTime = epochTime()
 
         v.origPanPoint = e.localPosition
+        v.panningView = v.selectedView
+        v.panOp = poDrag
+        let sr = v.selectionRect
+        if not v.panningView.isNil:
+            v.panOp = panOperation(sr, e.localPosition)
 
-        # Convert to coordinates of edited view
-        let lpos = v.editor.document.view.convertPointFromWindow(v.convertPointToWindow(e.localPosition))
-        v.panningView = v.editor.document.view.findSubviewAtPoint(lpos)
+        if v.panOp == poDrag and not e.localPosition.inRect(sr):
+            # Either there is no view selected, or mousedown missed selected
+            # view. Find some view under mouse and start dragging it.
+
+            # Convert to coordinates of edited view
+            let lpos = v.editor.document.view.convertPointFromWindow(v.convertPointToWindow(e.localPosition))
+            v.panningView = v.editor.document.view.findSubviewAtPoint(lpos)
 
         if not v.panningView.isNil:
             v.origPanRect = v.panningView.frame
-
-            v.panOp = poDrag
-            if v.panningView == v.selectedView:
-                v.panOp = panOperation(v.selectionRect, e.localPosition)
-
             v.setNeedsDisplay()
     of bsUp:
         if epochTime() - v.dragStartTime < 0.3:
@@ -333,28 +338,11 @@ proc drawSelectionRect(v: EventCatchingView) =
     for po in poDragTL .. poDragR:
         c.drawEllipseInRect(knobRect(sr, po))
 
-proc drawGrid(v: EventCatchingView) =
-    let c = currentContext()
-    c.fillColor = newGrayColor(0.0, 0.5)
-    c.strokeWidth = 0
-    var r = newRect(0, 0, 1, v.bounds.height)
-    if v.gridSize.width > 0:
-        for x in countup(0, int(v.bounds.width), int(v.gridSize.width)):
-            r.origin.x = Coord(x)
-            c.drawRect(r)
-    if v.gridSize.height > 0:
-        r.origin.x = 0
-        r.size.width = v.bounds.width
-        r.size.height = 1
-        for y in countup(0, int(v.bounds.height), int(v.gridSize.height)):
-            r.origin.y = Coord(y)
-            c.drawRect(r)
-
 method draw*(v: EventCatchingView, r: Rect) =
     procCall v.View.draw(r)
 
     if v.gridSize != zeroSize:
-        v.drawGrid()
+        drawGrid(v.bounds, v.gridSize)
 
     if not v.selectedView.isNil:
         v.drawSelectionRect()

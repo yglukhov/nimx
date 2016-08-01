@@ -414,7 +414,7 @@ proc mainLoop() {.cdecl.} =
             GC_enable()
             GC_fullCollect()
             GC_disable()
-        lastCollectionTime = t
+            lastCollectionTime = t
 
 var initFunc : proc()
 

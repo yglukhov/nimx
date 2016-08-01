@@ -11,6 +11,8 @@ import table_view_cell
 import window_event_handling
 import property_visitor
 import serializers
+import pasteboard.pasteboard
+import key_commands
 
 export control
 
@@ -106,6 +108,17 @@ proc selectInRange*(t: TextField, a, b: int) =
 
 proc selectAll*(t: TextField) = t.selectInRange(0, t.mText.len)
 
+proc selectionRange(t: TextField): tuple[a, b: int] =
+    result.a = t.textSelection.startIndex
+    result.b = t.textSelection.endIndex
+    if result.a > result.b: swap(result.a, result.b)
+
+proc selectedText*(t: TextField): string =
+    let s = t.selectionRange()
+    if s.b - s.a > 0:
+        if not t.mText.isNil:
+            result = t.mText.runeSubStr(s.a, s.b - s.a)
+
 method draw*(t: TextField, r: Rect) =
     let c = currentContext()
     if t.editable:
@@ -191,16 +204,25 @@ proc updateCursorOffset(t: TextField) =
 
 proc clearSelection(t: TextField) =
     # Clears selected text
-    if t.textSelection.startIndex < t.textSelection.endIndex:
-        t.mText.uniDelete(t.textSelection.startIndex, t.textSelection.endIndex - 1)
-        cursorPos = t.textSelection.startIndex
-        t.updateCursorOffset()
-    else:
-        t.mText.uniDelete(t.textSelection.endIndex, t.textSelection.startIndex - 1)
-        cursorPos = t.textSelection.endIndex
-        t.updateCursorOffset()
-
+    let s = t.selectionRange()
+    t.mText.uniDelete(s.a, s.b - 1)
+    cursorPos = s.a
+    t.updateCursorOffset()
     t.textSelection = (false, false, -1, -1)
+
+proc insertText(t: TextField, s: string) =
+    if t.mText.isNil: t.mText = ""
+
+    if t.textSelection.selected:
+        t.clearSelection()
+
+    t.mText.insert(cursorPos, s)
+    cursorPos += s.runeLen
+    t.updateCursorOffset()
+    t.bumpCursorVisibility()
+
+    if t.continuous:
+        t.sendAction()
 
 method onKeyDown*(t: TextField, e: var Event): bool =
     if e.keyCode == VirtualKey.Backspace:
@@ -273,21 +295,27 @@ method onKeyDown*(t: TextField, e: var Event): bool =
         t.updateCursorOffset()
         t.bumpCursorVisibility()
 
+    when defined(macosx) or defined(windows):
+        let cmd = commandFromEvent(e)
+        case cmd
+        of kcPaste:
+            let s = pasteboardWithName(PboardGeneral).readString()
+            if not s.isNil:
+                t.insertText(s)
+        of kcCopy, kcCut, kcUseSelectionForFind:
+            let s = t.selectedText()
+            if not s.isNil:
+                if cmd == kcUseSelectionForFind:
+                    pasteboardWithName(PboardFind).writeString(s)
+                else:
+                    pasteboardWithName(PboardGeneral).writeString(s)
+                if cmd == kcCut:
+                    t.clearSelection()
+        else: discard
+
 method onTextInput*(t: TextField, s: string): bool =
     result = true
-    if t.mText.isNil: t.mText = ""
-
-    if t.textSelection.selected:
-        t.clearSelection()
-        return procCall onTextInput(t, s)
-
-    t.mText.insert(cursorPos, s)
-    cursorPos += s.runeLen
-    t.updateCursorOffset()
-    t.bumpCursorVisibility()
-
-    if t.continuous:
-        t.sendAction()
+    t.insertText(s)
 
 method viewShouldResignFirstResponder*(v: TextField, newFirstResponder: View): bool =
     result = true
@@ -305,13 +333,19 @@ method viewDidBecomeFirstResponder*(t: TextField) =
 method visitProperties*(v: TextField, pv: var PropertyVisitor) =
     procCall v.Control.visitProperties(pv)
     pv.visitProperty("text", v.text)
+    pv.visitProperty("editable", v.editable)
+    pv.visitProperty("textColor", v.textColor)
 
 method serializeFields*(v: TextField, s: Serializer) =
     procCall v.View.serializeFields(s)
     s.serialize("text", v.text)
+    s.serialize("editable", v.editable)
+    s.serialize("textColor", v.textColor)
 
 method deserializeFields*(v: TextField, s: Deserializer) =
     procCall v.View.deserializeFields(s)
     s.deserialize("text", v.mText)
+    s.deserialize("editable", v.editable)
+    s.deserialize("textColor", v.textColor)
 
 registerClass(TextField)

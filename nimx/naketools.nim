@@ -197,9 +197,6 @@ proc newBuilder*(platform: string): Builder =
     b.buildRoot = "build"
     b.originalResourcePath = "res"
 
-    if platform == "emscripten":
-        b.additionalNimFlags.add("-d:useRealtimeGC")
-
     b.setBuilderSettings()
 
 proc nimblePath(package: string): string =
@@ -584,7 +581,7 @@ proc build*(b: Builder) =
         b.nimFlags.add(["--cpu:i386", "-d:emscripten", "--os:linux", "--cc:clang",
             "--clang.exe=emcc", "--clang.linkerexe=emcc", "-d:SDL_Static"])
         b.additionalLinkerFlags.add(["--preload-file", b.resourcePath & "/OpenSans-Regular.ttf@/res/OpenSans-Regular.ttf"])
-        b.additionalNimFlags.add("-d:noAutoGLerrorCheck")
+        b.additionalNimFlags.add(["-d:noAutoGLerrorCheck", "-d:useRealtimeGC"])
         b.additionalLinkerFlags.add(["-s\\ FULL_ES2=1"])
         b.additionalLinkerFlags.add(["-s\\ ALLOW_MEMORY_GROWTH=1"])
 

@@ -265,13 +265,13 @@ proc bakeChars(f: Font, start: int32, res: CharInfo) =
                 let (x, y) = rectPacker.packAndGrow(gw + glyphMargin * 2, gh + glyphMargin * 2)
 
                 let c = charOff(i - startChar)
-                res.bakedChars.charOffComp(c, compX) = (x0.cfloat - glyphMargin.float / 2).int16
-                res.bakedChars.charOffComp(c, compY) = (y0.cfloat + ascent.cfloat * scale - glyphMargin.float / 2).int16
+                res.bakedChars.charOffComp(c, compX) = (x0.cfloat).int16
+                res.bakedChars.charOffComp(c, compY) = (y0.cfloat + ascent.cfloat * scale).int16
                 res.bakedChars.charOffComp(c, compAdvance) = (scale * advance.cfloat).int16
                 res.bakedChars.charOffComp(c, compTexX) = (x + glyphMargin).int16
                 res.bakedChars.charOffComp(c, compTexY) = (y + glyphMargin).int16
-                res.bakedChars.charOffComp(c, compWidth) = (gw + glyphMargin).int16
-                res.bakedChars.charOffComp(c, compHeight) = (gh + glyphMargin).int16
+                res.bakedChars.charOffComp(c, compWidth) = gw.int16
+                res.bakedChars.charOffComp(c, compHeight) = gh.int16
 
         let width = rectPacker.width
         let height = rectPacker.height
@@ -283,8 +283,8 @@ proc bakeChars(f: Font, start: int32, res: CharInfo) =
             if isPrintableCodePoint(i):
                 let c = charOff(i - startChar)
                 if res.bakedChars.charOffComp(c, compAdvance) > 0:
-                    let x = res.bakedChars.charOffComp(c, compTexX).int + (glyphMargin.float / 2).int
-                    let y = res.bakedChars.charOffComp(c, compTexY).int + (glyphMargin.float / 2).int
+                    let x = res.bakedChars.charOffComp(c, compTexX).int
+                    let y = res.bakedChars.charOffComp(c, compTexY).int
                     let w = res.bakedChars.charOffComp(c, compWidth).cint
                     let h = res.bakedChars.charOffComp(c, compHeight).cint
                     stbtt_MakeGlyphBitmap(fontinfo, addr temp_bitmap[x + y * width.int], w, h, width.cint, scale, scale, glyphIndexes[i - startChar])
