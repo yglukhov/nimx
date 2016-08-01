@@ -207,6 +207,9 @@ proc bezierTimingFunction*(x1, y1, x2, y2: float): TimingFunction =
 template interpolate*[T](fromValue, toValue: T, p: float): T = fromValue + (toValue - fromValue) * p
 template interpolate*(fromValue, toValue: SomeInteger, p: float): auto = fromValue + type(fromValue)(float(toValue - fromValue) * p)
 
+when defined(js): ## workaround for int64 in javascript
+    template interpolate*(fromValue, toValue: int64, p: float): int64 = fromValue + int(float(toValue - fromValue) * p)
+
 template setInterpolationAnimation(a: Animation, ident: expr, fromVal, toVal: expr, body: stmt): stmt {.immediate.} =
     let fv = fromVal
     let tv = toVal
