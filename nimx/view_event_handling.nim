@@ -61,3 +61,15 @@ proc handleTouchEvent*(v: View, e : var Event): bool =
             if not result:
                 e.localPosition = localPosition
                 result = v.onTouchEvent(e)
+
+proc processKeyboardEvent*(v: View, e: var Event): bool =
+    case e.kind
+    of etKeyboard:
+        if e.buttonState == bsDown:
+            result = v.onKeyDown(e)
+        else:
+            result = v.onKeyUp(e)
+    of etTextInput:
+        result = v.onTextInput(e.text)
+    else:
+        discard
