@@ -332,6 +332,24 @@ proc enclosingViewOfType*(v: View, T: typedesc): T =
         r = r.superview
     if not r.isNil: result = TT(r)
 
+# View ordering
+proc temporaryRemoveViewFromSuperview(v: View): bool =
+    let s = v.superview
+    if not s.isNil:
+        let i = s.subviews.find(v)
+        if i != -1:
+            s.subviews.delete(i)
+            v.setNeedsDisplay()
+            result = true
+
+proc moveToFront*(v: View) =
+    if v.temporaryRemoveViewFromSuperview():
+        v.superview.subviews.add(v)
+
+proc moveToBack*(v: View) =
+    if v.temporaryRemoveViewFromSuperview():
+        v.superview.subviews.insert(v, 0)
+
 template `originForEditor=`(v: View, p: Point) = v.setFrameOrigin(p)
 template originForEditor(v: View): Point = v.frame.origin
 template `sizeForEditor=`(v: View, p: Size) = v.setFrameSize(p)
