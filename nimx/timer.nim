@@ -21,7 +21,8 @@ type Timer* = ref object
     isPeriodic: bool
     scheduleTime: float
     state: TimerState
-    ready: bool
+    when (not defined(js) and not defined(emscripten)):
+        ready: bool
 
 when defined(js) or defined(emscripten):
     proc setInterval(p: proc(), timeout: float): TimerID {.jsImportg.}
@@ -51,6 +52,7 @@ elif (defined(macosx) or defined(ios)) and defined(nimxAvoidSDL):
         t.callback()
 
     proc schedule(t: Timer) =
+        GC_ref(t)
         var interval = t.interval
         var repeats = t.isPeriodic
         var cfTimer: TimerID
@@ -75,6 +77,7 @@ elif (defined(macosx) or defined(ios)) and defined(nimxAvoidSDL):
         {.emit: """
         CFRunLoopTimerInvalidate(`cfTimer`);
         """.}
+        GC_unref(t)
 else:
     import sdl_perform_on_main_thread
 
@@ -103,11 +106,14 @@ else:
     {.pop.}
 
     proc schedule(t: Timer) =
+        GC_ref(t)
+        t.ready = true
         t.timer = addTimer(uint32(t.interval * 1000), timeoutThreadCallback, cast[pointer](t))
 
     template cancel(t: Timer) =
         discard removeTimer(t.timer)
         t.ready = false
+        GC_unref(t)
 
 proc clear*(t: Timer) =
     if not t.isNil:
@@ -116,8 +122,6 @@ proc clear*(t: Timer) =
             t.cancel()
             t.timer = emptyId
             t.state = tsInvalid
-            when not defined(js):
-                GC_unref(t)
 
 proc newTimer*(interval: float, repeat: bool, callback: proc()): Timer =
     assert(not callback.isNil)
@@ -127,7 +131,6 @@ proc newTimer*(interval: float, repeat: bool, callback: proc()): Timer =
         result.callback = callback
     else:
         let t = result
-        GC_ref(t)
         if repeat:
             t.callback = callback
         else:
@@ -139,7 +142,6 @@ proc newTimer*(interval: float, repeat: bool, callback: proc()): Timer =
     result.interval = interval
     result.scheduleTime = epochTime()
     result.state = tsRunning
-    result.ready = true
     result.schedule()
 
 proc setTimeout*(interval: float, callback: proc()): Timer {.discardable.} =
@@ -156,9 +158,7 @@ proc timeLeftUntilNextFire(t: Timer): float =
 
 proc pause*(t: Timer) =
     if t.state != tsPaused:
-        t.cancel()
-        var emptyId: TimerID
-        t.timer = emptyId
+        t.clear()
         t.scheduleTime = t.timeLeftUntilNextFire()
         t.state = tsPaused
 
@@ -182,4 +182,3 @@ proc resume*(t: Timer) =
             t.schedule()
         t.interval = interval
         t.state = tsRunning
-        t.ready = true
