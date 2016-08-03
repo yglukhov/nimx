@@ -156,7 +156,9 @@ proc timeLeftUntilNextFire(t: Timer): float =
 
 proc pause*(t: Timer) =
     if t.state != tsPaused:
-        t.clear()
+        t.cancel()
+        var emptyId: TimerID
+        t.timer = emptyId
         t.scheduleTime = t.timeLeftUntilNextFire()
         t.state = tsPaused
 
@@ -172,6 +174,7 @@ proc resume*(t: Timer) =
             t.callback = proc() =
                 t.callback = t.origCallback
                 t.origCallback()
+                t.cancel()
                 t.schedule()
             t.schedule()
             t.isPeriodic = true
@@ -179,3 +182,4 @@ proc resume*(t: Timer) =
             t.schedule()
         t.interval = interval
         t.state = tsRunning
+        t.ready = true
