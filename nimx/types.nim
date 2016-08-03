@@ -102,23 +102,6 @@ proc `+`*(c1, c2: Color): Color =
 proc minCorner*(r: Rect): Point = r.origin
 proc maxCorner*(r: Rect): Point = newPoint(r.maxX, r.maxY)
 
-proc `>`*(p1, p2: Point): bool =
-    # Component-wise comparison
-    p1.x > p2.x and p1.y > p2.y
-
-proc `>=`*(p1, p2: Point): bool =
-    # Component-wise comparison
-    p1.x >= p2.x and p1.y >= p2.y
-
-proc `<`*(p1, p2: Point): bool =
-    # Component-wise comparison
-    p1.x < p2.x and p1.y < p2.y
-
-proc `<=`*(p1, p2: Point): bool =
-    # Component-wise comparison
-    p1.x <= p2.x and p1.y <= p2.y
-
-
 proc `+`*(p1, p2: Point): Point =
     newPoint(p1.x + p2.x, p1.y + p2.y)
 
@@ -143,7 +126,7 @@ proc distanceTo*(p : Point, to: Point) : float32 =
     result = sqrt(pow(p.x - to.x, 2) + pow(p.y - to.y, 2))
 
 proc inRect*(p: Point, r: Rect): bool =
-    p >= r.origin and p <= r.maxCorner
+    p.x >= r.x and p.x <= r.maxX and p.y >= r.y and p.y <= r.maxY
 
 # return angle between 0 and 360 degrees
 proc vectorAngle*(p: Point, to: Point) : float32 =
