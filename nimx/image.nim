@@ -451,28 +451,11 @@ when defined(emscripten):
         ctx.image.setFilePath(ctx.path)
         ctx.callback(ctx.image)
 
-registerResourcePreloader(["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga", "pvr"]) do(name: string, callback: proc(i: SelfContainedImage)):
-    when defined(js):
-        proc handler(r: ref RootObj) =
-            var onImLoad = proc (im: ref RootObj) =
-                var w, h: Coord
-                {.emit: "`w` = im.width; `h` = im.height;".}
-                let image = imageWithSize(newSize(w, h))
-                {.emit: "`image`.__image = im;".}
-                callback(image)
-            {.emit:"""
-            var im = new Image();
-            im.onload = function(){`onImLoad`(im);};
-            im.src = window.URL.createObjectURL(`r`);
-            """.}
-
-        loadJSResourceAsync(name, "blob", nil, nil, handler)
-    elif defined(emscripten):
-
+    proc nimxImageLoadFromURL*(url: string, name: string, callback: proc(i: SelfContainedImage)) =
         var ctx: ImageLoadingCtx
         ctx.new()
         ctx.name = name
-        ctx.path = pathForResource(name)
+        ctx.path = url
         ctx.callback = callback
         GC_ref(ctx)
         discard EM_ASM_INT("""
@@ -508,6 +491,26 @@ registerResourcePreloader(["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga", "p
             _nimxImageLoaded($0);
         }
         """, cast[pointer](ctx), cstring(ctx.path))
+
+
+registerResourcePreloader(["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga", "pvr"]) do(name: string, callback: proc(i: SelfContainedImage)):
+    when defined(js):
+        proc handler(r: ref RootObj) =
+            var onImLoad = proc (im: ref RootObj) =
+                var w, h: Coord
+                {.emit: "`w` = im.width; `h` = im.height;".}
+                let image = imageWithSize(newSize(w, h))
+                {.emit: "`image`.__image = im;".}
+                callback(image)
+            {.emit:"""
+            var im = new Image();
+            im.onload = function(){`onImLoad`(im);};
+            im.src = window.URL.createObjectURL(`r`);
+            """.}
+
+        loadJSResourceAsync(name, "blob", nil, nil, handler)
+    elif defined(emscripten):
+        nimxImageLoadFromURL(pathForResource(name), name, callback)
     elif asyncResourceLoad:
         var ctx: ImageLoadingCtx
         ctx.new()
