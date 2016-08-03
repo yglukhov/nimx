@@ -52,7 +52,6 @@ elif (defined(macosx) or defined(ios)) and defined(nimxAvoidSDL):
         t.callback()
 
     proc schedule(t: Timer) =
-        GC_ref(t)
         var interval = t.interval
         var repeats = t.isPeriodic
         var cfTimer: TimerID
@@ -77,7 +76,6 @@ elif (defined(macosx) or defined(ios)) and defined(nimxAvoidSDL):
         {.emit: """
         CFRunLoopTimerInvalidate(`cfTimer`);
         """.}
-        GC_unref(t)
 else:
     import sdl_perform_on_main_thread
 
@@ -106,14 +104,12 @@ else:
     {.pop.}
 
     proc schedule(t: Timer) =
-        GC_ref(t)
         t.ready = true
         t.timer = addTimer(uint32(t.interval * 1000), timeoutThreadCallback, cast[pointer](t))
 
     template cancel(t: Timer) =
         discard removeTimer(t.timer)
         t.ready = false
-        GC_unref(t)
 
 proc clear*(t: Timer) =
     if not t.isNil:
@@ -122,6 +118,8 @@ proc clear*(t: Timer) =
             t.cancel()
             t.timer = emptyId
             t.state = tsInvalid
+            when not defined(js):
+                GC_unref(t)
 
 proc newTimer*(interval: float, repeat: bool, callback: proc()): Timer =
     assert(not callback.isNil)
@@ -131,6 +129,7 @@ proc newTimer*(interval: float, repeat: bool, callback: proc()): Timer =
         result.callback = callback
     else:
         let t = result
+        GC_ref(t)
         if repeat:
             t.callback = callback
         else:
@@ -164,6 +163,8 @@ proc pause*(t: Timer) =
 
 proc resume*(t: Timer) =
     if t.state == tsPaused:
+        when not defined(js):
+            GC_ref(t)
         # At this point t.scheduleTime is equal to number of seconds remaining
         # until next fire.
         let interval = t.interval
