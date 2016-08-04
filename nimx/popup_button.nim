@@ -8,7 +8,7 @@ import view_event_handling
 
 type PopupButton* = ref object of Control
     mItems: seq[MenuItem]
-    mSelectedItem: int
+    mSelectedIndex: int
 
 proc newPopupButton(r: Rect): PopupButton =
     result.new()
@@ -16,35 +16,41 @@ proc newPopupButton(r: Rect): PopupButton =
 
 method init*(b: PopupButton, r: Rect) =
     procCall b.Control.init(r)
-    b.mItems = newSeq[MenuItem](0)
+    b.mItems = @[]
+    b.mSelectedIndex = -1
 
 proc `items=`*(b: PopupButton, items: openarray[string]) =
-    b.mItems.setLen(items.len)
+    let ln = items.len
+    b.mItems.setLen(ln)
+    if b.mSelectedIndex > ln - 1:
+        b.mSelectedIndex = ln - 1
+    elif b.mSelectedIndex == -1 and ln > 0:
+        b.mSelectedIndex = 0
     for i, item in items:
-        b.mItems[i] = newMenuItem(item)
-        let pWorkaroundForJS = proc(i: int): proc() =
-            result = proc() =
-                b.mSelectedItem = i
+        let it = item
+        closureScope:
+            let ii = i
+            b.mItems[ii] = newMenuItem(it)
+            b.mItems[ii].action = proc() =
+                b.mSelectedIndex = ii
                 b.sendAction(Event(kind: etUnknown))
                 b.setNeedsDisplay()
 
-        b.mItems[i].action = pWorkaroundForJS(i)
-
 proc newPopupButton*(parent: View = nil, position: Point = newPoint(0, 0), size: Size = newSize(100, 20), items: openarray[string]=[], selectedIndex: int=0): PopupButton =
     result = newPopupButton(newRect(position.x, position.y, size.width, size.height))
-    result.mSelectedItem = selectedIndex
+    result.mSelectedIndex = selectedIndex
     result.items = items
     if not isNil(parent):
         parent.addSubview(result)
 
-proc selectedIndex*(b: PopupButton): int = b.mSelectedItem
+proc selectedIndex*(b: PopupButton): int = b.mSelectedIndex
   ## Returns selected item index
 
-proc selectedItem*(b: PopupButton): string = b.mItems[b.mSelectedItem].title
+proc selectedItem*(b: PopupButton): string = b.mItems[b.mSelectedIndex].title
 
 proc `selectedIndex=`*(b: PopupButton, index: int) =
   ## Set selected item manually
-  b.mSelectedItem = index
+  b.mSelectedIndex = index
   b.setNeedsDisplay()
 
 var pbComposition = newComposition """
@@ -81,17 +87,19 @@ method draw(b: PopupButton, r: Rect) =
     pbComposition.draw b.bounds:
         setUniform("uFillColorStart", newColor(0.31, 0.60, 0.98))
         setUniform("uFillColorEnd", newColor(0.09, 0.42, 0.88))
-    let c = currentContext()
-    c.fillColor = blackColor()
-    let font = systemFont()
-    c.drawText(font, newPoint(4, b.bounds.y + (b.bounds.height - font.size) / 2), b.mItems[b.mSelectedItem].title)
+    if b.mSelectedIndex >= 0 and b.mSelectedIndex < b.mItems.len:
+        let c = currentContext()
+        c.fillColor = blackColor()
+        let font = systemFont()
+        c.drawText(font, newPoint(4, b.bounds.y + (b.bounds.height - font.size) / 2), b.mItems[b.mSelectedIndex].title)
 
 method onTouchEv(b: PopupButton, e: var Event): bool =
-    result = true
-    case e.buttonState
-    of bsDown:
-        var menu : Menu
-        menu.new()
-        menu.items = b.mItems
-        menu.popupAtPoint(b, newPoint(0, -b.mSelectedItem.Coord * 20.0))
-    else: discard
+    if b.mItems.len > 0:
+        result = true
+        case e.buttonState
+        of bsDown:
+            var menu : Menu
+            menu.new()
+            menu.items = b.mItems
+            menu.popupAtPoint(b, newPoint(0, -b.mSelectedIndex.Coord * 20.0))
+        else: discard
