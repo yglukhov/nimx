@@ -6,20 +6,13 @@ import view_event_handling_new
 import sets
 import system_logger
 
-proc canPassEventToFirstResponder(w: Window): bool =
-    w.firstResponder != nil and w.firstResponder != w
-
-method onKeyDown*(w: Window, e: var Event): bool =
-    if w.canPassEventToFirstResponder:
-        result = w.firstResponder.onKeyDown(e)
-
-method onKeyUp*(w: Window, e: var Event): bool =
-    if w.canPassEventToFirstResponder:
-        result = w.firstResponder.onKeyUp(e)
-
-method onTextInput*(w: Window, s: string): bool =
-    if w.canPassEventToFirstResponder:
-        result = w.firstResponder.onTextInput(s)
+proc propagateEventThroughResponderChain(w: Window, e: var Event): bool =
+    var r = w.firstResponder
+    while not result and not r.isNil and r != w:
+        result = r.processKeyboardEvent(e)
+        r = r.superview
+    if not result:
+        result = w.processKeyboardEvent(e)
 
 var keyboardState: set[VirtualKey] = {}
 
@@ -35,12 +28,12 @@ method handleEvent*(w: Window, e: var Event): bool {.base.} =
         of etKeyboard:
             if e.buttonState == bsDown:
                 keyboardState.incl(e.keyCode)
-                result = w.onKeyDown(e)
+                result = w.propagateEventThroughResponderChain(e)
             else:
-                result = w.onKeyUp(e)
+                result = w.propagateEventThroughResponderChain(e)
                 keyboardState.excl(e.keyCode)
         of etTextInput:
-            result = w.onTextInput(e.text)
+            result = w.propagateEventThroughResponderChain(e)
         of etWindowResized:
             result = true
             w.onResize(newSize(e.position.x, e.position.y))

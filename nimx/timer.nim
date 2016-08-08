@@ -21,7 +21,8 @@ type Timer* = ref object
     isPeriodic: bool
     scheduleTime: float
     state: TimerState
-    ready: bool
+    when (not defined(js) and not defined(emscripten)):
+        ready: bool
 
 when defined(js) or defined(emscripten):
     proc setInterval(p: proc(), timeout: float): TimerID {.jsImportg.}
@@ -103,6 +104,7 @@ else:
     {.pop.}
 
     proc schedule(t: Timer) =
+        t.ready = true
         t.timer = addTimer(uint32(t.interval * 1000), timeoutThreadCallback, cast[pointer](t))
 
     template cancel(t: Timer) =
@@ -139,7 +141,6 @@ proc newTimer*(interval: float, repeat: bool, callback: proc()): Timer =
     result.interval = interval
     result.scheduleTime = epochTime()
     result.state = tsRunning
-    result.ready = true
     result.schedule()
 
 proc setTimeout*(interval: float, callback: proc()): Timer {.discardable.} =
@@ -162,6 +163,8 @@ proc pause*(t: Timer) =
 
 proc resume*(t: Timer) =
     if t.state == tsPaused:
+        when not defined(js):
+            GC_ref(t)
         # At this point t.scheduleTime is equal to number of seconds remaining
         # until next fire.
         let interval = t.interval
@@ -172,6 +175,7 @@ proc resume*(t: Timer) =
             t.callback = proc() =
                 t.callback = t.origCallback
                 t.origCallback()
+                t.cancel()
                 t.schedule()
             t.schedule()
             t.isPeriodic = true

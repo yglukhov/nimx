@@ -23,7 +23,7 @@ template buttonStateFromKeyEvent(evt: dom.Event): ButtonState =
     else: bsUnknown
 
 proc setupWebGL() =
-    asm """
+    {.emit: """
         window.requestAnimFrame = (function() {
             return window.requestAnimationFrame ||
                 window.webkitRequestAnimationFrame ||
@@ -41,10 +41,8 @@ proc setupWebGL() =
         window.__nimx_focused_canvas = event.target;
     }, false);
 
-
-
     window.__nimx_keys_down = {};
-    """
+    """.}
 
     proc onkey(evt: dom.Event) =
         var wnd : JSCanvasWindow
@@ -88,11 +86,11 @@ proc buttonCodeFromJSEvent(e: dom.Event): VirtualKey =
 
 proc eventLocationFromJSEvent(e: dom.Event, c: Element): Point =
     var offx, offy: Coord
-    asm """
+    {.emit: """
     var r = `c`.getBoundingClientRect();
     `offx` = r.left;
     `offy` = r.top;
-    """
+    """.}
     result.x = e.clientX.Coord - offx
     result.y = e.clientY.Coord - offy
 
@@ -115,10 +113,10 @@ proc setupEventHandlersForCanvas(w: JSCanvasWindow, c: Element) =
     let onscroll = proc (e: dom.Event): bool =
         var evt = newEvent(etScroll, eventLocationFromJSEvent(e, c))
         var x, y: Coord
-        asm """
+        {.emit: """
         `x` = `e`.deltaX;
         `y` = `e`.deltaY;
-        """
+        """.}
         evt.offset.x = x
         evt.offset.y = y
         evt.window = w
@@ -127,21 +125,19 @@ proc setupEventHandlersForCanvas(w: JSCanvasWindow, c: Element) =
     let onresize = proc (e: dom.Event): bool =
         var sizeChanged = false
         var newWidth, newHeight : Coord
-        asm """
+        {.emit: """
         var r = `c`.getBoundingClientRect();
-        if (r.width !== `c`.width)
-        {
+        if (r.width !== `c`.width) {
             `newWidth` = r.width;
             `c`.width = r.width;
             `sizeChanged` = true;
         }
-        if (r.height !== `c`.height)
-        {
+        if (r.height !== `c`.height) {
             `newHeight` = r.height
             `c`.height = r.height;
             `sizeChanged` = true;
         }
-        """
+        """.}
         if sizeChanged:
             var evt = newEvent(etWindowResized)
             evt.window = w
@@ -156,7 +152,7 @@ proc setupEventHandlersForCanvas(w: JSCanvasWindow, c: Element) =
         w.onFocusChange(false)
 
     # TODO: Remove this hack, when handlers definition in dom.nim fixed.
-    asm """
+    {.emit: """
     `c`.onmousedown = `onmousedown`;
     `c`.onmouseup = `onmouseup`;
     `c`.onmousemove = `onmousemove`;
@@ -164,7 +160,7 @@ proc setupEventHandlersForCanvas(w: JSCanvasWindow, c: Element) =
     window.onresize = `onresize`;
     window.onfocus = `onfocus`;
     window.onblur = `onblur`;
-    """
+    """.}
 
 proc requestAnimFrame(w: dom.Window, p: proc() {.nimcall.}) {.importcpp.}
 
@@ -208,11 +204,11 @@ proc initByFillingBrowserWindow*(w: JSCanvasWindow) =
     canvas.style.height = "100%"
     document.body.appendChild(canvas)
 
-    asm """
+    {.emit: """
     var r = `canvas`.getBoundingClientRect();
     `canvas`.width = r.width;
     `canvas`.height = r.height;
-    """
+    """.}
 
     w.initWithCanvas(canvas)
 
@@ -271,8 +267,6 @@ proc sendInputEvent(wnd: JSCanvasWindow, evt: dom.Event) =
     discard mainApplication().handleEvent(e)
 
 method startTextInput*(wnd: JSCanvasWindow, r: Rect) =
-    let canvas = wnd.canvas
-
     let oninput = proc(evt: dom.Event) =
         wnd.sendInputEvent(evt)
 
@@ -290,13 +284,12 @@ method startTextInput*(wnd: JSCanvasWindow, r: Rect) =
 
 method stopTextInput*(w: JSCanvasWindow) =
     {.emit: """
-    if (window.__nimx_textinput !== undefined)
-    {
+    if (window.__nimx_textinput !== undefined) {
         window.__nimx_textinput.oninput = null;
         window.__nimx_textinput.blur();
     }
     """.}
 
-template runApplication*(code: typed): stmt =
+template runApplication*(code: typed): typed =
     dom.window.onload = proc (e: dom.Event) =
         code

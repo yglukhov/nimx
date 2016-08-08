@@ -190,22 +190,28 @@ template calcBezier(t, a1, a2: float): float = ((A(a1, a2) * t + B(a1, a2)) * t 
 # Returns dx/dt given t, x1, and x2, or dy/dt given t, y1, and y2.
 proc getSlope(t, a1, a2: float): float = 3.0 * A(a1, a2) * t * t + 2.0 * B(a1, a2) * t + C(a1)
 
+proc bezierXForProgress*(x1, y1, x2, y2, p: float): float {.inline.} =
+    if x1 == y1 and x2 == y2: return p # linear
+
+    # Newton raphson iteration
+    var aGuessT = p
+    for i in 0 .. < 4:
+        var currentSlope = getSlope(aGuessT, x1, x2)
+        if currentSlope == 0.0: break
+        var currentX = calcBezier(aGuessT, x1, x2) - p
+        aGuessT -= currentX / currentSlope
+
+    return calcBezier(aGuessT, y1, y2)
+
 proc bezierTimingFunction*(x1, y1, x2, y2: float): TimingFunction =
     result = proc(p: float): float =
-        if x1 == y1 and x2 == y2: return p # linear
-
-        # Newton raphson iteration
-        var aGuessT = p
-        for i in 0 .. < 4:
-            var currentSlope = getSlope(aGuessT, x1, x2)
-            if currentSlope == 0.0: break
-            var currentX = calcBezier(aGuessT, x1, x2) - p
-            aGuessT -= currentX / currentSlope
-
-        return calcBezier(aGuessT, y1, y2)
+        bezierXForProgress(x1, y1, x2, y2, p)
 
 template interpolate*[T](fromValue, toValue: T, p: float): T = fromValue + (toValue - fromValue) * p
 template interpolate*(fromValue, toValue: SomeInteger, p: float): auto = fromValue + type(fromValue)(float(toValue - fromValue) * p)
+
+when defined(js): ## workaround for int64 in javascript
+    template interpolate*(fromValue, toValue: int64, p: float): int64 = fromValue + int(float(toValue - fromValue) * p)
 
 template setInterpolationAnimation(a: Animation, ident: expr, fromVal, toVal: expr, body: stmt): stmt {.immediate.} =
     let fv = fromVal
