@@ -49,12 +49,15 @@ type
         parallelMode*: bool
         currentLoopPattern: LoopPattern
 
+proc init*(a: Animation) =
+    a.numberOfLoops = -1
+    a.loopDuration = 1.0
+    a.cancelBehavior = cbNoJump
+    a.loopPattern = lpStartToEnd
+
 proc newAnimation*(): Animation =
     result.new()
-    result.numberOfLoops = -1
-    result.loopDuration = 1.0
-    result.cancelBehavior = cbNoJump
-    result.loopPattern = lpStartToEnd
+    result.init()
 
 proc addHandler(s: var seq[ProgressHandler], ph: ProgressHandler) =
     if s.isNil: s = newSeq[ProgressHandler]()
