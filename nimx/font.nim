@@ -59,10 +59,10 @@ template scaleForSize(s: float): float = s / charHeightForSize(s)
 
 var fontCache : SimpleTable[FastString, SimpleTable[int32, CharInfo]]
 
-proc cachedCharsForFont(face: string, sz: float): SimpleTable[int32, CharInfo] =
+proc cachedCharsForFont(face: string, sz: float, margin: int32): SimpleTable[int32, CharInfo] =
     if fontCache.isNil:
         fontCache = newSimpleTable(FastString, SimpleTable[int32, CharInfo])
-    var key : FastString = face & "_" & $charHeightForSize(sz).int
+    var key : FastString = face & "_" & $margin.int & "_" & $charHeightForSize(sz).int
     if fontCache.hasKey(key):
         result = fontCache[key]
     else:
@@ -79,6 +79,7 @@ type Font* = ref object
     gamma*, base*: float32
     ascent, descent: float32
     shadowX*, shadowY*, shadowBlur*: float32
+    glyphMargin: int32
 
 proc linearDependency(x, x1, y1, x2, y2: float): float =
     result = y1 + (x - x1) * (y2 - y1) / (x2 - x1)
@@ -95,7 +96,7 @@ proc gammaWithSize(x: float): float =
 proc `size=`*(f: Font, s: float) =
     f.mSize = s
     f.scale = scaleForSize(s)
-    f.chars = cachedCharsForFont(f.filePath, s)
+    f.chars = cachedCharsForFont(f.filePath, s, f.glyphMargin)
     f.base = 0.5
     f.gamma = gammaWithSize(s)
 
@@ -107,7 +108,7 @@ proc prepareTexture(i: CharInfo): GL =
     result.bindTexture(result.TEXTURE_2D, i.texture)
     result.texParameteri(result.TEXTURE_2D, result.TEXTURE_MIN_FILTER, result.LINEAR)
 
-const dumpDebugBitmaps = false
+const dumpDebugBitmaps = true
 
 when dumpDebugBitmaps and defined(js):
     proc logBitmap(title: cstring, bytes: openarray[byte], width, height: int) =
@@ -170,7 +171,6 @@ proc bakeChars(f: Font, start: int32, res: CharInfo) =
         `descent` = metrics.descent;
         """.}
 
-        const glyphMargin = 5
         let h = ascent + descent
 
         for i in startChar .. < endChar:
@@ -186,16 +186,16 @@ proc bakeChars(f: Font, start: int32, res: CharInfo) =
                 """
 
                 if w > 0:
-                    let (x, y) = rectPacker.packAndGrow(w + glyphMargin * 2, h + glyphMargin * 2)
+                    let (x, y) = rectPacker.packAndGrow(w + f.glyphMargin * 2, h + f.glyphMargin * 2)
 
                     let c = charOff(i - startChar)
                     #res.bakedChars.charOffComp(c, compX) = 0
                     #res.bakedChars.charOffComp(c, compY) = 0
                     res.bakedChars.charOffComp(c, compAdvance) = w.int16
-                    res.bakedChars.charOffComp(c, compTexX) = (x + glyphMargin).int16
-                    res.bakedChars.charOffComp(c, compTexY) = (y + glyphMargin).int16
-                    res.bakedChars.charOffComp(c, compWidth) = w.int16 + glyphMargin
-                    res.bakedChars.charOffComp(c, compHeight) = h.int16 + glyphMargin
+                    res.bakedChars.charOffComp(c, compTexX) = (x + f.glyphMargin).int16
+                    res.bakedChars.charOffComp(c, compTexY) = (y + f.glyphMargin).int16
+                    res.bakedChars.charOffComp(c, compWidth) = w.int16
+                    res.bakedChars.charOffComp(c, compHeight) = h.int16
 
         let texWidth = rectPacker.width
         let texHeight = rectPacker.height
@@ -251,8 +251,6 @@ proc bakeChars(f: Font, start: int32, res: CharInfo) =
 
         var glyphIndexes: array[charChunkLength, cint]
 
-        const glyphMargin = 10
-
         for i in startChar .. < endChar:
             if isPrintableCodePoint(i):
                 let g = stbtt_FindGlyphIndex(fontinfo, i) # g > 0 when found
@@ -262,16 +260,16 @@ proc bakeChars(f: Font, start: int32, res: CharInfo) =
                 stbtt_GetGlyphBitmapBox(fontinfo, g, scale, scale, x0, y0, x1, y1)
                 let gw = x1 - x0
                 let gh = y1 - y0
-                let (x, y) = rectPacker.packAndGrow(gw + glyphMargin * 2, gh + glyphMargin * 2)
+                let (x, y) = rectPacker.packAndGrow(gw + f.glyphMargin * 2, gh + f.glyphMargin * 2)
 
                 let c = charOff(i - startChar)
                 res.bakedChars.charOffComp(c, compX) = (x0.cfloat).int16
                 res.bakedChars.charOffComp(c, compY) = (y0.cfloat + ascent.cfloat * scale).int16
                 res.bakedChars.charOffComp(c, compAdvance) = (scale * advance.cfloat).int16
-                res.bakedChars.charOffComp(c, compTexX) = (x + glyphMargin).int16
-                res.bakedChars.charOffComp(c, compTexY) = (y + glyphMargin).int16
-                res.bakedChars.charOffComp(c, compWidth) = gw.int16
-                res.bakedChars.charOffComp(c, compHeight) = gh.int16
+                res.bakedChars.charOffComp(c, compTexX) = (x + f.glyphMargin).int16
+                res.bakedChars.charOffComp(c, compTexY) = (y + f.glyphMargin).int16
+                res.bakedChars.charOffComp(c, compWidth) = (gw).int16
+                res.bakedChars.charOffComp(c, compHeight) = (gh).int16
 
         let width = rectPacker.width
         let height = rectPacker.height
@@ -305,6 +303,7 @@ when not defined js:
         result.isHorizontal = true # TODO: Support vertical fonts
         result.filePath = pathToTTFile
         result.size = size
+        result.glyphMargin = 8
 
 var sysFont : Font
 
@@ -377,12 +376,20 @@ proc newFontWithFace*(face: string, size: float): Font =
         result.filePath = face
         result.isHorizontal = true # TODO: Support vertical fonts
         result.size = size
+        result.glyphMargin = 8
     else:
         let path = findFontFileForFace(face)
         if path != nil:
             result = newFontWithFile(path, size)
 
 proc systemFontSize*(): float = 16
+
+proc setGlyphMargin*(f: Font, margin: int32) =
+    if margin == f.glyphMargin:
+        return
+
+    f.glyphMargin = margin
+    f.chars = cachedCharsForFont(f.filePath, f.size, f.glyphMargin)
 
 proc systemFontOfSize*(size: float): Font =
     for f in preferredFonts:
@@ -442,15 +449,15 @@ proc getQuadDataForRune*(f: Font, r: Rune, quad: var openarray[Coord], offset: i
     let w = charComp(compWidth)
     let h = charComp(compHeight)
 
-    let x0 = pt.x + charComp(compX) * f.scale
-    let x1 = x0 + w * f.scale
-    let y0 = pt.y + charComp(compY) * f.scale
-    let y1 = y0 + h * f.scale
+    let x0 = pt.x + charComp(compX) * f.scale - f.glyphMargin.float * f.scale
+    let x1 = x0 + w * f.scale + f.glyphMargin.float * 2.0 * f.scale
+    let y0 = pt.y + charComp(compY) * f.scale - f.glyphMargin.float * f.scale
+    let y1 = y0 + h * f.scale + f.glyphMargin.float * 2.0 * f.scale
 
-    var s0 = charComp(compTexX)
-    var t0 = charComp(compTexY)
-    let s1 = (s0 + w) / chunk.texWidth.Coord
-    let t1 = (t0 + h) / chunk.texHeight.Coord
+    var s0 = charComp(compTexX) - f.glyphMargin.float
+    var t0 = charComp(compTexY) - f.glyphMargin.float
+    let s1 = (s0 + w + f.glyphMargin.float * 2.0) / chunk.texWidth.Coord
+    let t1 = (t0 + h + f.glyphMargin.float * 2.0) / chunk.texHeight.Coord
     s0 /= chunk.texWidth.Coord
     t0 /= chunk.texHeight.Coord
 
