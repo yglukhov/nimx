@@ -52,7 +52,20 @@ method draw(v: MenuView, r: Rect) =
 
 proc popupAtPoint*(m: Menu, v: View, p: Point) =
     let mv = newViewWithMenuItems(m.items)
-    mv.setFrameOrigin(v.convertPointToWindow(p))
+    var wp = v.convertPointToWindow(p)
+    let win = v.window
+
+    # If the menu is out of window bounds, move it inside
+    if wp.x < win.bounds.x:
+        wp.x = win.bounds.x
+    elif wp.x + mv.frame.width > win.bounds.maxX:
+        wp.x = win.bounds.maxX - mv.frame.width
+    if wp.y < win.bounds.y:
+        wp.y = win.bounds.y
+    elif wp.y + mv.frame.height > win.bounds.maxY:
+        wp.y = win.bounds.maxY - mv.frame.height
+
+    mv.setFrameOrigin(wp)
     v.window.addSubview(mv)
 
     let popupTime = epochTime()
