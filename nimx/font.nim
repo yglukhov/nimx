@@ -108,7 +108,7 @@ proc prepareTexture(i: CharInfo): GL =
     result.bindTexture(result.TEXTURE_2D, i.texture)
     result.texParameteri(result.TEXTURE_2D, result.TEXTURE_MIN_FILTER, result.LINEAR)
 
-const dumpDebugBitmaps = true
+const dumpDebugBitmaps = false
 
 when dumpDebugBitmaps and defined(js):
     proc logBitmap(title: cstring, bytes: openarray[byte], width, height: int) =
