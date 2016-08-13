@@ -331,7 +331,7 @@ proc runUntilQuit*() =
 
     discard quit(evt)
 
-template runApplication*(body: typed): stmt =
+template runApplication*(body: typed): typed =
     try:
         body
         runUntilQuit()

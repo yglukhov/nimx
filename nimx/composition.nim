@@ -482,7 +482,7 @@ template GetDIPValue*() : int =
 template ResetDIPValue*() =
     DIPValue = 0
 
-template draw*(comp: var Composition, r: Rect, code: untyped): stmt =
+template draw*(comp: var Composition, r: Rect, code: untyped): typed =
     let ctx = currentContext()
     let gl = ctx.gl
     let cc = gl.getCompiledComposition(comp)
@@ -512,6 +512,6 @@ template draw*(comp: var Composition, r: Rect, code: untyped): stmt =
         code
     gl.drawArrays(gl.TRIANGLE_FAN, 0, GLsizei(points.len / componentCount))
 
-template draw*(comp: var Composition, r: Rect): stmt =
+template draw*(comp: var Composition, r: Rect): typed =
     comp.draw r:
         discard

@@ -96,13 +96,13 @@ proc transformToRef(t: Transform3D): Transform3DRef =
     else:
         {.emit: "`result` = `t`;".}
 
-template withTransform*(c: GraphicsContext, t: Transform3DRef, body: stmt) =
+template withTransform*(c: GraphicsContext, t: Transform3DRef, body: typed) =
     let old = c.pTransform
     c.pTransform = t
     body
     c.pTransform = old
 
-template withTransform*(c: GraphicsContext, t: Transform3D, body: stmt) = c.withTransform(transformToRef(t), body)
+template withTransform*(c: GraphicsContext, t: Transform3D, body: typed) = c.withTransform(transformToRef(t), body)
 
 template transform*(c: GraphicsContext): var Transform3D = c.pTransform[]
 
@@ -723,7 +723,7 @@ proc applyClippingRect*(c: GraphicsContext, r: Rect, on: bool) =
     if clippingDepth == 0:
         c.gl.disable(c.gl.STENCIL_TEST)
 
-template withClippingRect*(c: GraphicsContext, r: Rect, body: stmt) =
+template withClippingRect*(c: GraphicsContext, r: Rect, body: typed) =
     c.applyClippingRect(r, true)
     body
     c.applyClippingRect(r, false)

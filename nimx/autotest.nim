@@ -39,7 +39,7 @@ proc testSuiteDefinitionWithNameAndBody(name, body: NimNode): NimNode =
 macro uiTest*(name: untyped, body: typed): untyped =
     result = testSuiteDefinitionWithNameAndBody(name, body)
 
-macro registeredUiTest*(name: untyped, body: typed): stmt =
+macro registeredUiTest*(name: untyped, body: typed): typed =
     result = newStmtList()
     result.add(testSuiteDefinitionWithNameAndBody(name, body))
     result.add(newCall(bindsym "registerTest", name))
@@ -70,11 +70,11 @@ when true:
         else:
             quit()
 
-    template waitUntil*(e: bool): stmt =
+    template waitUntil*(e: bool): typed =
         if not e: dec testRunnerContext.curTest
 
 when false:
-    macro tdump(b: typed): stmt =
+    macro tdump(b: typed): typed =
         echo treeRepr(b)
 
     tdump:
@@ -97,8 +97,7 @@ proc startTest*(t: UITestSuite) =
 
     var tim : Timer
     tim = setInterval(0.5, proc() =
-        logi "RUNNING"
-        logi t[testRunnerContext.curTest].astrepr
+        logi "RUNNING ", t[testRunnerContext.curTest].astrepr
         t[testRunnerContext.curTest].code()
         inc testRunnerContext.curTest
         if testRunnerContext.curTest == t.len:
@@ -113,8 +112,7 @@ proc startRegisteredTests*() =
     var curTestSuite = 0
     var tim : Timer
     tim = setInterval(0.5, proc() =
-        logi "RUNNING"
-        logi registeredTests[curTestSuite][testRunnerContext.curTest].astrepr
+        logi "RUNNING ", registeredTests[curTestSuite][testRunnerContext.curTest].astrepr
         registeredTests[curTestSuite][testRunnerContext.curTest].code()
         inc testRunnerContext.curTest
         if testRunnerContext.curTest == registeredTests[curTestSuite].len:

@@ -146,7 +146,6 @@ method draw(v: EventsPriorityView, r: Rect) =
     let c = currentContext()
     if v.welcomeFont.isNil:
         v.welcomeFont = systemFontOfSize(20)
-    let s = v.welcomeFont.sizeOfString(bttnMesage)
     c.fillColor = blackColor()
     c.drawText(v.welcomeFont, newPoint(10, 5), bttnMesage)
 
