@@ -95,12 +95,19 @@ proc updateSize*(v: LinearLayout) =
     if not v.superview.isNil:
         v.superview.subviewDidChangeDesiredSize(v, totalSize)
 
-method addSubview*(v: LinearLayout, s: View) =
-    procCall v.View.addSubview(s)
+proc relayout(v: LinearLayout) =
     if v.canGrow():
         v.updateSize()
     else:
         v.resizeSubviews(zeroSize)
+
+method didAddSubview*(v: LinearLayout, s: View) =
+    procCall v.View.didAddSubview(s)
+    v.relayout()
+
+method didRemoveSubview*(v: LinearLayout, s: View) =
+    procCall v.View.didRemoveSubview(s)
+    v.relayout()
 
 method subviewDidChangeDesiredSize*(v: LinearLayout, sub: View, desiredSize: Size) =
     if v.canGrow():
