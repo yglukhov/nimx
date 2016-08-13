@@ -82,7 +82,8 @@ method resizeSubviews*(v: LinearLayout, oldSize: Size) =
             s.setFrame(f)
             f.origin.y += f.height + v.mPadding
 
-proc updateSize(v: LinearLayout) =
+proc updateSize*(v: LinearLayout) =
+    # Better don't use this proc...
     var totalSize = v.frame.size
     if v.mHorizontal:
         totalSize.width = v.mRightMargin + v.mLeftMargin + v.mPadding * (v.subviews.len - 1).Coord
@@ -91,6 +92,8 @@ proc updateSize(v: LinearLayout) =
         totalSize.height = v.mTopMargin + v.mBottomMargin + v.mPadding * (v.subviews.len - 1).Coord
         for s in v.subviews: totalSize.height = totalSize.height + s.frame.height
     v.setFrameSize(totalSize)
+    if not v.superview.isNil:
+        v.superview.subviewDidChangeDesiredSize(v, totalSize)
 
 method addSubview*(v: LinearLayout, s: View) =
     procCall v.View.addSubview(s)
