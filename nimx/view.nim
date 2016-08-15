@@ -55,19 +55,12 @@ method init*(v: View, frame: Rect) {.base.} =
     v.autoresizingMask = { afFlexibleMaxX, afFlexibleMaxY }
 
 proc addMouseOverListener(w: Window, v: View) =
-    var found = false
-    for i in 0..<w.mouseOverListeners.len():
-        if w.mouseOverListeners[i] == v:
-            found = true
-            break
-    if not found:
-        w.mouseOverListeners.add(v)
+    let i = w.mouseOverListeners.find(v)
+    if i == -1: w.mouseOverListeners.add(v)
 
 proc removeMouseOverListener(w: Window, v: View) =
-    for i in 0..<w.mouseOverListeners.len():
-        if w.mouseOverListeners[i] == v:
-            w.mouseOverListeners.del(i)
-            break
+    let i = w.mouseOverListeners.find(v)
+    if i != -1: w.mouseOverListeners.del(i)
 
 proc trackMouseOver*(v: View, val: bool) =
     v.handleMouseOver = val
