@@ -13,7 +13,7 @@ skipDirs    = @["test/build", "build"]
 
 requires "sdl2"
 requires "opengl"
-requires "nimsl"
+requires "nimsl >= 0.2 & < 0.3"
 requires "jnim" # For android target
 requires "nake"
 requires "closure_compiler"
