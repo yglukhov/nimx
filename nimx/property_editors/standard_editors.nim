@@ -15,6 +15,7 @@ import nimx.font
 import nimx.linear_layout
 import nimx.property_visitor
 import nimx.numeric_text_field
+import nimx.system_logger
 
 import nimx.property_editors.propedit_registry
 
@@ -193,9 +194,15 @@ when not defined(android) and not defined(ios):
             else:
                 let path = callDialogFileOpen("Select Image")
                 if not path.isNil:
-                    setter(imageWithContentsOfFile(path))
-                    if not pv.onChange.isNil:
-                        pv.onChange()
+                    var i: Image
+                    try:
+                        i = imageWithContentsOfFile(path)
+                    except:
+                        logi "Image could not be loaded: ", path
+                    if not i.isNil:
+                        setter(i)
+                        if not pv.onChange.isNil:
+                            pv.onChange()
 
         result = pv
         result.addSubview(b)
