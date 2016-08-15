@@ -5,6 +5,7 @@ type KeyCommand* = enum
     kcCopy
     kcCut
     kcPaste
+    kcDelete
     kcUseSelectionForFind
     kcUndo
     kcRedo
@@ -19,9 +20,38 @@ type Modifier = enum
     Ctrl
     Alt
 
-proc isMacOS(): bool =
-    # TODO: On JS and Emscripten this has to do smth different...
-    defined(macosx)
+when defined(js):
+    proc isMacOsAux(): bool =
+        {.emit: """
+        try {
+            `result` = navigator.platform.indexOf("Mac") != -1;
+        } catch(e) {}
+        """.}
+    let isMacOs = isMacOsAux()
+elif defined(emscripten):
+    import emscripten
+    proc isMacOsAux(): bool =
+        let r = EM_ASM_INT("""
+        try {
+            return navigator.platform.indexOf("Mac") != -1;
+        } catch(e) {}
+        """)
+        result = cast[bool](r)
+    let isMacOs = isMacOsAux()
+
+template macOsCommands(body: untyped) =
+    when defined(macosx):
+        body
+    elif defined(js) or defined(emscripten):
+        if isMacOs:
+            body
+
+template nonMacOsCommands(body: untyped) =
+    when defined(js) or defined(emscripten):
+        if not isMacOs:
+            body
+    elif not defined(macosx):
+        body
 
 proc commandFromEvent*(e: Event): KeyCommand =
     if e.kind == etKeyboard and e.buttonState == bsDown:
@@ -32,9 +62,9 @@ proc commandFromEvent*(e: Event): KeyCommand =
         if alsoPressed(VirtualKey.LeftAlt) or alsoPressed(VirtualKey.RightAlt): curModifiers.incl(Alt)
 
         template defineCmd(cmd: KeyCommand, vk: VirtualKey, modifiers: set[Modifier]) =
-            if e.keyCode == vk and modifiers == curModifiers: return cmd
+            if e.keyCode == vk and set[Modifier](modifiers) == curModifiers: return cmd
 
-        if isMacOS():
+        macOsCommands:
             defineCmd kcUndo, VirtualKey.Z, {Gui}
             defineCmd kcRedo, VirtualKey.Z, {Shift, Gui}
 
@@ -47,7 +77,8 @@ proc commandFromEvent*(e: Event): KeyCommand =
             defineCmd kcOpen, VirtualKey.O, {Gui}
             defineCmd kcSave, VirtualKey.S, {Gui}
             defineCmd kcSaveAs, VirtualKey.S, {Shift, Gui}
-        else:
+
+        nonMacOsCommands:
             defineCmd kcUndo, VirtualKey.Z, {Ctrl}
             defineCmd kcRedo, VirtualKey.Y, {Ctrl}
 
@@ -59,3 +90,5 @@ proc commandFromEvent*(e: Event): KeyCommand =
             defineCmd kcOpen, VirtualKey.O, {Ctrl}
             defineCmd kcSave, VirtualKey.S, {Ctrl}
             defineCmd kcSaveAs, VirtualKey.S, {Shift, Ctrl}
+
+        defineCmd kcDelete, VirtualKey.Delete, {}
