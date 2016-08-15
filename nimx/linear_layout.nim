@@ -1,4 +1,4 @@
-import nimx.view
+import nimx.view, nimx.event, nimx.cursor, nimx.view_event_handling_new
 import view_dragging_listener
 
 export view
@@ -11,6 +11,9 @@ type
         mRightMargin: Coord
         mLeftMargin: Coord
         mHorizontal: bool
+        mUserResizeable: bool
+        hoveredDivider: int
+        initialDragPos: Point
 
 proc newHorizontalLayout*(r: Rect): LinearLayout = LinearLayout.new(r)
 
@@ -22,6 +25,7 @@ method init*(v: LinearLayout, r: Rect) =
     procCall v.View.init(r)
     v.mPadding = 1
     v.mHorizontal = true
+    v.hoveredDivider = -1
 
 proc `padding=`*(v: LinearLayout, p: Coord) =
     v.mPadding = p
@@ -65,22 +69,46 @@ proc canGrow(v: LinearLayout): bool =
 
 method resizeSubviews*(v: LinearLayout, oldSize: Size) =
     let grows = v.canGrow()
-    if v.mHorizontal:
-        var f = newRect(v.mLeftMargin, v.mTopMargin,
-            (v.bounds.width - (v.subviews.len - 1).Coord * v.mPadding) / v.subviews.len.Coord,
-            v.bounds.height - v.mTopMargin - v.mBottomMargin)
-        for s in v.subviews:
-            if grows: f.size.width = s.frame.width
-            s.setFrame(f)
-            f.origin.x += f.width + v.mPadding
+    if v.mUserResizeable:
+        # Spread size diff evenly across subviews
+        var totalSize = 0.Coord
+        let newViewSize = v.bounds.size
+        if v.mHorizontal:
+            for s in v.subviews: totalSize += s.frame.width
+            let newTotalSize = newViewSize.width - v.mPadding * (v.subviews.len - 1).Coord - v.mLeftMargin - v.mRightMargin
+            let k = newTotalSize / totalSize
+            var x = v.mLeftMargin
+            for s in v.subviews:
+                let f = newRect(x, 0, s.frame.width * k, newViewSize.height)
+                s.setFrame(f)
+                x = f.maxX + v.mPadding
+        else:
+            for s in v.subviews: totalSize += s.frame.height
+            let newTotalSize = newViewSize.height - v.mPadding * (v.subviews.len - 1).Coord - v.mTopMargin - v.mBottomMargin
+            let k = newTotalSize / totalSize
+            var y = v.mTopMargin
+            for s in v.subviews:
+                let f = newRect(0, y, newViewSize.width, s.frame.height * k)
+                s.setFrame(f)
+                y = f.maxY + v.mPadding
     else:
-        var f = newRect(v.mLeftMargin, v.mTopMargin,
-            v.bounds.width - v.mRightMargin - v.mLeftMargin,
-            (v.bounds.height - (v.subviews.len - 1).Coord * v.mPadding) / v.subviews.len.Coord)
-        for s in v.subviews:
-            if grows: f.size.height = s.frame.height
-            s.setFrame(f)
-            f.origin.y += f.height + v.mPadding
+        # Resize subviews evenly
+        if v.mHorizontal:
+            var f = newRect(v.mLeftMargin, v.mTopMargin,
+                (v.bounds.width - (v.subviews.len - 1).Coord * v.mPadding) / v.subviews.len.Coord,
+                v.bounds.height - v.mTopMargin - v.mBottomMargin)
+            for s in v.subviews:
+                if grows: f.size.width = s.frame.width
+                s.setFrame(f)
+                f.origin.x += f.width + v.mPadding
+        else:
+            var f = newRect(v.mLeftMargin, v.mTopMargin,
+                v.bounds.width - v.mRightMargin - v.mLeftMargin,
+                (v.bounds.height - (v.subviews.len - 1).Coord * v.mPadding) / v.subviews.len.Coord)
+            for s in v.subviews:
+                if grows: f.size.height = s.frame.height
+                s.setFrame(f)
+                f.origin.y += f.height + v.mPadding
 
 proc updateSize*(v: LinearLayout) =
     # Better don't use this proc...
@@ -113,3 +141,77 @@ method subviewDidChangeDesiredSize*(v: LinearLayout, sub: View, desiredSize: Siz
     if v.canGrow():
         sub.setFrameSize(desiredSize)
         v.updateSize()
+
+proc `userResizeable=`*(v: LinearLayout, b: bool) =
+    v.trackMouseOver(b)
+    v.mUserResizeable = true
+
+proc dividerAtPoint(v: LinearLayout, p: Point): int =
+    if v.mHorizontal:
+        for i in 0 ..< v.subviews.len - 1:
+            let mx = v.subviews[i].frame.maxX
+            if p.x > mx - 5 and p.x < mx + 5:
+                return i
+    else:
+        for i in 0 ..< v.subviews.len - 1:
+            let my = v.subviews[i].frame.maxY
+            if p.y > my - 5 and p.y < my + 5:
+                return i
+    result = -1
+
+method onMouseOver*(v: LinearLayout, e: var Event) =
+    var nhv = v.dividerAtPoint(e.localPosition)
+    if nhv == -1 and v.hoveredDivider != -1:
+        newCursor(ckArrow).setCurrent()
+    elif nhv != v.hoveredDivider:
+        if v.mHorizontal:
+            newCursor(ckSizeHorizontal).setCurrent()
+        else:
+            newCursor(ckSizeVertical).setCurrent()
+    v.hoveredDivider = nhv
+
+method onTouchEv*(v: LinearLayout, e: var Event): bool =
+    result = procCall v.View.onTouchEv(e)
+    if v.mUserResizeable and v.hoveredDivider != -1:
+        result = true
+        case e.buttonState
+        of bsDown:
+            discard
+            v.initialDragPos = e.localPosition
+        of bsUp, bsUnknown:
+            let s1 = v.subviews[v.hoveredDivider]
+            let s2 = v.subviews[v.hoveredDivider + 1]
+            var f1 = s1.frame
+            var f2 = s2.frame
+
+            const minSize = 10
+            if v.mHorizontal:
+                var f1w = e.localPosition.x - f1.x - v.mPadding / 2
+                var f2w = f2.maxX - e.localPosition.x - v.mPadding / 2
+                if f1w < minSize:
+                    f1w = minSize
+                    f2w = f2.maxX - f1.x - f1w - v.mPadding
+                elif f2w < minSize:
+                    f2w = minSize
+                    f1w = f2.maxX - f1.x - f2w - v.mPadding
+
+                f1.size.width = f1w
+                f2.origin.x = f2.maxX - f2w
+                f2.size.width = f2w
+                s1.setFrameSize(f1.size)
+                s2.setFrame(f2)
+            else:
+                var f1h = e.localPosition.y - f1.y - v.mPadding / 2
+                var f2h = f2.maxY - e.localPosition.y - v.mPadding / 2
+                if f1h < minSize:
+                    f1h = minSize
+                    f2h = f2.maxY - f1.y - f1h - v.mPadding
+                elif f2h < minSize:
+                    f2h = minSize
+                    f1h = f2.maxY - f1.y - f2h - v.mPadding
+
+                f1.size.height = f1h
+                f2.origin.y = f2.maxY - f2h
+                f2.size.height = f2h
+                s1.setFrameSize(f1.size)
+                s2.setFrame(f2)

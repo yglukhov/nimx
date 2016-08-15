@@ -6,13 +6,11 @@ import random
 
 type SplitViewsSampleView = ref object of View
 
-proc initSplitView(v: LinearLayout) =
-    v.autoresizingMask = {afFlexibleWidth, afFlexibleHeight}
-
 proc newSplitView(r: Rect, horizontal: bool): LinearLayout =
     result = LinearLayout.new(r)
     result.horizontal = horizontal
-    result.initSplitView()
+    result.autoresizingMask = {afFlexibleWidth, afFlexibleHeight}
+    result.userResizeable = true
 
 const colors = [
      newColor(1, 0, 0),
@@ -46,7 +44,7 @@ proc split(pane: View, horizontally: bool) =
 
 proc newPane(sz: Size): View =
     result = View.new(newRect(0, 0, sz.width, sz.height))
-    result.backgroundColor = colors[random(colors.len - 1)]
+    result.backgroundColor = random(colors)
 
     const buttonSize = 20
     let pane = result
