@@ -16,7 +16,7 @@ requires "opengl"
 requires "nimsl >= 0.2 & < 0.3"
 requires "jnim" # For android target
 requires "nake"
-requires "closure_compiler"
+requires "closure_compiler >= 0.2 & < 0.3"
 requires "plists"
 requires "variant >= 0.2 & < 0.3"
 
