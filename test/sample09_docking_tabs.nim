@@ -59,6 +59,7 @@ method init(v: DockingTabsSampleView, r: Rect) =
     pane.dockingTabs = true
     pane.addTab(v.newTabTitle(), v.newTab())
     pane.resizingMask = "wh"
+    pane.userConfigurable = true
     v.addSubview(pane)
 
 registerSample(DockingTabsSampleView, "Docking Tabs")

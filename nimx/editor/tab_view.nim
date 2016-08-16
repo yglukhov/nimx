@@ -1,10 +1,9 @@
 import math, strutils
 import nimx.view
-import nimx.context
+import nimx.context, nimx.matrixes
 import nimx.view_event_handling_new
 import nimx.font
-import nimx.linear_layout
-
+import nimx.linear_layout, nimx.button, nimx.menu
 import nimx.event, nimx.window_event_handling
 
 type
@@ -17,17 +16,32 @@ type
 type TabView* = ref object of View
     tabs: seq[Tab]
     tabBarThickness: Coord
-    tabBarOrientation: TabBarOrientation
+    mTabBarOrientation: TabBarOrientation
     selectedTab: int
     mouseTracker: proc(e: Event): bool
     tabFramesValid: bool
     dockingTabs*: bool
+    configurationButton: Button
+
+proc contentFrame(v: TabView): Rect =
+    result = v.bounds
+    case v.mTabBarOrientation
+    of TabBarOrientation.top:
+        result.origin.y += v.tabBarThickness
+        result.size.height -= v.tabBarThickness
+    of TabBarOrientation.bottom:
+        result.size.height -= v.tabBarThickness
+    of TabBarOrientation.left:
+        result.origin.x += v.tabBarThickness
+        result.size.width -= v.tabBarThickness
+    of TabBarOrientation.right:
+        result.size.width -= v.tabBarThickness
 
 method init*(v: TabView, r: Rect) =
     procCall v.View.init(r)
     v.tabs = @[]
     v.tabBarThickness = 25
-    v.tabBarOrientation = TabBarOrientation.top
+    v.mTabBarOrientation = TabBarOrientation.top
     v.selectedTab = -1
     v.backgroundColor = newGrayColor(0.5)
 
@@ -37,17 +51,44 @@ proc selectedView(v: TabView): View =
     else:
         v.tabs[v.selectedTab].view
 
+proc updateSelectedViewFrame(v: TabView) =
+    let sv = v.selectedView
+    if not sv.isNil:
+        sv.setFrame(v.contentFrame)
+
+proc updateConfigurationButtonLayout(v: TabView) =
+    let b = v.configurationButton
+    if not b.isNil:
+        case v.mTabBarOrientation
+        of TabBarOrientation.top:
+            b.setFrameOrigin(newPoint(v.bounds.maxX - 25, 2))
+            b.resizingMask = "lb"
+        of TabBarOrientation.bottom:
+            b.setFrameOrigin(newPoint(v.bounds.maxX - 25, v.bounds.maxY - 20))
+            b.resizingMask = "lt"
+        of TabBarOrientation.left:
+            b.setFrameOrigin(newPoint(v.bounds.minX + 2, v.bounds.maxY - 20))
+            b.resizingMask = "rt"
+        of TabBarOrientation.right:
+            b.setFrameOrigin(newPoint(v.bounds.maxX - 25, v.bounds.maxY - 20))
+            b.resizingMask = "lt"
+        else:
+            assert(false)
+
+template tabBarOrientation*(v: TabView): TabBarOrientation = v.mTabBarOrientation
+proc `tabBarOrientation=`*(v: TabView, o: TabBarOrientation) =
+    v.mTabBarOrientation = o
+    v.tabFramesValid = false
+    v.updateSelectedViewFrame()
+    v.updateConfigurationButtonLayout()
+
 proc selectTab*(v: TabView, i: int) =
     var sv = v.selectedView
     if not sv.isNil:
         sv.removeFromSuperview()
     v.selectedTab = i
     sv = v.selectedView
-    var cr = v.bounds
-    if v.tabBarOrientation == TabBarOrientation.top:
-        cr.origin.y += v.tabBarThickness
-        cr.size.height -= v.tabBarThickness
-    sv.setFrame(cr)
+    sv.setFrame(v.contentFrame)
     v.addSubview(sv)
 
 proc insertTab*(v: TabView, i: int, title: string, view: View) =
@@ -72,17 +113,57 @@ proc removeTab*(v: TabView, i: int) =
         else: v.selectedTab = -1
     v.tabFramesValid = false
 
+proc userConfigurable*(v: TabView): bool = not v.configurationButton.isNil
+proc `userConfigurable=`*(v: TabView, b: bool) =
+    if b and v.configurationButton.isNil:
+        v.configurationButton = Button.new(newRect(0, 0, 15, 15))
+        v.configurationButton.title = "c"
+        v.updateConfigurationButtonLayout()
+        v.configurationButton.onAction do():
+            let m = newMenu()
+            m.items = @[]
+            template orientationItem(title: string, orientation: TabBarOrientation) =
+                let tm = newMenuItem("Tabs - " & title)
+                tm.action = proc() =
+                    v.tabBarOrientation = orientation
+                m.items.add(tm)
+            orientationItem("Top", TabBarOrientation.top)
+            orientationItem("Left", TabBarOrientation.left)
+            orientationItem("Right", TabBarOrientation.right)
+            orientationItem("Bottom", TabBarOrientation.bottom)
+            m.popupAtPoint(v.configurationButton, zeroPoint)
+        v.addSubview(v.configurationButton)
+    elif not b and not v.configurationButton.isNil:
+        v.configurationButton.removeFromSuperview()
+        v.configurationButton = nil
+
 proc updateTabFrames(v: TabView) =
     let f = systemFont()
-    if v.tabBarOrientation == TabBarOrientation.top:
+    case v.tabBarOrientation
+    of TabBarOrientation.top, TabBarOrientation.bottom:
+        var top = 0.Coord
+        if v.tabBarOrientation == TabBarOrientation.bottom:
+            top = v.bounds.maxY - v.tabBarThickness
         for i in 0 .. v.tabs.high:
-            v.tabs[i].frame.origin.y = 0
+            v.tabs[i].frame.origin.y = top
             if i == 0:
                 v.tabs[i].frame.origin.x = 0
             else:
                 v.tabs[i].frame.origin.x = v.tabs[i - 1].frame.maxX
             v.tabs[i].frame.size.width = f.sizeOfString(v.tabs[i].title).width + 10
             v.tabs[i].frame.size.height = v.tabBarThickness
+    of TabBarOrientation.left, TabBarOrientation.right:
+        var left = 0.Coord
+        if v.tabBarOrientation == TabBarOrientation.right:
+            left = v.bounds.maxX - v.tabBarThickness
+        for i in 0 .. v.tabs.high:
+            v.tabs[i].frame.origin.x = left
+            if i == 0:
+                v.tabs[i].frame.origin.y = 0
+            else:
+                v.tabs[i].frame.origin.y = v.tabs[i - 1].frame.maxY
+            v.tabs[i].frame.size.height = f.sizeOfString(v.tabs[i].title).width + 10
+            v.tabs[i].frame.size.width = v.tabBarThickness
 
 proc tabsCount*(v: TabView): int = v.tabs.len
 proc titleOfTab*(v: TabView, i: int): string = v.tabs[i].title
@@ -108,12 +189,29 @@ method draw*(v: TabView, r: Rect) =
             c.fillColor = newGrayColor(0.8)
         else:
             c.fillColor = blackColor()
-        c.drawText(f, newPoint(v.tabs[i].frame.x + 5, 5), t)
+
+        if v.tabBarOrientation == TabBarOrientation.left or v.tabBarOrientation == TabBarOrientation.right:
+            var tmpTransform = c.transform
+            tmpTransform.translate(newVector3(v.tabs[i].frame.x + v.tabBarThickness, v.tabs[i].frame.y))
+            tmpTransform.rotateZ(PI/2)
+            c.withTransform tmpTransform:
+                c.drawText(f, newPoint(5, 5), t)
+        else:
+            c.drawText(f, newPoint(v.tabs[i].frame.x + 5, v.tabs[i].frame.y + 5), t)
 
 proc tabBarRect(v: TabView): Rect =
-    if v.tabBarOrientation == TabBarOrientation.top:
-        result = v.bounds
+    result = v.bounds
+    case v.tabBarOrientation
+    of TabBarOrientation.top:
         result.size.height = v.tabBarThickness
+    of TabBarOrientation.bottom:
+        result.origin.y = result.maxY - v.tabBarThickness
+        result.size.height = v.tabBarThickness
+    of TabBarOrientation.left:
+        result.size.width = v.tabBarThickness
+    of TabBarOrientation.right:
+        result.origin.x = result.maxX - v.tabBarThickness
+        result.size.width = v.tabBarThickness
 
 proc tabIndexAtPoint(v: TabView, p: Point): int =
     v.updateTabFramesIfNeeded()
@@ -155,10 +253,12 @@ method draw(v: TabDraggingView, r: Rect) =
     c.fillColor = newColor(1, 0, 0)
     c.drawText(f, newPoint(5, 0), v.title)
 
-proc newTabViewForSplit(sz: Size, title: string, view: View): TabView =
+proc newTabViewForSplit(sz: Size, title: string, view: View, prototype: TabView): TabView =
     result = TabView.new(newRect(zeroPoint, sz))
     result.addTab(title, view)
-    result.dockingTabs = true
+    result.dockingTabs = prototype.dockingTabs
+    result.tabBarOrientation = prototype.tabBarOrientation
+    result.userConfigurable = prototype.userConfigurable
 
 proc newSplitView(r: Rect, horizontal: bool): LinearLayout =
     result = LinearLayout.new(r)
@@ -175,7 +275,7 @@ proc split(v: TabView, horizontally, before: bool, title: string, view: View) =
     else:
         sz.height /= 2
 
-    let ntv = newTabViewForSplit(sz, title, view)
+    let ntv = newTabViewForSplit(sz, title, view, v)
 
     if (s of LinearLayout) and LinearLayout(s).horizontal == horizontally:
         v.setFrameSize(sz)
