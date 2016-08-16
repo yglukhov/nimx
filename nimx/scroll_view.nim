@@ -103,9 +103,11 @@ proc contentSize(v: ScrollView): Size =
 proc recalcScrollbarKnobPositions(v: ScrollView) =
     var cs = v.contentSize
     if not v.mHorizontalScrollBar.isNil:
-       v.mHorizontalScrollBar.value = v.clipView.bounds.x / (cs.width - v.clipView.bounds.width)
+        let csd = cs.width - v.clipView.bounds.width
+        v.mHorizontalScrollBar.value = if csd > 0: v.clipView.bounds.x / csd else: 0
     if not v.mVerticalScrollBar.isNil:
-       v.mVerticalScrollBar.value = v.clipView.bounds.y / (cs.height - v.clipView.bounds.height)
+        let csd = cs.height - v.clipView.bounds.height
+        v.mVerticalScrollBar.value = if csd > 0: v.clipView.bounds.y / csd else: 0
 
 method onScroll*(v: ScrollView, e: var Event): bool =
     let cvBounds = v.clipView.bounds

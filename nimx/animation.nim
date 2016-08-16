@@ -216,14 +216,14 @@ template interpolate*(fromValue, toValue: SomeInteger, p: float): auto = fromVal
 when defined(js): ## workaround for int64 in javascript
     template interpolate*(fromValue, toValue: int64, p: float): int64 = fromValue + int(float(toValue - fromValue) * p)
 
-template setInterpolationAnimation(a: Animation, ident: expr, fromVal, toVal: expr, body: stmt): stmt {.immediate.} =
+template setInterpolationAnimation(a: Animation, ident: untyped, fromVal, toVal: untyped, body: untyped): typed =
     let fv = fromVal
     let tv = toVal
     a.onAnimate = proc(p: float) =
-        let `ident` {.inject, hint[XDeclaredButNotUsed]: off.} = interpolate(fv, tv, p)
+        let ident {.inject, hint[XDeclaredButNotUsed]: off.} = interpolate(fv, tv, p)
         body
 
-macro animate*(a: Animation, what: expr, how: stmt): stmt {.immediate.} =
+macro animate*(a: Animation, what: untyped, how: untyped): typed =
     let ident = what[1]
     let fromVal = what[2][1]
     let toVal = what[2][2]

@@ -1,6 +1,6 @@
 import tables, typetraits, macros, variant
 
-macro superType(t: typed): expr =
+macro superType(t: typed): untyped =
     # let ty = getImpl(t.symbol)
     # echo "n: ", treeRepr(t)
     # echo "ty: ",                treeRepr(getType(t))

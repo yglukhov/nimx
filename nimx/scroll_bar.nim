@@ -84,10 +84,12 @@ method onTouchEv*(s: ScrollBar, e: var Event): bool =
     of bsUnknown:
         if s.isHorizontal:
             let x = e.localPosition.x - s.trackingPos
-            s.value = x / (s.bounds.width - kr.width)
+            let ew = s.bounds.width - kr.width
+            s.value = if ew > 0: x / ew else: 0
         else:
             let y = e.localPosition.y - s.trackingPos
-            s.value = y / (s.bounds.height - kr.height)
+            let eh = s.bounds.height - kr.height
+            s.value = if eh > 0: y / eh else: 0
         s.sendAction()
         result = true
     of bsUp:

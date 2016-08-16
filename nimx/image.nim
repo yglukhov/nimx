@@ -112,9 +112,11 @@ when not defined js:
     proc initWithContentsOfFile*(i: SelfContainedImage, path: string) =
         var x, y, comp: cint
         var data = stbi_load(path, addr x, addr y, addr comp, 0)
+        if data.isNil:
+            raise newException(Exception, "Could not load image from: " & path)
+
         i.initWithBitmap(data, x, y, comp)
         stbi_image_free(data)
-
         i.setFilePath(path)
 
     proc imageWithBitmap*(data: ptr uint8, x, y, comp: int): SelfContainedImage =

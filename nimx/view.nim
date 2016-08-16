@@ -55,19 +55,12 @@ method init*(v: View, frame: Rect) {.base.} =
     v.autoresizingMask = { afFlexibleMaxX, afFlexibleMaxY }
 
 proc addMouseOverListener(w: Window, v: View) =
-    var found = false
-    for i in 0..<w.mouseOverListeners.len():
-        if w.mouseOverListeners[i] == v:
-            found = true
-            break
-    if not found:
-        w.mouseOverListeners.add(v)
+    let i = w.mouseOverListeners.find(v)
+    if i == -1: w.mouseOverListeners.add(v)
 
 proc removeMouseOverListener(w: Window, v: View) =
-    for i in 0..<w.mouseOverListeners.len():
-        if w.mouseOverListeners[i] == v:
-            w.mouseOverListeners.del(i)
-            break
+    let i = w.mouseOverListeners.find(v)
+    if i != -1: w.mouseOverListeners.del(i)
 
 proc trackMouseOver*(v: View, val: bool) =
     v.handleMouseOver = val
@@ -182,12 +175,15 @@ template setNeedsDisplay*(v: View) =
             w.needsDisplay = true
             w.markNeedsDisplay()
 
+method didAddSubview*(v, s: View) {.base.} = discard
+method didRemoveSubview*(v, s: View) {.base.} = discard
+
 proc removeSubview(v: View, s: View) =
-    for i, ss in v.subviews:
-        if ss == s:
-            v.subviews.delete(i)
-            v.setNeedsDisplay()
-            break
+    let i = v.subviews.find(s)
+    if i != -1:
+        v.subviews.delete(i)
+        v.didRemoveSubview(s)
+        v.setNeedsDisplay()
 
 proc removeFromSuperview(v: View, callHandlers: bool) =
     if v.superview != nil:
@@ -202,17 +198,27 @@ proc removeFromSuperview(v: View, callHandlers: bool) =
 method removeFromSuperview*(v: View) {.base.} =
     v.removeFromSuperview(true)
 
-method addSubview*(v: View, s: View) {.base.} =
-    assert(not v.isNil)
+proc insertSubview*(v, s: View, i: int) =
     if s.superview != v:
         if v.window != s.window: s.viewWillMoveToWindow(v.window)
         s.viewWillMoveToSuperview(v)
         s.removeFromSuperview(false)
-        v.subviews.add(s)
+        v.subviews.insert(s, i)
         s.superview = v
         s.moveToWindow(v.window)
         s.viewDidMoveToWindow()
+        v.didAddSubview(s)
         v.setNeedsDisplay()
+
+proc insertSubviewAfter*(v, s, a: View) = v.insertSubview(s, v.subviews.find(a) + 1)
+proc insertSubviewBefore*(v, s, a: View) = v.insertSubview(s, v.subviews.find(a))
+proc addSubview*(v: View, s: View) = v.insertSubview(s, v.subviews.len)
+
+proc replaceSubview*(v, s, withView: View) =
+    assert(s.superview == v)
+    let i = v.subviews.find(s)
+    s.removeFromSuperview()
+    v.insertSubview(withView, i)
 
 method clipType*(v: View): ClipType {.base.} = ctNone
 
