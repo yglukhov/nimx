@@ -6,15 +6,15 @@ import nimx.editor.tab_view
 import random
 
 type DockingTabsSampleView = ref object of View
+    tabNameIndex: int
 
-var gTabIndex = 0
-proc newTabTitle(): string =
-    inc gTabIndex
-    result = "Tab " & $gTabIndex
+proc newTabTitle(v: DockingTabsSampleView): string =
+    inc v.tabNameIndex
+    result = "Tab " & $v.tabNameIndex
 
 proc newRandomColor(): Color = newColor(random(1.0), random(1.0), random(1.0), 1.0)
 
-proc newTab(): View =
+proc newTab(v: DockingTabsSampleView): View =
     result = View.new(newRect(0, 0, 100, 100))
     result.backgroundColor = newRandomColor()
 
@@ -33,7 +33,7 @@ proc newTab(): View =
     addButton.onAction do():
         let tv = TabView(pane.superview)
         let i = indexOfPaneInTabView() + 1
-        tv.insertTab(i, newTabTitle(), newTab())
+        tv.insertTab(i, v.newTabTitle(), v.newTab())
         tv.selectTab(i)
     result.addSubview(addButton)
 
@@ -42,10 +42,7 @@ proc newTab(): View =
     removeButton.onAction do():
         let tv = TabView(pane.superview)
         if tv.tabsCount == 1:
-            var s = pane.superview
-            while not s.isNil and s.superview of LinearLayout and s.superview.subviews.len == 1:
-                s = s.superview
-            s.removeFromSuperview()
+            tv.removeFromSplitViewSystem()
         else:
             tv.removeTab(indexOfPaneInTabView())
     result.addSubview(removeButton)
@@ -60,8 +57,8 @@ method init(v: DockingTabsSampleView, r: Rect) =
     procCall v.View.init(r)
     let pane = TabView.new(v.bounds)
     pane.dockingTabs = true
-    pane.addTab(newTabTitle(), newTab())
-    pane.autoresizingMask = {afFlexibleWidth, afFlexibleHeight}
+    pane.addTab(v.newTabTitle(), v.newTab())
+    pane.resizingMask = "wh"
     v.addSubview(pane)
 
 registerSample(DockingTabsSampleView, "Docking Tabs")

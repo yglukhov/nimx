@@ -214,7 +214,7 @@ proc insertSubviewAfter*(v, s, a: View) = v.insertSubview(s, v.subviews.find(a) 
 proc insertSubviewBefore*(v, s, a: View) = v.insertSubview(s, v.subviews.find(a))
 proc addSubview*(v: View, s: View) = v.insertSubview(s, v.subviews.len)
 
-proc replaceSubview*(v, s, withView: View) =
+method replaceSubview*(v, s, withView: View) {.base.} =
     assert(s.superview == v)
     let i = v.subviews.find(s)
     s.removeFromSuperview()
@@ -317,6 +317,22 @@ method frame*(v: View): Rect {.base.} = v.frame
 method bounds*(v: View): Rect {.base.} = v.bounds
 
 method subviewDidChangeDesiredSize*(v: View, sub: View, desiredSize: Size) {.base.} = discard
+
+proc autoresizingMaskFromStrLit(s: string): set[AutoresizingFlag] {.compileTime.} =
+    case s[0]
+    of 'w': result.incl(afFlexibleWidth)
+    of 'l': result.incl(afFlexibleMinX)
+    of 'r': result.incl(afFlexibleMaxX)
+    else: assert(false, "Wrong autoresizing mask!")
+    case s[1]
+    of 'h': result.incl(afFlexibleHeight)
+    of 't': result.incl(afFlexibleMinY)
+    of 'b': result.incl(afFlexibleMaxY)
+    else: assert(false, "Wrong autoresizing mask!")
+
+template `resizingMask=`*(v: View, s: static[string]) =
+    const m = autoresizingMaskFromStrLit(s)
+    v.autoresizingMask = m
 
 proc isDescendantOf*(subView, superview: View): bool =
     var vi = subView

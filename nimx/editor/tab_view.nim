@@ -158,6 +158,7 @@ method draw(v: TabDraggingView, r: Rect) =
 proc newTabViewForSplit(sz: Size, title: string, view: View): TabView =
     result = TabView.new(newRect(zeroPoint, sz))
     result.addTab(title, view)
+    result.dockingTabs = true
 
 proc newSplitView(r: Rect, horizontal: bool): LinearLayout =
     result = LinearLayout.new(r)
@@ -194,6 +195,12 @@ proc split(v: TabView, horizontally, before: bool, title: string, view: View) =
             vl.addSubview(v)
             vl.addSubview(ntv)
         vl.setFrame(fr)
+
+proc removeFromSplitViewSystem*(v: View) =
+    var s = v
+    while not s.isNil and s.superview of LinearLayout and s.superview.subviews.len == 1:
+        s = s.superview
+    s.removeFromSuperview()
 
 proc trackDocking(v: TabView, tab: int): proc(e: Event): bool =
     var trackedTab = v.tabs[tab]
@@ -255,7 +262,7 @@ proc trackDocking(v: TabView, tab: int): proc(e: Event): bool =
             elif tabOwner.isNil and draggingView.isNil:
                 # Create dragging view
                 draggingView = newDraggingView(trackedTab.title, trackedTab.view)
-                v.window.addSubview(draggingView)
+                e.window.addSubview(draggingView)
 
             if not draggingView.isNil:
                 draggingView.setFrameOrigin(e.position)
@@ -287,6 +294,9 @@ proc trackDocking(v: TabView, tab: int): proc(e: Event): bool =
                 if not done:
                     v.insertTab(tab, trackedTab.title, trackedTab.view)
                     v.selectTab(tab)
+
+            if v.tabsCount == 0:
+                v.removeFromSplitViewSystem()
 
 method onTouchEv*(v: TabView, e: var Event): bool =
     result = procCall v.View.onTouchEv(e)
