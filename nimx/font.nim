@@ -59,10 +59,10 @@ template scaleForSize(s: float): float = s / charHeightForSize(s)
 
 var fontCache : SimpleTable[FastString, SimpleTable[int32, CharInfo]]
 
-proc cachedCharsForFont(face: string, sz: float, margin: int32): SimpleTable[int32, CharInfo] =
+proc cachedCharsForFont(face: string, sz: float): SimpleTable[int32, CharInfo] =
     if fontCache.isNil:
         fontCache = newSimpleTable(FastString, SimpleTable[int32, CharInfo])
-    var key : FastString = face & "_" & $margin.int & "_" & $charHeightForSize(sz).int
+    var key : FastString = face & "_" & $charHeightForSize(sz).int
     if fontCache.hasKey(key):
         result = fontCache[key]
     else:
@@ -96,7 +96,7 @@ proc gammaWithSize(x: float): float =
 proc `size=`*(f: Font, s: float) =
     f.mSize = s
     f.scale = scaleForSize(s)
-    f.chars = cachedCharsForFont(f.filePath, s, f.glyphMargin)
+    f.chars = cachedCharsForFont(f.filePath, s)
     f.base = 0.5
     f.gamma = gammaWithSize(s)
 
@@ -389,7 +389,7 @@ proc setGlyphMargin*(f: Font, margin: int32) =
         return
 
     f.glyphMargin = margin
-    f.chars = cachedCharsForFont(f.filePath, f.size, f.glyphMargin)
+    f.chars = cachedCharsForFont(f.filePath, f.size)
 
 proc systemFontOfSize*(size: float): Font =
     for f in preferredFonts:
