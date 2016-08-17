@@ -146,6 +146,60 @@ proc `userResizeable=`*(v: LinearLayout, b: bool) =
     v.trackMouseOver(b)
     v.mUserResizeable = true
 
+proc dividerPosition*(v: LinearLayout, i: int): Coord =
+    let s = v.subviews[i]
+    if v.mHorizontal:
+        s.frame.maxX + v.mPadding / 2
+    else:
+        s.frame.maxY + v.mPadding / 2
+
+proc setDividerPosition*(v: LinearLayout, pos: Coord, i: int) =
+    let s1 = v.subviews[i]
+    let s2 = v.subviews[i + 1]
+    var f1 = s1.frame
+    var f2 = s2.frame
+
+    const minSize = 10
+    if v.mHorizontal:
+        var f1w = pos - f1.x - v.mPadding / 2
+        var f2w = f2.maxX - pos - v.mPadding / 2
+        if f1w < minSize:
+            f1w = minSize
+            f2w = f2.maxX - f1.x - f1w - v.mPadding
+        elif f2w < minSize:
+            f2w = minSize
+            f1w = f2.maxX - f1.x - f2w - v.mPadding
+
+        f1.size.width = f1w
+        f2.origin.x = f2.maxX - f2w
+        f2.size.width = f2w
+        s1.setFrameSize(f1.size)
+        s2.setFrame(f2)
+    else:
+        var f1h = pos - f1.y - v.mPadding / 2
+        var f2h = f2.maxY - pos - v.mPadding / 2
+        if f1h < minSize:
+            f1h = minSize
+            f2h = f2.maxY - f1.y - f1h - v.mPadding
+        elif f2h < minSize:
+            f2h = minSize
+            f1h = f2.maxY - f1.y - f2h - v.mPadding
+
+        f1.size.height = f1h
+        f2.origin.y = f2.maxY - f2h
+        f2.size.height = f2h
+        s1.setFrameSize(f1.size)
+        s2.setFrame(f2)
+
+proc dividerPositions*(v: LinearLayout): seq[Coord] =
+    let ln = v.subviews.len - 1
+    result = newSeq[Coord](ln)
+    for i in 0 ..< ln:
+        result[i] = v.dividerPosition(i)
+
+proc `dividerPositions=`*(v: LinearLayout, pos: openarray[Coord]) =
+    for i, p in pos: v.setDividerPosition(p, i)
+
 proc dividerAtPoint(v: LinearLayout, p: Point): int =
     if v.mHorizontal:
         for i in 0 ..< v.subviews.len - 1:
@@ -179,39 +233,12 @@ method onTouchEv*(v: LinearLayout, e: var Event): bool =
             discard
             v.initialDragPos = e.localPosition
         of bsUp, bsUnknown:
-            let s1 = v.subviews[v.hoveredDivider]
-            let s2 = v.subviews[v.hoveredDivider + 1]
-            var f1 = s1.frame
-            var f2 = s2.frame
-
-            const minSize = 10
             if v.mHorizontal:
-                var f1w = e.localPosition.x - f1.x - v.mPadding / 2
-                var f2w = f2.maxX - e.localPosition.x - v.mPadding / 2
-                if f1w < minSize:
-                    f1w = minSize
-                    f2w = f2.maxX - f1.x - f1w - v.mPadding
-                elif f2w < minSize:
-                    f2w = minSize
-                    f1w = f2.maxX - f1.x - f2w - v.mPadding
-
-                f1.size.width = f1w
-                f2.origin.x = f2.maxX - f2w
-                f2.size.width = f2w
-                s1.setFrameSize(f1.size)
-                s2.setFrame(f2)
+                v.setDividerPosition(e.localPosition.x, v.hoveredDivider)
             else:
-                var f1h = e.localPosition.y - f1.y - v.mPadding / 2
-                var f2h = f2.maxY - e.localPosition.y - v.mPadding / 2
-                if f1h < minSize:
-                    f1h = minSize
-                    f2h = f2.maxY - f1.y - f1h - v.mPadding
-                elif f2h < minSize:
-                    f2h = minSize
-                    f1h = f2.maxY - f1.y - f2h - v.mPadding
+                v.setDividerPosition(e.localPosition.y, v.hoveredDivider)
 
-                f1.size.height = f1h
-                f2.origin.y = f2.maxY - f2h
-                f2.size.height = f2h
-                s1.setFrameSize(f1.size)
-                s2.setFrame(f2)
+method replaceSubview*(v: LinearLayout, s, withView: View) =
+    let pos = v.dividerPositions
+    procCall v.View.replaceSubview(s, withView)
+    v.dividerPositions = pos
