@@ -22,11 +22,15 @@ proc knobRect(s: ScrollBar): Rect =
     result = s.bounds
     if s.isHorizontal:
         result.size.width *= s.mKnobSize
-        result.origin.x = (s.bounds.width - result.width) * s.value
+        result.origin.x = max((s.bounds.width - result.width) * s.value, 3)
+        if result.maxX > s.bounds.width - 3:
+            result.size.width = s.bounds.width - result.x - 3
         result = inset(result, 0, 2)
     else:
         result.size.height *= s.mKnobSize
-        result.origin.y = (s.bounds.height - result.height) * s.value
+        result.origin.y = max((s.bounds.height - result.height) * s.value, 3)
+        if result.maxY > s.bounds.height - 3:
+            result.size.height = s.bounds.height - result.y - 3
         result = inset(result, 2, 0)
 
 method draw*(s: ScrollBar, r: Rect) =
