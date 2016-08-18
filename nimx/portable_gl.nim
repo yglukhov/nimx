@@ -193,6 +193,7 @@ else:
     template TRIANGLE_FAN*(gl: GL): GLenum = GL_TRIANGLE_FAN
     template TRIANGLE_STRIP*(gl: GL): GLenum = GL_TRIANGLE_STRIP
     template LINES*(gl: GL): GLenum = GL_LINES
+    template LINE_LOOP*(gl: GL): GLenum = GL_LINE_LOOP
     template COLOR_BUFFER_BIT*(gl: GL): GLbitfield = GL_COLOR_BUFFER_BIT
     template STENCIL_BUFFER_BIT*(gl: GL): GLbitfield = GL_STENCIL_BUFFER_BIT
     template DEPTH_BUFFER_BIT*(gl: GL): GLbitfield = GL_DEPTH_BUFFER_BIT

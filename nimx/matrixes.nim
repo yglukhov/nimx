@@ -738,14 +738,8 @@ proc frustum*(dest: var Matrix4, left, right, bottom, top, nearr, farr: Coord) =
     dest[14] = -(farr * nearr * 2) / fn;
     dest[15] = 0;
 
-proc perspective*(dest: var Matrix4, fovy, aspect, nearr, farr: Coord) =
+proc perspective*(dest: var Matrix4, left, right, bottom, top, nearr, farr: Coord) =
     # column major version, compatible with maya cameras
-    let size = nearr * tan(degToRad(fovy) / 2.0)
-    let left = -size
-    let right = size
-    let bottom = -size / aspect
-    let top = size / aspect
-
     dest[0] = 2.0 * nearr / (right - left)
     dest[1] = 0.0
     dest[2] = 0.0
@@ -765,6 +759,16 @@ proc perspective*(dest: var Matrix4, fovy, aspect, nearr, farr: Coord) =
     dest[13] = 0.0
     dest[14] = -(2.0 * farr * nearr) / (farr - nearr)
     dest[15] = 0.0
+
+proc perspective*(dest: var Matrix4, fovy, aspect, nearr, farr: Coord) =
+    # column major version, compatible with maya cameras
+    let size = nearr * tan(degToRad(fovy) / 2.0)
+    let left = -size
+    let right = size
+    let bottom = -size / aspect
+    let top = size / aspect
+
+    dest.perspective(left, right, bottom, top, nearr, farr)
 
 proc ortho*(dest: var Matrix4, left, right, bottom, top, nearr, farr: Coord) =
     let
