@@ -83,7 +83,7 @@ proc requiredHeightForRow(v: TableView, row: int): Coord {.inline.} =
 proc getRowsAtHeights(v: TableView, heights: openarray[Coord], rows: var openarray[int], startRow : int = 0, startCoord : Coord = 0) =
     let rowsCount = v.numberOfRows()
     if v.heightOfRow.isNil:
-        for i in 0 .. < rows.len:
+        for i in 0 ..< rows.len:
             rows[i] = int((startCoord + heights[i]) / v.defaultRowHeight)
             if rows[i] >= rowsCount:
                 rows[i] = -1
@@ -93,14 +93,15 @@ proc getRowsAtHeights(v: TableView, heights: openarray[Coord], rows: var openarr
         var height = startCoord
         var j = 0
         rows[j] = -1
-        for i in startRow .. < rowsCount:
+        for i in startRow ..< rowsCount:
             if j > heights.len:
                 break
             height += v.heightOfRowUsingDelegate(i)
             if heights[j] < height:
                 rows[j] = i
                 inc j
-                rows[j] = -1
+                if j < rows.len:
+                    rows[j] = -1
 
 proc reloadData*(v: TableView) =
     let rowCount = v.numberOfRows()
