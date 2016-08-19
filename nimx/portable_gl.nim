@@ -34,7 +34,7 @@ when defined js:
             TEXTURE_2D* : GLenum
             ONE_MINUS_SRC_ALPHA*, ONE_MINUS_DST_ALPHA*, SRC_ALPHA*, DST_ALPHA*, ONE*, DST_COLOR*, CONSTANT_COLOR*, ONE_MINUS_SRC_COLOR*: GLenum
             BLEND* : GLenum
-            TRIANGLES*, TRIANGLE_FAN*, TRIANGLE_STRIP*, LINES* : GLenum
+            TRIANGLES*, TRIANGLE_FAN*, TRIANGLE_STRIP*, LINES*, LINE_LOOP* : GLenum
             COLOR_BUFFER_BIT*: int
             STENCIL_BUFFER_BIT*: int
             DEPTH_BUFFER_BIT*: int
@@ -193,6 +193,7 @@ else:
     template TRIANGLE_FAN*(gl: GL): GLenum = GL_TRIANGLE_FAN
     template TRIANGLE_STRIP*(gl: GL): GLenum = GL_TRIANGLE_STRIP
     template LINES*(gl: GL): GLenum = GL_LINES
+    template LINE_LOOP*(gl: GL): GLenum = GL_LINE_LOOP
     template COLOR_BUFFER_BIT*(gl: GL): GLbitfield = GL_COLOR_BUFFER_BIT
     template STENCIL_BUFFER_BIT*(gl: GL): GLbitfield = GL_STENCIL_BUFFER_BIT
     template DEPTH_BUFFER_BIT*(gl: GL): GLbitfield = GL_DEPTH_BUFFER_BIT

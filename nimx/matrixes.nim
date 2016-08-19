@@ -746,25 +746,7 @@ proc perspective*(dest: var Matrix4, fovy, aspect, nearr, farr: Coord) =
     let bottom = -size / aspect
     let top = size / aspect
 
-    dest[0] = 2.0 * nearr / (right - left)
-    dest[1] = 0.0
-    dest[2] = 0.0
-    dest[3] = 0.0
-
-    dest[4] = 0.0
-    dest[5] = 2.0 * nearr / (top - bottom)
-    dest[6] = 0.0
-    dest[7] = 0.0
-
-    dest[8] = (right + left) / (right - left)
-    dest[9] = (top + bottom) / (top - bottom)
-    dest[10] = -(farr + nearr) / (farr - nearr)
-    dest[11] = -1.0
-
-    dest[12] = 0.0
-    dest[13] = 0.0
-    dest[14] = -(2.0 * farr * nearr) / (farr - nearr)
-    dest[15] = 0.0
+    dest.frustum(left, right, bottom, top, nearr, farr)
 
 proc ortho*(dest: var Matrix4, left, right, bottom, top, nearr, farr: Coord) =
     let
