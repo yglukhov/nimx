@@ -7,7 +7,7 @@ when defined(js):
             if ('dump' in window)
                 window['dump'](`a` + '\n');
             else
-                console.log(a);
+                console.log(`a`);
             """.}
     else:
         proc native_log(a: cstring) {.importc: "console.log".}
