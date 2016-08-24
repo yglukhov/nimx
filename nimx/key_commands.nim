@@ -20,6 +20,8 @@ type Modifier = enum
     Ctrl
     Alt
 
+const jsOrEmscripten = defined(emscripten)
+
 when defined(js):
     proc isMacOsAux(): bool =
         {.emit: """
@@ -42,12 +44,12 @@ elif defined(emscripten):
 template macOsCommands(body: untyped) =
     when defined(macosx):
         body
-    elif defined(js) or defined(emscripten):
+    elif jsOrEmscripten:
         if isMacOs:
             body
 
 template nonMacOsCommands(body: untyped) =
-    when defined(js) or defined(emscripten):
+    when jsOrEmscripten:
         if not isMacOs:
             body
     elif not defined(macosx):
