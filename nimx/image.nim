@@ -129,7 +129,9 @@ when not defined js:
 
 proc initWithResource*(i: SelfContainedImage, name: string) =
     when defined js:
-        let nativeName : cstring = pathForResource(name)
+        let p = pathForResource(name)
+        i.setFilePath(p)
+        let nativeName : cstring = p
         {.emit: """
         `i`.__image = new Image();
         `i`.__image.crossOrigin = '';
@@ -239,6 +241,7 @@ method getTextureQuad*(i: SelfContainedImage, gl: GL, texCoords: var array[4, GL
             }
             """
             if loadingComplete:
+                discard gl.getError() # Clear last error
                 i.texture = gl.createTexture()
                 gl.bindTexture(gl.TEXTURE_2D, i.texture)
                 {.emit: """
@@ -261,8 +264,13 @@ method getTextureQuad*(i: SelfContainedImage, gl: GL, texCoords: var array[4, GL
                     `gl`.texImage2D(`gl`.TEXTURE_2D, 0, `gl`.RGBA, `gl`.RGBA, `gl`.UNSIGNED_BYTE, canvas);
                     """
                 else:
-                    asm "`gl`.texImage2D(`gl`.TEXTURE_2D, 0, `gl`.RGBA, `gl`.RGBA, `gl`.UNSIGNED_BYTE, `i`.__image);"
+                    {.emit:"`gl`.texImage2D(`gl`.TEXTURE_2D, 0, `gl`.RGBA, `gl`.RGBA, `gl`.UNSIGNED_BYTE, `i`.__image);".}
                 setupTexParams(gl)
+
+                let err = gl.getError()
+                if err != 0.GLenum:
+                    logi "GL error in texture load: ", err.int.toHex(), ": ", if i.mFilePath.isNil: "nil" else: i.mFilePath
+
     texCoords[0] = i.texCoords[0]
     texCoords[1] = i.texCoords[1]
     texCoords[2] = i.texCoords[2]

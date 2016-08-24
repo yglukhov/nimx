@@ -126,6 +126,8 @@ proc setupEventHandlersForCanvas(w: JSCanvasWindow, c: Element) =
         var sizeChanged = false
         var newWidth, newHeight : Coord
         {.emit: """
+        `newWidth` = `c`.width;
+        `newHeight` = `c`.height;
         var r = `c`.getBoundingClientRect();
         if (r.width !== `c`.width) {
             `newWidth` = r.width;
