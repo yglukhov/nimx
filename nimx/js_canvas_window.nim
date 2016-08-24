@@ -155,10 +155,11 @@ proc setupEventHandlersForCanvas(w: JSCanvasWindow, c: Element) =
 
     # TODO: Remove this hack, when handlers definition in dom.nim fixed.
     {.emit: """
-    `c`.onmousedown = `onmousedown`;
-    `c`.onmouseup = `onmouseup`;
-    `c`.onmousemove = `onmousemove`;
-    `c`.onwheel = `onscroll`;
+    document.addEventListener('mousedown', `onmousedown`)
+    document.addEventListener('mouseup', `onmouseup`)
+    document.addEventListener('mousemove', `onmousemove`)
+    document.addEventListener('wheel', `onscroll`)
+
     window.onresize = `onresize`;
     window.onfocus = `onfocus`;
     window.onblur = `onblur`;

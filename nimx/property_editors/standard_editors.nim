@@ -16,6 +16,7 @@ import nimx.linear_layout
 import nimx.property_visitor
 import nimx.numeric_text_field
 import nimx.system_logger
+import nimx.image_preview
 
 import nimx.property_editors.propedit_registry
 
@@ -182,7 +183,34 @@ proc newPointPropertyView(setter: proc(s: Point), getter: proc(): Point): Proper
 
 when not defined(android) and not defined(ios):
     proc newImagePropertyView(setter: proc(s: Image), getter: proc(): Image): PropertyEditorView =
-        let pv = PropertyEditorView.new(newRect(0, 0, 208, editorRowHeight))
+        var loadedImage = getter()
+        var pv: PropertyEditorView
+        if not loadedImage.isNil:
+            let previewSize = 48.0
+            pv = PropertyEditorView.new(newRect(0, 0, 208, editorRowHeight + 6 + previewSize))
+
+            let imgButton = newImageButton(pv, newPoint(0, editorRowHeight + 3), newSize(previewSize, previewSize), loadedImage)
+            imgButton.onAction do():
+                let imgPreview = newImagePreview(newRect(0, 0, 200, 200), loadedImage)
+                imgPreview.popupAtPoint(pv, newPoint(-10, 0))
+
+            let label = newLabel(newRect(previewSize + 5, editorRowHeight + 5 + editorRowHeight, 100, 15))
+            label.text = "S: " & $int(loadedImage.size.width) & " x " & $int(loadedImage.size.height)
+            label.textColor = newGrayColor(0.9)
+            pv.addSubview(label)
+
+            let removeButton = Button.new(newRect(previewSize + 5, editorRowHeight + 3, editorRowHeight, editorRowHeight))
+            removeButton.title = "-"
+            pv.addSubview(removeButton)
+            removeButton.onAction do():
+                setter(nil)
+                if not pv.onChange.isNil:
+                    pv.onChange()
+                if not pv.changeInspector.isNil:
+                    pv.changeInspector()
+        else:
+            pv = PropertyEditorView.new(newRect(0, 0, 208, editorRowHeight))
+
         let b = Button.new(newRect(0, 0, 208, editorRowHeight))
         b.autoresizingMask = {afFlexibleWidth, afFlexibleMaxY}
         b.title = "Open image..."
@@ -203,6 +231,8 @@ when not defined(android) and not defined(ios):
                         setter(i)
                         if not pv.onChange.isNil:
                             pv.onChange()
+                        if not pv.changeInspector.isNil:
+                            pv.changeInspector()
 
         result = pv
         result.addSubview(b)
