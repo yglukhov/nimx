@@ -65,7 +65,7 @@ when true:
                 if not result.isNil: break
 
     proc quitApplication*() =
-        when defined(js) or defined(emscripten):
+        when defined(js) or defined(emscripten) or defined(android):
             # Hopefully we're using nimx automated testing in Firefox
             logi "---AUTO-TEST-QUIT---"
         else:
@@ -83,7 +83,7 @@ when true:
             if maxTries != -1:
                 if testRunnerContext.waitTries + 2 > maxTries:
                     testRunnerContext.waitTries = -1
-                    when defined(js) or defined(emscripten):
+                    when defined(js) or defined(emscripten) or defined(android):
                         logi "---AUTO-TEST-FAIL---"
                     else:
                         raise newException(Exception, "Wait tries exceeded!")
