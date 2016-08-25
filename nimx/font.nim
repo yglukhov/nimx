@@ -35,6 +35,11 @@ type BackedCharComponent = enum
     compWidth
     compHeight
 
+type Baseline* = enum
+    bTop
+    bAlphabetic
+    bBottom
+
 const numberOfComponents = ord(high(BackedCharComponent)) + 1
 type BakedCharInfo = array[numberOfComponents * charChunkLength, int16]
 
@@ -47,6 +52,7 @@ type CharInfo = ref object
     tempBitmap: seq[byte]
     texture: TextureRef
     texWidth, texHeight: uint16
+    ascent, descent: float32 # Beware! Experinmetal!
 
 when defined(js):
     type FastString = cstring
@@ -77,9 +83,9 @@ type Font* = ref object
     filePath: string
     horizontalSpacing*: Coord
     gamma*, base*: float32
-    ascent, descent: float32
     shadowX*, shadowY*, shadowBlur*: float32
     glyphMargin: int32
+    baseline*: Baseline # Beware! Experinmetal!
 
 proc linearDependency(x, x1, y1, x2, y2: float): float =
     result = y1 + (x - x1) * (y2 - y1) / (x2 - x1)
@@ -171,6 +177,9 @@ proc bakeChars(f: Font, start: int32, res: CharInfo) =
         `descent` = metrics.descent;
         """.}
 
+        res.ascent = float32(ascent)
+        res.descent = -float32(descent)
+
         let h = ascent + descent
 
         for i in startChar .. < endChar:
@@ -248,6 +257,9 @@ proc bakeChars(f: Font, start: int32, res: CharInfo) =
         let scale = stbtt_ScaleForPixelHeight(fontinfo, fSize)
         var ascent, descent, lineGap : cint
         stbtt_GetFontVMetrics(fontinfo, ascent, descent, lineGap)
+
+        res.ascent = float32(ascent) * scale
+        res.descent = float32(descent) * scale
 
         var glyphIndexes: array[charChunkLength, cint]
 
@@ -449,9 +461,14 @@ proc getQuadDataForRune*(f: Font, r: Rune, quad: var openarray[Coord], offset: i
     let w = charComp(compWidth)
     let h = charComp(compHeight)
 
+    let baselineOffset = case f.baseline
+        of bTop: 0.0
+        of bBottom: chunk.ascent + chunk.descent
+        of bAlphabetic: -chunk.ascent
+
     let x0 = pt.x + charComp(compX) * f.scale - f.glyphMargin.float * f.scale
     let x1 = x0 + w * f.scale + f.glyphMargin.float * 2.0 * f.scale
-    let y0 = pt.y + charComp(compY) * f.scale - f.glyphMargin.float * f.scale
+    let y0 = pt.y + charComp(compY) * f.scale - f.glyphMargin.float * f.scale + baselineOffset * f.scale
     let y1 = y0 + h * f.scale + f.glyphMargin.float * 2.0 * f.scale
 
     var s0 = charComp(compTexX) - f.glyphMargin.float
