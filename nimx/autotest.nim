@@ -15,6 +15,7 @@ type UITestSuite* = seq[UITestSuiteStep]
 type TestRunnerContext = ref object
     curTest: int
     curTimeout: float
+    waitTries: int
 
 var testRunnerContext : TestRunnerContext
 var registeredTests : seq[UITestSuite]
@@ -70,8 +71,21 @@ when true:
         else:
             quit()
 
-    template waitUntil*(e: bool): typed =
-        if not e: dec testRunnerContext.curTest
+    proc waitUntil*(e: bool) =
+        if not e:
+            dec testRunnerContext.curTest
+
+    proc waitUntil*(e: bool, maxTries: int) =
+        if e:
+            testRunnerContext.waitTries = -1
+        else:
+            dec testRunnerContext.curTest
+            if maxTries != -1:
+                if testRunnerContext.waitTries + 2 > maxTries:
+                    testRunnerContext.waitTries = -1
+                    raise newException(Exception, "Wait tries exceeded!")
+                else:
+                    inc testRunnerContext.waitTries
 
 when false:
     macro tdump(b: typed): typed =
@@ -94,6 +108,7 @@ when false:
 proc startTest*(t: UITestSuite) =
     testRunnerContext.new()
     testRunnerContext.curTimeout = 0.5
+    testRunnerContext.waitTries = -1
 
     var tim : Timer
     tim = setInterval(0.5, proc() =
@@ -108,6 +123,7 @@ proc startTest*(t: UITestSuite) =
 proc startRegisteredTests*() =
     testRunnerContext.new()
     testRunnerContext.curTimeout = 0.5
+    testRunnerContext.waitTries = -1
 
     var curTestSuite = 0
     var tim : Timer
