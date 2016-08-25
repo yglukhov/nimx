@@ -60,7 +60,10 @@ else:
     type FastString = string
 
 
-template charHeightForSize(s: float): float = 64
+template charHeightForSize(s: float): float =
+    if s > 128: 128
+    else: 64
+
 template scaleForSize(s: float): float = s / charHeightForSize(s)
 
 var fontCache : SimpleTable[FastString, SimpleTable[int32, CharInfo]]

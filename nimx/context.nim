@@ -410,7 +410,7 @@ float thresholdFunc(float glyphScale)
 
 float spreadFunc(float glyphScale)
 {
-    float range = 0.06;
+    float range = 0.055;
     return range / glyphScale;
 }
 
@@ -493,7 +493,7 @@ proc drawText(c: GraphicsContext, font: Font, pt: var Point, text: string) =
     # assume orthographic projection with units = screen pixels, origin at top left
     let gl = c.gl
     var cc : CompiledComposition
-    var subpixelDraw = false
+    var subpixelDraw = true
 
     if hasPostEffect():
         subpixelDraw = false
