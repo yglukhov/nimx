@@ -392,12 +392,6 @@ proc nextEvent(evt: var sdl2.Event) =
 
     animateAndDraw()
 
-method startTextInput*(w: EmscriptenWindow, r: Rect) =
-    startTextInput()
-
-method stopTextInput*(w: EmscriptenWindow) =
-    stopTextInput()
-
 proc runUntilQuit*() =
     # Initialize fist dummy event. The kind should be any unused kind.
     var evt = sdl2.Event(kind: UserEvent1)
@@ -412,6 +406,38 @@ proc runUntilQuit*() =
 
     discard quit(evt)
 ]#
+
+proc nimx_OnTextInput(wnd: pointer, text: cstring) {.EMSCRIPTEN_KEEPALIVE.} =
+    var e = newEvent(etTextInput)
+    e.window = cast[EmscriptenWindow](wnd)
+    e.text = $text
+    discard mainApplication().handleEvent(e)
+
+method startTextInput*(wnd: EmscriptenWindow, r: Rect) =
+    discard EM_ASM_INT("""
+    if (window.__nimx_textinput === undefined) {
+        var i = window.__nimx_textinput = document.createElement('input');
+        i.type = 'text';
+        i.style.position = 'absolute';
+        i.style.top = '-99999px';
+        document.body.appendChild(i);
+    }
+    window.__nimx_textinput.oninput = function() {
+        var str = allocate(intArrayFromString(window.__nimx_textinput.value), 'i8', ALLOC_NORMAL);
+        window.__nimx_textinput.value = "";
+        _nimx_OnTextInput($0, str);
+        _free(str);
+    };
+    setTimeout(function(){ window.__nimx_textinput.focus(); }, 1);
+    """, cast[pointer](wnd))
+
+method stopTextInput*(w: EmscriptenWindow) =
+    discard EM_ASM_INT("""
+    if (window.__nimx_textinput !== undefined) {
+        window.__nimx_textinput.oninput = null;
+        window.__nimx_textinput.blur();
+    }
+    """)
 
 when not defined(useRealtimeGC):
     var lastCollectionTime = 0.0
