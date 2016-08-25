@@ -35,6 +35,11 @@ type BackedCharComponent = enum
     compWidth
     compHeight
 
+type Baseline* = enum
+    bTop
+    bAlphabetic
+    bBottom
+
 const numberOfComponents = ord(high(BackedCharComponent)) + 1
 type BakedCharInfo = array[numberOfComponents * charChunkLength, int16]
 
@@ -47,6 +52,7 @@ type CharInfo = ref object
     tempBitmap: seq[byte]
     texture: TextureRef
     texWidth, texHeight: uint16
+    ascent, descent: float32 # Beware! Experinmetal!
 
 when defined(js):
     type FastString = cstring
@@ -77,9 +83,9 @@ type Font* = ref object
     filePath: string
     horizontalSpacing*: Coord
     gamma*, base*: float32
-    ascent, descent: float32
     shadowX*, shadowY*, shadowBlur*: float32
     glyphMargin: int32
+    baseline*: Baseline # Beware! Experinmetal!
 
 proc linearDependency(x, x1, y1, x2, y2: float): float =
     result = y1 + (x - x1) * (y2 - y1) / (x2 - x1)
@@ -137,12 +143,12 @@ when dumpDebugBitmaps and defined(js):
 template isPrintableCodePoint(c: int): bool = not (i <= 0x1f or i == 0x7f or (i >= 0x80 and i <= 0x9F))
 
 when dumpDebugBitmaps:
-    template dumpBitmaps(bitmap: seq[byte], width, height, start: int, fSize: float) =
+    template dumpBitmaps(name: string, bitmap: seq[byte], width, height, start: int, fSize: float) =
         var bmp = newSeq[byte](width * height * 3)
         for i in 0 .. < width * height:
             bmp[3*i] = bitmap[i]
 
-        discard stbi_write_bmp("atlas_nimx_alpha_" & $fSize & "_" & $start & "_" & $width & "x" & $height & ".bmp", width.cint, height.cint, 3.cint, addr bmp[0])
+        discard stbi_write_bmp("atlas_nimx_" & name & "_" & $fSize & "_" & $start & "_" & $width & "x" & $height & ".bmp", width.cint, height.cint, 3.cint, addr bmp[0])
 
 proc bakeChars(f: Font, start: int32, res: CharInfo) =
     let startChar = start * charChunkLength
@@ -170,6 +176,9 @@ proc bakeChars(f: Font, start: int32, res: CharInfo) =
         `ascent` = metrics.ascent;
         `descent` = metrics.descent;
         """.}
+
+        res.ascent = float32(ascent)
+        res.descent = -float32(descent)
 
         let h = ascent + descent
 
@@ -245,9 +254,12 @@ proc bakeChars(f: Font, start: int32, res: CharInfo) =
             logi "Could not init font"
             raise newException(Exception, "Could not init font")
 
-        let scale = stbtt_ScaleForPixelHeight(fontinfo, fSize)
+        let scale = stbtt_ScaleForMappingEmToPixels(fontinfo, fSize)
         var ascent, descent, lineGap : cint
         stbtt_GetFontVMetrics(fontinfo, ascent, descent, lineGap)
+
+        res.ascent = float32(ascent) * scale
+        res.descent = float32(descent) * scale
 
         var glyphIndexes: array[charChunkLength, cint]
 
@@ -288,12 +300,12 @@ proc bakeChars(f: Font, start: int32, res: CharInfo) =
                     stbtt_MakeGlyphBitmap(fontinfo, addr temp_bitmap[x + y * width.int], w, h, width.cint, scale, scale, glyphIndexes[i - startChar])
 
         when dumpDebugBitmaps:
-            dumpBitmaps(temp_bitmap, width, height, start, fSize)
+            dumpBitmaps("alpha", temp_bitmap, width, height, start, fSize)
 
         make_distance_map(temp_bitmap, width, height)
 
         when dumpDebugBitmaps:
-            dumpBitmaps(temp_bitmap, width, height, start, fSize)
+            dumpBitmaps("df", temp_bitmap, width, height, start, fSize)
 
         shallowCopy(res.tempBitmap, temp_bitmap)
 
@@ -449,10 +461,16 @@ proc getQuadDataForRune*(f: Font, r: Rune, quad: var openarray[Coord], offset: i
     let w = charComp(compWidth)
     let h = charComp(compHeight)
 
-    let x0 = pt.x + charComp(compX) * f.scale - f.glyphMargin.float * f.scale
-    let x1 = x0 + w * f.scale + f.glyphMargin.float * 2.0 * f.scale
-    let y0 = pt.y + charComp(compY) * f.scale - f.glyphMargin.float * f.scale
-    let y1 = y0 + h * f.scale + f.glyphMargin.float * 2.0 * f.scale
+    let baselineOffset = case f.baseline
+        of bTop: 0.0
+        of bBottom: -chunk.ascent + chunk.descent
+        of bAlphabetic: -chunk.ascent
+
+    let m = f.glyphMargin.float * f.scale
+    let x0 = pt.x + charComp(compX) * f.scale - m
+    let x1 = x0 + w * f.scale + m * 2.0
+    let y0 = pt.y + charComp(compY) * f.scale - m + baselineOffset * f.scale
+    let y1 = y0 + h * f.scale + m * 2.0
 
     var s0 = charComp(compTexX) - f.glyphMargin.float
     var t0 = charComp(compTexY) - f.glyphMargin.float

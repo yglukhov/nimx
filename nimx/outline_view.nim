@@ -34,6 +34,7 @@ type OutlineView* = ref object of View
     draggedElemIndexPath: seq[int] # Initial index path of the element that is currently being dragged
     droppedElemIndexPath: seq[int] # Initial index path of the element that is currently being dragged
     dropAfterItem: ItemNode
+    dropInsideItem: ItemNode
 
 method init*(v: OutlineView, r: Rect) =
     procCall v.View.init(r)
@@ -74,7 +75,13 @@ proc drawNode(v: OutlineView, n: ItemNode, y: var Coord) =
 
     y += rowHeight
 
-    if n == v.dropAfterItem:
+    if n == v.dropInsideItem:
+        c.fillColor = newColor(0.44, 0.55, 0.90, 0.3)
+        c.strokeColor = newColor(0.27, 0.44, 0.85, 0.3)
+        c.strokeWidth = 2
+        let offset = Coord(offsetOutline + (v.droppedElemIndexPath.len - 1) * offsetOutline * 2) + 6
+        c.drawRoundedRect(n.cell.frame, 4)
+    elif n == v.dropAfterItem:
         # Show drop marker
         c.fillColor = newColor(0.27, 0.44, 0.85)
         c.strokeWidth = 0
@@ -219,7 +226,7 @@ method onTouchEv*(v: OutlineView, e: var Event): bool =
                 v.selectedIndexPath.setLen(0)
                 v.selectionChanged()
             else:
-                v.selectedIndexPath = @(v.tempIndexPath)
+                v.selectedIndexPath = v.tempIndexPath
                 v.selectionChanged()
             if not v.onDragAndDrop.isNil and v.draggedElemIndexPath.len > 1 and v.droppedElemIndexPath.len > 1 and v.draggedElemIndexPath != v.droppedElemIndexPath:
                 v.onDragAndDrop(v.draggedElemIndexPath, v.droppedElemIndexPath)
@@ -227,6 +234,7 @@ method onTouchEv*(v: OutlineView, e: var Event): bool =
         v.draggedElemIndexPath = @[]
         v.droppedElemIndexPath = @[]
         v.dropAfterItem = nil
+        v.dropInsideItem = nil
     elif not v.onDragAndDrop.isNil:
         if e.buttonState == bsDown:
             let pos = e.localPosition
@@ -234,14 +242,14 @@ method onTouchEv*(v: OutlineView, e: var Event): bool =
             if i.isNil:
                 v.draggedElemIndexPath = @[]
             else:
-                v.draggedElemIndexPath = @(v.tempIndexPath)
+                v.draggedElemIndexPath = v.tempIndexPath
         else: # Dragging
             let pos = e.localPosition
             var i = v.itemAtPos(pos)
             if i.isNil:
                 v.droppedElemIndexPath = @[]
             else:
-                v.droppedElemIndexPath = @(v.tempIndexPath)
+                v.droppedElemIndexPath = v.tempIndexPath
                 v.dropAfterItem = i
                 # When mouse hovers over the row, the drop target may be one of the following:
                 # 1. The next simbling of the row
@@ -262,7 +270,6 @@ method onTouchEv*(v: OutlineView, e: var Event): bool =
                 elif levelsDiff > 0:
                     v.droppedElemIndexPath.add(0)
                 else:
-                    echo 4
                     while v.droppedElemIndexPath.len > 1 and levelsDiff < 0:
                         let p = v.nodeAtIndexPath(v.droppedElemIndexPath[0 .. ^2])
                         if p.children.len > 0 and p.children[^1] == i:
@@ -276,5 +283,8 @@ method onTouchEv*(v: OutlineView, e: var Event): bool =
                 if v.draggedElemIndexPath.isSubpathOfPath(v.droppedElemIndexPath):
                     v.droppedElemIndexPath = @[]
                     v.dropAfterItem = nil
+                    v.dropInsideItem = nil
+                else:
+                    v.dropInsideItem = v.nodeAtIndexPath(v.droppedElemIndexPath[0 .. ^2])
 
     result = true

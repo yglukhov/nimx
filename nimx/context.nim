@@ -492,8 +492,8 @@ proc drawTextBase*(c: GraphicsContext, font: Font, pt: var Point, text: string) 
 proc drawText(c: GraphicsContext, font: Font, pt: var Point, text: string) =
     # assume orthographic projection with units = screen pixels, origin at top left
     let gl = c.gl
-    var cc = gl.getCompiledComposition(fontComposition)
-    var subpixelDraw = true
+    var cc : CompiledComposition
+    var subpixelDraw = false
 
     if hasPostEffect():
         subpixelDraw = false
@@ -508,6 +508,8 @@ proc drawText(c: GraphicsContext, font: Font, pt: var Point, text: string) =
 
         gl.blendColor(c.fillColor.r, c.fillColor.g, c.fillColor.b, c.fillColor.a)
         gl.blendFunc(gl.CONSTANT_COLOR, gl.ONE_MINUS_SRC_COLOR)
+    else:
+        cc = gl.getCompiledComposition(fontComposition)
 
     gl.useProgram(cc.program)
 
