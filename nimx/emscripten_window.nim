@@ -28,6 +28,18 @@ method enableAnimation*(w: EmscriptenWindow, flag: bool) =
 # assuming that touch devices may have only one window.
 var defaultWindow: EmscriptenWindow
 
+proc getClientRectDimension(id, dim: cstring): int =
+    let r = EM_ASM_INT("""
+        return document.getElementById(Pointer_stringify($0)).getBoundingClientRect()[Pointer_stringify($1)];
+        """, id, dim)
+    result = r
+
+proc eventLocationFromJSEvent(mouseEvent: ptr EmscriptenMouseEvent, w: EmscriptenWindow): Point =
+    let canvasX = getClientRectDimension(w.canvasId, "left")
+    let canvasY = getClientRectDimension(w.canvasId, "top")
+    result = newPoint(Coord(mouseEvent.targetX - canvasX), Coord(mouseEvent.targetY - canvasY))
+
+
 proc onMouseButton(eventType: cint, mouseEvent: ptr EmscriptenMouseEvent, userData: pointer, bs: ButtonState): EM_BOOL =
     let w = cast[EmscriptenWindow](userData)
     template bcFromE(): VirtualKey =
@@ -37,7 +49,8 @@ proc onMouseButton(eventType: cint, mouseEvent: ptr EmscriptenMouseEvent, userDa
         of 1: VirtualKey.MouseButtonMiddle
         else: VirtualKey.Unknown
 
-    var evt = newMouseButtonEvent(newPoint(Coord(mouseEvent.targetX), Coord(mouseEvent.targetY)), bcFromE(), bs, uint32(mouseEvent.timestamp))
+    let point = eventLocationFromJSEvent(mouseEvent, w)
+    var evt = newMouseButtonEvent(point, bcFromE(), bs, uint32(mouseEvent.timestamp))
     evt.window = w
     if mainApplication().handleEvent(evt): result = 1
 
@@ -49,7 +62,8 @@ proc onMouseUp(eventType: cint, mouseEvent: ptr EmscriptenMouseEvent, userData: 
 
 proc onMouseMove(eventType: cint, mouseEvent: ptr EmscriptenMouseEvent, userData: pointer): EM_BOOL {.cdecl.} =
     let w = cast[EmscriptenWindow](userData)
-    var evt = newMouseMoveEvent(newPoint(Coord(mouseEvent.targetX), Coord(mouseEvent.targetY)), uint32(mouseEvent.timestamp))
+    let point = eventLocationFromJSEvent(mouseEvent, w)
+    var evt = newMouseMoveEvent(point, uint32(mouseEvent.timestamp))
     evt.window = w
     if mainApplication().handleEvent(evt): result = 1
 
@@ -138,9 +152,10 @@ proc initCommon(w: EmscriptenWindow, r: view.Rect) =
     discard emscripten_webgl_make_context_current(w.ctx)
     w.renderingContext = newGraphicsContext()
 
-    discard emscripten_set_mousedown_callback(w.canvasId, cast[pointer](w), 0, onMouseDown)
-    discard emscripten_set_mouseup_callback(w.canvasId, cast[pointer](w), 0, onMouseUp)
-    discard emscripten_set_mousemove_callback(w.canvasId, cast[pointer](w), 0, onMouseMove)
+    let docID = "#document"
+    discard emscripten_set_mousedown_callback(docID, cast[pointer](w), 0, onMouseDown)
+    discard emscripten_set_mouseup_callback(docID, cast[pointer](w), 0, onMouseUp)
+    discard emscripten_set_mousemove_callback(docID, cast[pointer](w), 0, onMouseMove)
     discard emscripten_set_wheel_callback(w.canvasId, cast[pointer](w), 0, onMouseWheel)
 
     discard emscripten_set_keydown_callback(nil, cast[pointer](w), 1, onKeyDown)
