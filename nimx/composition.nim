@@ -260,7 +260,7 @@ type
         seenFlag: bool # Used on compilation phase, should not be used elsewhere.
         id*: int
 
-    CompiledComposition = ref object
+    CompiledComposition* = ref object
         program*: ProgramRef
         uniformLocations*: seq[UniformLocation]
         iTexIndex*: GLint
