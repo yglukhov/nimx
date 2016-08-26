@@ -94,7 +94,7 @@ method draw*(s: SegmentedControl, r: Rect) =
     let font = systemFont()
     let c = currentContext()
     var r = newRect(0, 0, 0, s.bounds.height)
-    var strSize = newSize(0, font.size)
+    var strSize = newSize(0, font.height)
     c.strokeWidth = 0
     for i, w in s.widths:
         if i == s.mSelectedSegment:

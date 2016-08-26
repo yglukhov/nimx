@@ -6,7 +6,7 @@ import tables
 import rect_packer
 import nimx.resource
 
-when defined js:
+when defined(js):
     import dom
     import private.js_font_metrics
 else:
@@ -16,10 +16,6 @@ else:
 
 import private.edtaa3func # From ttf library
 import private.simple_table
-
-# Quick and dirty interface for fonts.
-# TODO:
-#  - Remove dependency on OpenGL.
 
 import opengl
 import portable_gl
@@ -52,7 +48,6 @@ type CharInfo = ref object
     tempBitmap: seq[byte]
     texture: TextureRef
     texWidth, texHeight: uint16
-    ascent, descent: float32 # Beware! Experinmetal!
 
 when defined(js):
     type FastString = cstring
@@ -85,29 +80,17 @@ type Font* = ref object
     scale*: float
     filePath: string
     horizontalSpacing*: Coord
-    gamma*, base*: float32
     shadowX*, shadowY*, shadowBlur*: float32
     glyphMargin: int32
+    mAscent, mDescent: float32
     baseline*: Baseline # Beware! Experinmetal!
-
-proc linearDependency(x, x1, y1, x2, y2: float): float =
-    result = y1 + (x - x1) * (y2 - y1) / (x2 - x1)
-
-proc gammaWithSize(x: float): float =
-    if x < 60:
-        result = linearDependency(x, 14, 0.23, 60, 0.1)
-    elif x < 160:
-        result = linearDependency(x, 60, 0.1, 160, 0.03)
-    else:
-        result = linearDependency(x, 160, 0.03, 200, 0.02)
-
 
 proc `size=`*(f: Font, s: float) =
     f.mSize = s
     f.scale = scaleForSize(s)
     f.chars = cachedCharsForFont(f.filePath, s)
-    f.base = 0.5
-    f.gamma = gammaWithSize(s)
+    f.mAscent = 0
+    f.mDescent = 0
 
 template size*(f: Font): float = f.mSize
 
@@ -153,6 +136,59 @@ when dumpDebugBitmaps:
 
         discard stbi_write_bmp("atlas_nimx_" & name & "_" & $fSize & "_" & $start & "_" & $width & "x" & $height & ".bmp", width.cint, height.cint, 3.cint, addr bmp[0])
 
+when defined(js):
+    proc cssFontName(f: Font): cstring =
+        let fSize = charHeightForSize(f.size)
+        let fName : cstring = f.filePath
+        {.emit: """`result` = "" + (`fSize`|0) + "px " + `fName`;""".}
+
+    proc auxCanvasForFont(f: Font): Element =
+        let fName = f.cssFontName
+        result = document.createElement("canvas")
+        {.emit: """
+        var ctx = `result`.getContext('2d');
+        `result`.style.font = `fName`;
+        ctx.font = `fName`;
+        `result`.__nimx_ctx = ctx;
+        """.}
+
+proc updateFontMetrics(f: Font) =
+    when defined(js):
+        var ascent, descent: int32
+        let fSize = charHeightForSize(f.size)
+        let fName = f.cssFontName
+        {.emit: """
+        var metrics = nimx_calculateFontMetricsInCanvas(`fName`, `fSize`);
+        `ascent` = metrics.ascent;
+        `descent` = -metrics.descent;
+        """.}
+        f.mAscent = float32(ascent)
+        f.mDescent = float32(descent)
+    else:
+        var rawData = readFile(f.filePath)
+        var fontinfo: stbtt_fontinfo
+        if stbtt_InitFont(fontinfo, cast[ptr font_type](rawData.cstring), 0) == 0:
+            logi "Could not init font"
+            raise newException(Exception, "Could not init font")
+
+        let fSize = charHeightForSize(f.size)
+        let scale = stbtt_ScaleForMappingEmToPixels(fontinfo, fSize)
+        var ascent, descent, lineGap : cint
+        stbtt_GetFontVMetrics(fontinfo, ascent, descent, lineGap)
+        f.mAscent = float32(ascent) * scale
+        f.mDescent = float32(descent) * scale
+
+template updateFontMetricsIfNeeded(f: Font) =
+    if f.mAscent == 0: f.updateFontMetrics()
+
+proc ascent*(f: Font): float32 =
+    f.updateFontMetricsIfNeeded()
+    result = f.mAscent
+
+proc descent*(f: Font): float32 =
+    f.updateFontMetricsIfNeeded()
+    result = f.mDescent
+
 proc bakeChars(f: Font, start: int32, res: CharInfo) =
     let startChar = start * charChunkLength
     let endChar = startChar + charChunkLength
@@ -160,42 +196,26 @@ proc bakeChars(f: Font, start: int32, res: CharInfo) =
     let fSize = charHeightForSize(f.size)
 
     var rectPacker = newPacker(32, 32)
-    when defined js:
-        let fName : cstring = f.filePath
-        let fontName : cstring = $fSize.int & "px " & f.filePath
-        let canvas = document.createElement("canvas")
-        var ascent, descent: int32
+    when defined(js):
+        f.updateFontMetricsIfNeeded()
+
+        let h = int32(f.mAscent - f.mDescent)
+        let canvas = f.auxCanvasForFont()
+        let fName = f.cssFontName
+
         {.emit: """
-        var ctx = `canvas`.getContext('2d');
-        ctx.font = `fontName`;
-        `canvas`.style.font = `fontName`;
-        ctx.textBaseline = "top";
-        var metrics = `f`.__nimx_metrix;
-        if (metrics === undefined) {
-            var mt = nimx_calculateFontMetricsInCanvas(ctx, `fName`, `fSize`);
-            metrics = {ascent: mt.ascent, descent: mt.descent};
-            `f`.__nimx_metrix = metrics;
-        }
-        `ascent` = metrics.ascent;
-        `descent` = metrics.descent;
+        var ctx = `canvas`.__nimx_ctx;
         """.}
-
-        res.ascent = float32(ascent)
-        res.descent = -float32(descent)
-
-        let h = ascent + descent
 
         for i in startChar .. < endChar:
             if isPrintableCodePoint(i):
                 var w: int32
-                var isspace = false
                 var s : cstring
-                asm """
+                {.emit: """
                 var mt = ctx.measureText(String.fromCharCode(`i`));
                 `s` = String.fromCharCode(`i`);
-                `isspace` = `s` == " ";
                 `w` = mt.width;
-                """
+                """.}
 
                 if w > 0:
                     let (x, y) = rectPacker.packAndGrow(w + f.glyphMargin * 2, h + f.glyphMargin * 2)
@@ -217,8 +237,8 @@ proc bakeChars(f: Font, start: int32, res: CharInfo) =
         asm """
         `canvas`.width = `texWidth`;
         `canvas`.height = `texHeight`;
-        ctx.font = `fontName`;
         ctx.textBaseline = "top";
+        ctx.font = `fName`;
         """
 
         for i in startChar .. < endChar:
@@ -261,8 +281,8 @@ proc bakeChars(f: Font, start: int32, res: CharInfo) =
         var ascent, descent, lineGap : cint
         stbtt_GetFontVMetrics(fontinfo, ascent, descent, lineGap)
 
-        res.ascent = float32(ascent) * scale
-        res.descent = float32(descent) * scale
+        f.mAscent = float32(ascent) * scale
+        f.mDescent = float32(descent) * scale
 
         var glyphIndexes: array[charChunkLength, cint]
 
@@ -312,7 +332,7 @@ proc bakeChars(f: Font, start: int32, res: CharInfo) =
 
         shallowCopy(res.tempBitmap, temp_bitmap)
 
-when not defined js:
+when not defined(js):
     proc newFontWithFile*(pathToTTFile: string, size: float): Font =
         result.new()
         result.isHorizontal = true # TODO: Support vertical fonts
@@ -371,7 +391,7 @@ when not defined(js):
                 "/usr/share/fonts/truetype/dejavu"
             ]
 
-when not defined js:
+when not defined(js):
     iterator potentialFontFilesForFace(face: string): string =
         for sp in fontSearchPaths:
             yield sp / face & ".ttf"
@@ -386,7 +406,7 @@ when not defined js:
                 return f
 
 proc newFontWithFace*(face: string, size: float): Font =
-    when defined js:
+    when defined(js):
         result.new()
         result.filePath = face
         result.isHorizontal = true # TODO: Support vertical fonts
@@ -423,8 +443,6 @@ proc systemFont*(): Font =
     result = sysFont
     if result == nil:
         logi "WARNING: Could not create system font"
-
-import math
 
 proc chunkAndCharIndexForRune(f: Font, r: Rune): tuple[ch: CharInfo, index: int] =
     let chunkStart = floor(r.int / charChunkLength.int).int32
@@ -464,10 +482,12 @@ proc getQuadDataForRune*(f: Font, r: Rune, quad: var openarray[Coord], offset: i
     let w = charComp(compWidth)
     let h = charComp(compHeight)
 
+    f.updateFontMetricsIfNeeded()
+
     let baselineOffset = case f.baseline
         of bTop: 0.0
-        of bBottom: -chunk.ascent + chunk.descent
-        of bAlphabetic: -chunk.ascent
+        of bBottom: -f.mAscent + f.mDescent
+        of bAlphabetic: -f.mAscent
 
     let m = f.glyphMargin.float * f.scale
     let x0 = pt.x + charComp(compX) * f.scale - m
@@ -492,18 +512,25 @@ proc getQuadDataForRune*(f: Font, r: Rune, quad: var openarray[Coord], offset: i
 template getQuadDataForRune*(f: Font, r: Rune, quad: var array[16, Coord], texture: var TextureRef, pt: var Point) =
     f.getQuadDataForRune(r, quad, 0, texture, pt)
 
+proc getAdvanceForRune(f: Font, r: Rune): Coord =
+    let (chunk, charIndexInChunk) = f.chunkAndCharIndexForRune(r)
+    let c = charOff(charIndexInChunk)
+    result = chunk.bakedChars.charOffComp(c, compAdvance).Coord * f.scale
+
+proc height*(f: Font): float32 =
+    f.updateFontMetricsIfNeeded()
+    result = (f.mAscent - f.mDescent) * f.scale
+
 proc sizeOfString*(f: Font, s: string): Size =
     var pt : Point
-    var quad: array[16, Coord]
-    var tex: TextureRef
     var first = true
     for ch in s.runes:
         if first:
             first = false
         else:
             pt.x += f.horizontalSpacing
-        f.getQuadDataForRune(ch, quad, tex, pt)
-    result = newSize(pt.x, f.size)
+        pt.x += f.getAdvanceForRune(ch)
+    result = newSize(pt.x, f.height)
 
 proc getClosestCursorPositionToPointInString*(f: Font, s: string, p: Point, position: var int, offset: var Coord) =
     var pt = zeroPoint

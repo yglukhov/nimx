@@ -129,7 +129,8 @@ method draw*(t: TextField, r: Rect) =
 
     let font = t.font()
 
-    var textY = (t.bounds.height - font.size) / 2
+    let fh = font.height
+    var textY = (t.bounds.height - fh) / 2
 
     if t.textSelection.selected:
         if t.textSelection.startIndex != -1 and t.textSelection.endIndex != -1:
@@ -139,9 +140,9 @@ method draw*(t: TextField, r: Rect) =
                 endPoint = font.cursorOffsetForPositionInString(t.text, t.textSelection.endIndex)
 
             if startPoint < endPoint:
-                c.drawRect(newRect(leftMargin + startPoint, 2, endPoint - startPoint, font.size))
+                c.drawRect(newRect(leftMargin + startPoint, textY, endPoint - startPoint, fh))
             else:
-                c.drawRect(newRect(leftMargin + endPoint, 2, startPoint - endPoint, font.size))
+                c.drawRect(newRect(leftMargin + endPoint, textY, startPoint - endPoint, fh))
 
             t.setNeedsDisplay()
 
@@ -156,7 +157,7 @@ method draw*(t: TextField, r: Rect) =
 
     if t.isEditing:
         t.drawFocusRing()
-        drawCursorWithRect(newRect(leftMargin + cursorOffset, textY, 2, font.size))
+        drawCursorWithRect(newRect(leftMargin + cursorOffset, textY, 2, fh))
 
 method onTouchEv*(t: TextField, e: var Event): bool =
     result = false

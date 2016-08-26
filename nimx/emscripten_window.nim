@@ -19,14 +19,8 @@ type EmscriptenWindow* = ref object of Window
     renderingContext: GraphicsContext
     canvasId: string
 
-var animationEnabled = 0
-
 method enableAnimation*(w: EmscriptenWindow, flag: bool) =
     discard
-
-# SDL does not provide window id in touch event info, so we add this workaround
-# assuming that touch devices may have only one window.
-var defaultWindow: EmscriptenWindow
 
 proc getClientRectDimension(id, dim: cstring): int =
     let r = EM_ASM_INT("""
@@ -38,7 +32,6 @@ proc eventLocationFromJSEvent(mouseEvent: ptr EmscriptenMouseEvent, w: Emscripte
     let canvasX = getClientRectDimension(w.canvasId, "left")
     let canvasY = getClientRectDimension(w.canvasId, "top")
     result = newPoint(Coord(mouseEvent.targetX - canvasX), Coord(mouseEvent.targetY - canvasY))
-
 
 proc onMouseButton(eventType: cint, mouseEvent: ptr EmscriptenMouseEvent, userData: pointer, bs: ButtonState): EM_BOOL =
     let w = cast[EmscriptenWindow](userData)
@@ -152,7 +145,7 @@ proc initCommon(w: EmscriptenWindow, r: view.Rect) =
     discard emscripten_webgl_make_context_current(w.ctx)
     w.renderingContext = newGraphicsContext()
 
-    let docID = "#document"
+    const docID = "#document"
     discard emscripten_set_mousedown_callback(docID, cast[pointer](w), 0, onMouseDown)
     discard emscripten_set_mouseup_callback(docID, cast[pointer](w), 0, onMouseUp)
     discard emscripten_set_mousemove_callback(docID, cast[pointer](w), 0, onMouseMove)
@@ -202,216 +195,42 @@ method drawWindow(w: EmscriptenWindow) =
         procCall w.Window.drawWindow()
     setCurrentContext(oldContext)
 
-#[
-proc windowFromSDLEvent[T](event: T): EmscriptenWindow =
-    let sdlWndId = event.windowID
-    let sdlWin = getWindowFromID(sdlWndId)
-    if sdlWin != nil:
-        result = cast[EmscriptenWindow](sdlWin.getData("__nimx_wnd"))
-
-proc positionFromSDLEvent[T](event: T): auto =
-    newPoint(event.x.Coord, event.y.Coord)
-
-template buttonStateFromSDLState(s: KeyState): ButtonState =
-    if s == KeyPressed:
-        bsDown
-    else:
-        bsUp
-
-var activeTouches = 0
-
-proc eventWithSDLEvent(event: ptr sdl2.Event): Event =
-    case event.kind:
-        of FingerMotion, FingerDown, FingerUp:
-            let bs = case event.kind
-                of FingerDown: bsDown
-                of FingerUp: bsUp
-                else: bsUnknown
-            let touchEv = cast[TouchFingerEventPtr](event)
-            result = newTouchEvent(
-                                   newPoint(touchEv.x * defaultWindow.frame.width, touchEv.y * defaultWindow.frame.height),
-                                   bs, int(touchEv.fingerID), touchEv.timestamp
-                                   )
-            if bs == bsDown:
-                inc activeTouches
-                if activeTouches == 1:
-                    result.pointerId = 0
-            elif bs == bsUp:
-                dec activeTouches
-            #logi "EVENT: ", result.position, " ", result.buttonState
-            result.window = defaultWindow
-            result.kind = etUnknown # TODO: Fix apple trackpad problem
-
-        of WindowEvent:
-            let wndEv = cast[WindowEventPtr](event)
-            let wnd = windowFromSDLEvent(wndEv)
-            case wndEv.event:
-                of WindowEvent_Resized:
-                    result = newEvent(etWindowResized)
-                    result.window = wnd
-                    result.position.x = wndEv.data1.Coord
-                    result.position.y = wndEv.data2.Coord
-                else:
-                    discard
-
-        of MouseButtonDown, MouseButtonUp:
-            when not defined(ios) and not defined(android):
-                if event.kind == MouseButtonDown:
-                    discard sdl2.captureMouse(True32)
-                else:
-                    discard sdl2.captureMouse(False32)
-
-            let mouseEv = cast[MouseButtonEventPtr](event)
-            if mouseEv.which != SDL_TOUCH_MOUSEID:
-                let wnd = windowFromSDLEvent(mouseEv)
-                let state = buttonStateFromSDLState(mouseEv.state.KeyState)
-                let button = case mouseEv.button:
-                    of sdl2.BUTTON_LEFT: VirtualKey.MouseButtonPrimary
-                    of sdl2.BUTTON_MIDDLE: VirtualKey.MouseButtonMiddle
-                    of sdl2.BUTTON_RIGHT: VirtualKey.MouseButtonSecondary
-                    else: VirtualKey.Unknown
-                let pos = positionFromSDLEvent(mouseEv)
-                result = newMouseButtonEvent(pos, button, state, mouseEv.timestamp)
-                result.window = wnd
-
-        of MouseMotion:
-            let mouseEv = cast[MouseMotionEventPtr](event)
-            if mouseEv.which != SDL_TOUCH_MOUSEID:
-                #logi("which: " & $mouseEv.which)
-                let wnd = windowFromSDLEvent(mouseEv)
-                if wnd != nil:
-                    let pos = positionFromSDLEvent(mouseEv)
-                    result = newMouseMoveEvent(pos, mouseEv.timestamp)
-                    result.window = wnd
-
-        of MouseWheel:
-            let mouseEv = cast[MouseWheelEventPtr](event)
-            let wnd = windowFromSDLEvent(mouseEv)
-            if wnd != nil:
-                var x, y: cint
-                getMouseState(x, y)
-                let pos = newPoint(x.Coord, y.Coord)
-                result = newEvent(etScroll, pos)
-                result.window = wnd
-                result.offset.x = mouseEv.x.Coord
-                result.offset.y = mouseEv.y.Coord
-
-        of KeyDown, KeyUp:
-            let keyEv = cast[KeyboardEventPtr](event)
-            let wnd = windowFromSDLEvent(keyEv)
-            result = newKeyboardEvent(virtualKeyFromNative(keyEv.keysym.sym), buttonStateFromSDLState(keyEv.state.KeyState), keyEv.repeat)
-            result.rune = keyEv.keysym.unicode.Rune
-            result.window = wnd
-
-        of TextInput:
-            let textEv = cast[TextInputEventPtr](event)
-            result = newEvent(etTextInput)
-            result.window = windowFromSDLEvent(textEv)
-            result.text = $cast[cstring](addr textEv.text)
-
-        of TextEditing:
-            let textEv = cast[TextEditingEventPtr](event)
-            result = newEvent(etTextInput)
-            result.window = windowFromSDLEvent(textEv)
-            result.text = $cast[cstring](addr textEv.text)
-
-        of AppWillEnterBackground:
-            result = newEvent(etAppWillEnterBackground)
-
-        of AppWillEnterForeground:
-            result = newEvent(etAppWillEnterForeground)
-
-        else:
-            #echo "Unknown event: ", event.kind
-            discard
-
-proc handleEvent(event: ptr sdl2.Event): Bool32 =
-    if event.kind == UserEvent5:
-        let evt = cast[UserEventPtr](event)
-        let p = cast[proc (data: pointer) {.cdecl.}](evt.data1)
-        if p.isNil:
-            logi "WARNING: UserEvent5 with nil proc"
-        else:
-            p(evt.data2)
-    else:
-        # This branch should never execute on a foreign thread!!!
-        var e = eventWithSDLEvent(event)
-        if (e.kind != etUnknown):
-            discard mainApplication().handleEvent(e)
-    result = True32
-]#
 method onResize*(w: EmscriptenWindow, newSize: Size) =
     let sf = 1.0 #screenScaleFactor()
     glViewport(0, 0, GLSizei(newSize.width * sf), GLsizei(newSize.height * sf))
     procCall w.Window.onResize(newSize)
-#[
-# Framerate limiter
-let MAXFRAMERATE: uint32 = 20 # milli seconds
-var frametime: uint32
 
-proc limitFramerate() =
-    var now = getTicks()
-    if frametime > now:
-        delay(frametime - now)
-    frametime = frametime + MAXFRAMERATE
+proc nimx_OnTextInput(wnd: pointer, text: cstring) {.EMSCRIPTEN_KEEPALIVE.} =
+    var e = newEvent(etTextInput)
+    e.window = cast[EmscriptenWindow](wnd)
+    e.text = $text
+    discard mainApplication().handleEvent(e)
 
-proc animateAndDraw() =
-    when not defined ios:
-        mainApplication().runAnimations()
-        mainApplication().drawWindows()
-    else:
-        if animationEnabled == 0:
-            mainApplication().runAnimations()
-            mainApplication().drawWindows()
-
-proc handleCallbackEvent(evt: UserEventPtr) =
-    let p = cast[proc (data: pointer) {.cdecl.}](evt.data1)
-    if p.isNil:
-        logi "WARNING: UserEvent5 with nil proc"
-    else:
-        p(evt.data2)
-
-proc nextEvent(evt: var sdl2.Event) =
-    when defined(ios):
-        if waitEvent(evt):
-            discard handleEvent(addr evt)
-    else:
-        var doPoll = false
-        if animationEnabled > 0:
-            doPoll = true
-        elif waitEvent(evt):
-            discard handleEvent(addr evt)
-            doPoll = evt.kind != QuitEvent
-        # TODO: This should be researched more carefully.
-        # During animations we need to process more than one event
-        if doPoll:
-            while pollEvent(evt):
-                discard handleEvent(addr evt)
-                if evt.kind == QuitEvent:
-                    break
-
-    animateAndDraw()
-
-method startTextInput*(w: EmscriptenWindow, r: Rect) =
-    startTextInput()
+method startTextInput*(wnd: EmscriptenWindow, r: Rect) =
+    discard EM_ASM_INT("""
+    if (window.__nimx_textinput === undefined) {
+        var i = window.__nimx_textinput = document.createElement('input');
+        i.type = 'text';
+        i.style.position = 'absolute';
+        i.style.top = '-99999px';
+        document.body.appendChild(i);
+    }
+    window.__nimx_textinput.oninput = function() {
+        var str = allocate(intArrayFromString(window.__nimx_textinput.value), 'i8', ALLOC_NORMAL);
+        window.__nimx_textinput.value = "";
+        _nimx_OnTextInput($0, str);
+        _free(str);
+    };
+    setTimeout(function(){ window.__nimx_textinput.focus(); }, 1);
+    """, cast[pointer](wnd))
 
 method stopTextInput*(w: EmscriptenWindow) =
-    stopTextInput()
-
-proc runUntilQuit*() =
-    # Initialize fist dummy event. The kind should be any unused kind.
-    var evt = sdl2.Event(kind: UserEvent1)
-    #setEventFilter(eventFilter, nil)
-    animateAndDraw()
-
-    # Main loop
-    while true:
-        nextEvent(evt)
-        if evt.kind == QuitEvent:
-            break
-
-    discard quit(evt)
-]#
+    discard EM_ASM_INT("""
+    if (window.__nimx_textinput !== undefined) {
+        window.__nimx_textinput.oninput = null;
+        window.__nimx_textinput.blur();
+    }
+    """)
 
 when not defined(useRealtimeGC):
     var lastCollectionTime = 0.0

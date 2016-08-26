@@ -43,18 +43,21 @@ proc isSubtypeOf(tself, tsuper: TypeId): bool = tself != tsuper and isTypeOf(tse
 
 {.pop.}
 
-template registerClass*(a: typedesc) =
+template registerClass*(a: typedesc, creator: (proc(): RootRef)) =
     const TName = typetraits.name(a)
     method className*(o: a): string = TName
     registerTypeRelation(a)
-    #superTypeRelations[getTypeId(a)] = getTypeId(superType(a))
     var info: ClassInfo
-    info.creatorProc = proc(): RootRef =
-        var r: a
-        r.new()
-        result = r
+    info.creatorProc = creator
     info.typ = getTypeId(a)
     classFactory[TName] = info
+
+template registerClass*(a: typedesc) =
+    let c = proc(): RootRef =
+        var res: a
+        res.new()
+        return res
+    registerClass(a, c)
 
 template isClassRegistered*(name: string): bool = name in classFactory
 

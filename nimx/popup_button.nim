@@ -91,7 +91,7 @@ method draw(b: PopupButton, r: Rect) =
         let c = currentContext()
         c.fillColor = blackColor()
         let font = systemFont()
-        c.drawText(font, newPoint(4, b.bounds.y + (b.bounds.height - font.size) / 2), b.mItems[b.mSelectedIndex].title)
+        c.drawText(font, newPoint(4, b.bounds.y + (b.bounds.height - font.height) / 2), b.mItems[b.mSelectedIndex].title)
 
 method onTouchEv(b: PopupButton, e: var Event): bool =
     if b.mItems.len > 0:
