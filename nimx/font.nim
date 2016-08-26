@@ -61,20 +61,26 @@ template charHeightForSize(s: float): float =
 
 template scaleForSize(s: float): float = s / charHeightForSize(s)
 
-var fontCache : SimpleTable[FastString, SimpleTable[int32, CharInfo]]
+type FontImpl = ref object
+    chars: SimpleTable[int32, CharInfo]
+    ascent: float32
+    descent: float32
 
-proc cachedCharsForFont(face: string, sz: float): SimpleTable[int32, CharInfo] =
+var fontCache : SimpleTable[FastString, FontImpl]
+
+proc cachedImplForFont(face: string, sz: float): FontImpl =
     if fontCache.isNil:
-        fontCache = newSimpleTable(FastString, SimpleTable[int32, CharInfo])
+        fontCache = newSimpleTable(FastString, FontImpl)
     var key : FastString = face & "_" & $charHeightForSize(sz).int
     if fontCache.hasKey(key):
         result = fontCache[key]
     else:
-        result = newSimpleTable(int32, CharInfo)
+        result.new()
+        result.chars = newSimpleTable(int32, CharInfo)
         fontCache[key] = result
 
 type Font* = ref object
-    chars: SimpleTable[int32, CharInfo]
+    impl: FontImpl
     mSize: float
     isHorizontal*: bool
     scale*: float
@@ -82,15 +88,12 @@ type Font* = ref object
     horizontalSpacing*: Coord
     shadowX*, shadowY*, shadowBlur*: float32
     glyphMargin: int32
-    mAscent, mDescent: float32
     baseline*: Baseline # Beware! Experinmetal!
 
 proc `size=`*(f: Font, s: float) =
     f.mSize = s
     f.scale = scaleForSize(s)
-    f.chars = cachedCharsForFont(f.filePath, s)
-    f.mAscent = 0
-    f.mDescent = 0
+    f.impl = cachedImplForFont(f.filePath, s)
 
 template size*(f: Font): float = f.mSize
 
@@ -153,6 +156,7 @@ when defined(js):
         """.}
 
 proc updateFontMetrics(f: Font) =
+    logi "update"
     when defined(js):
         var ascent, descent: int32
         let fSize = charHeightForSize(f.size)
@@ -162,8 +166,8 @@ proc updateFontMetrics(f: Font) =
         `ascent` = metrics.ascent;
         `descent` = -metrics.descent;
         """.}
-        f.mAscent = float32(ascent)
-        f.mDescent = float32(descent)
+        f.impl.ascent = float32(ascent)
+        f.impl.descent = float32(descent)
     else:
         var rawData = readFile(f.filePath)
         var fontinfo: stbtt_fontinfo
@@ -175,19 +179,19 @@ proc updateFontMetrics(f: Font) =
         let scale = stbtt_ScaleForMappingEmToPixels(fontinfo, fSize)
         var ascent, descent, lineGap : cint
         stbtt_GetFontVMetrics(fontinfo, ascent, descent, lineGap)
-        f.mAscent = float32(ascent) * scale
-        f.mDescent = float32(descent) * scale
+        f.impl.ascent = float32(ascent) * scale
+        f.impl.descent = float32(descent) * scale
 
 template updateFontMetricsIfNeeded(f: Font) =
-    if f.mAscent == 0: f.updateFontMetrics()
+    if f.impl.ascent == 0: f.updateFontMetrics()
 
 proc ascent*(f: Font): float32 =
     f.updateFontMetricsIfNeeded()
-    result = f.mAscent
+    result = f.impl.ascent * f.scale
 
 proc descent*(f: Font): float32 =
     f.updateFontMetricsIfNeeded()
-    result = f.mDescent
+    result = f.impl.descent * f.scale
 
 proc bakeChars(f: Font, start: int32, res: CharInfo) =
     let startChar = start * charChunkLength
@@ -199,7 +203,7 @@ proc bakeChars(f: Font, start: int32, res: CharInfo) =
     when defined(js):
         f.updateFontMetricsIfNeeded()
 
-        let h = int32(f.mAscent - f.mDescent)
+        let h = int32(f.impl.ascent - f.impl.descent)
         let canvas = f.auxCanvasForFont()
         let fName = f.cssFontName
 
@@ -281,8 +285,8 @@ proc bakeChars(f: Font, start: int32, res: CharInfo) =
         var ascent, descent, lineGap : cint
         stbtt_GetFontVMetrics(fontinfo, ascent, descent, lineGap)
 
-        f.mAscent = float32(ascent) * scale
-        f.mDescent = float32(descent) * scale
+        f.impl.ascent = float32(ascent) * scale
+        f.impl.descent = float32(descent) * scale
 
         var glyphIndexes: array[charChunkLength, cint]
 
@@ -422,7 +426,7 @@ proc setGlyphMargin*(f: Font, margin: int32) =
         return
 
     f.glyphMargin = margin
-    f.chars = cachedCharsForFont(f.filePath, f.size)
+    f.impl = cachedImplForFont(f.filePath, f.size)
 
 proc systemFontOfSize*(size: float): Font =
     for f in preferredFonts:
@@ -445,12 +449,12 @@ proc systemFont*(): Font =
 proc chunkAndCharIndexForRune(f: Font, r: Rune): tuple[ch: CharInfo, index: int] =
     let chunkStart = floor(r.int / charChunkLength.int).int32
     result.index = r.int mod charChunkLength
-    if f.chars.hasKey(chunkStart):
-       result.ch = f.chars[chunkStart]
+    if f.impl.chars.hasKey(chunkStart):
+       result.ch = f.impl.chars[chunkStart]
     else:
         result.ch.new()
         f.bakeChars(chunkStart, result.ch)
-        f.chars[chunkStart] = result.ch
+        f.impl.chars[chunkStart] = result.ch
 
     if result.ch.texture.isEmpty and sharedGL() != nil:
         let gl = result.ch.prepareTexture()
@@ -484,8 +488,8 @@ proc getQuadDataForRune*(f: Font, r: Rune, quad: var openarray[Coord], offset: i
 
     let baselineOffset = case f.baseline
         of bTop: 0.0
-        of bBottom: -f.mAscent + f.mDescent
-        of bAlphabetic: -f.mAscent
+        of bBottom: -f.impl.ascent + f.impl.descent
+        of bAlphabetic: -f.impl.ascent
 
     let m = f.glyphMargin.float * f.scale
     let x0 = pt.x + charComp(compX) * f.scale - m
@@ -517,7 +521,7 @@ proc getAdvanceForRune(f: Font, r: Rune): Coord =
 
 proc height*(f: Font): float32 =
     f.updateFontMetricsIfNeeded()
-    result = (f.mAscent - f.mDescent) * f.scale
+    result = (f.impl.ascent - f.impl.descent) * f.scale
 
 proc sizeOfString*(f: Font, s: string): Size =
     var pt : Point
