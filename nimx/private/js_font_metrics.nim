@@ -1,20 +1,18 @@
 # Idea borrowed from from https://github.com/Pomax/fontmetrics.js
 
-proc nimx_calculateFontMetricsInCanvas*(ctx: ref RootObj, fontFamily: cstring, fontSize: int): ref RootObj {.exportc.} =
+proc nimx_calculateFontMetricsInCanvas*(fontName: cstring, fontSize: int): ref RootObj {.exportc.} =
     {.emit: """
-    var textstring = "Hl@¿Éq";
-
-    `result` = `ctx`.measureText(textstring);
+    var textstring = "Hl@¿Éq¶";
     var canvas = document.createElement("canvas");
+    var ctx = canvas.getContext("2d");
+    ctx.font = `fontName`;
+    `result` = ctx.measureText(textstring);
+
     var padding = 100;
     canvas.width = `result`.width + padding;
     canvas.height = 3*`fontSize`;
     canvas.style.opacity = 1;
-//    canvas.style.fontFamily = `fontFamily`;
-//    canvas.style.fontSize = `fontSize`;
-    var ctx = canvas.getContext("2d");
-    ctx.font = `fontSize` + "px " + `fontFamily`;
-
+    ctx.font = `fontName`;
     var w = canvas.width,
         h = canvas.height,
         baseline = h/2;
