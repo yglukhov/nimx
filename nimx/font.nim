@@ -250,7 +250,7 @@ proc bakeChars(f: Font, start: int32, res: CharInfo) =
                     let y = res.bakedChars.charOffComp(c, compTexY)
                     {.emit: "ctx.fillText(String.fromCharCode(`i`), `x`, `y`);".}
 
-        var data : seq[cdouble]
+        var data : seq[float32]
         var byteData : seq[byte]
         {.emit: """
         var sz = `texWidth` * `texHeight`;
@@ -312,6 +312,7 @@ proc bakeChars(f: Font, start: int32, res: CharInfo) =
         res.texHeight = height.uint16
         var temp_bitmap = newSeq[byte](width * height)
 
+        let dfCtx = newDistanceFieldContext()
         for i in startChar .. < endChar:
             if isPrintableCodePoint(i):
                 let c = charOff(i - startChar)
@@ -320,12 +321,9 @@ proc bakeChars(f: Font, start: int32, res: CharInfo) =
                     let y = res.bakedChars.charOffComp(c, compTexY).int
                     let w = res.bakedChars.charOffComp(c, compWidth).cint
                     let h = res.bakedChars.charOffComp(c, compHeight).cint
-                    stbtt_MakeGlyphBitmap(fontinfo, addr temp_bitmap[x + y * width.int], w, h, width.cint, scale, scale, glyphIndexes[i - startChar])
-
-        when dumpDebugBitmaps:
-            dumpBitmaps("alpha", temp_bitmap, width, height, start, fSize)
-
-        make_distance_map(temp_bitmap, width, height)
+                    if w > 0 and h > 0:
+                        stbtt_MakeGlyphBitmap(fontinfo, addr temp_bitmap[x + y * width.int], w, h, width.cint, scale, scale, glyphIndexes[i - startChar])
+                        dfCtx.make_distance_map(temp_bitmap, x - f.glyphMargin, y - f.glyphMargin, w + f.glyphMargin * 2, h + f.glyphMargin * 2, width)
 
         when dumpDebugBitmaps:
             dumpBitmaps("df", temp_bitmap, width, height, start, fSize)
