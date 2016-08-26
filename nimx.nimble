@@ -11,6 +11,9 @@ skipDirs    = @["test/build", "build"]
 
 # Dependencies
 
+requires "nimfp < 0.2" # Temporary fix for nimfp
+
+
 requires "sdl2"
 requires "opengl"
 requires "nimsl >= 0.2 & < 0.3"
