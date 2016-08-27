@@ -156,7 +156,6 @@ when defined(js):
         """.}
 
 proc updateFontMetrics(f: Font) =
-    logi "update"
     when defined(js):
         var ascent, descent: int32
         let fSize = charHeightForSize(f.size)
