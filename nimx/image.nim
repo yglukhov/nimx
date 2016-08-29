@@ -507,11 +507,14 @@ registerResourcePreloader(["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga", "p
     when defined(js):
         proc handler(r: ref RootObj) =
             var onImLoad = proc (im: ref RootObj) =
-                var w, h: Coord
-                {.emit: "`w` = im.width; `h` = im.height;".}
-                let image = imageWithSize(newSize(w, h))
-                {.emit: "`image`.__image = im;".}
-                callback(image)
+                try:
+                    var w, h: Coord
+                    {.emit: "`w` = `im`.width; `h` = `im`.height;".}
+                    let image = imageWithSize(newSize(w, h))
+                    {.emit: "`image`.__image = `im`;".}
+                    callback(image)
+                finally:
+                    discard
             {.emit:"""
             var im = new Image();
             im.onload = function(){`onImLoad`(im);};

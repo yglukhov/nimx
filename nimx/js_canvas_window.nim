@@ -96,62 +96,83 @@ proc eventLocationFromJSEvent(e: dom.Event, c: Element): Point =
 
 proc setupEventHandlersForCanvas(w: JSCanvasWindow, c: Element) =
     let onmousedown = proc (e: dom.Event) =
-        var evt = newMouseDownEvent(eventLocationFromJSEvent(e, c), buttonCodeFromJSEvent(e))
-        evt.window = w
-        discard mainApplication().handleEvent(evt)
+        try:
+            var evt = newMouseDownEvent(eventLocationFromJSEvent(e, c), buttonCodeFromJSEvent(e))
+            evt.window = w
+            discard mainApplication().handleEvent(evt)
+        finally:
+            discard
 
     let onmouseup = proc (e: dom.Event) =
-        var evt = newMouseUpEvent(eventLocationFromJSEvent(e, c), buttonCodeFromJSEvent(e))
-        evt.window = w
-        discard mainApplication().handleEvent(evt)
+        try:
+            var evt = newMouseUpEvent(eventLocationFromJSEvent(e, c), buttonCodeFromJSEvent(e))
+            evt.window = w
+            discard mainApplication().handleEvent(evt)
+        finally:
+            discard
 
     let onmousemove = proc (e: dom.Event) =
-        var evt = newMouseMoveEvent(eventLocationFromJSEvent(e, c))
-        evt.window = w
-        discard mainApplication().handleEvent(evt)
+        try:
+            var evt = newMouseMoveEvent(eventLocationFromJSEvent(e, c))
+            evt.window = w
+            discard mainApplication().handleEvent(evt)
+        finally:
+            discard
 
     let onscroll = proc (e: dom.Event): bool =
-        var evt = newEvent(etScroll, eventLocationFromJSEvent(e, c))
-        var x, y: Coord
-        {.emit: """
-        `x` = `e`.deltaX;
-        `y` = `e`.deltaY;
-        """.}
-        evt.offset.x = x
-        evt.offset.y = y
-        evt.window = w
-        result = not mainApplication().handleEvent(evt)
+        try:
+            var evt = newEvent(etScroll, eventLocationFromJSEvent(e, c))
+            var x, y: Coord
+            {.emit: """
+            `x` = `e`.deltaX;
+            `y` = `e`.deltaY;
+            """.}
+            evt.offset.x = x
+            evt.offset.y = y
+            evt.window = w
+            result = not mainApplication().handleEvent(evt)
+        finally:
+            discard
 
     let onresize = proc (e: dom.Event): bool =
-        var sizeChanged = false
-        var newWidth, newHeight : Coord
-        {.emit: """
-        `newWidth` = `c`.width;
-        `newHeight` = `c`.height;
-        var r = `c`.getBoundingClientRect();
-        if (r.width !== `c`.width) {
-            `newWidth` = r.width;
-            `c`.width = r.width;
-            `sizeChanged` = true;
-        }
-        if (r.height !== `c`.height) {
-            `newHeight` = r.height
-            `c`.height = r.height;
-            `sizeChanged` = true;
-        }
-        """.}
-        if sizeChanged:
-            var evt = newEvent(etWindowResized)
-            evt.window = w
-            evt.position.x = newWidth
-            evt.position.y = newHeight
-            discard mainApplication().handleEvent(evt)
+        try:
+            var sizeChanged = false
+            var newWidth, newHeight : Coord
+            {.emit: """
+            `newWidth` = `c`.width;
+            `newHeight` = `c`.height;
+            var r = `c`.getBoundingClientRect();
+            if (r.width !== `c`.width) {
+                `newWidth` = r.width;
+                `c`.width = r.width;
+                `sizeChanged` = true;
+            }
+            if (r.height !== `c`.height) {
+                `newHeight` = r.height
+                `c`.height = r.height;
+                `sizeChanged` = true;
+            }
+            """.}
+            if sizeChanged:
+                var evt = newEvent(etWindowResized)
+                evt.window = w
+                evt.position.x = newWidth
+                evt.position.y = newHeight
+                discard mainApplication().handleEvent(evt)
+        finally:
+            discard
 
     let onfocus = proc()=
-        w.onFocusChange(true)
+        try:
+            w.onFocusChange(true)
+        finally:
+            discard
 
     let onblur = proc()=
-        w.onFocusChange(false)
+        try:
+            w.onFocusChange(false)
+        finally:
+            discard
 
     # TODO: Remove this hack, when handlers definition in dom.nim fixed.
     {.emit: """
@@ -271,7 +292,10 @@ proc sendInputEvent(wnd: JSCanvasWindow, evt: dom.Event) =
 
 method startTextInput*(wnd: JSCanvasWindow, r: Rect) =
     let oninput = proc(evt: dom.Event) =
-        wnd.sendInputEvent(evt)
+        try:
+            wnd.sendInputEvent(evt)
+        finally:
+            discard
 
     {.emit: """
     if (window.__nimx_textinput === undefined) {
