@@ -118,6 +118,8 @@ proc clear*(t: Timer) =
             t.cancel()
             t.timer = emptyId
             t.state = tsInvalid
+            t.callback = nil
+            t.origCallback = nil
             when not defined(js):
                 GC_unref(t)
 
