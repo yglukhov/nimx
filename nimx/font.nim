@@ -513,7 +513,7 @@ proc getQuadDataForRune*(f: Font, r: Rune, quad: var openarray[Coord], offset: i
 template getQuadDataForRune*(f: Font, r: Rune, quad: var array[16, Coord], texture: var TextureRef, pt: var Point) =
     f.getQuadDataForRune(r, quad, 0, texture, pt)
 
-proc getAdvanceForRune(f: Font, r: Rune): Coord =
+proc getAdvanceForRune*(f: Font, r: Rune): Coord =
     let (chunk, charIndexInChunk) = f.chunkAndCharIndexForRune(r)
     let c = charOff(charIndexInChunk)
     result = chunk.bakedChars.charOffComp(c, compAdvance).Coord * f.scale
