@@ -489,7 +489,7 @@ proc drawTextBase*(c: GraphicsContext, font: Font, pt: var Point, text: string) 
 
     if n > 0: flush()
 
-proc drawText(c: GraphicsContext, font: Font, pt: var Point, text: string) =
+proc drawText*(c: GraphicsContext, font: Font, pt: var Point, text: string) =
     # assume orthographic projection with units = screen pixels, origin at top left
     let gl = c.gl
     var cc : CompiledComposition

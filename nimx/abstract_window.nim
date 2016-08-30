@@ -60,7 +60,7 @@ method drawWindow*(w: Window) {.base.} =
         var font = systemFont()
         let old_size = font.size
         font.size = fontSize
-        var rect = newRect(w.frame.width - profilerWidth, 5, profilerWidth - 5, Coord(profiler.len * fontSize))
+        var rect = newRect(w.frame.width - profilerWidth, 5, profilerWidth - 5, Coord(profiler.len) * font.height)
         c.fillColor = newGrayColor(1, 0.8)
         c.strokeWidth = 0
         c.drawRect(rect)
