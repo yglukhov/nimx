@@ -23,8 +23,8 @@ type
         firstAttr: int
 
     Attributes = object
-        start: int # Index of char where attributes start.
-        runeStart: int # Index of rune where attributes start.
+        startByte: int # Index of char where attributes start.
+        startRune: int # Index of rune where attributes start.
         font: Font
         textColor: Color
         backgroundColor: Color
@@ -79,7 +79,7 @@ proc updateCache(t: FormattedText) =
     var curAttrIndex = 0
     var nextAttrStartIndex = -1
     if t.mAttributes.len > 1:
-        nextAttrStartIndex = t.mAttributes[1].start
+        nextAttrStartIndex = t.mAttributes[1].startByte
 
     var boundingWidth = t.mBoundingSize.width
     if boundingWidth == 0: boundingWidth = Inf
@@ -136,7 +136,7 @@ proc updateCache(t: FormattedText) =
         if charStart + 1 == nextAttrStartIndex:
             inc curAttrIndex
             if t.mAttributes.high > curAttrIndex:
-                nextAttrStartIndex = t.mAttributes[curAttrIndex + 1].start
+                nextAttrStartIndex = t.mAttributes[curAttrIndex + 1].startByte
 
     if curLineWidth > 0:
         var li: LineInfo
@@ -159,25 +159,25 @@ proc `boundingSize=`*(t: FormattedText, s: Size) =
         t.cacheValid = false
 
 proc prepareAttributes(t: FormattedText, a: int): int =
-    proc cmpByRuneStart(a, b: Attributes): int = cmp(a.runeStart, b.runeStart)
+    proc cmpByRuneStart(a, b: Attributes): int = cmp(a.startRune, b.startRune)
 
     var attr: Attributes
-    attr.runeStart = a
+    attr.startRune = a
 
     result = lowerBound(t.mAttributes, attr, cmpByRuneStart)
-    if result < t.mAttributes.len and t.mAttributes[result].runeStart == a:
+    if result < t.mAttributes.len and t.mAttributes[result].startRune == a:
         return
 
-    var iRune = t.mAttributes[result - 1].runeStart
-    var iChar = t.mAttributes[result - 1].start
+    var iRune = t.mAttributes[result - 1].startRune
+    var iChar = t.mAttributes[result - 1].startByte
     var r: Rune
     while iRune < a:
         fastRuneAt(t.mText, iChar, r, true)
         inc iRune
     t.mAttributes.insert(attr, result)
     t.mAttributes[result] = t.mAttributes[result - 1]
-    t.mAttributes[result].runeStart = a
-    t.mAttributes[result].start = iChar
+    t.mAttributes[result].startRune = a
+    t.mAttributes[result].startByte = iChar
 
 iterator attrsInRange(t: FormattedText, a, b: int): int =
     let aa = t.prepareAttributes(a)
@@ -207,15 +207,15 @@ iterator attrsInLine(t: FormattedText, line: int): tuple[attrIndex, a, b: int] =
     let firstAttrInLine = t.lines[line].firstAttr
     var curAttrIndex = firstAttrInLine
     let breakPos = t.lines[line].breakPos
-    while curAttrIndex < t.mAttributes.len and t.mAttributes[curAttrIndex].start < breakPos:
-        var attrStartIndex = t.mAttributes[curAttrIndex].start
+    while curAttrIndex < t.mAttributes.len and t.mAttributes[curAttrIndex].startByte < breakPos:
+        var attrStartIndex = t.mAttributes[curAttrIndex].startByte
         if line > 0 and curAttrIndex == firstAttrInLine:
             attrStartIndex = t.lines[line - 1].breakPos
 
         var attrEndIndex = breakPos
         var attributeBreaks = true
         if t.mAttributes.high > curAttrIndex:
-            let nextAttrStart = t.mAttributes[curAttrIndex + 1].start
+            let nextAttrStart = t.mAttributes[curAttrIndex + 1].startByte
             if nextAttrStart < attrEndIndex:
                 attrEndIndex = nextAttrStart
                 attributeBreaks = true
@@ -235,7 +235,7 @@ iterator runeWidthsInLine*(t: FormattedText, line: int): float32 =
     var p = 0
     for curAttrIndex, attrStartIndex, attrEndIndex in t.attrsInLine(line):
         if first:
-            charOff = t.mAttributes[curAttrIndex].start
+            charOff = t.mAttributes[curAttrIndex].startByte
             while charOff < attrStartIndex:
                 inc charOff, runeLenAt(t.mText, charOff)
             first = false
