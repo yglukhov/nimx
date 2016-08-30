@@ -1,5 +1,5 @@
-import unicode, algorithm
-import nimx.font, nimx.types, nimx.context
+import unicode, algorithm, strutils
+import nimx.font, nimx.types, nimx.context, nimx.unistring
 
 
 type
@@ -13,12 +13,14 @@ type
         mBoundingSize: Size
         cacheValid: bool
         canBreakOnAnyChar: bool
+        overrideColor*: Color
 
     LineInfo* = object
         breakPos: int
         width: float32
         height: float32
         baseline: float32 # distance from top of the line to baseline
+        firstAttr: int
 
     Attributes = object
         start: int # Index of char where attributes start.
@@ -57,6 +59,8 @@ proc updateCache(t: FormattedText) =
     var curLineHeight = 0'f32
     var curLineBaseline = 0'f32
 
+    var firstAttrInLine = 0
+
     # In this context "word" means minimal sequence of runes that can not have
     # line break
     var curWordWidth = 0'f32
@@ -81,12 +85,7 @@ proc updateCache(t: FormattedText) =
 
     while i < textLen:
         let font = t.mAttributes[curAttrIndex].font
-
-        # Switch to next attribute if its time
-        if i + 1 == nextAttrStartIndex:
-            inc curAttrIndex
-            if t.mAttributes.high > curAttrIndex:
-                nextAttrStartIndex = t.mAttributes[curAttrIndex + 1].start
+        let charStart = i
 
         fastRuneAt(t.text, i, c, true)
 
@@ -114,16 +113,24 @@ proc updateCache(t: FormattedText) =
                 li.height = curLineHeight
                 li.width = curLineWidth
                 li.baseline = curLineBaseline
+                li.firstAttr = firstAttrInLine
                 t.lines.add(li)
                 t.mTotalHeight += curLineHeight + lineSpacing
                 curLineWidth = curWordWidth
                 curLineHeight = curWordHeight
                 curLineBaseline = curWordBaseline
+                firstAttrInLine = curAttrIndex
 
             curWordWidth = 0
             curWordHeight = 0
             curWordBaseline = 0
             curWordStart = i
+
+        # Switch to next attribute if its time
+        if charStart + 1 == nextAttrStartIndex:
+            inc curAttrIndex
+            if t.mAttributes.high > curAttrIndex:
+                nextAttrStartIndex = t.mAttributes[curAttrIndex + 1].start
 
     if curLineWidth > 0:
         var li: LineInfo
@@ -131,6 +138,7 @@ proc updateCache(t: FormattedText) =
         li.height = curLineHeight
         li.width = curLineWidth
         li.baseline = curLineBaseline
+        li.firstAttr = firstAttrInLine
         t.lines.add(li)
         t.mTotalHeight += curLineHeight + lineSpacing
 
@@ -169,22 +177,55 @@ iterator attrsInRange(t: FormattedText, a, b: int): int =
     let aa = t.prepareAttributes(a)
     let ab = t.prepareAttributes(b)
     for i in aa ..< ab: yield i
-    t.cacheValid = false
 
 proc setFontInRange*(t: FormattedText, a, b: int, f: Font) =
     for i in t.attrsInRange(a, b):
         t.mAttributes[i].font = f
+    t.cacheValid = false
 
 proc setTextColorInRange*(t: FormattedText, a, b: int, c: Color) =
     for i in t.attrsInRange(a, b):
         t.mAttributes[i].textColor = c
+
+proc uniInsert*(t: FormattedText, atIndex: int, s: string) =
+    t.text.uniInsert(s, atIndex)
+    # TODO: Move attributes
+
+proc uniDelete*(t: FormattedText, start, stop: int) =
+    t.text.uniDelete(start, stop)
+    # TODO: Move attributes
+
+iterator attrsInLine(t: FormattedText, line: int): tuple[attrIndex, a, b: int] =
+    let firstAttrInLine = t.lines[line].firstAttr
+    var curAttrIndex = firstAttrInLine
+    let breakPos = t.lines[line].breakPos
+    while curAttrIndex < t.mAttributes.len and t.mAttributes[curAttrIndex].start < breakPos:
+        var attrStartIndex = t.mAttributes[curAttrIndex].start
+        if line > 0 and curAttrIndex == firstAttrInLine:
+            attrStartIndex = t.lines[line - 1].breakPos
+
+        let endOfLine = breakPos
+        var attrEndIndex = endOfLine
+        var attributeBreaks = true
+        if t.mAttributes.high > curAttrIndex:
+            let nextAttrStart = t.mAttributes[curAttrIndex + 1].start
+            if nextAttrStart < attrEndIndex:
+                attrEndIndex = nextAttrStart
+                attributeBreaks = true
+
+        yield (curAttrIndex, attrStartIndex, attrEndIndex - 1)
+
+        if attrEndIndex == endOfLine:
+            break
+
+        if attributeBreaks:
+            inc curAttrIndex
 
 proc drawText*(c: GraphicsContext, origP: Point, t: FormattedText) =
     if not t.cacheValid:
         t.updateCache()
 
     var p = origP
-    var curAttrIndex = 0
     let numLines = t.lines.len
     var curLine = 0
 
@@ -196,36 +237,18 @@ proc drawText*(c: GraphicsContext, origP: Point, t: FormattedText) =
                 p.x = p.x + (t.mBoundingSize.width - t.lines[curLine].width) / 2
 
         let lineY = p.y
-        let firstAttrInLine = curAttrIndex
-        while curAttrIndex < t.mAttributes.len and t.mAttributes[curAttrIndex].start < t.lines[curLine].breakPos:
-            p.y = lineY + t.lines[curLine].baseline
-
-            var attrStartIndex = t.mAttributes[curAttrIndex].start
-            if curLine > 0 and curAttrIndex == firstAttrInLine:
-                attrStartIndex = t.lines[curLine - 1].breakPos
-
-            let endOfLine = t.lines[curLine].breakPos
-            var attrEndIndex = endOfLine
-            var attributeBreaks = true
-            if t.mAttributes.high > curAttrIndex:
-                let nextAttrStart = t.mAttributes[curAttrIndex + 1].start
-                if nextAttrStart < attrEndIndex:
-                    attrEndIndex = nextAttrStart
-                    attributeBreaks = true
-
-            c.fillColor = t.mAttributes[curAttrIndex].textColor
+        p.y = lineY + t.lines[curLine].baseline
+        for curAttrIndex, attrStartIndex, attrEndIndex in t.attrsInLine(curLine):
+            if t.overrideColor.a != 0:
+                c.fillColor = t.overrideColor
+            else:
+                c.fillColor = t.mAttributes[curAttrIndex].textColor
 
             let font = t.mAttributes[curAttrIndex].font
             let oldBaseline = font.baseline
             font.baseline = bAlphabetic
-            c.drawText(t.mAttributes[curAttrIndex].font, p, t.text.substr(attrStartIndex, attrEndIndex - 1))
+            c.drawText(t.mAttributes[curAttrIndex].font, p, t.text.substr(attrStartIndex, attrEndIndex))
             font.baseline = oldBaseline
-
-            if attrEndIndex == endOfLine:
-                break
-
-            if attributeBreaks:
-                inc curAttrIndex
 
         p.y = lineY + t.lines[curLine].height
         inc curLine
