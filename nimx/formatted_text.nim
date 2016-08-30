@@ -4,7 +4,7 @@ import nimx.font, nimx.types, nimx.context, nimx.unistring
 
 type
     FormattedText* = ref object
-        text*: string
+        mText: string
         mAttributes: seq[Attributes]
         lines: seq[LineInfo]
         mTotalHeight: float32
@@ -44,9 +44,15 @@ proc defaultAttributes(): Attributes =
     result.font = systemFont()
     result.textColor = blackColor()
 
+proc `text=`*(t: FormattedText, s: string) =
+    t.mText = s
+    t.cacheValid = false
+
+template text*(t: FormattedText): string = t.mText
+
 proc newFormattedText*(s: string = ""): FormattedText =
     result.new()
-    result.text = s
+    result.mText = s
     result.mAttributes = @[defaultAttributes()]
     result.lines = @[]
 
@@ -81,18 +87,18 @@ proc updateCache(t: FormattedText) =
     const lineSpacing = 2'f32
 
     var c: Rune
-    let textLen = t.text.len
+    let textLen = t.mText.len
 
     while i < textLen:
         let font = t.mAttributes[curAttrIndex].font
         let charStart = i
 
-        fastRuneAt(t.text, i, c, true)
+        fastRuneAt(t.mText, i, c, true)
 
         let runeWidth = font.getAdvanceForRune(c)
 
         template canBreakLine(): bool =
-            t.canBreakOnAnyChar or c == Rune(' ') or c == Rune('-') or i == textLen - 1
+            t.canBreakOnAnyChar or c == Rune(' ') or c == Rune('-') or charStart == textLen - 1
 
         curWordWidth += runeWidth
         curWordHeight = max(curWordHeight, font.height)
@@ -143,7 +149,7 @@ proc updateCache(t: FormattedText) =
         t.mTotalHeight += curLineHeight + lineSpacing
 
 
-    # echo "Cache updated. Bounds: ", boundingWidth
+    # echo "Cache updated for ", t.mText
     # echo "Attributes: ", t.mAttributes
     # echo "lines: ", t.lines
 
@@ -166,7 +172,7 @@ proc prepareAttributes(t: FormattedText, a: int): int =
     var iChar = t.mAttributes[result - 1].start
     var r: Rune
     while iRune < a:
-        fastRuneAt(t.text, iChar, r, true)
+        fastRuneAt(t.mText, iChar, r, true)
         inc iRune
     t.mAttributes.insert(attr, result)
     t.mAttributes[result] = t.mAttributes[result - 1]
@@ -188,11 +194,13 @@ proc setTextColorInRange*(t: FormattedText, a, b: int, c: Color) =
         t.mAttributes[i].textColor = c
 
 proc uniInsert*(t: FormattedText, atIndex: int, s: string) =
-    t.text.uniInsert(s, atIndex)
+    t.cacheValid = false
+    t.mText.uniInsert(s, atIndex)
     # TODO: Move attributes
 
 proc uniDelete*(t: FormattedText, start, stop: int) =
-    t.text.uniDelete(start, stop)
+    t.cacheValid = false
+    t.mText.uniDelete(start, stop)
     # TODO: Move attributes
 
 iterator attrsInLine(t: FormattedText, line: int): tuple[attrIndex, a, b: int] =
@@ -204,8 +212,7 @@ iterator attrsInLine(t: FormattedText, line: int): tuple[attrIndex, a, b: int] =
         if line > 0 and curAttrIndex == firstAttrInLine:
             attrStartIndex = t.lines[line - 1].breakPos
 
-        let endOfLine = breakPos
-        var attrEndIndex = endOfLine
+        var attrEndIndex = breakPos
         var attributeBreaks = true
         if t.mAttributes.high > curAttrIndex:
             let nextAttrStart = t.mAttributes[curAttrIndex + 1].start
@@ -215,15 +222,87 @@ iterator attrsInLine(t: FormattedText, line: int): tuple[attrIndex, a, b: int] =
 
         yield (curAttrIndex, attrStartIndex, attrEndIndex - 1)
 
-        if attrEndIndex == endOfLine:
+        if attrEndIndex == breakPos:
             break
 
         if attributeBreaks:
             inc curAttrIndex
 
+iterator runeWidthsInLine*(t: FormattedText, line: int): float32 =
+    var first = true
+    var charOff = 0
+    var r: Rune
+    var p = 0
+    for curAttrIndex, attrStartIndex, attrEndIndex in t.attrsInLine(line):
+        if first:
+            charOff = t.mAttributes[curAttrIndex].start
+            while charOff < attrStartIndex:
+                inc charOff, runeLenAt(t.mText, charOff)
+            first = false
+        while charOff <= attrEndIndex:
+            fastRuneAt(t.mText, charOff, r, true)
+            let w = t.mAttributes[curAttrIndex].font.getAdvanceForRune(r)
+            yield w
+            inc p
+
+template updateCacheIfNeeded(t: FormattedText) =
+    if not t.cacheValid: t.updateCache()
+
+proc cursorOffsetForPositionInLine*(t: FormattedText, line, position: int): Coord =
+    t.updateCacheIfNeeded()
+
+    if t.lines.len == 0: return
+
+    var p = 0
+    for width in t.runeWidthsInLine(line):
+        if p == position: break
+        result += width
+        inc p
+
+proc getClosestCursorPositionToPointInLine*(t: FormattedText, line: int, p: Point, position: var int, offset: var Coord) =
+    t.updateCacheIfNeeded()
+
+    if t.lines.len == 0: return
+
+    var totalWidth = 0'f32
+    var pos = 0
+    for width in t.runeWidthsInLine(line):
+        if p.x < totalWidth + width:
+            position = pos
+            offset = totalWidth
+            return
+        totalWidth += width
+        inc pos
+
+    position = pos
+    offset = totalWidth
+
+proc getLinesAtHeights*(t: FormattedText, heights: openarray[Coord], lines: var openarray[int]) =
+    assert(heights.len == lines.len)
+    var line = 0
+    var iHeight = 0
+    var height = 0'f32
+    while line < t.lines.len:
+        height += t.lines[line].height
+        while iHeight < heights.len and heights[iHeight] < height:
+            lines[iHeight] = line
+            inc iHeight
+        if iHeight == heights.len: break
+        inc line
+
+proc lineAtHeight*(t: FormattedText, height: Coord): int =
+    var res: array[1, int]
+    t.getLinesAtHeights([height], res)
+    result = res[0]
+
+proc runeLen*(t: FormattedText): int =
+    # TODO: Optimize
+    result = t.mText.runeLen
+
+template len*(t: FormattedText): int = t.mText.len
+
 proc drawText*(c: GraphicsContext, origP: Point, t: FormattedText) =
-    if not t.cacheValid:
-        t.updateCache()
+    t.updateCacheIfNeeded()
 
     var p = origP
     let numLines = t.lines.len
@@ -247,7 +326,7 @@ proc drawText*(c: GraphicsContext, origP: Point, t: FormattedText) =
             let font = t.mAttributes[curAttrIndex].font
             let oldBaseline = font.baseline
             font.baseline = bAlphabetic
-            c.drawText(t.mAttributes[curAttrIndex].font, p, t.text.substr(attrStartIndex, attrEndIndex))
+            c.drawText(t.mAttributes[curAttrIndex].font, p, t.mText.substr(attrStartIndex, attrEndIndex))
             font.baseline = oldBaseline
 
         p.y = lineY + t.lines[curLine].height
