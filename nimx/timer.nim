@@ -158,10 +158,15 @@ proc timeLeftUntilNextFire(t: Timer): float =
     result = result - curTime
 
 proc pause*(t: Timer) =
-    if t.state != tsPaused:
-        t.clear()
-        t.scheduleTime = t.timeLeftUntilNextFire()
-        t.state = tsPaused
+    if t.state == tsRunning:
+        var emptyId: TimerID
+        if t.timer != emptyId:
+            t.cancel()
+            t.timer = emptyId
+            t.scheduleTime = t.timeLeftUntilNextFire()
+            t.state = tsPaused
+            when not defined(js):
+                GC_unref(t)
 
 proc resume*(t: Timer) =
     if t.state == tsPaused:
