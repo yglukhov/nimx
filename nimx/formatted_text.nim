@@ -16,7 +16,8 @@ type
         overrideColor*: Color
 
     LineInfo* = object
-        breakPos: int
+        startByte: int
+        startRune: int
         width: float32
         height: float32
         baseline: float32 # distance from top of the line to baseline
@@ -61,11 +62,7 @@ proc updateCache(t: FormattedText) =
     t.lines.setLen(0)
     t.mTotalHeight = 0
 
-    var curLineWidth = 0'f32
-    var curLineHeight = 0'f32
-    var curLineBaseline = 0'f32
-
-    var firstAttrInLine = 0
+    var curLineInfo: LineInfo
 
     # In this context "word" means minimal sequence of runes that can not have
     # line break
@@ -73,7 +70,8 @@ proc updateCache(t: FormattedText) =
     var curWordHeight = 0'f32
     var curWordBaseline = 0'f32
 
-    var curWordStart = 0
+    var curWordStartByte = 0
+    var curWordStartRune = 0
 
     var i = 0
     var curAttrIndex = 0
@@ -88,6 +86,7 @@ proc updateCache(t: FormattedText) =
 
     var c: Rune
     let textLen = t.mText.len
+    var curRune = 0
 
     while i < textLen:
         let font = t.mAttributes[curAttrIndex].font
@@ -107,30 +106,28 @@ proc updateCache(t: FormattedText) =
         if canBreakLine():
             # commit current word
 
-            if curLineWidth + curWordWidth < boundingWidth:
+            if curLineInfo.width + curWordWidth < boundingWidth:
                 # Word fits in the line
-                curLineWidth += curWordWidth
-                curLineHeight = max(curLineHeight, curWordHeight)
-                curLineBaseline = max(curLineBaseline, curWordBaseline)
+                curLineInfo.width += curWordWidth
+                curLineInfo.height = max(curLineInfo.height, curWordHeight)
+                curLineInfo.baseline = max(curLineInfo.baseline, curWordBaseline)
             else:
                 # Complete current line
-                var li: LineInfo
-                li.breakPos = curWordStart
-                li.height = curLineHeight
-                li.width = curLineWidth
-                li.baseline = curLineBaseline
-                li.firstAttr = firstAttrInLine
-                t.lines.add(li)
-                t.mTotalHeight += curLineHeight + lineSpacing
-                curLineWidth = curWordWidth
-                curLineHeight = curWordHeight
-                curLineBaseline = curWordBaseline
-                firstAttrInLine = curAttrIndex
+                let tmp = curLineInfo # JS bug workaround. Copy to temp object.
+                t.lines.add(tmp)
+                t.mTotalHeight += curLineInfo.height + lineSpacing
+                curLineInfo.startByte = curWordStartByte
+                curLineInfo.startRune = curWordStartRune
+                curLineInfo.width = curWordWidth
+                curLineInfo.height = curWordHeight
+                curLineInfo.baseline = curWordBaseline
+                curLineInfo.firstAttr = curAttrIndex
 
             curWordWidth = 0
             curWordHeight = 0
             curWordBaseline = 0
-            curWordStart = i
+            curWordStartByte = i
+            curWordStartRune = curRune
 
         # Switch to next attribute if its time
         if charStart + 1 == nextAttrStartIndex:
@@ -138,16 +135,12 @@ proc updateCache(t: FormattedText) =
             if t.mAttributes.high > curAttrIndex:
                 nextAttrStartIndex = t.mAttributes[curAttrIndex + 1].startByte
 
-    if curLineWidth > 0:
-        var li: LineInfo
-        li.breakPos = curWordStart
-        li.height = curLineHeight
-        li.width = curLineWidth
-        li.baseline = curLineBaseline
-        li.firstAttr = firstAttrInLine
-        t.lines.add(li)
-        t.mTotalHeight += curLineHeight + lineSpacing
+        inc curRune
 
+    if curLineInfo.width > 0:
+        let tmp = curLineInfo # JS bug workaround. Copy to temp object.
+        t.lines.add(tmp)
+        t.mTotalHeight += curLineInfo.height + lineSpacing
 
     # echo "Cache updated for ", t.mText
     # echo "Attributes: ", t.mAttributes
@@ -206,11 +199,12 @@ proc uniDelete*(t: FormattedText, start, stop: int) =
 iterator attrsInLine(t: FormattedText, line: int): tuple[attrIndex, a, b: int] =
     let firstAttrInLine = t.lines[line].firstAttr
     var curAttrIndex = firstAttrInLine
-    let breakPos = t.lines[line].breakPos
+    var breakPos = t.mText.len
+    if line < t.lines.high: breakPos = t.lines[line + 1].startByte
     while curAttrIndex < t.mAttributes.len and t.mAttributes[curAttrIndex].startByte < breakPos:
         var attrStartIndex = t.mAttributes[curAttrIndex].startByte
-        if line > 0 and curAttrIndex == firstAttrInLine:
-            attrStartIndex = t.lines[line - 1].breakPos
+        if curAttrIndex == firstAttrInLine:
+            attrStartIndex = t.lines[line].startByte
 
         var attrEndIndex = breakPos
         var attributeBreaks = true
