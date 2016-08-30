@@ -80,8 +80,16 @@ proc updateCache(t: FormattedText) =
     let textLen = t.text.len
 
     while i < textLen:
-        fastRuneAt(t.text, i, c, true)
         let font = t.mAttributes[curAttrIndex].font
+
+        # Switch to next attribute if its time
+        if i + 1 == nextAttrStartIndex:
+            inc curAttrIndex
+            if t.mAttributes.high > curAttrIndex:
+                nextAttrStartIndex = t.mAttributes[curAttrIndex + 1].start
+
+        fastRuneAt(t.text, i, c, true)
+
         let runeWidth = font.getAdvanceForRune(c)
 
         template canBreakLine(): bool =
@@ -117,12 +125,6 @@ proc updateCache(t: FormattedText) =
             curWordBaseline = 0
             curWordStart = i
 
-        # Switch to next attribute if its time
-        if i + 1 == nextAttrStartIndex:
-            inc curAttrIndex
-            if t.mAttributes.high > curAttrIndex:
-                nextAttrStartIndex = t.mAttributes[curAttrIndex + 1].start
-
     if curLineWidth > 0:
         var li: LineInfo
         li.breakPos = curWordStart
@@ -133,7 +135,7 @@ proc updateCache(t: FormattedText) =
         t.mTotalHeight += curLineHeight + lineSpacing
 
 
-    # echo "Cache updated"
+    # echo "Cache updated. Bounds: ", boundingWidth
     # echo "Attributes: ", t.mAttributes
     # echo "lines: ", t.lines
 
