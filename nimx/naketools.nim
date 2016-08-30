@@ -682,6 +682,7 @@ proc runAutotestsInFirefox*(pathToMainHTML: string) =
             break
         elif line == "---AUTO-TEST-FAIL---":
             ok = false
+            break
         else:
             echo line
 
