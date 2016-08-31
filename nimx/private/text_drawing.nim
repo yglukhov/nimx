@@ -123,11 +123,6 @@ void main() {
 }
 """,
 """
-#ifdef GL_ES
-#extension GL_OES_standard_derivatives : enable
-precision mediump float;
-#endif
-
 uniform sampler2D texUnit;
 uniform vec4 fillColor;
 uniform float preScale;
@@ -186,7 +181,7 @@ void compose()
 {
     subpixelCompose();
 }
-""", false)
+""", false, "mediump")
 
 proc drawTextBase*(c: GraphicsContext, font: Font, pt: var Point, text: string) =
     let gl = c.gl
