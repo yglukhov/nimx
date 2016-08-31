@@ -115,6 +115,7 @@ template selectedSegment*(s: SegmentedControl): int = s.mSelectedSegment
 proc `selectedSegment=`*(s: SegmentedControl, i: int) =
     s.mSelectedSegment = i
     if s.mSelectedSegment >= s.mSegments.len: s.mSelectedSegment = s.mSegments.len
+    s.trackedSegment = s.mSelectedSegment
     s.widthsValid = false
     s.setNeedsDisplay()
 
