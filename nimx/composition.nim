@@ -361,10 +361,12 @@ uniform vec4 bounds;
             compositionFragmentFunctions &
             colorOperations
 
+    var options = ""
     if comp.options != 0:
         for i in 0 ..< 32:
             if ((1 shl i) and comp.options) != 0:
-                fragmentShaderCode &= "#define OPTION_" & $i & "\n"
+                options &= "#define OPTION_" & $(i + 1) & "\n"
+        fragmentShaderCode &= options
 
     fragmentShaderCode &= comp.definition
 
@@ -390,7 +392,11 @@ uniform vec4 bounds;
     fragmentShaderCode &= "}"
 
     result.new()
-    result.program = gl.newShaderProgram(if comp.vsDefinition.isNil: vertexShaderCode else: comp.vsDefinition, fragmentShaderCode, [(posAttr, "aPosition")])
+    let vsCode = if comp.vsDefinition.isNil:
+            options & vertexShaderCode
+        else:
+            options & comp.vsDefinition
+    result.program = gl.newShaderProgram(vsCode, fragmentShaderCode, [(posAttr, "aPosition")])
     result.uniformLocations = newSeq[UniformLocation]()
     programCache[cchash] = result
 
