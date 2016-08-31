@@ -35,16 +35,18 @@ iterator rangesOfSubstring(haystack, needle: string): (int, int) =
 method init(v: TextSampleView, r: Rect) =
     procCall v.View.init(r)
 
-    let tv = TextField.new(v.bounds.inset(100, 100))
+    let tv = TextField.new(v.bounds.inset(50, 50))
     tv.resizingMask = "wh"
     tv.text = textSample
     tv.backgroundColor = newColor(0.5, 0, 0, 0.5)
 
     for a, b in tv.text.rangesOfSubstring("Nim"):
         tv.formattedText.setFontInRange(a, b, systemFontOfSize(40))
+        tv.formattedText.setStrokeInRange(a, b, newColor(1, 0, 0), 5)
 
     for a, b in tv.text.rangesOfSubstring("programming"):
         tv.formattedText.setTextColorInRange(a, b, newColor(1, 0, 0))
+        tv.formattedText.setShadowInRange(a, b, newGrayColor(0.5, 0.5), newSize(2, 3))
 
     for a, b in tv.text.rangesOfSubstring("supported"):
         tv.formattedText.setTextColorInRange(a, b, newColor(0, 0.6, 0))
