@@ -345,7 +345,8 @@ proc getClosestCursorPositionToPointInLine*(t: FormattedText, line: int, p: Poin
 
 proc lineAtHeight*(t: FormattedText, height: Coord): int =
     t.updateCacheIfNeeded()
-    result = lowerBoundIt(t.lines, t.lines.low, t.lines.high, cmp(it.top, height) <= 0) - 1
+    result = lowerBoundIt(t.lines, t.lines.low, t.lines.high, cmp(it.top, height) <= 0)
+    if result > 0: dec result
 
 proc topOffset*(t: FormattedText): float32 =
     t.updateCacheIfNeeded()
