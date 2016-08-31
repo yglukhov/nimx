@@ -582,8 +582,8 @@ proc build*(b: Builder) =
             "--clang.exe=emcc", "--clang.linkerexe=emcc", "-d:SDL_Static"])
         b.additionalLinkerFlags.add(["--preload-file", b.resourcePath & "/OpenSans-Regular.ttf@/res/OpenSans-Regular.ttf"])
         b.additionalNimFlags.add(["-d:noAutoGLerrorCheck", "-d:useRealtimeGC"])
-        b.additionalLinkerFlags.add(["-s\\ FULL_ES2=1"])
-        b.additionalLinkerFlags.add(["-s\\ ALLOW_MEMORY_GROWTH=1"])
+        b.additionalLinkerFlags.add(["-s", "FULL_ES2=1"])
+        b.additionalLinkerFlags.add(["-s", "ALLOW_MEMORY_GROWTH=1"])
 
         if not b.debugMode:
             b.additionalLinkerFlags.add("-O3")
