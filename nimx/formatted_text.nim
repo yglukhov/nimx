@@ -1,5 +1,5 @@
-import unicode, algorithm, strutils
-import nimx.font, nimx.types, nimx.context, nimx.unistring
+import unicode, algorithm, strutils, sequtils
+import nimx.font, nimx.types, nimx.context, nimx.unistring, nimx.utils.lower_bound
 
 
 type
@@ -20,6 +20,7 @@ type
         startRune: int
         width: float32
         height: float32
+        top: float32
         baseline: float32 # distance from top of the line to baseline
         firstAttr: int
 
@@ -63,6 +64,7 @@ proc updateCache(t: FormattedText) =
     t.mTotalHeight = 0
 
     var curLineInfo: LineInfo
+    curLineInfo.height = t.mAttributes[0].font.height
 
     # In this context "word" means minimal sequence of runes that can not have
     # line break
@@ -72,6 +74,7 @@ proc updateCache(t: FormattedText) =
 
     var curWordStartByte = 0
     var curWordStartRune = 0
+    var curWordFirstAttr = 0
 
     var i = 0
     var curAttrIndex = 0
@@ -116,18 +119,20 @@ proc updateCache(t: FormattedText) =
                 let tmp = curLineInfo # JS bug workaround. Copy to temp object.
                 t.lines.add(tmp)
                 t.mTotalHeight += curLineInfo.height + lineSpacing
+                curLineInfo.top = t.mTotalHeight
                 curLineInfo.startByte = curWordStartByte
                 curLineInfo.startRune = curWordStartRune
                 curLineInfo.width = curWordWidth
                 curLineInfo.height = curWordHeight
                 curLineInfo.baseline = curWordBaseline
-                curLineInfo.firstAttr = curAttrIndex
+                curLineInfo.firstAttr = curWordFirstAttr
 
             curWordWidth = 0
             curWordHeight = 0
             curWordBaseline = 0
             curWordStartByte = i
-            curWordStartRune = curRune
+            curWordStartRune = curRune + 1
+            curWordFirstAttr = curAttrIndex
 
         # Switch to next attribute if its time
         if charStart + 1 == nextAttrStartIndex:
@@ -137,7 +142,7 @@ proc updateCache(t: FormattedText) =
 
         inc curRune
 
-    if curLineInfo.width > 0:
+    if curLineInfo.width > 0 or t.lines.len == 0:
         let tmp = curLineInfo # JS bug workaround. Copy to temp object.
         t.lines.add(tmp)
         t.mTotalHeight += curLineInfo.height + lineSpacing
@@ -146,18 +151,39 @@ proc updateCache(t: FormattedText) =
     # echo "Attributes: ", t.mAttributes
     # echo "lines: ", t.lines
 
+template updateCacheIfNeeded(t: FormattedText) =
+    if not t.cacheValid: t.updateCache()
+
 proc `boundingSize=`*(t: FormattedText, s: Size) =
     if s != t.mBoundingSize:
         t.mBoundingSize = s
         t.cacheValid = false
 
+proc lineOfRuneAtPos*(t: FormattedText, pos: int): int =
+    t.updateCacheIfNeeded()
+    result = lowerBoundIt(t.lines, t.lines.low, t.lines.high, cmp(it.startRune, pos) <= 0) - 1
+
+proc lineTop*(t: FormattedText, ln: int): float32 =
+    t.updateCacheIfNeeded()
+    t.lines[ln].top
+
+proc lineHeight*(t: FormattedText, ln: int): float32 =
+    t.updateCacheIfNeeded()
+    t.lines[ln].height
+
+proc lineWidth*(t: FormattedText, ln: int): float32 =
+    t.updateCacheIfNeeded()
+    t.lines[ln].width
+
+proc lineLeft*(t: FormattedText, ln: int): float32 =
+    t.updateCacheIfNeeded()
+    case t.horizontalAlignment
+    of haCenter: (t.mBoundingSize.width - t.lines[ln].width) / 2
+    of haRight: t.mBoundingSize.width - t.lines[ln].width
+    else: 0
+
 proc prepareAttributes(t: FormattedText, a: int): int =
-    proc cmpByRuneStart(a, b: Attributes): int = cmp(a.startRune, b.startRune)
-
-    var attr: Attributes
-    attr.startRune = a
-
-    result = lowerBound(t.mAttributes, attr, cmpByRuneStart)
+    result = lowerBoundIt(t.mAttributes, 0, t.mAttributes.high, cmp(it.startRune, a) < 0)
     if result < t.mAttributes.len and t.mAttributes[result].startRune == a:
         return
 
@@ -167,6 +193,7 @@ proc prepareAttributes(t: FormattedText, a: int): int =
     while iRune < a:
         fastRuneAt(t.mText, iChar, r, true)
         inc iRune
+    var attr: Attributes
     t.mAttributes.insert(attr, result)
     t.mAttributes[result] = t.mAttributes[result - 1]
     t.mAttributes[result].startRune = a
@@ -186,15 +213,60 @@ proc setTextColorInRange*(t: FormattedText, a, b: int, c: Color) =
     for i in t.attrsInRange(a, b):
         t.mAttributes[i].textColor = c
 
+proc attrIndexForRuneAtPos(t: FormattedText, pos: int): int =
+    result = t.mAttributes.lowerBoundIt(0, t.mAttributes.high, cmp(it.startRune, pos) <= 0) - 1
+
 proc uniInsert*(t: FormattedText, atIndex: int, s: string) =
     t.cacheValid = false
     t.mText.uniInsert(s, atIndex)
-    # TODO: Move attributes
+    var ai = t.attrIndexForRuneAtPos(atIndex)
+    inc ai
+    let rl = s.runeLen
+    for i in ai .. t.mAttributes.high:
+        t.mAttributes[i].startRune += rl
+        t.mAttributes[i].startByte += s.len
+
+proc getByteOffsetsForRunePositions(t: FormattedText, positions: openarray[int], res: var openarray[int]) =
+    let a = t.attrIndexForRuneAtPos(positions[0])
+    var p = t.mAttributes[a].startByte
+    var r = t.mAttributes[a].startRune
+    for i in 0 .. positions.high:
+        p = t.mText.runeOffset(positions[i] - r, p)
+        res[i] = p
+        r = positions[i]
 
 proc uniDelete*(t: FormattedText, start, stop: int) =
     t.cacheValid = false
-    t.mText.uniDelete(start, stop)
-    # TODO: Move attributes
+
+    var sa = t.attrIndexForRuneAtPos(start)
+    var ea = t.attrIndexForRuneAtPos(stop)
+
+    var byteOffsets: array[2, int]
+    t.getByteOffsetsForRunePositions([start, stop], byteOffsets)
+
+    let startByte = byteOffsets[0]
+    let stopByte = byteOffsets[1]
+
+    let bl = stopByte - startByte + 1
+    let rl = stop - start + 1
+
+    t.mText.uniDelete(start, stop) # TODO: Call non-unicode delete here
+
+    if sa == ea:
+        for i in ea + 1 .. t.mAttributes.high:
+            t.mAttributes[i].startRune -= rl
+            t.mAttributes[i].startByte -= bl
+    else:
+        t.mAttributes[ea].startByte = startByte
+        t.mAttributes[ea].startRune = start
+        for i in ea + 1 .. t.mAttributes.high:
+            t.mAttributes[i].startRune -= rl
+            t.mAttributes[i].startByte -= bl
+        if ea - sa > 1:
+            t.mAttributes.delete(sa + 1, ea - 1)
+
+    if sa < t.mAttributes.high and t.mAttributes[sa].startRune == t.mAttributes[sa + 1].startRune:
+        t.mAttributes.delete(sa)
 
 iterator attrsInLine(t: FormattedText, line: int): tuple[attrIndex, a, b: int] =
     let firstAttrInLine = t.lines[line].firstAttr
@@ -239,12 +311,8 @@ iterator runeWidthsInLine*(t: FormattedText, line: int): float32 =
             yield w
             inc p
 
-template updateCacheIfNeeded(t: FormattedText) =
-    if not t.cacheValid: t.updateCache()
-
 proc cursorOffsetForPositionInLine*(t: FormattedText, line, position: int): Coord =
     t.updateCacheIfNeeded()
-
     if t.lines.len == 0: return
 
     var p = 0
@@ -253,10 +321,14 @@ proc cursorOffsetForPositionInLine*(t: FormattedText, line, position: int): Coor
         result += width
         inc p
 
+proc xOfRuneAtPos*(t: FormattedText, position: int): Coord =
+    t.updateCacheIfNeeded()
+    let ln = min(t.lineOfRuneAtPos(position), t.lines.high)
+    result = t.cursorOffsetForPositionInLine(ln, position - t.lines[ln].startRune)
+
 proc getClosestCursorPositionToPointInLine*(t: FormattedText, line: int, p: Point, position: var int, offset: var Coord) =
     t.updateCacheIfNeeded()
-
-    if t.lines.len == 0: return
+    if line > t.lines.high: return
 
     var totalWidth = 0'f32
     var pos = 0
@@ -271,23 +343,21 @@ proc getClosestCursorPositionToPointInLine*(t: FormattedText, line: int, p: Poin
     position = pos
     offset = totalWidth
 
-proc getLinesAtHeights*(t: FormattedText, heights: openarray[Coord], lines: var openarray[int]) =
-    assert(heights.len == lines.len)
-    var line = 0
-    var iHeight = 0
-    var height = 0'f32
-    while line < t.lines.len:
-        height += t.lines[line].height
-        while iHeight < heights.len and heights[iHeight] < height:
-            lines[iHeight] = line
-            inc iHeight
-        if iHeight == heights.len: break
-        inc line
-
 proc lineAtHeight*(t: FormattedText, height: Coord): int =
-    var res: array[1, int]
-    t.getLinesAtHeights([height], res)
-    result = res[0]
+    t.updateCacheIfNeeded()
+    result = lowerBoundIt(t.lines, t.lines.low, t.lines.high, cmp(it.top, height) <= 0) - 1
+
+proc topOffset*(t: FormattedText): float32 =
+    t.updateCacheIfNeeded()
+    case t.verticalAlignment
+    of vaBottom: t.mBoundingSize.height - t.mTotalHeight
+    of vaCenter: (t.mBoundingSize.height - t.mTotalHeight) / 2
+    else: 0
+
+proc getClosestCursorPositionToPoint*(t: FormattedText, p: Point, position: var int, offset: var Coord) =
+    let ln = t.lineAtHeight(p.y - t.topOffset)
+    t.getClosestCursorPositionToPointInLine(ln, p, position, offset)
+    position += t.lines[ln].startRune
 
 proc runeLen*(t: FormattedText): int =
     # TODO: Optimize
@@ -301,6 +371,7 @@ proc drawText*(c: GraphicsContext, origP: Point, t: FormattedText) =
     var p = origP
     let numLines = t.lines.len
     var curLine = 0
+    let top = t.topOffset()
 
     while curLine < numLines:
         p.x = origP.x
@@ -309,8 +380,7 @@ proc drawText*(c: GraphicsContext, origP: Point, t: FormattedText) =
         elif t.horizontalAlignment == haCenter:
                 p.x = p.x + (t.mBoundingSize.width - t.lines[curLine].width) / 2
 
-        let lineY = p.y
-        p.y = lineY + t.lines[curLine].baseline
+        p.y = t.lines[curLine].top + t.lines[curLine].baseline + top
         for curAttrIndex, attrStartIndex, attrEndIndex in t.attrsInLine(curLine):
             if t.overrideColor.a != 0:
                 c.fillColor = t.overrideColor
@@ -323,5 +393,13 @@ proc drawText*(c: GraphicsContext, origP: Point, t: FormattedText) =
             c.drawText(t.mAttributes[curAttrIndex].font, p, t.mText.substr(attrStartIndex, attrEndIndex))
             font.baseline = oldBaseline
 
-        p.y = lineY + t.lines[curLine].height
         inc curLine
+
+when isMainModule:
+    let arial16 = newFontWithFace("Arial", 16)
+    let arial40 = newFontWithFace("Arial", 16)
+    if arial16.isNil:
+        echo "Could not load font Arial. Skipping test."
+    else:
+        let t = newFormattedText("Hello world!")
+        let h = t.lineHeight(0)
