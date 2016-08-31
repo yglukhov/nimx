@@ -54,62 +54,63 @@ void compose()
 }
 """, false)
 
-let fontSubpixelComposition = newComposition("""
-attribute vec4 aPosition;
+when false:
+    let fontSubpixelComposition = newComposition("""
+    attribute vec4 aPosition;
 
-uniform mat4 uModelViewProjectionMatrix;
-varying vec2 vTexCoord;
+    uniform mat4 uModelViewProjectionMatrix;
+    varying vec2 vTexCoord;
 
-void main() {
-    vTexCoord = aPosition.zw;
-    gl_Position = uModelViewProjectionMatrix * vec4(aPosition.xy, 0, 1);
-}
-""",
-"""
-#ifdef GL_ES
-#extension GL_OES_standard_derivatives : enable
-precision mediump float;
-#endif
+    void main() {
+        vTexCoord = aPosition.zw;
+        gl_Position = uModelViewProjectionMatrix * vec4(aPosition.xy, 0, 1);
+    }
+    """,
+    """
+    #ifdef GL_ES
+    #extension GL_OES_standard_derivatives : enable
+    precision mediump float;
+    #endif
 
-uniform sampler2D texUnit;
-uniform vec4 fillColor;
-uniform float alphaMin;
-uniform float alphaMax;
+    uniform sampler2D texUnit;
+    uniform vec4 fillColor;
+    uniform float alphaMin;
+    uniform float alphaMax;
 
-varying vec2 vTexCoord;
+    varying vec2 vTexCoord;
 
-void subpixelCompose()
-{
-    vec4 n;
-    float shift = dFdx(vTexCoord.x);
+    void subpixelCompose()
+    {
+        vec4 n;
+        float shift = dFdx(vTexCoord.x);
 
-    n.x = texture2D(texUnit, vTexCoord.xy - vec2(0.667 * shift, 0.0)).a;
-    n.y = texture2D(texUnit, vTexCoord.xy - vec2(0.333 * shift, 0.0)).a;
-    n.z = texture2D(texUnit, vTexCoord.xy + vec2(0.333 * shift, 0.0)).a;
-    n.w = texture2D(texUnit, vTexCoord.xy + vec2(0.667 * shift, 0.0)).a;
-    float c = texture2D(texUnit, vTexCoord.xy).a;
+        n.x = texture2D(texUnit, vTexCoord.xy - vec2(0.667 * shift, 0.0)).a;
+        n.y = texture2D(texUnit, vTexCoord.xy - vec2(0.333 * shift, 0.0)).a;
+        n.z = texture2D(texUnit, vTexCoord.xy + vec2(0.333 * shift, 0.0)).a;
+        n.w = texture2D(texUnit, vTexCoord.xy + vec2(0.667 * shift, 0.0)).a;
+        float c = texture2D(texUnit, vTexCoord.xy).a;
 
-#if 0
-    // Blurrier, faster.
-    n = smoothstep(alphaMin, alphaMax, n);
-    c = smoothstep(alphaMin, alphaMax, c);
-#else
-    // Sharper, slower.
-    vec2 d = min(abs(n.yw - n.xz) * 2., 0.67);
-    vec2 lo = mix(vec2(alphaMin), vec2(0.5), d);
-    vec2 hi = mix(vec2(alphaMax), vec2(0.5), d);
-    n = smoothstep(lo.xxyy, hi.xxyy, n);
-    c = smoothstep(lo.x + lo.y, hi.x + hi.y, 2. * c);
-#endif
+    #if 0
+        // Blurrier, faster.
+        n = smoothstep(alphaMin, alphaMax, n);
+        c = smoothstep(alphaMin, alphaMax, c);
+    #else
+        // Sharper, slower.
+        vec2 d = min(abs(n.yw - n.xz) * 2., 0.67);
+        vec2 lo = mix(vec2(alphaMin), vec2(0.5), d);
+        vec2 hi = mix(vec2(alphaMax), vec2(0.5), d);
+        n = smoothstep(lo.xxyy, hi.xxyy, n);
+        c = smoothstep(lo.x + lo.y, hi.x + hi.y, 2. * c);
+    #endif
 
-    gl_FragColor = vec4(0.333 * (n.xyz + n.yzw + c), c) * fillColor.a;
-}
+        gl_FragColor = vec4(0.333 * (n.xyz + n.yzw + c), c) * fillColor.a;
+    }
 
-void compose()
-{
-    subpixelCompose();
-}
-""", false)
+    void compose()
+    {
+        subpixelCompose();
+    }
+    """, false)
 
 let fontSubpixelCompositionWithDynamicBase = newComposition("""
 attribute vec4 aPosition;
