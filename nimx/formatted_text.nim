@@ -16,6 +16,7 @@ type
         overrideColor*: Color
         shadowAttrs: seq[int]
         strokeAttrs: seq[int]
+        shadowMultiplier*: Size
 
     LineInfo* = object
         startByte: int
@@ -61,7 +62,10 @@ proc defaultAttributes(): Attributes =
     result.textColor = blackColor()
 
 proc `text=`*(t: FormattedText, s: string) =
-    t.mText = s
+    if s.isNil:
+        t.mText = ""
+    else:
+        t.mText = s
     t.cacheValid = false
 
 template text*(t: FormattedText): string = t.mText
@@ -73,6 +77,7 @@ proc newFormattedText*(s: string = ""): FormattedText =
     result.lines = @[]
     result.shadowAttrs = @[]
     result.strokeAttrs = @[]
+    result.shadowMultiplier = newSize(1, 1)
 
 proc updateCache(t: FormattedText) =
     t.cacheValid = true
@@ -212,6 +217,10 @@ proc lineBaseline*(t: FormattedText, ln: int): float32 =
     # Do not use this!
     t.updateCacheIfNeeded()
     result = t.lines[ln].baseline
+
+proc hasShadow*(t: FormattedText): bool =
+    t.updateCacheIfNeeded()
+    t.shadowAttrs.len > 0
 
 proc prepareAttributes(t: FormattedText, a: int): int =
     result = lowerBoundIt(t.mAttributes, 0, t.mAttributes.high, cmp(it.startRune, a) < 0)
@@ -491,7 +500,7 @@ void main() {
     gl_Position = uModelViewProjectionMatrix * vec4(aPosition.xy, 0, 1);
 
 #ifdef OPTION_1
-    vGradient = (aPosition.y - point_y) / size_y;
+    vGradient = abs(aPosition.y - point_y) / size_y;
 #endif
 }
 """,
@@ -570,8 +579,8 @@ proc drawShadow(c: GraphicsContext, origP: Point, t: FormattedText) =
 
             var pp = p
             let ppp = pp
-            pp.x += t.mAttributes[curAttrIndex].shadowOffset.width
-            pp.y += t.mAttributes[curAttrIndex].shadowOffset.height
+            pp.x += t.mAttributes[curAttrIndex].shadowOffset.width * t.shadowMultiplier.width
+            pp.y += t.mAttributes[curAttrIndex].shadowOffset.height * t.shadowMultiplier.height
             c.drawText(t.mAttributes[curAttrIndex].font, pp, t.mText.substr(attrStartIndex, attrEndIndex))
             font.baseline = oldBaseline
             p.x += pp.x - ppp.x
@@ -624,6 +633,7 @@ proc drawStroke(c: GraphicsContext, origP: Point, t: FormattedText) =
                 font.baseline = oldBaseline
             else:
                 c.fillColor = newColor(0, 0, 0, 0)
+                # Dirty hack to advance x position. Should be optimized, of course.
                 c.drawText(font, p, t.mText.substr(attrStartIndex, attrEndIndex))
 
         inc curLine
@@ -634,7 +644,6 @@ proc drawText*(c: GraphicsContext, origP: Point, t: FormattedText) =
     if t.overrideColor.a == 0:
         if t.shadowAttrs.len > 0: c.drawShadow(origP, t)
         if t.strokeAttrs.len > 0: c.drawStroke(origP, t)
-        #return
 
     var p = origP
     let numLines = t.lines.len
@@ -645,15 +654,36 @@ proc drawText*(c: GraphicsContext, origP: Point, t: FormattedText) =
         p.x = origP.x + t.lineLeft(curLine)
         p.y = t.lines[curLine].top + t.lines[curLine].baseline + top
         for curAttrIndex, attrStartIndex, attrEndIndex in t.attrsInLine(curLine):
-            if t.overrideColor.a != 0:
-                c.fillColor = t.overrideColor
-            else:
-                c.fillColor = t.mAttributes[curAttrIndex].textColor
-
             let font = t.mAttributes[curAttrIndex].font
             let oldBaseline = font.baseline
             font.baseline = bAlphabetic
-            c.drawText(t.mAttributes[curAttrIndex].font, p, t.mText.substr(attrStartIndex, attrEndIndex))
+            if t.mAttributes[curAttrIndex].isTextGradient:
+                gradientAndStrokeComposition.options = GRADIENT_ENABLED
+                let gl = c.gl
+                var cc = gl.getCompiledComposition(gradientAndStrokeComposition)
+
+                gl.useProgram(cc.program)
+
+                compositionDrawingDefinitions(cc, c, gl)
+
+                setUniform("point_y", p.y)
+                setUniform("size_y", t.lines[curLine].height)
+                setUniform("colorFrom", t.mAttributes[curAttrIndex].textColor)
+                setUniform("colorTo", t.mAttributes[curAttrIndex].textColor2)
+
+                gl.uniformMatrix4fv(uniformLocation("uModelViewProjectionMatrix"), false, c.transform)
+                setupPosteffectUniforms(cc)
+
+                gl.activeTexture(GLenum(int(gl.TEXTURE0) + cc.iTexIndex))
+                gl.uniform1i(uniformLocation("texUnit"), cc.iTexIndex)
+
+                c.drawTextBase(font, p, t.mText.substr(attrStartIndex, attrEndIndex))
+            else:
+                if t.overrideColor.a != 0:
+                    c.fillColor = t.overrideColor
+                else:
+                    c.fillColor = t.mAttributes[curAttrIndex].textColor
+                c.drawText(t.mAttributes[curAttrIndex].font, p, t.mText.substr(attrStartIndex, attrEndIndex))
             font.baseline = oldBaseline
 
         inc curLine
