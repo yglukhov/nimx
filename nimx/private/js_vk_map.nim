@@ -96,7 +96,7 @@ const virtualKeyMapping: Table[int, VirtualKey] = {
     # 0: VirtualKey.International2, # -
     # 0: VirtualKey.International5, # -
     # 0: VirtualKey.International6, # -
-    13: VirtualKey.KeypadEnter,
+    # 0: VirtualKey.KeypadEnter, # -
     17: VirtualKey.RightControl,
    111: VirtualKey.KeypadDivide,
     42: VirtualKey.PrintScreen,
