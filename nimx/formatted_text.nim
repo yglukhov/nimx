@@ -556,7 +556,7 @@ proc drawShadow(c: GraphicsContext, origP: Point, t: FormattedText) =
     var p = origP
     let numLines = t.lines.len
     var curLine = 0
-    let top = t.topOffset()
+    let top = t.topOffset() + origP.y
 
     while curLine < numLines:
         p.x = origP.x + t.lineLeft(curLine)
@@ -582,7 +582,7 @@ proc drawStroke(c: GraphicsContext, origP: Point, t: FormattedText) =
     var p = origP
     let numLines = t.lines.len
     var curLine = 0
-    let top = t.topOffset()
+    let top = t.topOffset() + origP.y
 
     while curLine < numLines:
         p.x = origP.x + t.lineLeft(curLine)
@@ -639,7 +639,7 @@ proc drawText*(c: GraphicsContext, origP: Point, t: FormattedText) =
     var p = origP
     let numLines = t.lines.len
     var curLine = 0
-    let top = t.topOffset()
+    let top = t.topOffset() + origP.y
 
     while curLine < numLines:
         p.x = origP.x + t.lineLeft(curLine)
