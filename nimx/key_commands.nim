@@ -65,7 +65,7 @@ proc commandFromEvent*(e: Event): KeyCommand =
         if alsoPressed(VirtualKey.LeftAlt) or alsoPressed(VirtualKey.RightAlt): curModifiers.incl(Alt)
 
         template defineCmd(cmd: KeyCommand, vk: VirtualKey, modifiers: set[Modifier]) =
-            if e.keyCode == vk and set[Modifier](modifiers) == curModifiers: return cmd
+            if e.keyCode == vk and curModifiers == modifiers: return cmd
 
         macOsCommands:
             defineCmd kcUndo, VirtualKey.Z, {Gui}
