@@ -238,6 +238,10 @@ method onTouchEv*(v: LinearLayout, e: var Event): bool =
             else:
                 v.setDividerPosition(e.localPosition.y, v.hoveredDivider)
 
+method onInterceptTouchEv*(v: LinearLayout, e: var Event): bool =
+    if v.mUserResizeable and v.hoveredDivider != -1:
+        result = true
+
 method replaceSubview*(v: LinearLayout, s, withView: View) =
     let pos = v.dividerPositions
     procCall v.View.replaceSubview(s, withView)
