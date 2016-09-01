@@ -266,13 +266,16 @@ type
         iTexIndex*: GLint
         iUniform*: int
 
+    Composition* = object
+        definition: string
+        vsDefinition: string # Vertex shader source code
+        precision: string
+        requiresPrequel: bool
+        options*: int
+        id*: int
+
 var programCache = initTable[Hash, CompiledComposition]()
 
-type Composition* = object
-    definition: string
-    vsDefinition: string # Vertex shader source code
-    requiresPrequel: bool
-    id*: int
 
 const posAttr : GLuint = 0
 
@@ -319,11 +322,12 @@ proc newPostEffect*(definition: static[string], mainProcName: string): PostEffec
     result.mainProcName = mainProcName
     result.id = hash(preprocessedDefinition)
 
-proc newComposition*(vsDef, fsDef: static[string], requiresPrequel: bool = true): Composition =
+proc newComposition*(vsDef, fsDef: static[string], requiresPrequel: bool = true, precision: string = "highp"): Composition =
     const preprocessedDefinition = preprocessDefinition(fsDef)
     result.definition = preprocessedDefinition
     result.vsDefinition = vsDef
     result.requiresPrequel = requiresPrequel
+    result.precision = precision
     result.id = hash(preprocessedDefinition)
 
 template newComposition*(definition: static[string], requiresPrequel: bool = true): Composition =
@@ -340,13 +344,14 @@ var postEffectStack = newSeq[PostEffectStackElem]()
 var postEffectIdStack = newSeq[Hash]()
 
 proc compileComposition*(gl: GL, comp: Composition, cchash: Hash): CompiledComposition =
-    var fragmentShaderCode = ""
-    if comp.requiresPrequel:
-        fragmentShaderCode = """
+    var fragmentShaderCode = """
 #ifdef GL_ES
 #extension GL_OES_standard_derivatives : enable
-precision highp float;
+precision """ & comp.precision & """ float;
 #endif
+"""
+    if comp.requiresPrequel:
+        fragmentShaderCode &= """
 varying vec2 vPos;
 uniform vec4 bounds;
 """
@@ -355,6 +360,13 @@ uniform vec4 bounds;
             distanceFunctions &
             compositionFragmentFunctions &
             colorOperations
+
+    var options = ""
+    if comp.options != 0:
+        for i in 0 ..< 32:
+            if ((1 shl i) and comp.options) != 0:
+                options &= "#define OPTION_" & $(i + 1) & "\n"
+        fragmentShaderCode &= options
 
     fragmentShaderCode &= comp.definition
 
@@ -380,7 +392,11 @@ uniform vec4 bounds;
     fragmentShaderCode &= "}"
 
     result.new()
-    result.program = gl.newShaderProgram(if comp.vsDefinition.isNil: vertexShaderCode else: comp.vsDefinition, fragmentShaderCode, [(posAttr, "aPosition")])
+    let vsCode = if comp.vsDefinition.isNil:
+            options & vertexShaderCode
+        else:
+            options & comp.vsDefinition
+    result.program = gl.newShaderProgram(vsCode, fragmentShaderCode, [(posAttr, "aPosition")])
     result.uniformLocations = newSeq[UniformLocation]()
     programCache[cchash] = result
 
@@ -456,7 +472,7 @@ template hasPostEffect*(): bool =
 
 template getCompiledComposition*(gl: GL, comp: Composition): CompiledComposition =
     let pehash = if postEffectIdStack.len > 0: postEffectIdStack[^1] else: 0
-    let cchash = !$(pehash !& comp.id)
+    let cchash = !$(pehash !& comp.id !& comp.options)
     var cc = programCache.getOrDefault(cchash)
     if cc.isNil:
         cc = gl.compileComposition(comp, cchash)
