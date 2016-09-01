@@ -125,8 +125,12 @@ proc updateCache(t: FormattedText) =
 
         let runeWidth = font.getAdvanceForRune(c)
 
+        template mustBreakLine(): bool =
+            c == Rune('\l')
+
         template canBreakLine(): bool =
-            t.canBreakOnAnyChar or c == Rune(' ') or c == Rune('-') or i == textLen
+            t.canBreakOnAnyChar or c == Rune(' ') or c == Rune('-') or i == textLen or mustBreakLine()
+
 
         curWordWidth += runeWidth
         curWordHeight = max(curWordHeight, font.height)
@@ -134,12 +138,22 @@ proc updateCache(t: FormattedText) =
 
         if canBreakLine():
             # commit current word
-
-            if curLineInfo.width + curWordWidth < boundingWidth or curLineInfo.width == 0:
+            if (curLineInfo.width + curWordWidth < boundingWidth or curLineInfo.width == 0):
                 # Word fits in the line
                 curLineInfo.width += curWordWidth
                 curLineInfo.height = max(curLineInfo.height, curWordHeight)
                 curLineInfo.baseline = max(curLineInfo.baseline, curWordBaseline)
+                if mustBreakLine():
+                    let tmp = curLineInfo # JS bug workaround. Copy to temp object.
+                    t.lines.add(tmp)
+                    t.mTotalHeight += curLineInfo.height + lineSpacing
+                    curLineInfo.top = t.mTotalHeight
+                    curLineInfo.startByte = i
+                    curLineInfo.startRune = curRune + 1
+                    curLineInfo.width = 0
+                    curLineInfo.height = 0
+                    curLineInfo.baseline = 0
+                    curLineInfo.firstAttr = curAttrIndex
             else:
                 # Complete current line
                 let tmp = curLineInfo # JS bug workaround. Copy to temp object.
@@ -411,13 +425,17 @@ proc getClosestCursorPositionToPointInLine*(t: FormattedText, line: int, p: Poin
     var pos = 0
     for width in t.runeWidthsInLine(line):
         if p.x < totalWidth + width:
-            position = pos
-            offset = totalWidth
+            if (totalWidth + width - p.x) > (p.x - totalWidth):
+                position = pos + t.lines[line].startRune
+                offset = totalWidth
+            else:
+                position = pos + t.lines[line].startRune + 1
+                offset = totalWidth + width
             return
         totalWidth += width
         inc pos
 
-    position = pos
+    position = pos + t.lines[line].startRune
     offset = totalWidth
 
 proc lineAtHeight*(t: FormattedText, height: Coord): int =
@@ -435,7 +453,6 @@ proc topOffset*(t: FormattedText): float32 =
 proc getClosestCursorPositionToPoint*(t: FormattedText, p: Point, position: var int, offset: var Coord) =
     let ln = t.lineAtHeight(p.y - t.topOffset)
     t.getClosestCursorPositionToPointInLine(ln, p, position, offset)
-    position += t.lines[ln].startRune
 
 proc runeLen*(t: FormattedText): int =
     # TODO: Optimize
