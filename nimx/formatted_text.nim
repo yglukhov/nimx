@@ -126,7 +126,7 @@ proc updateCache(t: FormattedText) =
         let runeWidth = font.getAdvanceForRune(c)
 
         template canBreakLine(): bool =
-            t.canBreakOnAnyChar or c == Rune(' ') or c == Rune('-') or charStart == textLen - 1
+            t.canBreakOnAnyChar or c == Rune(' ') or c == Rune('-') or i == textLen
 
         curWordWidth += runeWidth
         curWordHeight = max(curWordHeight, font.height)
