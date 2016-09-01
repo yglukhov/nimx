@@ -121,7 +121,8 @@ const virtualKeyMapping: Table[int, VirtualKey] = {
     # 0: VirtualKey.KeypadComma, # -
     # 0: VirtualKey.Lang1, # -
     # 0: VirtualKey.Lang2, # -
-    # 0: VirtualKey.RightGUI, # -
+    91: VirtualKey.LeftGUI,
+    93: VirtualKey.RightGUI,
     # 0: VirtualKey.Stop, # -
     # 0: VirtualKey.Again, # -
     # 0: VirtualKey.Undo, # -

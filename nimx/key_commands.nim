@@ -7,6 +7,7 @@ type KeyCommand* = enum
     kcPaste
     kcDelete
     kcUseSelectionForFind
+    kcSelectAll
     kcUndo
     kcRedo
     kcNew
@@ -20,7 +21,7 @@ type Modifier = enum
     Ctrl
     Alt
 
-const jsOrEmscripten = defined(emscripten)
+const jsOrEmscripten = defined(emscripten) or defined(js)
 
 when defined(js):
     proc isMacOsAux(): bool =
@@ -75,6 +76,8 @@ proc commandFromEvent*(e: Event): KeyCommand =
             defineCmd kcPaste, VirtualKey.V, {Gui}
             defineCmd kcUseSelectionForFind, VirtualKey.E, {Gui}
 
+            defineCmd kcSelectAll, VirtualKey.A, {Gui}
+
             defineCmd kcNew, VirtualKey.N, {Gui}
             defineCmd kcOpen, VirtualKey.O, {Gui}
             defineCmd kcSave, VirtualKey.S, {Gui}
@@ -87,6 +90,8 @@ proc commandFromEvent*(e: Event): KeyCommand =
             defineCmd kcCopy, VirtualKey.C, {Ctrl}
             defineCmd kcCut, VirtualKey.X, {Ctrl}
             defineCmd kcPaste, VirtualKey.V, {Ctrl}
+
+            defineCmd kcSelectAll, VirtualKey.A, {Ctrl}
 
             defineCmd kcNew, VirtualKey.N, {Ctrl}
             defineCmd kcOpen, VirtualKey.O, {Ctrl}
