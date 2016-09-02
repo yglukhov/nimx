@@ -56,8 +56,11 @@ else:
 
 
 template charHeightForSize(s: float): float =
-    if s > 128: 128
-    else: 64
+    # TODO: 128 starts to lag on distance field generation. Disable it for now
+    # until we implement incremental distance field generation.
+    # if s > 128: 128
+    # else: 64
+    64
 
 template scaleForSize(s: float): float = s / charHeightForSize(s)
 
