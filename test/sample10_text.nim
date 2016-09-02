@@ -39,6 +39,7 @@ method init(v: TextSampleView, r: Rect) =
     tv.resizingMask = "wh"
     tv.text = textSample
     tv.backgroundColor = newColor(0.5, 0, 0, 0.5)
+    tv.multiline = true
 
     for a, b in tv.text.rangesOfSubstring("Nim"):
         tv.formattedText.setFontInRange(a, b, systemFontOfSize(40))

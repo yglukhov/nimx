@@ -17,8 +17,6 @@ import formatted_text
 
 export control
 
-const STUB_LINE_CALC_ME = 0 # TODO: Calculate it
-
 type TextField* = ref object of Control
     mText: FormattedText
     #mText*: string
@@ -29,6 +27,7 @@ type TextField* = ref object of Control
     selectionStartLine: int
     selectionEndLine: int
     textSelection: Slice[int]
+    multiline*: bool
 
 template len[T](s: Slice[T]): T = s.b - s.a
 
@@ -132,7 +131,9 @@ proc selectInRange*(t: TextField, a, b: int) =
         t.textSelection.a = aa
         t.textSelection.b = bb
 
-proc selectAll*(t: TextField) = t.selectInRange(0, t.mText.text.len)
+proc selectAll*(t: TextField) =
+    t.selectInRange(0, t.mText.text.len)
+    t.setNeedsDisplay()
 
 proc selectionRange(t: TextField): Slice[int] =
     result = t.textSelection
@@ -310,8 +311,11 @@ method onKeyDown*(t: TextField, e: var Event): bool =
         t.updateCursorOffset()
         t.bumpCursorVisibility()
     elif e.keyCode == VirtualKey.Return:
-        t.sendAction()
-        t.textSelection = -1 .. -1
+        if t.multiline:
+            t.insertText("\l")
+        else:
+            t.sendAction()
+            t.textSelection = -1 .. -1
     elif e.keyCode == VirtualKey.Home:
         if alsoPressed(VirtualKey.LeftShift) or alsoPressed(VirtualKey.RightShift):
             t.updateSelectionWithCursorPos(cursorPos, 0)
@@ -330,9 +334,35 @@ method onKeyDown*(t: TextField, e: var Event): bool =
         cursorPos = t.mText.runeLen
         t.updateCursorOffset()
         t.bumpCursorVisibility()
+    elif t.multiline:
+        if e.keyCode == VirtualKey.Down:
+            let oldCursorPos = cursorPos
+            let ln = t.mText.lineOfRuneAtPos(cursorPos)
+            var offset: Coord
+            t.mText.getClosestCursorPositionToPointInLine(ln + 1, newPoint(cursorOffset, 0), cursorPos, offset)
+            cursorOffset = offset
+            if alsoPressed(VirtualKey.LeftShift) or alsoPressed(VirtualKey.RightShift):
+                t.updateSelectionWithCursorPos(oldCursorPos, cursorPos)
+            else:
+                t.textSelection = -1 .. -1
+            t.bumpCursorVisibility()
+        elif e.keyCode == VirtualKey.Up:
+            let oldCursorPos = cursorPos
+            let ln = t.mText.lineOfRuneAtPos(cursorPos)
+            if ln > 0:
+                var offset: Coord
+                t.mText.getClosestCursorPositionToPointInLine(ln - 1, newPoint(cursorOffset, 0), cursorPos, offset)
+                cursorOffset = offset
+                if alsoPressed(VirtualKey.LeftShift) or alsoPressed(VirtualKey.RightShift):
+                    t.updateSelectionWithCursorPos(oldCursorPos, cursorPos)
+                else:
+                    t.textSelection = -1 .. -1
+                t.bumpCursorVisibility()
+
+    let cmd = commandFromEvent(e)
+    if cmd == kcSelectAll: t.selectAll()
 
     when defined(macosx) or defined(windows):
-        let cmd = commandFromEvent(e)
         case cmd
         of kcPaste:
             let s = pasteboardWithName(PboardGeneral).readString()

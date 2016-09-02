@@ -7,6 +7,7 @@ type KeyCommand* = enum
     kcPaste
     kcDelete
     kcUseSelectionForFind
+    kcSelectAll
     kcUndo
     kcRedo
     kcNew
@@ -20,7 +21,7 @@ type Modifier = enum
     Ctrl
     Alt
 
-const jsOrEmscripten = defined(emscripten)
+const jsOrEmscripten = defined(emscripten) or defined(js)
 
 when defined(js):
     proc isMacOsAux(): bool =
@@ -64,7 +65,7 @@ proc commandFromEvent*(e: Event): KeyCommand =
         if alsoPressed(VirtualKey.LeftAlt) or alsoPressed(VirtualKey.RightAlt): curModifiers.incl(Alt)
 
         template defineCmd(cmd: KeyCommand, vk: VirtualKey, modifiers: set[Modifier]) =
-            if e.keyCode == vk and set[Modifier](modifiers) == curModifiers: return cmd
+            if e.keyCode == vk and curModifiers == modifiers: return cmd
 
         macOsCommands:
             defineCmd kcUndo, VirtualKey.Z, {Gui}
@@ -74,6 +75,8 @@ proc commandFromEvent*(e: Event): KeyCommand =
             defineCmd kcCut, VirtualKey.X, {Gui}
             defineCmd kcPaste, VirtualKey.V, {Gui}
             defineCmd kcUseSelectionForFind, VirtualKey.E, {Gui}
+
+            defineCmd kcSelectAll, VirtualKey.A, {Gui}
 
             defineCmd kcNew, VirtualKey.N, {Gui}
             defineCmd kcOpen, VirtualKey.O, {Gui}
@@ -87,6 +90,8 @@ proc commandFromEvent*(e: Event): KeyCommand =
             defineCmd kcCopy, VirtualKey.C, {Ctrl}
             defineCmd kcCut, VirtualKey.X, {Ctrl}
             defineCmd kcPaste, VirtualKey.V, {Ctrl}
+
+            defineCmd kcSelectAll, VirtualKey.A, {Ctrl}
 
             defineCmd kcNew, VirtualKey.N, {Ctrl}
             defineCmd kcOpen, VirtualKey.O, {Ctrl}
