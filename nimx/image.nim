@@ -75,10 +75,10 @@ when not defined js:
         glGenTextures(1, addr texture)
         glBindTexture(GL_TEXTURE_2D, texture)
         let format : GLenum = case comp:
-            of 1: GLenum(GL_ALPHA)
-            of 2: GLenum(GL_LUMINANCE_ALPHA)
-            of 3: GLenum(GL_RGB)
-            of 4: GLenum(GL_RGBA)
+            of 1: GL_ALPHA
+            of 2: GL_LUMINANCE_ALPHA
+            of 3: GL_RGB
+            of 4: GL_RGBA
             else: GLenum(0)
         size = newSize(x.Coord, y.Coord)
         let texWidth = if isPowerOfTwo(x): x.int else: nextPowerOfTwo(x)
@@ -99,7 +99,7 @@ when not defined js:
             texCoords[2] = x.Coord / texWidth.Coord
             texCoords[3] = y.Coord / texHeight.Coord
 
-        glTexImage2D(GL_TEXTURE_2D, 0, format.cint, texWidth.GLsizei, texHeight.GLsizei, 0, format.GLenum, GL_UNSIGNED_BYTE, cast[pointer] (pixelData))
+        glTexImage2D(GL_TEXTURE_2D, 0, format.cint, texWidth.GLsizei, texHeight.GLsizei, 0, format, GL_UNSIGNED_BYTE, cast[pointer](pixelData))
         setupTexParams(nil)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
