@@ -40,6 +40,7 @@ when defined js:
             DEPTH_BUFFER_BIT*: int
             TEXTURE_MIN_FILTER*, TEXTURE_MAG_FILTER*, TEXTURE_WRAP_S*, TEXTURE_WRAP_T*: GLenum
             LINEAR*, NEAREST*, CLAMP_TO_EDGE*, LINEAR_MIPMAP_NEAREST* : GLint
+            PACK_ALIGNMENT*, UNPACK_ALIGNMENT*: GLenum
             FRAMEBUFFER* : GLenum
             RENDERBUFFER* : GLenum
             ARRAY_BUFFER* : GLenum
@@ -137,7 +138,10 @@ when defined js:
     proc texParameteri*(gl: GL, target, pname: GLenum, param: GLint)
 
     proc texImage2D*(gl: GL, target: GLenum, level, internalformat: GLint, width, height: GLsizei, border: GLint, format, t: GLenum, pixels: ref RootObj)
+    proc texImage2D*(gl: GL, target: GLenum, level, internalformat: GLint, width, height: GLsizei, border: GLint, format, t: GLenum, pixels: openarray)
+    proc texSubImage2D*(gl: GL, target: GLenum, level: GLint, xoffset, yoffset: GLint, width, height: GLsizei, format, t: GLenum, pixels: openarray)
     proc generateMipmap*(gl: GL, target: GLenum)
+    proc pixelStorei*(gl: GL, pname: GLenum, param: GLint)
 
     proc framebufferTexture2D*(gl: GL, target, attachment, textarget: GLenum, texture: TextureRef, level: GLint)
     proc renderbufferStorage*(gl: GL, target, internalformat: GLenum, width, height: GLsizei)
@@ -205,6 +209,8 @@ else:
     template NEAREST*(gl: GL): GLint = GL_NEAREST
     template CLAMP_TO_EDGE*(gl: GL): GLint = GL_CLAMP_TO_EDGE
     template LINEAR_MIPMAP_NEAREST*(gl: GL): GLint = GL_LINEAR_MIPMAP_NEAREST
+    template PACK_ALIGNMENT*(gl: GL): GLenum = GL_PACK_ALIGNMENT
+    template UNPACK_ALIGNMENT*(gl: GL): GLenum = GL_UNPACK_ALIGNMENT
     template FRAMEBUFFER*(gl: GL): GLenum = GL_FRAMEBUFFER
     template RENDERBUFFER*(gl: GL): GLenum = GL_RENDERBUFFER
     template ARRAY_BUFFER*(gl: GL): GLenum = GL_ARRAY_BUFFER
@@ -338,8 +344,15 @@ else:
 
     template texImage2D*(gl: GL, target: GLenum, level, internalformat: GLint, width, height: GLsizei, border: GLint, format, t: GLenum, pixels: pointer) =
         glTexImage2D(target, level, internalformat, width, height, border, format, t, pixels)
+    template texImage2D*(gl: GL, target: GLenum, level, internalformat: GLint, width, height: GLsizei, border: GLint, format, t: GLenum, pixels: openarray) =
+        glTexImage2D(target, level, internalformat, width, height, border, format, t, unsafeAddr pixels[0])
+    template texSubImage2D*(gl: GL, target: GLenum, level: GLint, xoffset, yoffset: GLint, width, height: GLsizei, format, t: GLenum, pixels: pointer) =
+        glTexSubImage2D(target, level, xoffset, yoffset, width, height, format, t, pixels)
+    template texSubImage2D*(gl: GL, target: GLenum, level: GLint, xoffset, yoffset: GLint, width, height: GLsizei, format, t: GLenum, pixels: openarray) =
+        glTexSubImage2D(target, level, xoffset, yoffset, width, height, format, t, unsafeAddr pixels[0])
 
     template generateMipmap*(gl: GL, target: GLenum) = glGenerateMipmap(target)
+    template pixelStorei*(gl: GL, pname: GLenum, param: GLint) = glPixelStorei(pname, param)
 
     template framebufferTexture2D*(gl: GL, target, attachment, textarget: GLenum, texture: TextureRef, level: GLint) =
         glFramebufferTexture2D(target, attachment, textarget, texture, level)

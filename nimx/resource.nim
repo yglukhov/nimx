@@ -186,8 +186,9 @@ when defined(js) or defined(emscripten):
         let oReq = newXMLHTTPRequest()
         var reqListener: proc()
         reqListener = proc() =
-            onComplete(cast[ref RootObj](oReq.response))
             jsUnref(reqListener)
+            handleJSExceptions:
+                onComplete(cast[ref RootObj](oReq.response))
         jsRef(reqListener)
 
         oReq.responseType = resourceType
@@ -225,8 +226,9 @@ proc loadJsonResourceAsync*(resourceName: string, handler: proc(j: JsonNode)) =
     if j.isNil:
         when defined js:
             let reqListener = proc(data: ref RootObj) =
-                var jsonstring = cast[cstring](data)
-                handler(parseJson($jsonstring))
+                handleJSExceptions:
+                    var jsonstring = cast[cstring](data)
+                    handler(parseJson($jsonstring))
             loadJSResourceAsync(resourceName, "text", nil, nil, reqListener)
         else:
             loadResourceAsync resourceName, proc(s: Stream) =

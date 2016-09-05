@@ -8,7 +8,9 @@ import typetraits
 template enableObjC*() =
     ## Should be called in global scope of a nim file to ensure it will be
     ## translated to Objective-C
-    proc dummyWithNoParticularMeaning() {.importobjc.}
+    block:
+        {.hint[XDeclaredButNotUsed]: off.}
+        proc dummyWithNoParticularMeaning() {.importobjc.}
 
 type NSPoint* {.importc: "CGPoint", header: "<CoreGraphics/CoreGraphics.h>".} = object
     x*, y*: float32

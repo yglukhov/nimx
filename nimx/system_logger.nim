@@ -1,4 +1,4 @@
-import strutils
+import strutils, logging
 
 when defined(js):
     when defined(runAutoTests):
@@ -28,7 +28,7 @@ elif defined(emscripten):
         template native_log(a: cstring) =
             emscripten_log(0, cstring("%s"), cstring(a))
 elif defined(macosx) or defined(ios):
-    {.passL:"-framework Foundation"}
+    {.passL:"-framework Foundation".}
     {.emit: """
 
     #include <CoreFoundation/CoreFoundation.h>
@@ -37,7 +37,7 @@ elif defined(macosx) or defined(ios):
     """.}
 
     proc native_log(a: cstring) =
-        {.emit: "NSLog(CFSTR(\"%s\"), `a`);" .}
+        {.emit: "NSLog(CFSTR(\"%s\"), `a`);".}
 elif defined(android):
     {.emit: """
     #include <android/log.h>
@@ -70,3 +70,15 @@ template enterLog*() =
     increaseOffset()
     defer: decreaseOffset()
 
+type SystemLogger = ref object of Logger
+
+method log*(logger: SystemLogger, level: Level, args: varargs[string, `$`]) =
+    if currentOffset.isNil: currentOffset = ""
+    native_log(currentOffset & args.join())
+
+proc registerLogger() =
+    var lg: SystemLogger
+    lg.new()
+    addHandler(lg)
+
+registerLogger()
