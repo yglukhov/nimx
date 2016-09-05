@@ -138,6 +138,7 @@ when defined js:
     proc texParameteri*(gl: GL, target, pname: GLenum, param: GLint)
 
     proc texImage2D*(gl: GL, target: GLenum, level, internalformat: GLint, width, height: GLsizei, border: GLint, format, t: GLenum, pixels: ref RootObj)
+    proc texImage2D*(gl: GL, target: GLenum, level, internalformat: GLint, width, height: GLsizei, border: GLint, format, t: GLenum, pixels: openarray)
     proc texSubImage2D*(gl: GL, target: GLenum, level: GLint, xoffset, yoffset: GLint, width, height: GLsizei, format, t: GLenum, pixels: openarray)
     proc generateMipmap*(gl: GL, target: GLenum)
     proc pixelStorei*(gl: GL, pname: GLenum, param: GLint)
@@ -343,6 +344,8 @@ else:
 
     template texImage2D*(gl: GL, target: GLenum, level, internalformat: GLint, width, height: GLsizei, border: GLint, format, t: GLenum, pixels: pointer) =
         glTexImage2D(target, level, internalformat, width, height, border, format, t, pixels)
+    template texImage2D*(gl: GL, target: GLenum, level, internalformat: GLint, width, height: GLsizei, border: GLint, format, t: GLenum, pixels: openarray) =
+        glTexImage2D(target, level, internalformat, width, height, border, format, t, unsafeAddr pixels[0])
     template texSubImage2D*(gl: GL, target: GLenum, level: GLint, xoffset, yoffset: GLint, width, height: GLsizei, format, t: GLenum, pixels: pointer) =
         glTexSubImage2D(target, level, xoffset, yoffset, width, height, format, t, pixels)
     template texSubImage2D*(gl: GL, target: GLenum, level: GLint, xoffset, yoffset: GLint, width, height: GLsizei, format, t: GLenum, pixels: openarray) =
