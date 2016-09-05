@@ -188,8 +188,6 @@ proc descent*(f: Font): float32 =
     f.updateFontMetricsIfNeeded()
     result = f.impl.descent * f.scale
 
-var dfCtx : DistanceFieldContext[float32]
-
 proc bakeChars(f: Font, start: int32, res: CharInfo) =
     let startChar = start * charChunkLength
     let endChar = startChar + charChunkLength
@@ -415,7 +413,7 @@ proc newFontWithFace*(face: string, size: float): Font =
 
 proc systemFontSize*(): float = 16
 
-proc setGlyphMargin*(f: Font, margin: int32) =
+proc setGlyphMargin*(f: Font, margin: int32) {.deprecated.} =
     if margin == f.glyphMargin:
         return
 
@@ -439,6 +437,8 @@ proc systemFont*(): Font =
     result = sysFont
     if result == nil:
         logi "WARNING: Could not create system font"
+
+var dfCtx : DistanceFieldContext[float32]
 
 proc generateDistanceFieldForGlyph(ch: CharInfo, index: int, uploadToTexture: bool) =
     if dfCtx.isNil:
@@ -581,7 +581,7 @@ proc sizeOfString*(f: Font, s: string): Size =
         pt.x += f.getAdvanceForRune(ch)
     result = newSize(pt.x, f.height)
 
-proc getClosestCursorPositionToPointInString*(f: Font, s: string, p: Point, position: var int, offset: var Coord) =
+proc getClosestCursorPositionToPointInString*(f: Font, s: string, p: Point, position: var int, offset: var Coord) {.deprecated.} =
     var pt = zeroPoint
     var closestPoint = zeroPoint
     var quad: array[16, Coord]
@@ -598,7 +598,7 @@ proc getClosestCursorPositionToPointInString*(f: Font, s: string, p: Point, posi
     offset = if f.isHorizontal: closestPoint.x else: closestPoint.y
     if offset == 0: position = 0
 
-proc cursorOffsetForPositionInString*(f: Font, s: string, position: int): Coord =
+proc cursorOffsetForPositionInString*(f: Font, s: string, position: int): Coord {.deprecated.} =
     var pt = zeroPoint
     var quad: array[16, Coord]
     var i = 0
