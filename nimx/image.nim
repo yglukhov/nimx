@@ -6,9 +6,12 @@ import resource
 import resource_cache
 import system_logger
 
-when not defined js:
+when not defined(js):
     import load_image_impl
     import write_image_impl
+
+when defined(js) or defined(emscripten):
+    import jsbind
 
 type Image* = ref object of RootObj
 
@@ -434,32 +437,34 @@ when defined(emscripten):
         image: SelfContainedImage
 
     proc nimxImagePrepareTexture(c: pointer, x, y: cint) {.EMSCRIPTEN_KEEPALIVE.} =
-        let ctx = cast[ImageLoadingCtx](c)
-        ctx.image = newSelfContainedImage()
-        glGenTextures(1, addr ctx.image.texture)
-        glBindTexture(GL_TEXTURE_2D, ctx.image.texture)
-        ctx.image.mSize = newSize(x.Coord, y.Coord)
-        let texWidth = if isPowerOfTwo(x): x.int else: nextPowerOfTwo(x)
-        let texHeight = if isPowerOfTwo(y): y.int else: nextPowerOfTwo(y)
+        handleJSExceptions:
+            let ctx = cast[ImageLoadingCtx](c)
+            ctx.image = newSelfContainedImage()
+            glGenTextures(1, addr ctx.image.texture)
+            glBindTexture(GL_TEXTURE_2D, ctx.image.texture)
+            ctx.image.mSize = newSize(x.Coord, y.Coord)
+            let texWidth = if isPowerOfTwo(x): x.int else: nextPowerOfTwo(x)
+            let texHeight = if isPowerOfTwo(y): y.int else: nextPowerOfTwo(y)
 
-        ctx.image.texCoords[2] = 1.0
-        ctx.image.texCoords[3] = 1.0
+            ctx.image.texCoords[2] = 1.0
+            ctx.image.texCoords[3] = 1.0
 
-        if texWidth != x or texHeight != y:
-            ctx.image.texCoords[2] = x.Coord / texWidth.Coord
-            ctx.image.texCoords[3] = y.Coord / texHeight.Coord
+            if texWidth != x or texHeight != y:
+                ctx.image.texCoords[2] = x.Coord / texWidth.Coord
+                ctx.image.texCoords[3] = y.Coord / texHeight.Coord
 
-        ctx.image.mSize.width = x.Coord
-        ctx.image.mSize.height = y.Coord
+            ctx.image.mSize.width = x.Coord
+            ctx.image.mSize.height = y.Coord
 
     proc nimxImageLoaded(c: pointer) {.EMSCRIPTEN_KEEPALIVE.} =
-        let ctx = cast[ImageLoadingCtx](c)
-        setupTexParams(nil)
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
-        GC_unref(ctx)
-        ctx.image.setFilePath(ctx.path)
-        ctx.callback(ctx.image)
+        handleJSExceptions:
+            let ctx = cast[ImageLoadingCtx](c)
+            setupTexParams(nil)
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
+            GC_unref(ctx)
+            ctx.image.setFilePath(ctx.path)
+            ctx.callback(ctx.image)
 
     proc nimxImageLoadFromURL*(url: string, name: string, callback: proc(i: SelfContainedImage)) =
         var ctx: ImageLoadingCtx
@@ -471,34 +476,39 @@ when defined(emscripten):
         discard EM_ASM_INT("""
         var i = new Image();
         i.crossOrigin = '';
-        i.src = Pointer_stringify($1);
+        i.src = UTF8ToString($1);
         i.onload = function () {
-            _nimxImagePrepareTexture($0, i.width, i.height);
-            GLctx.pixelStorei(GLctx.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
-            function nextPowerOfTwo(v) {
-                v--;
-                v|=v>>1;
-                v|=v>>2;
-                v|=v>>4;
-                v|=v>>8;
-                v|=v>>16;
-                return ++v;
+            try {
+                _nimxImagePrepareTexture($0, i.width, i.height);
+                GLctx.pixelStorei(GLctx.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+                function nextPowerOfTwo(v) {
+                    v--;
+                    v|=v>>1;
+                    v|=v>>2;
+                    v|=v>>4;
+                    v|=v>>8;
+                    v|=v>>16;
+                    return ++v;
+                }
+                var texWidth = nextPowerOfTwo(i.width);
+                var texHeight = nextPowerOfTwo(i.height);
+                if (texWidth != i.width || texHeight != i.height) {
+                    var canvas = document.createElement('canvas');
+                    canvas.width = texWidth;
+                    canvas.height = texHeight;
+                    var ctx2d = canvas.getContext('2d');
+                    ctx2d.globalCompositeOperation = "copy";
+                    ctx2d.drawImage(i, 0, 0);
+                    GLctx.texImage2D(GLctx.TEXTURE_2D, 0, GLctx.RGBA, GLctx.RGBA, GLctx.UNSIGNED_BYTE, canvas);
+                }
+                else {
+                    GLctx.texImage2D(GLctx.TEXTURE_2D, 0, GLctx.RGBA, GLctx.RGBA, GLctx.UNSIGNED_BYTE, i);
+                }
+                _nimxImageLoaded($0);
             }
-            var texWidth = nextPowerOfTwo(i.width);
-            var texHeight = nextPowerOfTwo(i.height);
-            if (texWidth != i.width || texHeight != i.height) {
-                var canvas = document.createElement('canvas');
-                canvas.width = texWidth;
-                canvas.height = texHeight;
-                var ctx2d = canvas.getContext('2d');
-                ctx2d.globalCompositeOperation = "copy";
-                ctx2d.drawImage(i, 0, 0);
-                GLctx.texImage2D(GLctx.TEXTURE_2D, 0, GLctx.RGBA, GLctx.RGBA, GLctx.UNSIGNED_BYTE, canvas);
+            catch(e) {
+                _nimem_e(e); // This function is defined by `emscripten.nim`
             }
-            else {
-                GLctx.texImage2D(GLctx.TEXTURE_2D, 0, GLctx.RGBA, GLctx.RGBA, GLctx.UNSIGNED_BYTE, i);
-            }
-            _nimxImageLoaded($0);
         }
         """, cast[pointer](ctx), cstring(ctx.path))
 
@@ -507,14 +517,12 @@ registerResourcePreloader(["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga", "p
     when defined(js):
         proc handler(r: ref RootObj) =
             var onImLoad = proc (im: ref RootObj) =
-                try:
+                handleJSExceptions:
                     var w, h: Coord
                     {.emit: "`w` = `im`.width; `h` = `im`.height;".}
                     let image = imageWithSize(newSize(w, h))
                     {.emit: "`image`.__image = `im`;".}
                     callback(image)
-                finally:
-                    discard
             {.emit:"""
             var im = new Image();
             im.onload = function(){`onImLoad`(im);};
