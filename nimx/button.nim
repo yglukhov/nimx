@@ -263,7 +263,7 @@ template toggleValue(v: int8): int8 =
 method name(b: Button): string =
     result = "Button"
 
-method onTouchEv(b: Button, e: var Event): bool =
+method onTouchEv*(b: Button, e: var Event): bool =
     discard procCall b.View.onTouchEv(e)
     case e.buttonState
     of bsDown:
