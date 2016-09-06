@@ -17,6 +17,7 @@ type
         shadowAttrs: seq[int]
         strokeAttrs: seq[int]
         shadowMultiplier*: Size
+        mLineSpacing: float32
 
     LineInfo* = object
         startByte: int
@@ -70,6 +71,12 @@ proc `text=`*(t: FormattedText, s: string) =
 
 template text*(t: FormattedText): string = t.mText
 
+proc `lineSpacing=`*(t: FormattedText, s: float32) =
+    t.mLineSpacing = s
+    t.cacheValid = false
+
+template lineSpacing*(t: FormattedText): float32 = t.mLineSpacing
+
 proc newFormattedText*(s: string = ""): FormattedText =
     result.new()
     result.mText = s
@@ -78,6 +85,7 @@ proc newFormattedText*(s: string = ""): FormattedText =
     result.shadowAttrs = @[]
     result.strokeAttrs = @[]
     result.shadowMultiplier = newSize(1, 1)
+    result.mLineSpacing = 2
 
 proc updateCache(t: FormattedText) =
     t.cacheValid = true
@@ -107,8 +115,6 @@ proc updateCache(t: FormattedText) =
 
     var boundingWidth = t.mBoundingSize.width
     if boundingWidth == 0: boundingWidth = Inf
-
-    const lineSpacing = 2'f32
 
     var c: Rune
     let textLen = t.mText.len
@@ -145,7 +151,7 @@ proc updateCache(t: FormattedText) =
                 if mustBreakLine():
                     let tmp = curLineInfo # JS bug workaround. Copy to temp object.
                     t.lines.add(tmp)
-                    t.mTotalHeight += curLineInfo.height + lineSpacing
+                    t.mTotalHeight += curLineInfo.height + t.mLineSpacing
                     curLineInfo.top = t.mTotalHeight
                     curLineInfo.startByte = i
                     curLineInfo.startRune = curRune + 1
@@ -157,7 +163,7 @@ proc updateCache(t: FormattedText) =
                 # Complete current line
                 let tmp = curLineInfo # JS bug workaround. Copy to temp object.
                 t.lines.add(tmp)
-                t.mTotalHeight += curLineInfo.height + lineSpacing
+                t.mTotalHeight += curLineInfo.height + t.mLineSpacing
                 curLineInfo.top = t.mTotalHeight
                 curLineInfo.startByte = curWordStartByte
                 curLineInfo.startRune = curWordStartRune
@@ -188,7 +194,7 @@ proc updateCache(t: FormattedText) =
             curLineInfo.height = t.mAttributes[curAttrIndex].font.height
         let tmp = curLineInfo # JS bug workaround. Copy to temp object.
         t.lines.add(tmp)
-        t.mTotalHeight += curLineInfo.height + lineSpacing
+        t.mTotalHeight += curLineInfo.height + t.mLineSpacing
 
     # echo "Cache updated for ", t.mText
     # echo "Attributes: ", t.mAttributes
