@@ -11,6 +11,7 @@ import nimx.slider
 import nimx.popup_button
 import nimx.formatted_text
 import nimx.segmented_control
+import nimx.scroll_view
 
 type TextView = ref object of View
     text: FormattedText
@@ -52,7 +53,8 @@ method init(v: TextSampleView, r: Rect) =
     for a, b in tv.text.rangesOfSubstring("supported"):
         tv.formattedText.setTextColorInRange(a, b, newColor(0, 0.6, 0))
 
-    v.addSubview(tv)
+    let sv = newScrollView(tv)
+    v.addSubview(sv)
 
     let hAlignChooser = SegmentedControl.new(newRect(5, 5, 200, 25))
     hAlignChooser.segments = @[$haLeft, $haCenter, $haRight]
@@ -62,10 +64,11 @@ method init(v: TextSampleView, r: Rect) =
 
     let vAlignChooser = SegmentedControl.new(newRect(hAlignChooser.frame.maxX + 5, 5, 200, 25))
     vAlignChooser.segments = @[$vaTop, $vaCenter, $vaBottom]
-    vAlignChooser.selectedSegment = 1
+    vAlignChooser.selectedSegment = 0
     v.addSubview(vAlignChooser)
     vAlignChooser.onAction do():
         tv.formattedText.verticalAlignment = parseEnum[VerticalAlignment](vAlignChooser.segments[vAlignChooser.selectedSegment])
+    tv.formattedText.verticalAlignment = vaTop
 
 method draw(v: TextView, r: Rect) =
     procCall v.View.draw(r)

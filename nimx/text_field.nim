@@ -14,6 +14,7 @@ import serializers
 import pasteboard.pasteboard
 import key_commands
 import formatted_text
+import scroll_view
 
 export control
 
@@ -99,10 +100,21 @@ proc drawCursorWithRect(r: Rect) =
         c.strokeWidth = 0
         c.drawRect(r)
 
+proc cursorRect(t: TextField): Rect =
+    let ln = t.mText.lineOfRuneAtPos(cursorPos)
+    let y = t.mText.lineTop(ln) + t.mText.topOffset()
+    let fh = t.mText.lineHeight(ln)
+    let lineX = t.mText.lineLeft(ln)
+    newRect(leftMargin + cursorOffset + lineX, y, 2, fh)
+
 proc bumpCursorVisibility(t: TextField) =
     cursorVisible = true
     cursorUpdateTimer.clear()
     t.setNeedsDisplay()
+
+    let sv = t.enclosingViewOfType(ScrollView)
+    if not sv.isNil:
+        sv.scrollToRect(t.cursorRect())
 
     cursorUpdateTimer = setInterval(0.5) do():
         cursorVisible = not cursorVisible
@@ -168,6 +180,7 @@ proc drawSelection(t: TextField) {.inline.} =
         r.size.height = t.mText.lineHeight(i)
         r.origin.x = leftMargin + t.mText.lineLeft(i)
         r.size.width = t.mText.lineWidth(i)
+        if r.size.width < 5: r.size.width = 5
         c.drawRect(r)
     if startLine != endLine:
         r.origin.y = t.mText.lineTop(endLine) + top
@@ -199,11 +212,7 @@ method draw*(t: TextField, r: Rect) =
 
     if t.isEditing:
         t.drawFocusRing()
-        let ln = t.mText.lineOfRuneAtPos(cursorPos)
-        let y = t.mText.lineTop(ln) + t.mText.topOffset()
-        let fh = t.mText.lineHeight(ln)
-        let lineX = t.mText.lineLeft(ln)
-        drawCursorWithRect(newRect(leftMargin + cursorOffset + lineX, y, 2, fh))
+        drawCursorWithRect(t.cursorRect())
 
 method onTouchEv*(t: TextField, e: var Event): bool =
     result = false
@@ -255,8 +264,9 @@ proc clearSelection(t: TextField) =
     t.textSelection = -1 .. -1
 
 proc insertText(t: TextField, s: string) =
-    if t.mText.isNil: t.mText.text = ""
+    #if t.mText.isNil: t.mText.text = ""
 
+    let th = t.mText.totalHeight
     if t.textSelection.len > 0:
         t.clearSelection()
 
@@ -264,6 +274,12 @@ proc insertText(t: TextField, s: string) =
     cursorPos += s.runeLen
     t.updateCursorOffset()
     t.bumpCursorVisibility()
+
+    let newTh = t.mText.totalHeight
+    if th != newTh:
+        var s = t.bounds.size
+        s.height = newTh
+        t.superview.subviewDidChangeDesiredSize(t, s)
 
     if t.continuous:
         t.sendAction()
