@@ -170,6 +170,7 @@ method init*(w: Window, frame: Rect) =
     w.needsDisplay = true
     w.mouseOverListeners = @[]
     w.animationRunners = @[]
+    w.pixelRatio = 1.0
 
     #default animation runner for window
     var defaultRunner = newAnimationRunner()

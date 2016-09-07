@@ -45,6 +45,7 @@ type
         animationRunners*: seq[AnimationRunner]
         needsDisplay*: bool
         mouseOverListeners*: seq[View]
+        pixelRatio*: float32
 
 
 method init*(v: View, frame: Rect) {.base.} =
