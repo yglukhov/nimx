@@ -98,6 +98,7 @@ when defined js:
     proc createFramebuffer*(gl: GL): FramebufferRef
     proc createRenderbuffer*(gl: GL): RenderbufferRef
     proc createBuffer*(gl: GL): BufferRef
+    proc bufferData*(gl: GL, target: GLenum, size: int32, usage: GLenum)
 
     proc deleteFramebuffer*(gl: GL, name: FramebufferRef)
     proc deleteRenderbuffer*(gl: GL, name: RenderbufferRef)
@@ -107,6 +108,9 @@ when defined js:
     proc bindAttribLocation*(gl: GL, program: ProgramRef, index: GLuint, name: cstring)
     proc enableVertexAttribArray*(gl: GL, attrib: GLuint)
     proc disableVertexAttribArray*(gl: GL, attrib: GLuint)
+    proc vertexAttribPointer*(gl: GL, index: GLuint, size: GLint, typ: GLenum,
+        normalized: GLboolean, stride: GLsizei, offset: int)
+
     proc getUniformLocation*(gl: GL, prog: ProgramRef, name: cstring): UniformLocation
     proc useProgram*(gl: GL, prog: ProgramRef)
     proc enable*(gl: GL, flag: GLenum)
@@ -291,6 +295,7 @@ else:
     proc createFramebuffer*(gl: GL): GLuint {.inline.} = glGenFramebuffers(1, addr result)
     proc createRenderbuffer*(gl: GL): GLuint {.inline.} = glGenRenderbuffers(1, addr result)
     proc createBuffer*(gl: GL): GLuint {.inline.} = glGenBuffers(1, addr result)
+    template bufferData*(gl: GL, target: GLenum, size: int32, usage: GLenum) = glBufferData(target, size, nil, usage)
 
     proc deleteFramebuffer*(gl: GL, name: FramebufferRef) {.inline.} =
         glDeleteFramebuffers(1, unsafeAddr name)
@@ -307,6 +312,10 @@ else:
     template bindAttribLocation*(gl: GL, program: ProgramRef, index: GLuint, name: cstring) = glBindAttribLocation(program, index, name)
     template enableVertexAttribArray*(gl: GL, attrib: GLuint) = glEnableVertexAttribArray(attrib)
     template disableVertexAttribArray*(gl: GL, attrib: GLuint) = glDisableVertexAttribArray(attrib)
+    template vertexAttribPointer*(gl: GL, index: GLuint, size: GLint, typ: GLenum,
+            normalized: GLboolean, stride: GLsizei, offset: int) =
+        glVertexAttribPointer(index, size, typ, normalized, stride, cast[pointer](offset))
+
     template getUniformLocation*(gl: GL, prog: ProgramRef, name: cstring): UniformLocation = glGetUniformLocation(prog, name)
     template useProgram*(gl: GL, prog: ProgramRef) = glUseProgram(prog)
     template enable*(gl: GL, flag: GLenum) = glEnable(flag)
@@ -461,77 +470,51 @@ proc isProgramLinked*(gl: GL, prog: ProgramRef): bool {.inline.} =
         glGetProgramiv(prog, GL_LINK_STATUS, addr linked)
         result = GLboolean(linked) == GLboolean(GL_TRUE)
 
-proc bufferData*(gl: GL, target: GLenum, data: openarray[GLfloat], usage: GLenum) {.inline.} =
-    when defined(js):
-        asm "`gl`.bufferData(`target`, new Float32Array(`data`), `usage`);"
-    else:
-        glBufferData(target, GLsizei(data.len * sizeof(GLfloat)), cast[pointer](data), usage);
+when defined(js):
+    proc newTypedSeq(t: typedesc[float32], data: openarray[t]): seq[float32] {.importc: "new Float32Array".}
+    proc newTypedSeq(t: typedesc[float64], data: openarray[t]): seq[float64] {.importc: "new Float64Array".}
+    proc newTypedSeq(t: typedesc[int16], data: openarray[t]): seq[int16] {.importc: "new Int16Array".}
+    proc newTypedSeq(t: typedesc[int8], data: openarray[t]): seq[int8] {.importc: "new Int8Array".}
+    proc newTypedSeq(t: typedesc[byte], data: openarray[t]): seq[byte] {.importc: "new Uint8Array".}
+    proc newTypedSeq(t: typedesc[uint16], data: openarray[t]): seq[uint16] {.importc: "new Uint16Array".}
+    proc isTypedSeq(v: openarray): bool {.importcpp: "(#.buffer !== undefined)".}
+    proc bufferDataImpl(gl: GL, target: GLenum, data: openarray, usage: GLenum) {.importcpp: "bufferData".}
+    proc bufferSubDataImpl(gl: GL, target: GLenum, offset: int32, data: openarray) {.importcpp: "bufferSubData".}
 
-proc bufferData*(gl: GL, target: GLenum, data: openarray[GLushort], usage: GLenum) {.inline.} =
+proc bufferData*[T](gl: GL, target: GLenum, data: openarray[T], usage: GLenum) {.inline.} =
     when defined(js):
-        asm "`gl`.bufferData(`target`, new Uint16Array(`data`), `usage`);"
+        gl.bufferDataImpl(target, if data.isTypedSeq: data else: newTypedSeq(T, data), usage)
     else:
-        glBufferData(target, GLsizei(data.len * sizeof(GLushort)), cast[pointer](data), usage);
+        glBufferData(target, GLsizei(data.len * sizeof(T)), cast[pointer](data), usage);
 
-proc bufferData*(gl: GL, target: GLenum, data: openarray[GLubyte], usage: GLenum) {.inline.} =
+proc bufferSubData*[T](gl: GL, target: GLenum, offset: int32, data: openarray[T]) {.inline.} =
     when defined(js):
-        asm "`gl`.bufferData(`target`, new Uint8Array(`data`), `usage`);"
+        gl.bufferSubDataImpl(target, offset, if data.isTypedSeq: data else: newTypedSeq(T, data));
     else:
-        glBufferData(target, GLsizei(data.len * sizeof(GLubyte)), cast[pointer](data), usage);
-
-proc bufferData*(gl: GL, target: GLenum, size: int32, usage: GLenum) {.inline.} =
-    when defined(js):
-        if target == gl.ARRAY_BUFFER:
-            asm "`gl`.bufferData(`target`, new Float32Array(`size`), `usage`);"
-        if target == gl.ELEMENT_ARRAY_BUFFER:
-            asm "`gl`.bufferData(`target`, new Uint16Array(`size`), `usage`);"
-    else:
-        glBufferData(target, size, nil, usage);
-
-proc bufferSubData*(gl: GL, target: GLenum, offset: int32, data: openarray[GLfloat]) {.inline.} =
-    when defined(js):
-        asm "`gl`.bufferSubData(`target`, `offset`, new Float32Array(`data`));"
-    else:
-        glBufferSubData(target, offset, GLsizei(data.len * sizeof(GLfloat)), cast[pointer](data));
-
-proc bufferSubData*(gl: GL, target: GLenum, offset: int32, data: openarray[GLushort]) {.inline.} =
-    when defined(js):
-        asm "`gl`.bufferSubData(`target`, `offset`, new Uint16Array(`data`));"
-    else:
-        glBufferSubData(target, offset, GLsizei(data.len * sizeof(GLushort)), cast[pointer](data));
+        glBufferSubData(target, offset, GLsizei(data.len * sizeof(T)), cast[pointer](data));
 
 proc getBufferParameteriv*(gl: GL, target, value: GLenum): GLint {.inline.} =
     when defined js:
         asm "`result` = `gl`.getBufferParameter(`target`, `value`);"
     else:
-        var data: GLint
-        glGetBufferParameteriv(target, value, addr data)
-        result = data
-
-proc vertexAttribPointer*(gl: GL, index: GLuint, size: GLint, typ: GLenum, normalized: GLboolean,
-                        stride: GLsizei, offset: int) {.inline.} =
-    when defined(js):
-        asm "`gl`.vertexAttribPointer(`index`, `size`, `typ`, `normalized`, `stride`, `offset`);"
-    else:
-        glVertexAttribPointer(index, size, typ, normalized, stride, cast[pointer](offset))
+        glGetBufferParameteriv(target, value, addr result)
 
 proc vertexAttribPointer*(gl: GL, index: GLuint, size: GLint, normalized: GLboolean,
                         stride: GLsizei, data: openarray[GLfloat]) =
+    # Better dont use this proc and work with buffers yourself, because look
+    # how ugly it is in js.
     when defined js:
         asm """
         var buf = null;
-        if (`vertexAttribPointer`.__nimxSharedBuffers === undefined)
-        {
-            `vertexAttribPointer`.__nimxSharedBuffers = {};
+        if (window.__nimxSharedBuffers === undefined) {
+            window.__nimxSharedBuffers = {};
         }
-        if (`vertexAttribPointer`.__nimxSharedBuffers[`index`] === undefined)
-        {
+        if (window.__nimxSharedBuffers[`index`] === undefined) {
             buf = `gl`.createBuffer();
-            `vertexAttribPointer`.__nimxSharedBuffers[`index`] = buf;
+            window.__nimxSharedBuffers[`index`] = buf;
         }
-        else
-        {
-            buf = `vertexAttribPointer`.__nimxSharedBuffers[`index`];
+        else {
+            buf = window.__nimxSharedBuffers[`index`];
         }
 
         `gl`.bindBuffer(`gl`.ARRAY_BUFFER, buf);
