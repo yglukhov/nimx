@@ -235,7 +235,7 @@ method stopTextInput*(w: EmscriptenWindow) =
 var lastFullCollectTime = 0.0
 const fullCollectThreshold = 128 * 1024 * 1024 # 128 Megabytes
 
-proc mainLoop() {.cdecl.} =
+proc nimxMainLoopInner() {.EMSCRIPTEN_KEEPALIVE.} =
     mainApplication().runAnimations()
     mainApplication().drawWindows()
 
@@ -256,7 +256,18 @@ var initFunc : proc()
 var initDone = false
 proc mainLoopPreload() {.cdecl.} =
     if initDone:
-        mainLoop()
+        when defined(release):
+            handleJSExceptions:
+                nimxMainLoopInner()
+        else:
+            discard EM_ASM_INT """
+            try {
+                _nimxMainLoopInner();
+            }
+            catch(e) {
+                _nimem_e(e);
+            }
+            """
     else:
         let r = EM_ASM_INT """
         if (document.readyState === 'complete') {
