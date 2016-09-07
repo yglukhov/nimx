@@ -232,23 +232,24 @@ method stopTextInput*(w: EmscriptenWindow) =
     }
     """)
 
-when not defined(useRealtimeGC):
-    var lastCollectionTime = 0.0
+var lastFullCollectTime = 0.0
+const fullCollectThreshold = 128 * 1024 * 1024 # 128 Megabytes
 
 proc mainLoop() {.cdecl.} =
     mainApplication().runAnimations()
     mainApplication().drawWindows()
 
-    when defined(useRealtimeGC):
-        GC_step(1000, true)
+    let t = epochTime()
+    if t > lastFullCollectTime + 10 and getOccupiedMem() > fullCollectThreshold:
+        GC_enable()
+        GC_fullCollect()
+        GC_disable()
+        lastFullCollectTime = t
     else:
-        {.hint: "It is recommended to compile your project with -d:useRealtimeGC for emscripten".}
-        let t = epochTime()
-        if t > lastCollectionTime + 10:
-            GC_enable()
-            GC_fullCollect()
-            GC_disable()
-            lastCollectionTime = t
+        when defined(useRealtimeGC):
+            GC_step(1000, true)
+        else:
+            {.hint: "It is recommended to compile your project with -d:useRealtimeGC for emscripten".}
 
 var initFunc : proc()
 
