@@ -48,7 +48,7 @@ elif (defined(macosx) or defined(ios)) and defined(nimxAvoidSDL):
     """.}
     proc cftimerCallback(cfTimer: pointer, t: Timer) {.cdecl.} =
         if not t.isPeriodic:
-            t.timer = 0
+            t.timer = nil
         t.callback()
 
     proc schedule(t: Timer) =
@@ -71,7 +71,7 @@ elif (defined(macosx) or defined(ios)) and defined(nimxAvoidSDL):
         """.}
         t.timer = cfTimer
 
-    template cancel(t: Timer) =
+    proc cancel(t: Timer) {.inline.} =
         let cfTimer = t.timer
         {.emit: """
         CFRunLoopTimerInvalidate(`cfTimer`);
