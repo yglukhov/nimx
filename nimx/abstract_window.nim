@@ -76,8 +76,8 @@ method drawWindow*(w: Window) {.base.} =
             c.drawText(font, pt, k & ": " & v)
             pt.y = pt.y + fontSize
         font.size = old_size
-        ResetOverdrawValue()
-        ResetDIPValue()
+    ResetOverdrawValue()
+    ResetDIPValue()
 
 method enableAnimation*(w: Window, flag: bool) {.base.} = discard
 
