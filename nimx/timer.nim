@@ -126,9 +126,15 @@ proc clear*(t: Timer) =
 proc newTimer*(interval: float, repeat: bool, callback: proc()): Timer =
     assert(not callback.isNil)
     result.new()
-    result.origCallback = callback
+    when defined(js) or defined(emscripten):
+        result.origCallback = proc() =
+            handleJSExceptions:
+                callback()
+    else:
+        result.origCallback = callback
+
     when defined(js):
-        result.callback = callback
+        result.callback = result.origCallback
     else:
         let t = result
         GC_ref(t)
