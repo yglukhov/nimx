@@ -11,6 +11,7 @@ import linkage_details
 import portable_gl
 import screen
 import emscripten
+import jsbind
 
 import private.js_vk_map
 
