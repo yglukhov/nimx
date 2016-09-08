@@ -29,6 +29,7 @@ type TextField* = ref object of Control
     selectionEndLine: int
     textSelection: Slice[int]
     multiline*: bool
+    hasBezel*: bool
 
 template len[T](s: Slice[T]): T = s.b - s.a
 
@@ -80,6 +81,7 @@ method init*(t: TextField, r: Rect) =
     t.editable = true
     t.textSelection = -1 .. -1
     t.textColor = newGrayColor(0.0)
+    t.hasBezel = true
     t.mText = newFormattedText()
     t.mText.verticalAlignment = vaCenter
 
@@ -191,7 +193,7 @@ proc drawSelection(t: TextField) {.inline.} =
 
 method draw*(t: TextField, r: Rect) =
     let c = currentContext()
-    if t.editable:
+    if t.editable and t.hasBezel:
         c.fillColor = whiteColor()
         c.strokeColor = newGrayColor(0.74)
         c.strokeWidth = 1.0
@@ -211,7 +213,8 @@ method draw*(t: TextField, r: Rect) =
     c.drawText(pt, t.mText)
 
     if t.isEditing:
-        t.drawFocusRing()
+        if t.hasBezel:
+            t.drawFocusRing()
         drawCursorWithRect(t.cursorRect())
 
 method onTouchEv*(t: TextField, e: var Event): bool =
