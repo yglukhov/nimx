@@ -12,7 +12,7 @@ when not defined(windows):
         else:
             discard
 
-    when not compileOption("noMain"):
+    when not compileOption("noMain") and not defined(nimxAvoidSDL):
         {.error: "Please run Nim with --noMain flag.".}
 
     when defined(ios):

@@ -172,3 +172,20 @@ method resizeSubviews*(v: ScrollView, oldSize: Size) =
     procCall v.View.resizeSubviews(oldSize)
     v.recalcScrollKnobSizes()
     v.recalcScrollbarKnobPositions()
+
+proc scrollToRect*(v: ScrollView, r: Rect) =
+    ## If necessary scrolls to reveal the rect `r` which is in content bounds
+    ## coordinates.
+    let cvBounds = v.clipView.bounds
+    var o = cvBounds.origin
+    if o.x > r.x:
+        o.x = r.x
+    elif cvBounds.maxX < r.maxX:
+        o.x = r.maxX - cvBounds.width
+    if o.y > r.y:
+        o.y = r.y
+    elif cvBounds.maxY < r.maxY:
+        o.y = r.maxY - cvBounds.height
+
+    v.clipView.setBoundsOrigin(o)
+    v.recalcScrollbarKnobPositions()

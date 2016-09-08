@@ -48,7 +48,7 @@ elif (defined(macosx) or defined(ios)) and defined(nimxAvoidSDL):
     """.}
     proc cftimerCallback(cfTimer: pointer, t: Timer) {.cdecl.} =
         if not t.isPeriodic:
-            t.timer = 0
+            t.timer = nil
         t.callback()
 
     proc schedule(t: Timer) =
@@ -71,7 +71,7 @@ elif (defined(macosx) or defined(ios)) and defined(nimxAvoidSDL):
         """.}
         t.timer = cfTimer
 
-    template cancel(t: Timer) =
+    proc cancel(t: Timer) {.inline.} =
         let cfTimer = t.timer
         {.emit: """
         CFRunLoopTimerInvalidate(`cfTimer`);
@@ -126,9 +126,15 @@ proc clear*(t: Timer) =
 proc newTimer*(interval: float, repeat: bool, callback: proc()): Timer =
     assert(not callback.isNil)
     result.new()
-    result.origCallback = callback
+    when defined(js) or defined(emscripten):
+        result.origCallback = proc() =
+            handleJSExceptions:
+                callback()
+    else:
+        result.origCallback = callback
+
     when defined(js):
-        result.callback = callback
+        result.callback = result.origCallback
     else:
         let t = result
         GC_ref(t)

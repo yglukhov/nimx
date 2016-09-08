@@ -9,6 +9,7 @@ import portable_gl
 import opengl
 import event
 import private.js_vk_map
+import jsbind
 
 type JSCanvasWindow* = ref object of Window
     renderingContext: GraphicsContext
@@ -96,31 +97,25 @@ proc eventLocationFromJSEvent(e: dom.Event, c: Element): Point =
 
 proc setupEventHandlersForCanvas(w: JSCanvasWindow, c: Element) =
     let onmousedown = proc (e: dom.Event) =
-        try:
+        handleJSExceptions:
             var evt = newMouseDownEvent(eventLocationFromJSEvent(e, c), buttonCodeFromJSEvent(e))
             evt.window = w
             discard mainApplication().handleEvent(evt)
-        finally:
-            discard
 
     let onmouseup = proc (e: dom.Event) =
-        try:
+        handleJSExceptions:
             var evt = newMouseUpEvent(eventLocationFromJSEvent(e, c), buttonCodeFromJSEvent(e))
             evt.window = w
             discard mainApplication().handleEvent(evt)
-        finally:
-            discard
 
     let onmousemove = proc (e: dom.Event) =
-        try:
+        handleJSExceptions:
             var evt = newMouseMoveEvent(eventLocationFromJSEvent(e, c))
             evt.window = w
             discard mainApplication().handleEvent(evt)
-        finally:
-            discard
 
     let onscroll = proc (e: dom.Event): bool =
-        try:
+        handleJSExceptions:
             var evt = newEvent(etScroll, eventLocationFromJSEvent(e, c))
             var x, y: Coord
             {.emit: """
@@ -131,11 +126,9 @@ proc setupEventHandlersForCanvas(w: JSCanvasWindow, c: Element) =
             evt.offset.y = y
             evt.window = w
             result = not mainApplication().handleEvent(evt)
-        finally:
-            discard
 
     let onresize = proc (e: dom.Event): bool =
-        try:
+        handleJSExceptions:
             var sizeChanged = false
             var newWidth, newHeight : Coord
             {.emit: """
@@ -159,20 +152,14 @@ proc setupEventHandlersForCanvas(w: JSCanvasWindow, c: Element) =
                 evt.position.x = newWidth
                 evt.position.y = newHeight
                 discard mainApplication().handleEvent(evt)
-        finally:
-            discard
 
     let onfocus = proc()=
-        try:
+        handleJSExceptions:
             w.onFocusChange(true)
-        finally:
-            discard
 
     let onblur = proc()=
-        try:
+        handleJSExceptions:
             w.onFocusChange(false)
-        finally:
-            discard
 
     # TODO: Remove this hack, when handlers definition in dom.nim fixed.
     {.emit: """
@@ -189,8 +176,9 @@ proc setupEventHandlersForCanvas(w: JSCanvasWindow, c: Element) =
 proc requestAnimFrame(w: dom.Window, p: proc() {.nimcall.}) {.importcpp.}
 
 proc animFrame() =
-    mainApplication().runAnimations()
-    mainApplication().drawWindows()
+    handleJSExceptions:
+        mainApplication().runAnimations()
+        mainApplication().drawWindows()
     dom.window.requestAnimFrame(animFrame)
 
 proc initWithCanvas*(w: JSCanvasWindow, canvas: Element) =
@@ -292,10 +280,8 @@ proc sendInputEvent(wnd: JSCanvasWindow, evt: dom.Event) =
 
 method startTextInput*(wnd: JSCanvasWindow, r: Rect) =
     let oninput = proc(evt: dom.Event) =
-        try:
+        handleJSExceptions:
             wnd.sendInputEvent(evt)
-        finally:
-            discard
 
     {.emit: """
     if (window.__nimx_textinput === undefined) {
@@ -319,4 +305,5 @@ method stopTextInput*(w: JSCanvasWindow) =
 
 template runApplication*(code: typed): typed =
     dom.window.onload = proc (e: dom.Event) =
-        code
+        handleJSExceptions:
+            code

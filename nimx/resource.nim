@@ -12,9 +12,7 @@ when not defined(js):
     import os
     import sdl2
 else:
-    # What a hacky way to import ospaths...
-    include "system/inclrtl"
-    include ospaths
+    import ospaths
 
 type ResourceCache* = ref object
     cache: Table[string, Variant]
@@ -209,14 +207,16 @@ proc loadResourceAsync*(resourceName: string, handler: proc(s: Stream)) =
     elif defined(emscripten):
         emscripten_async_wget_data(pathForResource(resourceName),
         proc (data: pointer, sz: cint) =
-            var str = newString(sz)
-            copyMem(addr str[0], data, sz)
-            let s = newStringStream(str)
-            handler(s)
+            handleJSExceptions:
+                var str = newString(sz)
+                copyMem(addr str[0], data, sz)
+                let s = newStringStream(str)
+                handler(s)
         ,
         proc () =
-            logi "WARNING: Resource not found: ", resourceName
-            handler(nil)
+            handleJSExceptions:
+                logi "WARNING: Resource not found: ", resourceName
+                handler(nil)
         )
     else:
         handler(streamForResourceWithName(resourceName))
@@ -226,9 +226,8 @@ proc loadJsonResourceAsync*(resourceName: string, handler: proc(j: JsonNode)) =
     if j.isNil:
         when defined js:
             let reqListener = proc(data: ref RootObj) =
-                handleJSExceptions:
-                    var jsonstring = cast[cstring](data)
-                    handler(parseJson($jsonstring))
+                var jsonstring = cast[cstring](data)
+                handler(parseJson($jsonstring))
             loadJSResourceAsync(resourceName, "text", nil, nil, reqListener)
         else:
             loadResourceAsync resourceName, proc(s: Stream) =

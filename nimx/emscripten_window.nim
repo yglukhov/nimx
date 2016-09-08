@@ -11,6 +11,7 @@ import linkage_details
 import portable_gl
 import screen
 import emscripten
+import jsbind
 
 import private.js_vk_map
 
@@ -232,30 +233,42 @@ method stopTextInput*(w: EmscriptenWindow) =
     }
     """)
 
-when not defined(useRealtimeGC):
-    var lastCollectionTime = 0.0
+var lastFullCollectTime = 0.0
+const fullCollectThreshold = 128 * 1024 * 1024 # 128 Megabytes
 
-proc mainLoop() {.cdecl.} =
+proc nimxMainLoopInner() {.EMSCRIPTEN_KEEPALIVE.} =
     mainApplication().runAnimations()
     mainApplication().drawWindows()
 
-    when defined(useRealtimeGC):
-        GC_step(1000, true)
+    let t = epochTime()
+    if t > lastFullCollectTime + 10 and getOccupiedMem() > fullCollectThreshold:
+        GC_enable()
+        GC_fullCollect()
+        GC_disable()
+        lastFullCollectTime = t
     else:
-        {.hint: "It is recommended to compile your project with -d:useRealtimeGC for emscripten".}
-        let t = epochTime()
-        if t > lastCollectionTime + 10:
-            GC_enable()
-            GC_fullCollect()
-            GC_disable()
-            lastCollectionTime = t
+        when defined(useRealtimeGC):
+            GC_step(1000, true)
+        else:
+            {.hint: "It is recommended to compile your project with -d:useRealtimeGC for emscripten".}
 
 var initFunc : proc()
 
 var initDone = false
 proc mainLoopPreload() {.cdecl.} =
     if initDone:
-        mainLoop()
+        when defined(release):
+            handleJSExceptions:
+                nimxMainLoopInner()
+        else:
+            discard EM_ASM_INT """
+            try {
+                _nimxMainLoopInner();
+            }
+            catch(e) {
+                _nimem_e(e);
+            }
+            """
     else:
         let r = EM_ASM_INT """
         if (document.readyState === 'complete') {

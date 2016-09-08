@@ -17,6 +17,7 @@ type
         shadowAttrs: seq[int]
         strokeAttrs: seq[int]
         shadowMultiplier*: Size
+        mLineSpacing: float32
 
     LineInfo* = object
         startByte: int
@@ -70,6 +71,12 @@ proc `text=`*(t: FormattedText, s: string) =
 
 template text*(t: FormattedText): string = t.mText
 
+proc `lineSpacing=`*(t: FormattedText, s: float32) =
+    t.mLineSpacing = s
+    t.cacheValid = false
+
+template lineSpacing*(t: FormattedText): float32 = t.mLineSpacing
+
 proc newFormattedText*(s: string = ""): FormattedText =
     result.new()
     result.mText = s
@@ -78,6 +85,7 @@ proc newFormattedText*(s: string = ""): FormattedText =
     result.shadowAttrs = @[]
     result.strokeAttrs = @[]
     result.shadowMultiplier = newSize(1, 1)
+    result.mLineSpacing = 2
 
 proc updateCache(t: FormattedText) =
     t.cacheValid = true
@@ -108,14 +116,18 @@ proc updateCache(t: FormattedText) =
     var boundingWidth = t.mBoundingSize.width
     if boundingWidth == 0: boundingWidth = Inf
 
-    const lineSpacing = 2'f32
-
     var c: Rune
     let textLen = t.mText.len
     var curRune = 0
 
     if t.mAttributes[0].strokeSize > 0: t.strokeAttrs.add(0)
     if t.mAttributes[0].shadowColor.a != 0: t.shadowAttrs.add(0)
+
+    template mustBreakLine(): bool =
+        c == Rune('\l')
+
+    template canBreakLine(): bool =
+        t.canBreakOnAnyChar or c == Rune(' ') or c == Rune('-') or i == textLen or mustBreakLine()
 
     while i < textLen:
         let font = t.mAttributes[curAttrIndex].font
@@ -124,13 +136,6 @@ proc updateCache(t: FormattedText) =
         fastRuneAt(t.mText, i, c, true)
 
         let runeWidth = font.getAdvanceForRune(c)
-
-        template mustBreakLine(): bool =
-            c == Rune('\l')
-
-        template canBreakLine(): bool =
-            t.canBreakOnAnyChar or c == Rune(' ') or c == Rune('-') or i == textLen or mustBreakLine()
-
 
         curWordWidth += runeWidth
         curWordHeight = max(curWordHeight, font.height)
@@ -146,7 +151,7 @@ proc updateCache(t: FormattedText) =
                 if mustBreakLine():
                     let tmp = curLineInfo # JS bug workaround. Copy to temp object.
                     t.lines.add(tmp)
-                    t.mTotalHeight += curLineInfo.height + lineSpacing
+                    t.mTotalHeight += curLineInfo.height + t.mLineSpacing
                     curLineInfo.top = t.mTotalHeight
                     curLineInfo.startByte = i
                     curLineInfo.startRune = curRune + 1
@@ -158,7 +163,7 @@ proc updateCache(t: FormattedText) =
                 # Complete current line
                 let tmp = curLineInfo # JS bug workaround. Copy to temp object.
                 t.lines.add(tmp)
-                t.mTotalHeight += curLineInfo.height + lineSpacing
+                t.mTotalHeight += curLineInfo.height + t.mLineSpacing
                 curLineInfo.top = t.mTotalHeight
                 curLineInfo.startByte = curWordStartByte
                 curLineInfo.startRune = curWordStartRune
@@ -184,15 +189,17 @@ proc updateCache(t: FormattedText) =
 
         inc curRune
 
-    if curLineInfo.width > 0 or t.lines.len == 0:
+    if curLineInfo.width > 0 or t.lines.len == 0 or mustBreakLine():
+        if curLineInfo.height == 0:
+            curLineInfo.height = t.mAttributes[curAttrIndex].font.height
         let tmp = curLineInfo # JS bug workaround. Copy to temp object.
         t.lines.add(tmp)
-        t.mTotalHeight += curLineInfo.height + lineSpacing
+        t.mTotalHeight += curLineInfo.height + t.mLineSpacing
 
     # echo "Cache updated for ", t.mText
     # echo "Attributes: ", t.mAttributes
     # echo "lines: ", t.lines
-    #echo "shadow attrs: ", t.shadowAttrs
+    # echo "shadow attrs: ", t.shadowAttrs
 
 template updateCacheIfNeeded(t: FormattedText) =
     if not t.cacheValid: t.updateCache()
@@ -235,6 +242,10 @@ proc lineBaseline*(t: FormattedText, ln: int): float32 =
 proc hasShadow*(t: FormattedText): bool =
     t.updateCacheIfNeeded()
     t.shadowAttrs.len > 0
+
+proc totalHeight*(t: FormattedText): float32 =
+    t.updateCacheIfNeeded()
+    t.mTotalHeight
 
 proc prepareAttributes(t: FormattedText, a: int): int =
     result = lowerBoundIt(t.mAttributes, 0, t.mAttributes.high, cmp(it.startRune, a) < 0)
@@ -436,6 +447,7 @@ proc getClosestCursorPositionToPointInLine*(t: FormattedText, line: int, p: Poin
         inc pos
 
     position = pos + t.lines[line].startRune
+    if position > 0: dec position
     offset = totalWidth
 
 proc lineAtHeight*(t: FormattedText, height: Coord): int =

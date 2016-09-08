@@ -258,8 +258,8 @@ proc handleEvent(event: ptr sdl2.Event): Bool32 =
     result = True32
 
 method onResize*(w: SdlWindow, newSize: Size) =
-    let sf = screenScaleFactor()
-    glViewport(0, 0, GLSizei(newSize.width * sf), GLsizei(newSize.height * sf))
+    w.pixelRatio = screenScaleFactor()
+    glViewport(0, 0, GLSizei(newSize.width * w.pixelRatio), GLsizei(newSize.height * w.pixelRatio))
     procCall w.Window.onResize(newSize)
 
 when false:
