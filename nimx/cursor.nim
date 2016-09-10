@@ -2,6 +2,9 @@ when defined(js) or defined(emscripten):
     import jsbind
     when defined(emscripten):
         import emscripten
+elif defined(macosx):
+    import private.objc_appkit
+    enableObjC()
 else:
     import sdl2
 
@@ -23,6 +26,8 @@ type
     Cursor* = ref object
         when defined(js) or defined(emscripten):
             c: jsstring
+        elif defined(macosx):
+            c: pointer
         else:
             c: CursorPtr
 
@@ -41,6 +46,24 @@ when defined(js) or defined(emscripten):
         of ckSizeAll: "all-scroll"
         of ckNotAllowed: "not-allowed"
         of ckHand: "pointer"
+elif defined(macosx):
+    proc NSCursorOfKind(c: CursorKind): NSCursor =
+        case c
+        of ckArrow: arrowCursor()
+        of ckText: IBeamCursor()
+        of ckWait: arrowCursor()
+        of ckCrosshair: crosshairCursor()
+        of ckWaitArrow: arrowCursor()
+        of ckSizeTRBL: arrowCursor()
+        of ckSizeTLBR: arrowCursor()
+        of ckSizeHorizontal: resizeLeftRightCursor()
+        of ckSizeVertical: resizeUpDownCursor()
+        of ckSizeAll: arrowCursor()
+        of ckNotAllowed: operationNotAllowedCursor()
+        of ckHand: pointingHandCursor()
+
+    proc finalizeCursor(c: Cursor) =
+        cast[NSCursor](c.c).release()
 else:
     proc cursorKindToSdl(c: CursorKind): SystemCursor =
         case c
@@ -66,7 +89,10 @@ proc newCursor*(k: CursorKind): Cursor =
         result.c = cursorKindToCSSName(k)
     else:
         result.new(finalizeCursor)
-        result.c = createSystemCursor(cursorKindToSdl(k))
+        when defined(macosx):
+            result.c = NSCursorOfKind(k).retain()
+        else:
+            result.c = createSystemCursor(cursorKindToSdl(k))
 
 var gCursor: Cursor
 proc currentCursor*(): Cursor =
@@ -85,5 +111,7 @@ proc setCurrent*(c: Cursor) =
         discard EM_ASM_INT("""
         document.body.style.cursor = Pointer_stringify($0);
         """, cstring(c.c))
+    elif defined(macosx):
+        cast[NSCursor](c.c).setCurrent()
     else:
         setCursor(c.c)

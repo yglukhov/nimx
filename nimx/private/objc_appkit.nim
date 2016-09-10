@@ -163,3 +163,25 @@ var NSPasteboardTypeColor* {.importc, appkit.} : NSString
 var NSPasteboardTypeSound* {.importc, appkit.} : NSString
 var NSPasteboardTypeMultipleTextSelection* {.importc, appkit.} : NSString
 var NSPasteboardTypeFindPanelSearchOptions* {.importc, appkit.} : NSString
+
+
+type NSCursor* {.appkitType.} = ptr object of NSObject
+proc arrowCursor*(): NSCursor {.importobjc: "NSCursor arrowCursor", nodecl.}
+proc IBeamCursor*(): NSCursor {.importobjc: "NSCursor IBeamCursor", nodecl.}
+proc crosshairCursor*(): NSCursor {.importobjc: "NSCursor crosshairCursor", nodecl.}
+proc closedHandCursor*(): NSCursor {.importobjc: "NSCursor closedHandCursor", nodecl.}
+proc pointingHandCursor*(): NSCursor {.importobjc: "NSCursor pointingHandCursor", nodecl.}
+proc resizeLeftCursor*(): NSCursor {.importobjc: "NSCursor resizeLeftCursor", nodecl.}
+proc resizeRightCursor*(): NSCursor {.importobjc: "NSCursor resizeRightCursor", nodecl.}
+proc resizeLeftRightCursor*(): NSCursor {.importobjc: "NSCursor resizeLeftRightCursor", nodecl.}
+proc resizeUpCursor*(): NSCursor {.importobjc: "NSCursor resizeUpCursor", nodecl.}
+proc resizeDownCursor*(): NSCursor {.importobjc: "NSCursor resizeDownCursor", nodecl.}
+proc resizeUpDownCursor*(): NSCursor {.importobjc: "NSCursor resizeUpDownCursor", nodecl.}
+proc disappearingItemCursor*(): NSCursor {.importobjc: "NSCursor disappearingItemCursor", nodecl.}
+proc IBeamCursorForVerticalLayout*(): NSCursor {.importobjc: "NSCursor IBeamCursorForVerticalLayout", nodecl.}
+proc operationNotAllowedCursor*(): NSCursor {.importobjc: "NSCursor operationNotAllowedCursor", nodecl.}
+proc dragLinkCursor*(): NSCursor {.importobjc: "NSCursor dragLinkCursor", nodecl.}
+proc dragCopyCursor*(): NSCursor {.importobjc: "NSCursor dragCopyCursor", nodecl.}
+proc contextualMenuCursor*(): NSCursor {.importobjc: "NSCursor contextualMenuCursor", nodecl.}
+
+proc setCurrent*(c: NSCursor) {.importobjc: "set", nodecl.}
