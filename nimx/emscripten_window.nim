@@ -94,13 +94,26 @@ proc onBlur(eventType: cint, keyEvent: ptr EmscriptenFocusEvent, userData: point
 proc onResize(eventType: cint, uiEvent: ptr EmscriptenUiEvent, userData: pointer): EM_BOOL {.cdecl.} =
     let w = cast[EmscriptenWindow](userData)
 
+    let aspectRatio = w.bounds.width / w.bounds.height
+
     const maxWidth = 1280
-    const maxHeight = 800
+    const maxHeight = 720
 
     var width = uiEvent.documentBodyClientWidth.cdouble
     var height = uiEvent.documentBodyClientHeight.cdouble
-    if width > maxWidth: width = maxWidth
-    if height > maxHeight: height = maxHeight
+
+    let screenAspect = width / height;
+
+    var scaleFactor: Coord
+    if (screenAspect > aspectRatio):
+        scaleFactor = height / maxHeight;
+    else:
+        scaleFactor = width / maxWidth;
+
+    if scaleFactor > 1: scaleFactor = 1
+
+    width = maxWidth * scaleFactor
+    height = maxHeight * scaleFactor
 
     discard emscripten_set_element_css_size(w.canvasId, width, height)
     discard EM_ASM_INT("""
