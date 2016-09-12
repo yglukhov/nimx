@@ -58,8 +58,10 @@ else:
 
 
 template charHeightForSize(s: float): float =
-    if s > 128: 128
-    else: 64
+    #if s > 128: 128
+    #else: 64
+    64 # TODO: Think some more about df generation because its still slow for
+       # 128 glyph size
 
 template scaleForSize(s: float): float = s / charHeightForSize(s)
 
