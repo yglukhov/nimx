@@ -130,7 +130,7 @@ proc startRegisteredTests*() =
 
     var curTestSuite = 0
     var tim : Timer
-    tim = setInterval(0.5, proc() =
+    tim = setInterval(0.5) do():
         logi "RUNNING ", registeredTests[curTestSuite][testRunnerContext.curTest].astrepr
         registeredTests[curTestSuite][testRunnerContext.curTest].code()
         inc testRunnerContext.curTest
@@ -140,4 +140,3 @@ proc startRegisteredTests*() =
             if curTestSuite == registeredTests.len:
                 tim.clear()
                 testRunnerContext = nil
-    )
