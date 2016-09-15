@@ -83,6 +83,11 @@ method draw(v: AnimationSampleView, r: Rect) =
     c.withTransform tmpTransform:
         c.drawRoundedRect(newRect(0, 0, 100, 200), 20)
 
+    c.strokeWidth = 10
+    c.strokeColor = blackColor()
+    c.fillColor = clearColor()
+    c.drawArc(newPoint(100, 300), 50, v.rotation, v.rotation + Pi / 2)
+
 method viewWillMoveToWindow*(v: AnimationSampleView, w: Window) =
     if w.isNil:
         v.animation.cancel()

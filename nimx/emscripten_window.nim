@@ -91,16 +91,39 @@ proc onBlur(eventType: cint, keyEvent: ptr EmscriptenFocusEvent, userData: point
     w.onFocusChange(false)
     result = 0
 
-proc onResize(eventType: cint, uiEvent: ptr EmscriptenUiEvent, userData: pointer): EM_BOOL {.cdecl.} =
-    let w = cast[EmscriptenWindow](userData)
+proc getDocumentSize(width, height: var float32) {.inline.} =
+    discard EM_ASM_INT("""
+        var w = window;
+        var d = document;
+        var e = d.documentElement;
+        var g = d.getElementsByTagName('body')[0];
+        var x = w.innerWidth || e.clientWidth || g.clientWidth;
+        var y = w.innerHeight|| e.clientHeight|| g.clientHeight;
+        setValue($0, x, 'float');
+        setValue($1, y, 'float');
+    """, addr width, addr height)
+
+proc updateCanvasSize(w: EmscriptenWindow) =
+    let aspectRatio = w.bounds.width / w.bounds.height
 
     const maxWidth = 1280
-    const maxHeight = 800
+    const maxHeight = 720
 
-    var width = uiEvent.documentBodyClientWidth.cdouble
-    var height = uiEvent.documentBodyClientHeight.cdouble
-    if width > maxWidth: width = maxWidth
-    if height > maxHeight: height = maxHeight
+    var width, height: float32
+    getDocumentSize(width, height)
+
+    let screenAspect = width / height;
+
+    var scaleFactor: Coord
+    if (screenAspect > aspectRatio):
+        scaleFactor = height / maxHeight;
+    else:
+        scaleFactor = width / maxWidth;
+
+    if scaleFactor > 1: scaleFactor = 1
+
+    width = maxWidth * scaleFactor
+    height = maxHeight * scaleFactor
 
     discard emscripten_set_element_css_size(w.canvasId, width, height)
     discard EM_ASM_INT("""
@@ -110,6 +133,10 @@ proc onResize(eventType: cint, uiEvent: ptr EmscriptenUiEvent, userData: pointer
     """, cstring(w.canvasId), width, height)
 
     w.onResize(newSize(width, height))
+
+proc onResize(eventType: cint, uiEvent: ptr EmscriptenUiEvent, userData: pointer): EM_BOOL {.cdecl.} =
+    let w = cast[EmscriptenWindow](userData)
+    w.updateCanvasSize()
     result = 0
 
 proc onContextLost(eventType: cint, reserved: pointer, userData: pointer): EM_BOOL {.cdecl.} =
@@ -164,7 +191,7 @@ proc initCommon(w: EmscriptenWindow, r: view.Rect) =
 
     #w.enableAnimation(true)
     mainApplication().addWindow(w)
-    w.onResize(r.size)
+    w.updateCanvasSize()
 
 proc initFullscreen*(w: EmscriptenWindow) =
     w.initCommon(newRect(0, 0, 800, 600))

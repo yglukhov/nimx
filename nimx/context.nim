@@ -4,7 +4,7 @@ import system_logger
 import matrixes
 import font
 import image
-import unicode
+import math
 import portable_gl
 import nimsl.nimsl
 
@@ -430,6 +430,50 @@ proc drawLine*(c: GraphicsContext, pointFrom: Point, pointTo: Point) =
         setUniform("uStrokeColor", c.strokeColor)
         setUniform("A", pointFrom)
         setUniform("B", pointTo)
+
+var arcComposition = newComposition """
+uniform float uStrokeWidth;
+uniform vec4 uStrokeColor;
+uniform vec4 uFillColor;
+uniform float uStartAngle;
+uniform float uEndAngle;
+
+void compose() {
+    vec2 center = bounds.xy + bounds.zw / 2.0;
+    float radius = min(bounds.z, bounds.w) / 2.0 - 1.0;
+    float centerDist = distance(vPos, center);
+    vec2 delta = vPos - center;
+    float angle = atan(delta.y, delta.x);
+    angle += step(angle, 0.0) * PI * 2.0;
+
+    float angleDist1 = step(step(angle, uStartAngle) + step(uEndAngle, angle), 0.0);
+    angle += PI * 2.0;
+    float angleDist2 = step(step(angle, uStartAngle) + step(uEndAngle, angle), 0.0);
+
+    drawInitialShape((centerDist - radius) / radius, uStrokeColor);
+    drawShape((centerDist - radius + uStrokeWidth) / radius, uFillColor);
+    gl_FragColor.a *= max(angleDist1, angleDist2);
+}
+"""
+
+proc drawArc*(c: GraphicsContext, center: Point, radius: Coord, fromAngle, toAngle: Coord) =
+    var fromAngle = fromAngle
+    var toAngle = toAngle
+    fromAngle = fromAngle mod (2 * Pi)
+    toAngle = toAngle mod (2 * Pi)
+    if fromAngle < 0: fromAngle += Pi * 2
+    if toAngle < 0: toAngle += Pi * 2
+    if toAngle < fromAngle:
+         toAngle += Pi * 2
+
+    let rad = radius + 1
+    let r = newRect(center.x - rad, center.y - rad, rad * 2, rad * 2)
+    arcComposition.draw r:
+        setUniform("uStrokeWidth", c.strokeWidth)
+        setUniform("uFillColor", c.fillColor)
+        setUniform("uStrokeColor", if c.strokeWidth == 0: c.fillColor else: c.strokeColor)
+        setUniform("uStartAngle", fromAngle)
+        setUniform("uEndAngle", toAngle)
 
 # TODO: This should probaly be a property of current context!
 var clippingDepth: GLint = 0

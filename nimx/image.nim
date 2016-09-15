@@ -512,9 +512,9 @@ when defined(emscripten):
         }
         """, cast[pointer](ctx), cstring(ctx.path))
 
-
 registerResourcePreloader(["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga", "pvr"]) do(name: string, callback: proc(i: SelfContainedImage)):
     when defined(js):
+        let path = pathForResource(name)
         proc handler(r: ref RootObj) =
             var onImLoad = proc (im: ref RootObj) =
                 handleJSExceptions:
@@ -522,6 +522,7 @@ registerResourcePreloader(["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga", "p
                     {.emit: "`w` = `im`.width; `h` = `im`.height;".}
                     let image = imageWithSize(newSize(w, h))
                     {.emit: "`image`.__image = `im`;".}
+                    image.setFilePath(path)
                     callback(image)
             {.emit:"""
             var im = new Image();

@@ -447,7 +447,7 @@ proc getClosestCursorPositionToPointInLine*(t: FormattedText, line: int, p: Poin
         inc pos
 
     position = pos + t.lines[line].startRune
-    if position > 0: dec position
+    if line < t.lines.high and position > 0: dec position
     offset = totalWidth
 
 proc lineAtHeight*(t: FormattedText, height: Coord): int =
