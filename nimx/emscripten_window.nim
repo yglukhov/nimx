@@ -10,8 +10,7 @@ import app
 import linkage_details
 import portable_gl
 import screen
-import emscripten
-import jsbind
+import jsbind, jsbind.emscripten
 
 import private.js_vk_map
 

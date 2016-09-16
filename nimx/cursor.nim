@@ -1,7 +1,7 @@
 when defined(js) or defined(emscripten):
     import jsbind
     when defined(emscripten):
-        import emscripten
+        import jsbind.emscripten
 elif defined(macosx):
     import private.objc_appkit
     enableObjC()

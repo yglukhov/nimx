@@ -429,7 +429,7 @@ when asyncResourceLoad:
         performOnMainThread(cast[proc(data: pointer){.cdecl, gcsafe.}](p), ctx)
 
 when defined(emscripten):
-    import emscripten
+    import jsbind.emscripten
 
     type ImageLoadingCtx = ref object
         name, path: string
@@ -507,7 +507,7 @@ when defined(emscripten):
                 _nimxImageLoaded($0);
             }
             catch(e) {
-                _nimem_e(e); // This function is defined by `emscripten.nim`
+                _nimem_e(e); // This function is defined in `jsbind.emscripten`
             }
         }
         """, cast[pointer](ctx), cstring(ctx.path))

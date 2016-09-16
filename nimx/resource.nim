@@ -195,7 +195,7 @@ when defined(js) or defined(emscripten):
         oReq.send()
 
 when defined(emscripten):
-    import emscripten
+    import jsbind.emscripten
 
 proc loadResourceAsync*(resourceName: string, handler: proc(s: Stream)) =
     when defined(js):
