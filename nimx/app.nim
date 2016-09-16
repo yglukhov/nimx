@@ -3,6 +3,7 @@ import sequtils
 import abstract_window
 import event
 import window_event_handling
+import logging
 
 
 type EventFilterControl* = enum
@@ -33,6 +34,13 @@ proc addWindow*(a: Application, w: Window) =
     a.windows.add(w)
 
 proc handleEvent*(a: Application, e: var Event): bool =
+    if numberOfActiveTouches() == 0 and e.kind == etMouse and e.buttonState == bsUp:
+        # There may be cases when mouse up is not paired with mouse down.
+        # This behavior observed in Safari, when clicking on canvas in menu-modal
+        # mode. We just ignore such events.
+        warn "Mouse up event ignored"
+        return false
+
     incrementActiveTouchesIfNeeded(e)
 
     var control = efcContinue
