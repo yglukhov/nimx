@@ -95,6 +95,15 @@ proc replaceInStr(in_str, wh_str : string, by_str: string = ""): string =
 proc getEnvErrorMsg(env: string): string =
     result = "\n Environment variable [ " & env & " ] is not set."
 
+const xCodeApp = "/Applications/Xcode.app"
+
+proc macOSSDKPath*(version: string): string =
+    result = xCodeApp/"Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX" & version & ".sdk"
+proc iOSSDKPath*(version: string): string =
+    result = xCodeApp/"Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS" & version & ".sdk"
+proc iOSSimulatorSDKPath*(version: string): string =
+    result = xCodeApp/"Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator" & version & ".sdk"
+
 proc newBuilder*(platform: string): Builder =
     result.new()
     let b = result
@@ -170,9 +179,17 @@ proc newBuilder*(platform: string): Builder =
         b.appIconName = "MyGame.ico"
 
     b.macOSSDKVersion = "10.11"
+    for v in ["10.7", "10.8", "10.9", "10.10", "10.11", "10.12", "10.13"]:
+        if dirExists(macOSSDKPath(v)):
+            b.macOSSDKVersion = v
+            break
     b.macOSMinVersion = "10.7"
 
     b.iOSSDKVersion = "9.3"
+    for v in ["9.3"]:
+        if dirExists(iOSSDKPath(v)):
+            b.iOSSDKVersion = v
+            break
     b.iOSMinVersion = b.iOSSDKVersion
 
     # Simulator device identifier should be set to run the simulator.
@@ -514,11 +531,9 @@ proc build*(b: Builder) =
         b.linkerFlags.add(f)
         b.compilerFlags.add(f)
 
-    let xCodeApp = "/Applications/Xcode.app"
-
-    let macOSSDK = xCodeApp/"Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX" & b.macOSSDKVersion & ".sdk"
-    let iOSSDK = xCodeApp/"Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS" & b.iOSSDKVersion & ".sdk"
-    let iOSSimulatorSDK = xCodeApp/"Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator" & b.iOSSDKVersion & ".sdk"
+    let macOSSDK = macOSSDKPath(b.macOSSDKVersion)
+    let iOSSDK = iOSSDKPath(b.iOSSDKVersion)
+    let iOSSimulatorSDK = iOSSimulatorSDKPath(b.iOSSDKVersion)
 
     case b.platform
     of "macosx":
@@ -586,8 +601,8 @@ proc build*(b: Builder) =
         b.additionalLinkerFlags.add(["-s", "ALLOW_MEMORY_GROWTH=1"])
 
         if not b.debugMode:
-            b.additionalLinkerFlags.add("-O3")
-            b.additionalCompilerFlags.add("-O3")
+            b.additionalLinkerFlags.add("-Oz")
+            b.additionalCompilerFlags.add("-Oz")
 
     else: discard
 
