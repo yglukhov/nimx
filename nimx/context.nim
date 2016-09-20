@@ -87,6 +87,7 @@ type GraphicsContext* = ref object of RootObj
     quadIndexBuffer*: BufferRef
     gridIndexBuffer4x4: BufferRef
     singleQuadBuffer*: BufferRef
+    sharedBuffer*: BufferRef
     vertexes*: array[4 * 4 * 128, Coord]
 
 var gCurrentContext: GraphicsContext
@@ -181,6 +182,7 @@ proc newGraphicsContext*(canvas: ref RootObj = nil): GraphicsContext =
     result.quadIndexBuffer = result.createQuadIndexBuffer(128)
     result.gridIndexBuffer4x4 = result.createGridIndexBuffer(4, 4)
     result.singleQuadBuffer = result.createQuadBuffer()
+    result.sharedBuffer = result.gl.createBuffer()
 
     if gCurrentContext.isNil:
         gCurrentContext = result
@@ -290,6 +292,11 @@ void compose() {
 }
 """
 
+proc bindVertexData*(c: GraphicsContext, length: int) =
+    let gl = c.gl
+    gl.bindBuffer(gl.ARRAY_BUFFER, c.sharedBuffer)
+    gl.bufferData(gl.ARRAY_BUFFER, c.vertexes, length, gl.DYNAMIC_DRAW)
+
 proc drawImage*(c: GraphicsContext, i: Image, toRect: Rect, fromRect: Rect = zeroRect, alpha: ColorComponent = 1.0) =
     if i.isLoaded:
         var fr = newRect(0, 0, 1, 1)
@@ -344,13 +351,11 @@ proc drawNinePartImage*(c: GraphicsContext, i: Image, toRect: Rect, ml, mt, mr, 
             fuv[2] = fuv[2] - (sz.width - fromRect.maxX) / sz.width
             fuv[3] = fuv[3] - (sz.height - fromRect.maxY) / sz.height
 
-        var vertexData: array[16 * 2 * 2, GLfloat]
-
         template setVertex(index: int, x, y, u, v: GLfloat) =
-            vertexData[index * 2 * 2 + 0] = x
-            vertexData[index * 2 * 2 + 1] = y
-            vertexData[index * 2 * 2 + 2] = u
-            vertexData[index * 2 * 2 + 3] = v
+            c.vertexes[index * 2 * 2 + 0] = x
+            c.vertexes[index * 2 * 2 + 1] = y
+            c.vertexes[index * 2 * 2 + 2] = u
+            c.vertexes[index * 2 * 2 + 3] = v
 
         let duvx = fuv[2] - fuv[0]
         let duvy = fuv[3] - fuv[1]
@@ -395,8 +400,11 @@ proc drawNinePartImage*(c: GraphicsContext, i: Image, toRect: Rect, ml, mt, mr, 
         gl.enableVertexAttribArray(saPosition.GLuint)
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, c.gridIndexBuffer4x4)
 
-        gl.vertexAttribPointer(saPosition.GLuint, 4, false, 0, vertexData)
-        gl.drawElements(gl.TRIANGLE_STRIP, (4 - 1) * 4 * 2, gl.UNSIGNED_SHORT)
+        const componentsCount = 4
+        const vertexCount = (4 - 1) * 4 * 2
+        c.bindVertexData(componentsCount * vertexCount)
+        gl.vertexAttribPointer(saPosition.GLuint, componentsCount, gl.FLOAT, false, 0, 0)
+        gl.drawElements(gl.TRIANGLE_STRIP, vertexCount, gl.UNSIGNED_SHORT)
 
 var lineComposition = newComposition """
 uniform float uStrokeWidth;
