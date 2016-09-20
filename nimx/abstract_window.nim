@@ -175,3 +175,13 @@ method init*(w: Window, frame: Rect) =
     #default animation runner for window
     var defaultRunner = newAnimationRunner()
     w.addAnimationRunner(defaultRunner)
+
+method enterFullscreen*(w: Window) {.base.} = discard
+method exitFullscreen*(w: Window) {.base.} = discard
+method isFullscreen*(w: Window): bool {.base.} = discard
+
+proc toggleFullscreen*(w: Window) =
+    if w.isFullscreen:
+        w.exitFullscreen()
+    else:
+        w.enterFullscreen()

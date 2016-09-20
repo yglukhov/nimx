@@ -13,7 +13,7 @@ when defined(js):
         proc native_log(a: cstring) {.importc: "console.log".}
 elif defined(emscripten):
     when defined(runAutoTests):
-        import emscripten
+        import jsbind.emscripten
         proc native_log(a: cstring) =
             discard EM_ASM_INT("""
             var s = Pointer_stringify($0);

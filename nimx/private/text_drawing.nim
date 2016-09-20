@@ -189,13 +189,16 @@ proc drawTextBase*(c: GraphicsContext, font: Font, pt: var Point, text: string) 
 
     gl.enableVertexAttribArray(saPosition.GLuint)
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, c.quadIndexBuffer)
+    gl.bindBuffer(gl.ARRAY_BUFFER, c.sharedBuffer)
 
     var texture: TextureRef
     var newTexture: TextureRef
     var n : GLint = 0
 
     template flush() =
-        gl.vertexAttribPointer(saPosition.GLuint, 4, false, 0, c.vertexes)
+        const componentCount = 4
+        gl.bufferData(gl.ARRAY_BUFFER, c.vertexes, componentCount * n * 4, gl.DYNAMIC_DRAW)
+        gl.vertexAttribPointer(saPosition.GLuint, componentCount, gl.FLOAT, false, 0, 0)
         gl.drawElements(gl.TRIANGLES, n * 6, gl.UNSIGNED_SHORT)
 
     for ch in text.runes:

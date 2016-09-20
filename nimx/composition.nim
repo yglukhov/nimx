@@ -246,9 +246,9 @@ proc sdEllipseInRect*(pos: vec2, rect: vec4): float32 =
 
 proc insetRect*(r: vec4, by: float32): vec4 = newVec4(r.xy + by, r.zw - by * 2.0)
 
-proc vertexShader(aPosition: vec2, uModelViewProjectionMatrix: mat4, vPos: var vec2): vec4 =
-    vPos = aPosition
-    result = uModelViewProjectionMatrix * newVec4(aPosition, 0.0, 1.0);
+proc vertexShader(aPosition: vec2, uModelViewProjectionMatrix: mat4, uBounds: vec4, vPos: var vec2): vec4 =
+    vPos = uBounds.xy + aPosition * uBounds.zw
+    result = uModelViewProjectionMatrix * newVec4(vPos, 0.0, 1.0);
 
 const vertexShaderCode = getGLSLVertexShader(vertexShader)
 
@@ -503,30 +503,29 @@ template draw*(comp: var Composition, r: Rect, code: untyped): typed =
     let gl = ctx.gl
     let cc = gl.getCompiledComposition(comp)
     gl.useProgram(cc.program)
-    var points : array[8, GLfloat]
-    points[0] = r.minX; points[1] = r.minY
-    points[2] = r.minX; points[3] = r.maxY
-    points[4] = r.maxX; points[5] = r.maxY
-    points[6] = r.maxX; points[7] = r.minY
 
     overdrawValue += int(r.size.width * r.size.height)
     DIPValue += 1
 
-    const componentCount : GLint = 2
+    const componentCount = 2
+    const vertexCount = 4
+    gl.bindBuffer(gl.ARRAY_BUFFER, ctx.singleQuadBuffer)
     gl.enableVertexAttribArray(posAttr)
-    gl.vertexAttribPointer(posAttr, componentCount, false, 0, points)
+    gl.vertexAttribPointer(posAttr, componentCount, gl.FLOAT, false, 0, 0)
 
     compositionDrawingDefinitions(cc, ctx, gl)
 
     gl.uniformMatrix4fv(uniformLocation("uModelViewProjectionMatrix"), false, ctx.transform)
 
-    setUniform("bounds", r)
+    setUniform("bounds", r) # This is for fragment shader
+    setUniform("uBounds", r) # This is for vertex shader
 
     setupPosteffectUniforms(cc)
 
     block:
         code
-    gl.drawArrays(gl.TRIANGLE_FAN, 0, GLsizei(points.len / componentCount))
+    gl.drawArrays(gl.TRIANGLE_FAN, 0, vertexCount)
+    gl.bindBuffer(gl.ARRAY_BUFFER, invalidBuffer)
 
 template draw*(comp: var Composition, r: Rect): typed =
     comp.draw r:

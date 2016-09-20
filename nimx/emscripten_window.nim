@@ -10,8 +10,7 @@ import app
 import linkage_details
 import portable_gl
 import screen
-import emscripten
-import jsbind
+import jsbind, jsbind.emscripten
 
 import private.js_vk_map
 
@@ -23,16 +22,24 @@ type EmscriptenWindow* = ref object of Window
 method enableAnimation*(w: EmscriptenWindow, flag: bool) =
     discard
 
-proc getClientRectDimension(id, dim: cstring): int =
-    let r = EM_ASM_INT("""
-        return document.getElementById(Pointer_stringify($0)).getBoundingClientRect()[Pointer_stringify($1)];
-        """, id, dim)
-    result = r
+proc getCanvasDimensions(id: cstring, cssRect: var Rect, virtualSize: var Size) =
+    discard EM_ASM_INT("""
+        var c = document.getElementById(Pointer_stringify($0));
+        var r = c.getBoundingClientRect();
+        setValue($1, r.left, 'float');
+        setValue($1 + 4, r.top, 'float');
+        setValue($1 + 8, r.width, 'float');
+        setValue($1 + 12, r.height, 'float');
+        setValue($2, c.width, 'float');
+        setValue($2 + 4, c.height, 'float');
+        """, id, addr cssRect, addr virtualSize)
 
 proc eventLocationFromJSEvent(mouseEvent: ptr EmscriptenMouseEvent, w: EmscriptenWindow): Point =
-    let canvasX = getClientRectDimension(w.canvasId, "left")
-    let canvasY = getClientRectDimension(w.canvasId, "top")
-    result = newPoint(Coord(mouseEvent.targetX - canvasX), Coord(mouseEvent.targetY - canvasY))
+    var cssRect: Rect
+    var virtualSize: Size
+    getCanvasDimensions(w.canvasId, cssRect, virtualSize)
+    result.x = (Coord(mouseEvent.targetX) - cssRect.x) / cssRect.width * virtualSize.width
+    result.y = (Coord(mouseEvent.targetY) - cssRect.y) / cssRect.height * virtualSize.height
 
 proc onMouseButton(eventType: cint, mouseEvent: ptr EmscriptenMouseEvent, userData: pointer, bs: ButtonState): EM_BOOL =
     let w = cast[EmscriptenWindow](userData)
@@ -63,7 +70,14 @@ proc onMouseMove(eventType: cint, mouseEvent: ptr EmscriptenMouseEvent, userData
 
 proc onMouseWheel(eventType: cint, wheelEvent: ptr EmscriptenWheelEvent, userData: pointer): EM_BOOL {.cdecl.} =
     let w = cast[EmscriptenWindow](userData)
-    let pos = newPoint(Coord(wheelEvent.mouse.targetX), Coord(wheelEvent.mouse.targetY))
+    var cssRect: Rect
+    var virtualSize: Size
+    getCanvasDimensions(w.canvasId, cssRect, virtualSize)
+
+    var pos: Point
+    pos.x = Coord(wheelEvent.mouse.targetX) / cssRect.width * virtualSize.width
+    pos.y = Coord(wheelEvent.mouse.targetY) / cssRect.height * virtualSize.height
+
     var evt = newEvent(etScroll, pos)
     evt.window = w
     evt.offset.x = wheelEvent.deltaX.Coord
@@ -106,8 +120,8 @@ proc getDocumentSize(width, height: var float32) {.inline.} =
 proc updateCanvasSize(w: EmscriptenWindow) =
     let aspectRatio = w.bounds.width / w.bounds.height
 
-    const maxWidth = 1280
-    const maxHeight = 720
+    const maxWidth = 1920
+    const maxHeight = 1080
 
     var width, height: float32
     getDocumentSize(width, height)
@@ -120,12 +134,15 @@ proc updateCanvasSize(w: EmscriptenWindow) =
     else:
         scaleFactor = width / maxWidth;
 
-    if scaleFactor > 1: scaleFactor = 1
-
     width = maxWidth * scaleFactor
     height = maxHeight * scaleFactor
 
     discard emscripten_set_element_css_size(w.canvasId, width, height)
+
+    if scaleFactor > 1: scaleFactor = 1
+    width = maxWidth * scaleFactor
+    height = maxHeight * scaleFactor
+
     discard EM_ASM_INT("""
     var c = document.getElementById(Pointer_stringify($0));
     c.width = $1;
@@ -312,3 +329,14 @@ template runApplication*(initCode: typed): stmt =
     initFunc = proc() =
         initCode
     emscripten_set_main_loop(mainLoopPreload, 0, 1)
+
+method enterFullscreen*(w: EmscriptenWindow) =
+    discard emscripten_request_fullscreen(w.canvasId, 0)
+
+method exitFullscreen*(w: EmscriptenWindow) =
+    discard emscripten_exit_fullscreen()
+
+method isFullscreen*(w: EmscriptenWindow): bool =
+    var s: EmscriptenFullscreenChangeEvent
+    discard emscripten_get_fullscreen_status(addr s)
+    result = s.isFullscreen != 0

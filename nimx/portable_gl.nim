@@ -477,9 +477,26 @@ when defined(js):
     proc newTypedSeq(t: typedesc[int8], data: openarray[t]): seq[int8] {.importc: "new Int8Array".}
     proc newTypedSeq(t: typedesc[byte], data: openarray[t]): seq[byte] {.importc: "new Uint8Array".}
     proc newTypedSeq(t: typedesc[uint16], data: openarray[t]): seq[uint16] {.importc: "new Uint16Array".}
+
+    proc newTypedSeq(t: typedesc[float32], buffer: RootRef, offset, len: int): seq[float32] {.importc: "new Float32Array".}
+    proc newTypedSeq(t: typedesc[float64], buffer: RootRef, offset, len: int): seq[float64] {.importc: "new Float64Array".}
+    proc newTypedSeq(t: typedesc[int16], buffer: RootRef, offset, len: int): seq[int16] {.importc: "new Int16Array".}
+    proc newTypedSeq(t: typedesc[int8], buffer: RootRef, offset, len: int): seq[int8] {.importc: "new Int8Array".}
+    proc newTypedSeq(t: typedesc[byte], buffer: RootRef, offset, len: int): seq[byte] {.importc: "new Uint8Array".}
+    proc newTypedSeq(t: typedesc[uint16], buffer: RootRef, offset, len: int): seq[uint16] {.importc: "new Uint16Array".}
+
+    proc buffer[T](data: openarray[T]): RootRef {.importcpp: "#.buffer".}
     proc isTypedSeq(v: openarray): bool {.importcpp: "(#.buffer !== undefined)".}
     proc bufferDataImpl(gl: GL, target: GLenum, data: openarray, usage: GLenum) {.importcpp: "bufferData".}
     proc bufferSubDataImpl(gl: GL, target: GLenum, offset: int32, data: openarray) {.importcpp: "bufferSubData".}
+
+proc bufferData*[T](gl: GL, target: GLenum, data: openarray[T], size: int, usage: GLenum) {.inline.} =
+    assert(size <= data.len)
+    when defined(js):
+        assert(data.isTypedSeq)
+        gl.bufferDataImpl(target, newTypedSeq(T, data.buffer, 0, size), usage)
+    else:
+        glBufferData(target, GLsizei(size * sizeof(T)), cast[pointer](data), usage);
 
 proc bufferData*[T](gl: GL, target: GLenum, data: openarray[T], usage: GLenum) {.inline.} =
     when defined(js):
@@ -500,7 +517,7 @@ proc getBufferParameteriv*(gl: GL, target, value: GLenum): GLint {.inline.} =
         glGetBufferParameteriv(target, value, addr result)
 
 proc vertexAttribPointer*(gl: GL, index: GLuint, size: GLint, normalized: GLboolean,
-                        stride: GLsizei, data: openarray[GLfloat]) =
+                        stride: GLsizei, data: openarray[GLfloat]) {.deprecated.} =
     # Better dont use this proc and work with buffers yourself, because look
     # how ugly it is in js.
     when defined js:
