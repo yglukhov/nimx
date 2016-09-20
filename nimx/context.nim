@@ -86,6 +86,7 @@ type GraphicsContext* = ref object of RootObj
     alpha*: Coord
     quadIndexBuffer*: BufferRef
     gridIndexBuffer4x4: BufferRef
+    singleQuadBuffer*: BufferRef
     vertexes*: array[4 * 4 * 128, Coord]
 
 var gCurrentContext: GraphicsContext
@@ -156,6 +157,12 @@ proc createGridIndexBuffer(c: GraphicsContext, width, height: static[int]): Buff
 
     c.gl.bufferData(c.gl.ELEMENT_ARRAY_BUFFER, indexData, c.gl.STATIC_DRAW)
 
+proc createQuadBuffer(c: GraphicsContext): BufferRef =
+    result = c.gl.createBuffer()
+    c.gl.bindBuffer(c.gl.ARRAY_BUFFER, result)
+    let vertexes = [0.GLfloat, 0, 0, 1, 1, 1, 1, 0]
+    c.gl.bufferData(c.gl.ARRAY_BUFFER, vertexes, c.gl.STATIC_DRAW)
+
 proc newGraphicsContext*(canvas: ref RootObj = nil): GraphicsContext =
     result.new()
     result.gl = newGL(canvas)
@@ -173,6 +180,7 @@ proc newGraphicsContext*(canvas: ref RootObj = nil): GraphicsContext =
 
     result.quadIndexBuffer = result.createQuadIndexBuffer(128)
     result.gridIndexBuffer4x4 = result.createGridIndexBuffer(4, 4)
+    result.singleQuadBuffer = result.createQuadBuffer()
 
     if gCurrentContext.isNil:
         gCurrentContext = result
