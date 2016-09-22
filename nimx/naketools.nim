@@ -724,7 +724,7 @@ proc runAutotestsInChrome*(pathToMainHTML: string) =
     doAssert(cbin.len > 0)
     let cp = startProcess(cbin, args = ["--enable-logging=stderr", "--v=1",
         "--allow-file-access", "--allow-file-access-from-files",
-        "--disable-sandbox", "--user-data-dir",
+        "--no-sandbox", "--user-data-dir",
         pathToMainHTML])
     let so = cp.errorStream
     var line = ""
