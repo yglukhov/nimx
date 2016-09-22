@@ -709,6 +709,38 @@ proc runAutotestsInFirefox*(pathToMainHTML: string) =
 proc runAutotestsInFirefox*(b: Builder) =
     runAutotestsInFirefox(b.buildRoot / "main.html")
 
+proc chromeBin(): string =
+    when defined(macosx):
+        for c in ["/Applications/Chrome.app/Contents/MacOS/Chrome",
+                    "/Applications/Chromium.app/Contents/MacOS/Chromium"]:
+            if fileExists(c): return c
+    else:
+        for c in ["chrome", "chromium"]:
+            let f = findExe(c)
+            if f.len > 0: return f
+
+proc runAutotestsInChrome*(pathToMainHTML: string) =
+    let cbin = chromeBin()
+    doAssert(cbin.len > 0)
+    let cp = startProcess(cbin, args = ["--enable-logging=stderr", "--v=1", "--allow-file-access", "--allow-file-access-from-files", pathToMainHTML])
+    let so = cp.errorStream
+    var line = ""
+    var ok = true
+    while so.readLine(line):
+        if line.find("---AUTO-TEST-QUIT---") != -1:
+            break
+        elif line.find("---AUTO-TEST-FAIL---") != -1:
+            ok = false
+            break
+        else:
+            echo line
+    cp.kill()
+    discard cp.waitForExit()
+    doAssert(ok, "Chrome autotest failed")
+
+proc runAutotestsInChrome*(b: Builder) =
+    runAutotestsInChrome(b.buildRoot / "main.html")
+
 proc getConnectedAndroidDevices*(b: Builder): seq[string] =
     let adb = expandTilde(b.androidSdk/"platform-tools/adb")
     let logcat = startProcess(adb, args = ["devices"])
