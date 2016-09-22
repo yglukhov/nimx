@@ -418,9 +418,13 @@ proc sharedGL*(): GL = globalGL
 proc shaderInfoLog*(gl: GL, s: ShaderRef): string =
     when defined js:
         var m: cstring
-        asm """
-            `m` = `gl`.getShaderInfoLog(`s`);
-            """
+        # Chrome bug: getShaderInfoLog and getProgramInfoLog return zero terminated strings
+        {.emit:"""
+        `m` = `gl`.getShaderInfoLog(`s`);
+        while (`m`.charCodeAt(`m`.length - 1) == 0) {
+             `m` = `m`.substring(0, `m`.length - 1);
+        }
+        """.}
         result = $m
     else:
         var infoLen: GLint
@@ -435,7 +439,13 @@ proc shaderInfoLog*(gl: GL, s: ShaderRef): string =
 proc programInfoLog*(gl: GL, s: ProgramRef): string =
     when defined js:
         var m: cstring
-        asm "`m` = `gl`.getProgramInfoLog(`s`);"
+        # Chrome bug: getShaderInfoLog and getProgramInfoLog return zero terminated strings
+        {.emit:"""
+        `m` = `gl`.getProgramInfoLog(`s`);
+        while (`m`.charCodeAt(`m`.length - 1) == 0) {
+             `m` = `m`.substring(0, `m`.length - 1);
+        }
+        """.}
         result = $m
     else:
         var infoLen: GLint

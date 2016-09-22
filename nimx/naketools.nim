@@ -722,7 +722,10 @@ proc chromeBin(): string =
 proc runAutotestsInChrome*(pathToMainHTML: string) =
     let cbin = chromeBin()
     doAssert(cbin.len > 0)
-    let cp = startProcess(cbin, args = ["--enable-logging=stderr", "--v=1", "--allow-file-access", "--allow-file-access-from-files", pathToMainHTML])
+    let cp = startProcess(cbin, args = ["--enable-logging=stderr", "--v=1",
+        "--allow-file-access", "--allow-file-access-from-files",
+        "--disable-sandbox", "--user-data-dir",
+        pathToMainHTML])
     let so = cp.errorStream
     var line = ""
     var ok = true
