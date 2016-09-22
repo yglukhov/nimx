@@ -42,6 +42,7 @@ type
         backgroundColor: Color
         shadowOffset: Size
         shadowRadius: float32
+        shadowSpread: float32
         strokeSize: float32
         tracking: float32
         isTextGradient: bool
@@ -293,10 +294,12 @@ proc setTextColorInRange*(t: FormattedText, a, b: int, color1, color2: Color) =
         t.mAttributes[i].textColor2 = color2
         t.mAttributes[i].isTextGradient = true
 
-proc setShadowInRange*(t: FormattedText, a, b: int, color: Color, offset: Size) =
+proc setShadowInRange*(t: FormattedText, a, b: int, color: Color, offset: Size, radius, spread: float32) =
     for i in t.attrsInRange(a, b):
         t.mAttributes[i].shadowColor = color
         t.mAttributes[i].shadowOffset = offset
+        t.mAttributes[i].shadowRadius = radius
+        t.mAttributes[i].shadowSpread = spread
     t.cacheValid = false
 
 proc setStrokeInRange*(t: FormattedText, a, b: int, color: Color, size: float32) =
@@ -484,11 +487,12 @@ proc colorOfRuneAtPos*(t: FormattedText, pos: int): tuple[color1, color2: Color,
     result.color2 = t.mAttributes[i].textColor2
     result.isGradient = t.mAttributes[i].isTextGradient
 
-proc shadowOfRuneAtPos*(t: FormattedText, pos: int): tuple[color: Color, offset: Size, radius: float32] =
+proc shadowOfRuneAtPos*(t: FormattedText, pos: int): tuple[color: Color, offset: Size, radius, spread: float32] =
     let i = t.attrIndexForRuneAtPos(pos)
     result.color = t.mAttributes[i].shadowColor
     result.offset = t.mAttributes[i].shadowOffset
     result.radius = t.mAttributes[i].shadowRadius
+    result.spread = t.mAttributes[i].shadowSpread
 
 proc strokeOfRuneAtPos*(t: FormattedText, pos: int): tuple[color1, color2: Color, size: float32, isGradient: bool] =
     let i = t.attrIndexForRuneAtPos(pos)
@@ -509,8 +513,9 @@ proc trackingOfRuneAtPos*(t: FormattedText, pos: int): float32 =
 import nimx.context, nimx.composition
 
 
-const GRADIENT_ENABLED = 1 # OPTION_1
-const STROKE_ENABLED = 2 # OPTION_2
+const GRADIENT_ENABLED = (1 shl 0) # OPTION_1
+const STROKE_ENABLED = (1 shl 1) # OPTION_2
+const SOFT_SHADOW_ENABLED = (1 shl 2) # OPTION_3
 
 var gradientAndStrokeComposition = newComposition("""
 attribute vec4 aPosition;
@@ -538,15 +543,21 @@ void main() {
 uniform sampler2D texUnit;
 uniform vec4 fillColor;
 
-#ifdef OPTION_2
-    uniform float strokeSize;
-#endif
-
 #ifdef OPTION_1
     uniform vec4 colorFrom;
     uniform vec4 colorTo;
     varying float vGradient;
 #endif
+
+#ifdef OPTION_2
+    uniform float strokeSize;
+#endif
+
+#ifdef OPTION_3
+    uniform float shadowRadius;
+    uniform float shadowSpread;
+#endif
+
 
 varying vec2 vTexCoord;
 
@@ -568,7 +579,9 @@ void compose()
 {
     float scale = (1.0 / 320.0) / fwidth(vTexCoord.x);
     scale = abs(scale);
-#ifdef OPTION_2
+#ifdef OPTION_3
+    float aBase = thresholdFunc(scale) - shadowRadius;
+#elif defined(OPTION_2)
     float aBase = thresholdFunc(scale) - strokeSize;
 #else
     float aBase = thresholdFunc(scale);
@@ -578,7 +591,11 @@ void compose()
     float aMax = min(aBase + aRange, 1.0);
 
     float dist = texture2D(texUnit, vTexCoord).a;
+#ifdef OPTION_3
+    float alpha = smoothstep(aMin, aMin + shadowSpread, dist)  / (aMin + shadowSpread);
+#else
     float alpha = smoothstep(aMin, aMax, dist);
+#endif
 
 #ifdef OPTION_1
     vec4 color = mix(colorFrom, colorTo, vGradient);
@@ -610,7 +627,32 @@ proc drawShadow(c: GraphicsContext, origP: Point, t: FormattedText) =
             let ppp = pp
             pp.x += t.mAttributes[curAttrIndex].shadowOffset.width * t.shadowMultiplier.width
             pp.y += t.mAttributes[curAttrIndex].shadowOffset.height * t.shadowMultiplier.height
-            c.drawText(t.mAttributes[curAttrIndex].font, pp, t.mText.substr(attrStartIndex, attrEndIndex))
+
+
+            if t.mAttributes[curAttrIndex].shadowRadius > 0.0 or t.mAttributes[curAttrIndex].shadowSpread > 0.0:
+                var options = SOFT_SHADOW_ENABLED
+                gradientAndStrokeComposition.options = options
+                let gl = c.gl
+                var cc = gl.getCompiledComposition(gradientAndStrokeComposition)
+
+                gl.useProgram(cc.program)
+
+                compositionDrawingDefinitions(cc, c, gl)
+
+                setUniform("shadowRadius", t.mAttributes[curAttrIndex].shadowRadius / 15.0)
+                setUniform("shadowSpread", t.mAttributes[curAttrIndex].shadowSpread)
+                setUniform("fillColor", c.fillColor)
+
+                gl.uniformMatrix4fv(uniformLocation("uModelViewProjectionMatrix"), false, c.transform)
+                setupPosteffectUniforms(cc)
+
+                gl.activeTexture(GLenum(int(gl.TEXTURE0) + cc.iTexIndex))
+                gl.uniform1i(uniformLocation("texUnit"), cc.iTexIndex)
+
+                c.drawTextBase(t.mAttributes[curAttrIndex].font, pp, t.mText.substr(attrStartIndex, attrEndIndex))
+            else:
+                c.drawText(t.mAttributes[curAttrIndex].font, pp, t.mText.substr(attrStartIndex, attrEndIndex))
+
             font.baseline = oldBaseline
             p.x += pp.x - ppp.x
         inc curLine
