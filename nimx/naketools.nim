@@ -690,12 +690,12 @@ proc runAutotestsInFirefox*(pathToMainHTML: string) =
     let ffp = startProcess(ffbin, args = ["-profile", "./tempprofile", pathToMainHTML])
     let so = ffp.outputStream
     var line = ""
-    var ok = true
+    var ok = false
     while so.readLine(line):
         if line == "---AUTO-TEST-QUIT---":
+            ok = true
             break
         elif line == "---AUTO-TEST-FAIL---":
-            ok = false
             break
         else:
             echo line
@@ -728,12 +728,12 @@ proc runAutotestsInChrome*(pathToMainHTML: string) =
         pathToMainHTML])
     let so = cp.errorStream
     var line = ""
-    var ok = true
+    var ok = false
     while so.readLine(line):
         if line.find("---AUTO-TEST-QUIT---") != -1:
+            ok = true
             break
         elif line.find("---AUTO-TEST-FAIL---") != -1:
-            ok = false
             break
         else:
             echo line
