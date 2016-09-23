@@ -205,19 +205,18 @@ proc loadResourceAsync*(resourceName: string, handler: proc(s: Stream)) =
             handler(newStreamWithDataView(dataView))
         loadJSResourceAsync(resourceName, "arraybuffer", nil, nil, reqListener)
     elif defined(emscripten):
-        emscripten_async_wget_data(pathForResource(resourceName),
-        proc (data: pointer, sz: cint) =
+        let path = pathForResource(resourceName)
+        emscripten_async_wget_data(path)
+        do(data: pointer, sz: cint):
             handleJSExceptions:
                 var str = newString(sz)
                 copyMem(addr str[0], data, sz)
                 let s = newStringStream(str)
                 handler(s)
-        ,
-        proc () =
+        do():
             handleJSExceptions:
-                logi "WARNING: Resource not found: ", resourceName
+                logi "WARNING: Resource not found: ", path
                 handler(nil)
-        )
     else:
         handler(streamForResourceWithName(resourceName))
 
