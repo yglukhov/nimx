@@ -183,14 +183,28 @@ when defined(js) or defined(emscripten):
     proc loadJSResourceAsync*(resourceName: string, resourceType: cstring, onProgress: proc(p: float), onError: proc(e: ResourceLoadingError), onComplete: proc(result: ref RootObj)) =
         let oReq = newXMLHTTPRequest()
         var reqListener: proc()
+        var errorListener: proc()
         reqListener = proc() =
             jsUnref(reqListener)
+            jsUnref(errorListener)
             handleJSExceptions:
                 onComplete(cast[ref RootObj](oReq.response))
+        errorListener = proc() =
+            jsUnref(reqListener)
+            jsUnref(errorListener)
+            handleJSExceptions:
+                var err: ResourceLoadingError
+                var statusText = oReq.statusText
+                if statusText.isNil: statusText = "(nil)"
+                err.description = "XMLHTTPRequest error(" & resourceName & "): " & $oReq.status & ": " & $statusText
+                logi "XMLHTTPRequest failure: ", err.description
+                onError(err)
         jsRef(reqListener)
+        jsRef(errorListener)
 
         oReq.responseType = resourceType
         oReq.addEventListener("load", reqListener)
+        oReq.addEventListener("error", errorListener)
         oReq.open("GET", pathForResource(resourceName))
         oReq.send()
 
