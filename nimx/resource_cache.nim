@@ -66,12 +66,13 @@ registerResourcePreloader(["json", "zsm"]) do(name: string, callback: proc(j: Js
     loadJsonResourceAsync(name) do(j: JsonNode):
         callback(j)
 
-registerResourcePreloader(["obj", "txt"]) do(name: string, callback: proc(s: string)):
-    when defined(js):
-        proc handler(r: ref RootObj) =
-            var text = cast[cstring](r)
-            callback($text)
+when defined(js) or defined(emscripten):
+    import jsbind
 
+registerResourcePreloader(["obj", "txt"]) do(name: string, callback: proc(s: string)):
+    when defined(js) or defined(emscripten):
+        proc handler(str: JSObj) =
+            callback(jsObjToString(str))
         loadJSResourceAsync(name, "text", nil, nil, handler)
     else:
         loadResourceAsync name, proc(s: Stream) =
