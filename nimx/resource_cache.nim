@@ -9,7 +9,7 @@ import sequtils
 import oswalkdir
 import variant
 
-const debugResCache = false
+const debugResCache = true
 
 type ResourceLoader* = ref object
     totalSize : int
@@ -47,7 +47,9 @@ proc startPreloadingResource(ld: ResourceLoader, name: string) =
 
     for rp in resourcePreloaders:
         if extension in rp.fileExtensions:
+            logi "Start resource load: ", name
             rp.loader name, proc(r: Variant) =
+                logi "Resource preloaded: ", name
                 ld.resourceCache.registerResource(name, r)
                 ld.onResourceLoaded(name)
             return
@@ -80,7 +82,7 @@ registerResourcePreloader(["obj", "txt"]) do(name: string, callback: proc(s: str
             s.close()
 
 proc preloadResources*(ld: ResourceLoader, resourceNames: openarray[string]) =
-    ld.itemsLoaded = ld.itemsToLoad
+    #ld.itemsLoaded = ld.itemsToLoad
     ld.itemsToLoad += resourceNames.len
     if ld.resourceCache.isNil:
         ld.resourceCache = currentResourceCache()
