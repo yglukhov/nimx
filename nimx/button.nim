@@ -91,7 +91,7 @@ proc drawTitle(b: Button, xOffset: Coord) =
             else:
                 blackColor()
 
-        let font = systemFont()
+        let font = systemFontOfSize(14.0)
         var titleRect = b.bounds
         var pt = centerInRect(font.sizeOfString(b.title), titleRect)
         if pt.x < xOffset: pt.x = xOffset
