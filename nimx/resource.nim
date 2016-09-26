@@ -180,17 +180,31 @@ type ResourceLoadingError* = object
 
 when defined(js) or defined(emscripten):
     import jsbind
-    proc loadJSResourceAsync*(resourceName: string, resourceType: cstring, onProgress: proc(p: float), onError: proc(e: ResourceLoadingError), onComplete: proc(result: ref RootObj)) =
+    proc loadJSResourceAsync*(resourceName: string, resourceType: cstring, onProgress: proc(p: float), onError: proc(e: ResourceLoadingError), onComplete: proc(result: JSObj)) =
         let oReq = newXMLHTTPRequest()
         var reqListener: proc()
+        var errorListener: proc()
         reqListener = proc() =
             jsUnref(reqListener)
+            jsUnref(errorListener)
             handleJSExceptions:
-                onComplete(cast[ref RootObj](oReq.response))
+                onComplete(oReq.response)
+        errorListener = proc() =
+            jsUnref(reqListener)
+            jsUnref(errorListener)
+            handleJSExceptions:
+                var err: ResourceLoadingError
+                var statusText = oReq.statusText
+                if statusText.isNil: statusText = "(nil)"
+                err.description = "XMLHTTPRequest error(" & resourceName & "): " & $oReq.status & ": " & $statusText
+                logi "XMLHTTPRequest failure: ", err.description
+                onError(err)
         jsRef(reqListener)
+        jsRef(errorListener)
 
         oReq.responseType = resourceType
         oReq.addEventListener("load", reqListener)
+        oReq.addEventListener("error", errorListener)
         oReq.open("GET", pathForResource(resourceName))
         oReq.send()
 
@@ -199,35 +213,46 @@ when defined(emscripten):
 
 proc loadResourceAsync*(resourceName: string, handler: proc(s: Stream)) =
     when defined(js):
-        let reqListener = proc(data: ref RootObj) =
+        let reqListener = proc(data: JSObj) =
             var dataView : ref RootObj
             {.emit: "`dataView` = new DataView(`data`);".}
             handler(newStreamWithDataView(dataView))
         loadJSResourceAsync(resourceName, "arraybuffer", nil, nil, reqListener)
     elif defined(emscripten):
-        emscripten_async_wget_data(pathForResource(resourceName),
-        proc (data: pointer, sz: cint) =
+        let path = pathForResource(resourceName)
+        emscripten_async_wget_data(path)
+        do(data: pointer, sz: cint):
             handleJSExceptions:
                 var str = newString(sz)
                 copyMem(addr str[0], data, sz)
                 let s = newStringStream(str)
                 handler(s)
-        ,
-        proc () =
+        do():
             handleJSExceptions:
-                logi "WARNING: Resource not found: ", resourceName
+                logi "WARNING: Resource not found: ", path
                 handler(nil)
-        )
     else:
         handler(streamForResourceWithName(resourceName))
+
+when defined(emscripten) or defined(js):
+    proc jsObjToString*(str: JSObj): string =
+        # Private. Do not use.
+        when defined(emscripten):
+            if str.p == 0: return
+            let s = EM_ASM_INT("""
+            return _nimem_s(_nimem_o[$0]);
+            """, str.p)
+            result = cast[string](s)
+        else:
+            if str.isNil: return
+            result = $(cast[cstring](str))
 
 proc loadJsonResourceAsync*(resourceName: string, handler: proc(j: JsonNode)) =
     let j = findCachedResource[JsonNode](resourceName)
     if j.isNil:
-        when defined js:
-            let reqListener = proc(data: ref RootObj) =
-                var jsonstring = cast[cstring](data)
-                handler(parseJson($jsonstring))
+        when defined(js) or defined(emscripten):
+            let reqListener = proc(str: JSObj) =
+                handler(parseJson(jsObjToString(str)))
             loadJSResourceAsync(resourceName, "text", nil, nil, reqListener)
         else:
             loadResourceAsync resourceName, proc(s: Stream) =

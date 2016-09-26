@@ -515,7 +515,7 @@ when defined(emscripten):
 registerResourcePreloader(["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga", "pvr"]) do(name: string, callback: proc(i: SelfContainedImage)):
     when defined(js):
         let path = pathForResource(name)
-        proc handler(r: ref RootObj) =
+        proc handler(r: JSObj) =
             var onImLoad = proc (im: ref RootObj) =
                 handleJSExceptions:
                     var w, h: Coord
