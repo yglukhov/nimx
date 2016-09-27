@@ -5,6 +5,7 @@ import portable_gl
 import resource
 import resource_cache
 import system_logger
+import mini_profiler
 
 when not defined(js):
     import load_image_impl
@@ -55,16 +56,19 @@ method filePath*(i: Image): string {.base.} = discard
 method filePath*(i: SelfContainedImage): string = i.mFilePath
 
 when not defined(js):
+    let totalImages = newDataSource[int](sharedProfiler(), "Images")
     proc finalizeImage(i: SelfContainedImage) =
         if i.texture != invalidTexture:
             glDeleteTextures(1, addr i.texture)
         if i.framebuffer != invalidFrameBuffer:
             glDeleteFramebuffers(1, addr i.framebuffer)
+        dec totalImages
 
 proc newSelfContainedImage(): SelfContainedImage {.inline.} =
     when defined(js):
         result.new()
     else:
+        inc totalImages
         result.new(finalizeImage)
 
 when not defined js:
@@ -206,7 +210,7 @@ proc newSpriteSheetWithResourceAndJson*(imageFileName, jsonDescFileName: string)
         s.close()
 
 proc imageWithSize*(size: Size): SelfContainedImage =
-    result.new()
+    result = newSelfContainedImage()
     result.mSize = size
     let texWidth = if isPowerOfTwo(size.width.int): size.width.int else: nextPowerOfTwo(size.width.int)
     let texHeight = if isPowerOfTwo(size.height.int): size.height.int else: nextPowerOfTwo(size.height.int)
