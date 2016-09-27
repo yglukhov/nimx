@@ -185,3 +185,7 @@ proc toggleFullscreen*(w: Window) =
         w.exitFullscreen()
     else:
         w.enterFullscreen()
+
+var gcRequested* = false
+template requestGCFullCollect*() =
+    gcRequested = true
