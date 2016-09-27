@@ -1,8 +1,9 @@
 import tables
 
 type
-    ProfilerDataSourceBase = ref object of RootObj
+    ProfilerDataSourceBase {.pure.} = ref object {.inheritable.}
         stringifiedValue: string
+        updateImpl: proc(ds: ProfilerDataSourceBase) {.nimcall.}
         isDirty: bool
 
     ProfilerDataSource*[T] = ref object of ProfilerDataSourceBase
@@ -12,10 +13,8 @@ type
         values: Table[string, ProfilerDataSourceBase]
         enabled*: bool
 
-method update(ds: ProfilerDataSourceBase) {.base.} =
-    ds.isDirty = false
-
-method update[T](ds: ProfilerDataSource[T]) =
+proc updateDataSource[T](ds: ProfilerDataSourceBase) {.nimcall.} =
+    let ds = cast[ProfilerDataSource[T]](ds)
     ds.stringifiedValue = $ds.mValue
     shallow(ds.stringifiedValue)
     ds.isDirty = false
@@ -28,9 +27,11 @@ proc newProfiler*(): Profiler =
     when not defined(release):
         result.enabled = true
 
-proc newDataSource*[T](p: Profiler, name: string): ProfilerDataSource[T] =
+proc newDataSource*(p: Profiler, typ: typedesc, name: string): ProfilerDataSource[typ] =
     result.new()
     result.stringifiedValue = ""
+    type TT = typ
+    result.updateImpl = updateDataSource[TT]
     p.values[name] = result
 
 proc sharedProfiler*(): Profiler =
@@ -50,7 +51,7 @@ template `[]=`*(p: Profiler, key: string, value: typed) =
 
 iterator pairs*(p: Profiler): tuple[key, value: string] =
     for k, v in p.values:
-        if v.isDirty: v.update()
+        if v.isDirty: v.updateImpl(v)
         yield (k, v.stringifiedValue)
 
 template len*(p: Profiler): int = p.values.len

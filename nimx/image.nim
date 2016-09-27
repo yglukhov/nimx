@@ -56,7 +56,7 @@ method filePath*(i: Image): string {.base.} = discard
 method filePath*(i: SelfContainedImage): string = i.mFilePath
 
 when not defined(js):
-    let totalImages = newDataSource[int](sharedProfiler(), "Images")
+    let totalImages = sharedProfiler().newDataSource(int, "Images")
     proc finalizeImage(i: SelfContainedImage) =
         if i.texture != invalidTexture:
             glDeleteTextures(1, addr i.texture)
