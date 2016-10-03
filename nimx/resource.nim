@@ -106,6 +106,15 @@ proc pathForResourceAux(name: string): string =
         if fileExists(result): return
         result = nil
 
+var resourceUrlMapper*: proc(p: string): string
+
+when defined(js) or defined(emscripten):
+    proc urlForResourcePath*(path: string): string =
+        if resourceUrlMapper.isNil:
+            path
+        else:
+            resourceUrlMapper(path)
+
 proc pathForResource*(name: string): string =
     result = pathForResourceAux(name)
     if not result.isNil:
@@ -205,7 +214,7 @@ when defined(js) or defined(emscripten):
         oReq.responseType = resourceType
         oReq.addEventListener("load", reqListener)
         oReq.addEventListener("error", errorListener)
-        oReq.open("GET", pathForResource(resourceName))
+        oReq.open("GET", urlForResourcePath(pathForResource(resourceName)))
         oReq.send()
 
 when defined(emscripten):
@@ -220,7 +229,7 @@ proc loadResourceAsync*(resourceName: string, handler: proc(s: Stream)) =
         loadJSResourceAsync(resourceName, "arraybuffer", nil, nil, reqListener)
     elif defined(emscripten):
         let path = pathForResource(resourceName)
-        emscripten_async_wget_data(path)
+        emscripten_async_wget_data(urlForResourcePath(path))
         do(data: pointer, sz: cint):
             handleJSExceptions:
                 var str = newString(sz)

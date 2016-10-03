@@ -138,7 +138,7 @@ proc initWithResource*(i: SelfContainedImage, name: string) =
     when defined js:
         let p = pathForResource(name)
         i.setFilePath(p)
-        let nativeName : cstring = p
+        let nativeName : cstring = urlForResourcePath(p)
         {.emit: """
         `i`.__image = new Image();
         `i`.__image.crossOrigin = '';
@@ -536,7 +536,7 @@ registerResourcePreloader(["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga", "p
 
         loadJSResourceAsync(name, "blob", nil, nil, handler)
     elif defined(emscripten):
-        nimxImageLoadFromURL(pathForResource(name), name, callback)
+        nimxImageLoadFromURL(urlForResourcePath(pathForResource(name)), name, callback)
     elif asyncResourceLoad:
         var ctx: ImageLoadingCtx
         ctx.new()
