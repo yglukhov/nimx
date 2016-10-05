@@ -5,6 +5,7 @@ import portable_gl
 import resource
 import resource_cache
 import system_logger
+import mini_profiler
 
 when not defined(js):
     import load_image_impl
@@ -55,16 +56,19 @@ method filePath*(i: Image): string {.base.} = discard
 method filePath*(i: SelfContainedImage): string = i.mFilePath
 
 when not defined(js):
+    let totalImages = sharedProfiler().newDataSource(int, "Images")
     proc finalizeImage(i: SelfContainedImage) =
         if i.texture != invalidTexture:
             glDeleteTextures(1, addr i.texture)
         if i.framebuffer != invalidFrameBuffer:
             glDeleteFramebuffers(1, addr i.framebuffer)
+        dec totalImages
 
 proc newSelfContainedImage(): SelfContainedImage {.inline.} =
     when defined(js):
         result.new()
     else:
+        inc totalImages
         result.new(finalizeImage)
 
 when not defined js:
@@ -134,7 +138,7 @@ proc initWithResource*(i: SelfContainedImage, name: string) =
     when defined js:
         let p = pathForResource(name)
         i.setFilePath(p)
-        let nativeName : cstring = p
+        let nativeName : cstring = urlForResourcePath(p)
         {.emit: """
         `i`.__image = new Image();
         `i`.__image.crossOrigin = '';
@@ -206,7 +210,7 @@ proc newSpriteSheetWithResourceAndJson*(imageFileName, jsonDescFileName: string)
         s.close()
 
 proc imageWithSize*(size: Size): SelfContainedImage =
-    result.new()
+    result = newSelfContainedImage()
     result.mSize = size
     let texWidth = if isPowerOfTwo(size.width.int): size.width.int else: nextPowerOfTwo(size.width.int)
     let texHeight = if isPowerOfTwo(size.height.int): size.height.int else: nextPowerOfTwo(size.height.int)
@@ -532,7 +536,7 @@ registerResourcePreloader(["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga", "p
 
         loadJSResourceAsync(name, "blob", nil, nil, handler)
     elif defined(emscripten):
-        nimxImageLoadFromURL(pathForResource(name), name, callback)
+        nimxImageLoadFromURL(urlForResourcePath(pathForResource(name)), name, callback)
     elif asyncResourceLoad:
         var ctx: ImageLoadingCtx
         ctx.new()

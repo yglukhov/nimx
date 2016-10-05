@@ -285,11 +285,12 @@ proc nimxMainLoopInner() {.EMSCRIPTEN_KEEPALIVE.} =
     mainApplication().drawWindows()
 
     let t = epochTime()
-    if t > lastFullCollectTime + 10 and getOccupiedMem() > fullCollectThreshold:
+    if gcRequested or (t > lastFullCollectTime + 10 and getOccupiedMem() > fullCollectThreshold):
         GC_enable()
         GC_fullCollect()
         GC_disable()
         lastFullCollectTime = t
+        gcRequested = false
     else:
         when defined(useRealtimeGC):
             GC_step(1000, true)

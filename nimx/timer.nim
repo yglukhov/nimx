@@ -1,4 +1,4 @@
-import times, system_logger
+import times, system_logger, mini_profiler
 
 when defined(js) or defined(emscripten):
     import jsbind
@@ -123,9 +123,21 @@ proc clear*(t: Timer) =
             when not defined(js):
                 GC_unref(t)
 
+const profileTimers = not defined(js) and not defined(release)
+
+when profileTimers:
+    let totalTimers = sharedProfiler().newDataSource(int, "Timers")
+    proc finalizeTimer(t: Timer) =
+        dec totalTimers
+
 proc newTimer*(interval: float, repeat: bool, callback: proc()): Timer =
     assert(not callback.isNil)
-    result.new()
+    when profileTimers:
+        result.new(finalizeTimer)
+        inc totalTimers
+    else:
+        result.new()
+
     when defined(js) or defined(emscripten):
         result.origCallback = proc() =
             handleJSExceptions:

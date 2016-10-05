@@ -30,11 +30,13 @@ var lastTime = epochTime()
 var lastFrame = 0.0
 var totalAnims = 0
 
-proc fps(): int =
+let fps = sharedProfiler().newDataSource(int, "FPS")
+
+proc updateFps() {.inline.} =
     let curTime = epochTime()
     let deltaTime = curTime - lastTime
     lastFrame = (lastFrame * 0.9 + deltaTime * 0.1)
-    result = (1.0 / lastFrame).int
+    fps.value = (1.0 / lastFrame).int
     lastTime = curTime
 
 when false:
@@ -54,6 +56,11 @@ method drawWindow*(w: Window) {.base.} =
 
     let profiler = sharedProfiler()
     if profiler.enabled:
+        updateFps()
+        profiler["Overdraw"] = GetOverdrawValue()
+        profiler["DIPs"] = GetDIPValue()
+        profiler["Animations"] = totalAnims
+
         const fontSize = 14
         const profilerWidth = 110
         let c = currentContext()
@@ -65,10 +72,6 @@ method drawWindow*(w: Window) {.base.} =
         c.strokeWidth = 0
         c.drawRect(rect)
 
-        profiler["FPS"] = fps()
-        profiler["Overdraw"] = GetOverdrawValue()
-        profiler["DIPs"] = GetDIPValue()
-        profiler["Animations"] = totalAnims
         var pt = newPoint(0, 5)
         c.fillColor = blackColor()
         for k, v in profiler:
@@ -185,3 +188,7 @@ proc toggleFullscreen*(w: Window) =
         w.exitFullscreen()
     else:
         w.enterFullscreen()
+
+var gcRequested* = false
+template requestGCFullCollect*() =
+    gcRequested = true

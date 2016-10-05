@@ -283,6 +283,11 @@ proc animateAndDraw() =
             mainApplication().drawWindows()
 
 proc nextEvent(evt: var sdl2.Event) =
+    if gcRequested:
+        echo "full collect"
+        GC_fullCollect()
+        gcRequested = false
+
     when defined(ios):
         proc iPhoneSetEventPump(enabled: Bool32) {.importc: "SDL_iPhoneSetEventPump".}
 
