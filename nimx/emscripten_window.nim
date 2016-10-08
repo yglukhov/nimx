@@ -287,6 +287,8 @@ proc nimxMainLoopInner() {.EMSCRIPTEN_KEEPALIVE.} =
     let t = epochTime()
     if gcRequested or (t > lastFullCollectTime + 10 and getOccupiedMem() > fullCollectThreshold):
         GC_enable()
+        when defined(useRealtimeGC):
+            GC_setMaxPause(0)
         GC_fullCollect()
         GC_disable()
         lastFullCollectTime = t
@@ -324,6 +326,7 @@ proc mainLoopPreload() {.cdecl.} =
         if r == 1:
             GC_disable() # GC Should only be called close to the bottom of the stack on emscripten.
             initFunc()
+            initFunc = nil
             initDone = true
 
 template runApplication*(initCode: typed): stmt =
