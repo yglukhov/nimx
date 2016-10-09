@@ -596,7 +596,7 @@ proc build*(b: Builder) =
         b.nimFlags.add(["--cpu:i386", "-d:emscripten", "--os:linux", "--cc:clang",
             "--clang.exe=emcc", "--clang.linkerexe=emcc", "-d:SDL_Static"])
         b.additionalLinkerFlags.add(["--preload-file", b.resourcePath & "/OpenSans-Regular.ttf@/res/OpenSans-Regular.ttf"])
-        b.additionalNimFlags.add(["-d:noAutoGLerrorCheck", "-d:useRealtimeGC"])
+        b.additionalNimFlags.add(["-d:useRealtimeGC"])
         b.additionalLinkerFlags.add(["-s", "ALLOW_MEMORY_GROWTH=1"])
 
         if not b.debugMode:
@@ -630,7 +630,7 @@ proc build*(b: Builder) =
         if b.platform != "js":
             b.nimFlags.add(["--stackTrace:on", "--lineTrace:on"])
     else:
-        b.nimFlags.add(["-d:release", "--opt:speed"])
+        b.nimFlags.add(["-d:release", "--opt:speed", "-d:noAutoGLerrorCheck"])
 
     when defined(windows):
         b.nimFlags.add("-d:buildOnWindows") # Workaround for JS getEnv in nimx
