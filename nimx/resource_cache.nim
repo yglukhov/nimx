@@ -80,7 +80,6 @@ registerResourcePreloader(["obj", "txt"]) do(name: string, callback: proc(s: str
             s.close()
 
 proc preloadResources*(ld: ResourceLoader, resourceNames: openarray[string]) =
-    ld.itemsLoaded = ld.itemsToLoad
     ld.itemsToLoad += resourceNames.len
     if ld.resourceCache.isNil:
         ld.resourceCache = currentResourceCache()

@@ -5,13 +5,14 @@ when not defined(windows):
 
     when defined(android):
         import nimx.system_logger
+    {.push stackTrace: off.}
     proc setupLogger() {.cdecl.}=
         when defined(android):
             errorMessageWriter = proc(msg: string) =
                 logi msg
         else:
             discard
-
+    {.pop.}
     when not compileOption("noMain") and not defined(nimxAvoidSDL):
         {.error: "Please run Nim with --noMain flag.".}
 

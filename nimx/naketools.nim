@@ -53,6 +53,8 @@ type Builder* = ref object
 
     codesignIdentity*: string
     teamId*: string
+    emscriptenPreloadFiles*: seq[string]
+    emscriptenPreJS*: seq[string]
 
     buildRoot : string
     executablePath : string
@@ -213,6 +215,9 @@ proc newBuilder*(platform: string): Builder =
 
     b.buildRoot = "build"
     b.originalResourcePath = "res"
+
+    b.emscriptenPreloadFiles = @[]
+    b.emscriptenPreJs = @[]
 
     b.setBuilderSettings()
 
@@ -510,6 +515,16 @@ proc ndkBuild(b: Builder) =
             args.add("APP_OPTIM=release")
         direShell args
 
+proc makeEmscriptenPreloadData(b: Builder): string =
+    let emcc = findExe("emcc")
+    doAssert(emcc.len > 0)
+    result = b.nimcachePath / "preload.js"
+    let packagerPy = emcc.parentDir() / "tools" / "file_packager.py"
+    var args = @["python", packagerPy, b.buildRoot / "main.data", "--js-output=" & result]
+    for p in b.emscriptenPreloadFiles:
+        args.add(["--preload", p])
+    direShell(args)
+
 proc preconfigure(b: Builder) =
     b.buildRoot = b.buildRoot / b.platform
     b.nimcachePath = b.buildRoot / "nimcache"
@@ -592,11 +607,22 @@ proc build*(b: Builder) =
             b.nimFlags.add(["--cpu:i386", "--os:windows", "--cc:gcc", "--gcc.exe:" & mxeBin, "--gcc.linkerexe:" & mxeBin])
         b.makeWindowsResource()
     of "emscripten":
+        b.emscriptenPreloadFiles.add(b.originalResourcePath & "/OpenSans-Regular.ttf@/res/OpenSans-Regular.ttf")
         b.executablePath = b.buildRoot / "main.js"
         b.nimFlags.add(["--cpu:i386", "-d:emscripten", "--os:linux", "--cc:clang",
             "--clang.exe=emcc", "--clang.linkerexe=emcc", "-d:SDL_Static"])
-        b.additionalLinkerFlags.add(["--preload-file", b.resourcePath & "/OpenSans-Regular.ttf@/res/OpenSans-Regular.ttf"])
-        b.additionalNimFlags.add(["-d:noAutoGLerrorCheck", "-d:useRealtimeGC"])
+        if b.emscriptenPreloadFiles.len > 0:
+            b.emscriptenPreJS.add(b.makeEmscriptenPreloadData())
+
+        if b.emscriptenPreJS.len > 0:
+            var preJsContent = ""
+            for js in b.emscriptenPreJS:
+                preJsContent &= readFile(js)
+            let preJS = b.nimcachePath / "pre.js"
+            writeFile(preJS, preJsContent)
+            b.additionalLinkerFlags.add(["--pre-js", preJS])
+
+        b.additionalNimFlags.add(["-d:useRealtimeGC"])
         b.additionalLinkerFlags.add(["-s", "ALLOW_MEMORY_GROWTH=1"])
 
         if not b.debugMode:
@@ -630,7 +656,7 @@ proc build*(b: Builder) =
         if b.platform != "js":
             b.nimFlags.add(["--stackTrace:on", "--lineTrace:on"])
     else:
-        b.nimFlags.add(["-d:release", "--opt:speed"])
+        b.nimFlags.add(["-d:release", "--opt:speed", "-d:noAutoGLerrorCheck"])
 
     when defined(windows):
         b.nimFlags.add("-d:buildOnWindows") # Workaround for JS getEnv in nimx

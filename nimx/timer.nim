@@ -13,6 +13,9 @@ type TimerState = enum
     tsRunning
     tsPaused
 
+when defined(debugLeaks):
+    var allTimers = newSeq[pointer]()
+
 type Timer* = ref object
     callback: proc()
     origCallback: proc()
@@ -23,6 +26,8 @@ type Timer* = ref object
     state: TimerState
     when (not defined(js) and not defined(emscripten)):
         ready: bool
+    when defined(debugLeaks):
+        instantiationStackTrace*: string
 
 when defined(js) or defined(emscripten):
     proc setInterval(p: proc(), timeout: float): TimerID {.jsImportg.}
@@ -125,10 +130,15 @@ proc clear*(t: Timer) =
 
 const profileTimers = not defined(js) and not defined(release)
 
-when profileTimers:
+when profileTimers or defined(debugLeaks):
     let totalTimers = sharedProfiler().newDataSource(int, "Timers")
     proc finalizeTimer(t: Timer) =
         dec totalTimers
+        when defined(debugLeaks):
+            let p = cast[pointer](t)
+            let i = allTimers.find(p)
+            assert(i != -1)
+            allTimers.del(i)
 
 proc newTimer*(interval: float, repeat: bool, callback: proc()): Timer =
     assert(not callback.isNil)
@@ -137,6 +147,10 @@ proc newTimer*(interval: float, repeat: bool, callback: proc()): Timer =
         inc totalTimers
     else:
         result.new()
+
+    when defined(debugLeaks):
+        result.instantiationStackTrace = getStackTrace()
+        allTimers.add(cast[pointer](result))
 
     when defined(js) or defined(emscripten):
         result.origCallback = proc() =
@@ -208,3 +222,8 @@ proc resume*(t: Timer) =
             t.schedule()
         t.interval = interval
         t.state = tsRunning
+
+when defined(debugLeaks):
+    iterator activeTimers*(): Timer =
+        for t in allTimers:
+            yield cast[Timer](t)
