@@ -38,8 +38,8 @@ proc eventLocationFromJSEvent(mouseEvent: ptr EmscriptenMouseEvent, w: Emscripte
     var cssRect: Rect
     var virtualSize: Size
     getCanvasDimensions(w.canvasId, cssRect, virtualSize)
-    result.x = (Coord(mouseEvent.targetX) - cssRect.x) / cssRect.width * virtualSize.width
-    result.y = (Coord(mouseEvent.targetY) - cssRect.y) / cssRect.height * virtualSize.height
+    result.x = (Coord(mouseEvent.targetX) - cssRect.x) / cssRect.width * virtualSize.width / w.pixelRatio
+    result.y = (Coord(mouseEvent.targetY) - cssRect.y) / cssRect.height * virtualSize.height / w.pixelRatio
 
 proc onMouseButton(eventType: cint, mouseEvent: ptr EmscriptenMouseEvent, userData: pointer, bs: ButtonState): EM_BOOL =
     let w = cast[EmscriptenWindow](userData)
@@ -137,17 +137,19 @@ proc updateCanvasSize(w: EmscriptenWindow) =
     width = maxWidth * scaleFactor
     height = maxHeight * scaleFactor
 
+    w.pixelRatio = screenScaleFactor()
+    discard EM_ASM_INT("""
+    var c = document.getElementById(Pointer_stringify($0));
+    c.width = $1;
+    c.height = $2;
+    """, cstring(w.canvasId), w.pixelRatio * width, w.pixelRatio * height)
+
+    logi "test"
     discard emscripten_set_element_css_size(w.canvasId, width, height)
 
     if scaleFactor > 1: scaleFactor = 1
     width = maxWidth * scaleFactor
     height = maxHeight * scaleFactor
-
-    discard EM_ASM_INT("""
-    var c = document.getElementById(Pointer_stringify($0));
-    c.width = $1;
-    c.height = $2;
-    """, cstring(w.canvasId), width, height)
 
     w.onResize(newSize(width, height))
 
@@ -232,7 +234,6 @@ newFullscreenWindow = proc(): Window =
 
 method drawWindow(w: EmscriptenWindow) =
     let c = w.renderingContext
-    c.gl.viewport(0, 0, w.frame.width.GLsizei, w.frame.height.GLsizei)
     c.gl.clear(c.gl.COLOR_BUFFER_BIT or c.gl.STENCIL_BUFFER_BIT or c.gl.DEPTH_BUFFER_BIT)
     let oldContext = setCurrentContext(c)
 
@@ -241,8 +242,8 @@ method drawWindow(w: EmscriptenWindow) =
     setCurrentContext(oldContext)
 
 method onResize*(w: EmscriptenWindow, newSize: Size) =
-    let sf = 1.0 #screenScaleFactor()
-    glViewport(0, 0, GLSizei(newSize.width * sf), GLsizei(newSize.height * sf))
+    w.pixelRatio = screenScaleFactor()
+    glViewport(0, 0, GLSizei(newSize.width * w.pixelRatio), GLsizei(newSize.height * w.pixelRatio))
     procCall w.Window.onResize(newSize)
 
 proc nimx_OnTextInput(wnd: pointer, text: cstring) {.EMSCRIPTEN_KEEPALIVE.} =

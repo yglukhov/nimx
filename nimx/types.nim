@@ -105,6 +105,12 @@ proc maxCorner*(r: Rect): Point = newPoint(r.maxX, r.maxY)
 proc `+`*(p1, p2: Point): Point =
     newPoint(p1.x + p2.x, p1.y + p2.y)
 
+proc `*`*(p1: Point, s: float): Point =
+    newPoint(p1.x * s, p1.y * s)
+
+proc `/`*(p1: Point, s: float): Point =
+    newPoint(p1.x / s, p1.y / s)
+
 proc `-`*(p1, p2: Point): Point =
     newPoint(p1.x - p2.x, p1.y - p2.y)
 

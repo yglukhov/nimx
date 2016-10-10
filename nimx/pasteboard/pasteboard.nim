@@ -1,4 +1,4 @@
-when defined(macosx):
+when defined(macosx) and not defined(ios):
     import pasteboard_mac
     export pasteboard_mac
 
