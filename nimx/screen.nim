@@ -30,7 +30,7 @@ elif defined(android):
 
         proc density(d: DisplayMetrics): jfloat {.property.}
 elif defined(emscripten):
-    import jsbind, jsbind.emscripten
+    import jsbind.emscripten
 
 proc screenScaleFactor*(): float =
     when defined(macosx) or defined(ios):
