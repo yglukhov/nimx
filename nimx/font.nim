@@ -1,8 +1,11 @@
 import math
 import types
 import system_logger
+import pathutils
 import unicode
 import tables
+import strutils
+import streams
 import rect_packer
 import nimx.resource
 import nimx.timer
@@ -167,7 +170,14 @@ proc updateFontMetrics(f: Font) =
         f.impl.ascent = float32(ascent)
         f.impl.descent = float32(descent)
     else:
-        var rawData = readFile(f.filePath)
+        var rawData: string
+        if f.filePath.startsWith("res://"):
+            let fstr = streamForResourceWithPath(f.filePath.substr("res://".len))
+            rawData = fstr.readAll()
+            fstr.close()
+        else:
+            rawData = readFile(f.filePath)
+
         var fontinfo: stbtt_fontinfo
         if stbtt_InitFont(fontinfo, cast[ptr font_type](rawData.cstring), 0) == 0:
             logi "Could not init font"
@@ -268,7 +278,13 @@ proc bakeChars(f: Font, start: int32, res: CharInfo) =
 
         shallowCopy(res.tempBitmap, byteData)
     else:
-        var rawData = readFile(f.filePath)
+        var rawData: string
+        if f.filePath.startsWith("res://"):
+            let fstr = streamForResourceWithPath(f.filePath.substr("res://".len))
+            rawData = fstr.readAll()
+            fstr.close()
+        else:
+            rawData = readFile(f.filePath)
 
         var fontinfo: stbtt_fontinfo
         if stbtt_InitFont(fontinfo, cast[ptr font_type](rawData.cstring), 0) == 0:
@@ -415,6 +431,14 @@ proc newFontWithFace*(face: string, size: float): Font =
         let path = findFontFileForFace(face)
         if path != nil:
             result = newFontWithFile(path, size)
+
+        else:
+            when defined(android):
+                let path = face & ".ttf"
+                let ff = streamForResourceWithPath(path)
+                if not ff.isNil:
+                    ff.close()
+                    result = newFontWithFile("res://" & path, size)
 
 proc systemFontSize*(): float = 16
 
