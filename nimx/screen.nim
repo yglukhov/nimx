@@ -29,6 +29,8 @@ elif defined(android):
         proc getMetrics(d: Display, outMetrics: DisplayMetrics)
 
         proc density(d: DisplayMetrics): jfloat {.property.}
+elif defined(emscripten):
+    import jsbind, jsbind.emscripten
 
 proc screenScaleFactor*(): float =
     when defined(macosx) or defined(ios):
@@ -41,5 +43,7 @@ proc screenScaleFactor*(): float =
         act.getWindowManager().getDefaultDisplay().getMetrics(dm)
         result = dm.density
         result = 1.0 # TODO: Take care of this
+    elif defined(emscripten):
+        result = emscripten_get_device_pixel_ratio()
     else:
         result = 1.0

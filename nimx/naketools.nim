@@ -180,15 +180,15 @@ proc newBuilder*(platform: string): Builder =
     when defined(windows):
         b.appIconName = "MyGame.ico"
 
-    b.macOSSDKVersion = "10.11"
+    b.macOSSDKVersion = "10.12"
     for v in ["10.7", "10.8", "10.9", "10.10", "10.11", "10.12", "10.13"]:
         if dirExists(macOSSDKPath(v)):
             b.macOSSDKVersion = v
             break
     b.macOSMinVersion = "10.7"
 
-    b.iOSSDKVersion = "9.3"
-    for v in ["9.3"]:
+    b.iOSSDKVersion = "10.0"
+    for v in ["10.0"]:
         if dirExists(iOSSDKPath(v)):
             b.iOSSDKVersion = v
             break
