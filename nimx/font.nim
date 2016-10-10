@@ -89,6 +89,7 @@ type Font* = ref object
     isHorizontal*: bool
     scale*: float
     filePath: string
+    face*: string
     horizontalSpacing*: Coord
     shadowX*, shadowY*, shadowBlur*: float32
     glyphMargin: int32
@@ -333,6 +334,7 @@ when not defined(js):
         result.new()
         result.isHorizontal = true # TODO: Support vertical fonts
         result.filePath = pathToTTFile
+        result.face = splitFile(pathToTTFile).name
         result.size = size
         result.glyphMargin = 8
 
@@ -405,6 +407,7 @@ proc newFontWithFace*(face: string, size: float): Font =
     when defined(js):
         result.new()
         result.filePath = face
+        result.face = face
         result.isHorizontal = true # TODO: Support vertical fonts
         result.size = size
         result.glyphMargin = 8
