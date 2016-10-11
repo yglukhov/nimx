@@ -69,13 +69,10 @@ proc startPreloadingResource(ld: ResourceLoader, name: string) =
 
 when jsEnv:
     proc loadNextResources(ld: ResourceLoader) =
-        logi "loadNextResource begin"
         const parallelLoaders = 10
         while ld.itemsLoading < parallelLoaders and ld.remainingItemsToLoad.len > 0:
             let next = ld.remainingItemsToLoad.pop()
-            logi "loadNextResource: ", next, " len ", ld.remainingItemsToLoad.len
             ld.startPreloadingResource(next)
-        logi "loadNextResource end"
 
 proc registerResourcePreloader*[T](fileExtensions: openarray[string], loader: proc(name: string, callback: proc(r: T))) =
     proc wrapCb(name: string, callback: proc(r: Variant)) =
