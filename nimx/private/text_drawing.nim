@@ -114,7 +114,6 @@ void main() {
 }
 """,
 """
-
 uniform sampler2D texUnit;
 uniform vec4 fillColor;
 uniform float preScale;
