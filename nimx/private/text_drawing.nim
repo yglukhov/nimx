@@ -64,7 +64,7 @@ when false:
     """
     #ifdef GL_ES
     #extension GL_OES_standard_derivatives : enable
-    precision medium float;
+    precision mediump float;
     #endif
 
     uniform sampler2D texUnit;
