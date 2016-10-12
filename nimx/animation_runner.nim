@@ -76,3 +76,7 @@ proc update*(ar: AnimationRunner)=
                 ar.onAnimationRemoved()
         else:
             inc index
+
+proc onDelete*(ar: AnimationRunner) =
+    ar.onAnimationRemoved = nil
+    ar.onAnimationAdded = nil

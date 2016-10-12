@@ -157,6 +157,7 @@ proc removeAnimationRunner*(w: Window, ar: AnimationRunner)=
         for idx, runner in w.animationRunners:
             if runner == ar:
                 if idx == DEFAULT_RUNNER: break
+                runner.onDelete()
                 w.animationRunners.delete(idx)
                 if runner.animations.len > 0:
                     w.animationRemoved( runner.animations.len )
