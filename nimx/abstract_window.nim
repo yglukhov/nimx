@@ -9,6 +9,7 @@ import resource
 import image
 import notification_center
 import mini_profiler
+import portable_gl
 export view
 
 # Window type is defined in view module
@@ -81,6 +82,14 @@ method drawWindow*(w: Window) {.base.} =
         font.size = old_size
     ResetOverdrawValue()
     ResetDIPValue()
+
+method draw*(w: Window, rect: Rect) =
+    let c = currentContext()
+    let gl = c.gl
+    if w.mActiveBgColor != w.backgroundColor:
+        gl.clearColor(w.backgroundColor.r, w.backgroundColor.g, w.backgroundColor.b, w.backgroundColor.a)
+        w.mActiveBgColor = w.backgroundColor
+    gl.clear(gl.COLOR_BUFFER_BIT or gl.STENCIL_BUFFER_BIT or gl.DEPTH_BUFFER_BIT)
 
 method enableAnimation*(w: Window, flag: bool) {.base.} = discard
 

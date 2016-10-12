@@ -111,12 +111,18 @@ method `title=`*(w: SdlWindow, t: string) =
 
 method title*(w: SdlWindow): string = $w.impl.getTitle()
 
+method draw*(w: SdlWindow, r: Rect) =
+    let c = currentContext()
+    let gl = c.gl
+    if w.mActiveBgColor != w.backgroundColor:
+        gl.clearColor(w.backgroundColor.r, w.backgroundColor.g, w.backgroundColor.b, w.backgroundColor.a)
+        w.mActiveBgColor = w.backgroundColor
+    gl.stencilMask(0xFF) # Android requires setting stencil mask to clear
+    gl.clear(gl.COLOR_BUFFER_BIT or gl.STENCIL_BUFFER_BIT or gl.DEPTH_BUFFER_BIT)
+    gl.stencilMask(0x00)
 
 method drawWindow(w: SdlWindow) =
     let c = w.renderingContext
-    c.gl.stencilMask(0xFF) # Android requires setting stencil mask to clear
-    c.gl.clear(c.gl.COLOR_BUFFER_BIT or c.gl.STENCIL_BUFFER_BIT or c.gl.DEPTH_BUFFER_BIT)
-    c.gl.stencilMask(0x00)
     let oldContext = setCurrentContext(c)
     c.withTransform ortho(0, w.frame.width, w.frame.height, 0, -1, 1):
         procCall w.Window.drawWindow()
