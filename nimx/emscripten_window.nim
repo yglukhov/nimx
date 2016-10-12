@@ -144,7 +144,6 @@ proc updateCanvasSize(w: EmscriptenWindow) =
     c.height = $2;
     """, cstring(w.canvasId), w.pixelRatio * width, w.pixelRatio * height)
 
-    logi "test"
     discard emscripten_set_element_css_size(w.canvasId, width, height)
 
     if scaleFactor > 1: scaleFactor = 1
