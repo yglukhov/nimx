@@ -138,19 +138,20 @@ proc updateCanvasSize(w: EmscriptenWindow) =
     height = maxHeight * scaleFactor
 
     w.pixelRatio = screenScaleFactor()
+
+    if scaleFactor > 1: scaleFactor = 1
+    let canvWidth = maxWidth * scaleFactor
+    let canvHeight = maxHeight * scaleFactor
+
     discard EM_ASM_INT("""
     var c = document.getElementById(Pointer_stringify($0));
     c.width = $1;
     c.height = $2;
-    """, cstring(w.canvasId), w.pixelRatio * width, w.pixelRatio * height)
+    """, cstring(w.canvasId), w.pixelRatio * canvWidth, w.pixelRatio * canvHeight)
 
     discard emscripten_set_element_css_size(w.canvasId, width, height)
 
-    if scaleFactor > 1: scaleFactor = 1
-    width = maxWidth * scaleFactor
-    height = maxHeight * scaleFactor
-
-    w.onResize(newSize(width, height))
+    w.onResize(newSize(canvWidth, canvHeight))
 
 proc onResize(eventType: cint, uiEvent: ptr EmscriptenUiEvent, userData: pointer): EM_BOOL {.cdecl.} =
     let w = cast[EmscriptenWindow](userData)
