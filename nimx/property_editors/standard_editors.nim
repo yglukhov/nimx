@@ -165,6 +165,14 @@ proc newColorPropertyView(setter: proc(s: Color), getter: proc(): Color): Proper
         textField.continuous = true
         horLayout.addSubview(textField)
 
+proc newRectPropertyView(setter: proc(s: Rect), getter: proc(): Rect): PropertyEditorView =
+    newVecPropertyView(
+        proc(v: Vector4) = setter(newRect(v.x, v.y, v.z, v.w)),
+        proc(): Vector4 =
+            let s = getter()
+            result = newVector4(s.x, s.y, s.width, s.height)
+            )
+
 proc newSizePropertyView(setter: proc(s: Size), getter: proc(): Size): PropertyEditorView =
     newVecPropertyView(
         proc(v: Vector2) = setter(newSize(v.x, v.y)),
@@ -388,6 +396,7 @@ registerPropertyEditor(newVecPropertyView[Vector3])
 registerPropertyEditor(newVecPropertyView[Vector4])
 registerPropertyEditor(newColorPropertyView)
 registerPropertyEditor(newSizePropertyView)
+registerPropertyEditor(newRectPropertyView)
 registerPropertyEditor(newPointPropertyView)
 registerPropertyEditor(newBoolPropertyView)
 registerPropertyEditor(newEnumPropertyView)

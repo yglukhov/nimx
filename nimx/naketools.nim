@@ -180,15 +180,15 @@ proc newBuilder*(platform: string): Builder =
     when defined(windows):
         b.appIconName = "MyGame.ico"
 
-    b.macOSSDKVersion = "10.11"
+    b.macOSSDKVersion = "10.12"
     for v in ["10.7", "10.8", "10.9", "10.10", "10.11", "10.12", "10.13"]:
         if dirExists(macOSSDKPath(v)):
             b.macOSSDKVersion = v
             break
     b.macOSMinVersion = "10.7"
 
-    b.iOSSDKVersion = "9.3"
-    for v in ["9.3"]:
+    b.iOSSDKVersion = "10.0"
+    for v in ["10.0"]:
         if dirExists(iOSSDKPath(v)):
             b.iOSSDKVersion = v
             break
@@ -234,6 +234,24 @@ proc nimblePath(package: string): string =
 proc nimbleNimxPath(): string =
     result = nimblePath("nimx")
     doAssert(not result.isNil, "Error: nimx does not seem to be installed with nimble!")
+
+proc emccWrapperPath(): string =
+    when defined(windows):
+        let jsbindPath = nimblePath("jsbind")
+        result = jsbindPath / "jsbind/emcc_wrapper_win32.exe"
+    else:
+        result = findExe("emcc")
+
+proc findEmcc(): string {.tags: [ReadDirEffect, ReadEnvEffect, ReadIOEffect].} =
+    result = addFileExt("emcc", ScriptExt)
+    if existsFile(result): return
+    var path = string(getEnv("PATH"))
+    for candidate in split(path, PathSep):
+        var x = (if candidate[0] == '"' and candidate[^1] == '"':
+                  substr(candidate, 1, candidate.len-2) else: candidate) /
+               result
+        if existsFile(x):
+            return x
 
 proc newBuilder*(): Builder =
     when defined(macosx):
@@ -516,11 +534,13 @@ proc ndkBuild(b: Builder) =
         direShell args
 
 proc makeEmscriptenPreloadData(b: Builder): string =
-    let emcc = findExe("emcc")
+    let emcc_path = findExe("emcc")
+    let emcc = if emcc_path.len > 0: emcc_path else: findEmcc()
+
     doAssert(emcc.len > 0)
     result = b.nimcachePath / "preload.js"
     let packagerPy = emcc.parentDir() / "tools" / "file_packager.py"
-    var args = @["python", packagerPy, b.buildRoot / "main.data", "--js-output=" & result]
+    var args = @["python", packagerPy.quoteShell(), b.buildRoot / "main.data", "--js-output=" & result]
     for p in b.emscriptenPreloadFiles:
         args.add(["--preload", p])
     direShell(args)
@@ -607,10 +627,13 @@ proc build*(b: Builder) =
             b.nimFlags.add(["--cpu:i386", "--os:windows", "--cc:gcc", "--gcc.exe:" & mxeBin, "--gcc.linkerexe:" & mxeBin])
         b.makeWindowsResource()
     of "emscripten":
+        let emcc_path = findExe("emcc")
+        let emcc = if emcc_path.len > 0: emcc_path else: emccWrapperPath()
         b.emscriptenPreloadFiles.add(b.originalResourcePath & "/OpenSans-Regular.ttf@/res/OpenSans-Regular.ttf")
         b.executablePath = b.buildRoot / "main.js"
         b.nimFlags.add(["--cpu:i386", "-d:emscripten", "--os:linux", "--cc:clang",
-            "--clang.exe=emcc", "--clang.linkerexe=emcc", "-d:SDL_Static"])
+            "--clang.exe=" & emcc.quoteShell(), "--clang.linkerexe=" & emcc.quoteShell(), "-d:SDL_Static"])
+
         if b.emscriptenPreloadFiles.len > 0:
             b.emscriptenPreJS.add(b.makeEmscriptenPreloadData())
 

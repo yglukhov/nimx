@@ -13,11 +13,6 @@ void main() {
 }
 """,
 """
-#ifdef GL_ES
-#extension GL_OES_standard_derivatives : enable
-precision mediump float;
-#endif
-
 uniform sampler2D texUnit;
 uniform vec4 fillColor;
 uniform float preScale;
@@ -67,11 +62,6 @@ when false:
     }
     """,
     """
-    #ifdef GL_ES
-    #extension GL_OES_standard_derivatives : enable
-    precision mediump float;
-    #endif
-
     uniform sampler2D texUnit;
     uniform vec4 fillColor;
     uniform float alphaMin;
@@ -155,7 +145,8 @@ void subpixelCompose()
     float aMax = min(aBase + aRange, 1.0);
 
     vec4 n;
-    vec2 shift_vec = dFdx(vTexCoord.xy);
+    vec2 shift_vec = vec2(0.0);
+    shift_vec.x = dFdx(vTexCoord.x);
     n.x = texture2D(texUnit, vTexCoord.xy - shift_vec * 0.667).a;
     n.y = texture2D(texUnit, vTexCoord.xy - shift_vec * 0.333).a;
     n.z = texture2D(texUnit, vTexCoord.xy + shift_vec * 0.333).a;

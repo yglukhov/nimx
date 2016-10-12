@@ -11,7 +11,12 @@ import variant
 
 const debugResCache = false
 
+const jsEnv = defined(js) or defined(emscripten)
+
 type ResourceLoader* = ref object
+    when jsEnv:
+        remainingItemsToLoad: seq[string]
+        itemsLoading: int
     totalSize : int
     loadedSize: int
     itemsToLoad: int
@@ -27,8 +32,11 @@ proc getFileExtension(name: string): string =
     if p != -1:
         result = name.substr(p + 1)
 
+when jsEnv:
+    proc loadNextResources(ld: ResourceLoader)
+
 proc onResourceLoaded(ld: ResourceLoader, name: string) =
-    # dec ld.itemsToLoad
+    when jsEnv: dec ld.itemsLoading
     inc ld.itemsLoaded
     when debugResCache:
         ld.resourcesToLoad.keepIf(proc(a: string):bool = a != name)
@@ -38,12 +46,15 @@ proc onResourceLoaded(ld: ResourceLoader, name: string) =
     if not ld.onProgress.isNil:
         ld.onProgress( ld.itemsLoaded.float / ld.itemsToLoad.float)
 
+    when jsEnv: ld.loadNextResources()
+
 type ResourceLoaderProc = proc(name: string, completionCallback: proc(r: Variant))
 
 var resourcePreloaders = newSeq[tuple[fileExtensions: seq[string], loader: ResourceLoaderProc]]()
 
 proc startPreloadingResource(ld: ResourceLoader, name: string) =
     let extension = name.getFileExtension()
+    when jsEnv: inc ld.itemsLoading
 
     for rp in resourcePreloaders:
         if extension in rp.fileExtensions:
@@ -55,6 +66,13 @@ proc startPreloadingResource(ld: ResourceLoader, name: string) =
     ld.onResourceLoaded(nil)
     logi "WARNING: Unknown resource type: ", name
     #raise newException(Exception, "Unknown resource type: " & name)
+
+when jsEnv:
+    proc loadNextResources(ld: ResourceLoader) =
+        const parallelLoaders = 10
+        while ld.itemsLoading < parallelLoaders and ld.remainingItemsToLoad.len > 0:
+            let next = ld.remainingItemsToLoad.pop()
+            ld.startPreloadingResource(next)
 
 proc registerResourcePreloader*[T](fileExtensions: openarray[string], loader: proc(name: string, callback: proc(r: T))) =
     proc wrapCb(name: string, callback: proc(r: Variant)) =
@@ -87,8 +105,12 @@ proc preloadResources*(ld: ResourceLoader, resourceNames: openarray[string]) =
         ld.resourcesToLoad = @resourceNames
     let oldWarn = warnWhenResourceNotCached
     warnWhenResourceNotCached = false
-    for i in resourceNames:
-        ld.startPreloadingResource(i)
+    when jsEnv:
+        ld.remainingItemsToLoad = @resourceNames
+        ld.loadNextResources()
+    else:
+        for i in resourceNames:
+            ld.startPreloadingResource(i)
     warnWhenResourceNotCached = oldWarn
 
 proc isHiddenFile(path: string): bool =
