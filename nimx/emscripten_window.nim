@@ -144,7 +144,6 @@ proc updateCanvasSize(w: EmscriptenWindow) =
     c.height = $2;
     """, cstring(w.canvasId), w.pixelRatio * width, w.pixelRatio * height)
 
-    logi "test"
     discard emscripten_set_element_css_size(w.canvasId, width, height)
 
     if scaleFactor > 1: scaleFactor = 1
@@ -234,7 +233,6 @@ newFullscreenWindow = proc(): Window =
 
 method drawWindow(w: EmscriptenWindow) =
     let c = w.renderingContext
-    c.gl.clear(c.gl.COLOR_BUFFER_BIT or c.gl.STENCIL_BUFFER_BIT or c.gl.DEPTH_BUFFER_BIT)
     let oldContext = setCurrentContext(c)
 
     c.withTransform ortho(0, w.frame.width, w.frame.height, 0, -1, 1):

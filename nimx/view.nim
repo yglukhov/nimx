@@ -46,7 +46,7 @@ type
         needsDisplay*: bool
         mouseOverListeners*: seq[View]
         pixelRatio*: float32
-
+        mActiveBgColor*: Color
 
 method init*(v: View, frame: Rect) {.base.} =
     v.frame = frame
