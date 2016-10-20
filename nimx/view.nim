@@ -26,6 +26,7 @@ type
     GestureDetector* = ref object of RootObj
 
     View* = ref object of RootObj
+        ## View is the root type for all widgets
         window*: Window
         name*: string
         frame: Rect
