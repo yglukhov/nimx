@@ -177,6 +177,7 @@ when not defined(js):
             result = newFileStream(path, fmRead)
         if result.isNil:
             logi "WARNING: Resource not found: ", path
+            raise newException(Exception, "Resource not found")
 
     proc streamForResourceWithName*(name: string): Stream =
         streamForResourceWithPath(pathForResource(name))

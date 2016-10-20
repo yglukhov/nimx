@@ -387,6 +387,32 @@ proc newSeqPropertyView[T](setter: proc(s: seq[T]), getter: proc(): seq[T]): Pro
 
     result = pv
 
+proc newFontPropertyView(setter: proc(s: Font), getter: proc(): Font): PropertyEditorView =
+    result = PropertyEditorView.new(newRect(0, 0, 208, editorRowHeight))
+    var val = getter()
+    var items = getAvailableFonts()
+    var fontSize = 16.0
+    if not val.isNil:
+        fontSize = val.size
+
+    sort(items, system.cmp)
+    var startVal = 0
+    for i, v in items:
+        if v == val.face:
+            startVal = i
+            break
+
+    var enumChooser = newPopupButton(result,
+        newPoint(0.0, 0.0), newSize(208, editorRowHeight),
+        items, startVal)
+
+    enumChooser.autoresizingMask = {afFlexibleWidth, afFlexibleMaxY}
+
+    enumChooser.onAction do():
+        let val = newFontWithFace(enumChooser.selectedItem(), fontSize)
+        setter(val)
+
+
 registerPropertyEditor(newTextPropertyView)
 registerPropertyEditor(newScalarPropertyView[Coord])
 registerPropertyEditor(newScalarPropertyView[float])
@@ -403,3 +429,4 @@ registerPropertyEditor(newEnumPropertyView)
 registerPropertyEditor(newScalarSeqPropertyView[float])
 registerPropertyEditor(newSeqPropertyView[TVector[4, Coord]])
 registerPropertyEditor(newSeqPropertyView[TVector[5, Coord]])
+registerPropertyEditor(newFontPropertyView)

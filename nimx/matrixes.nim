@@ -35,6 +35,10 @@ proc normalize*(v: var Vector3) =
         v[1] /= leng
         v[2] /= leng
 
+proc normalized*(v: Vector3): Vector3 =
+    result = v
+    result.normalize()
+
 template x*[I: static[int], T](v: TVector[I, T]): T = v[0]
 template y*[I: static[int], T](v: TVector[I, T]): T = v[1]
 template z*[I: static[int], T](v: TVector[I, T]): T = v[2]
