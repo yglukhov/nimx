@@ -419,6 +419,11 @@ when not defined(js):
             if fileExists(f):
                 return f
 
+    proc getAvailableFonts*(isSystem: bool = false): seq[string] =
+        result = newSeq[string]()
+        for f in walkFiles(getAppDir() /../ "Resources/*.ttf"):
+            result.add(splitFile(f).name)
+
 proc newFontWithFace*(face: string, size: float): Font =
     when defined(js):
         result.new()
