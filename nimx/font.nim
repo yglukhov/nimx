@@ -423,6 +423,10 @@ when not defined(js):
         result = newSeq[string]()
         for f in walkFiles(getAppDir() /../ "Resources/*.ttf"):
             result.add(splitFile(f).name)
+        for f in walkFiles(getAppDir() / "res/*.ttf"):
+            result.add(splitFile(f).name)
+        for f in walkFiles(getAppDir() / "*.ttf"):
+            result.add(splitFile(f).name)
 
 proc newFontWithFace*(face: string, size: float): Font =
     when defined(js):
