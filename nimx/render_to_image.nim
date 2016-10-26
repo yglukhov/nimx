@@ -40,6 +40,7 @@ proc draw*(i: Image, drawProc: proc()) =
     let oldFb = gl.boundFramebuffer()
     let oldViewport = gl.getViewport()
     let oldRb = gl.boundRenderbuffer()
+    let old_STENCIL = gl.getParamb(gl.STENCIL_TEST)
     var oldClearColor : array[4, GLfloat]
     gl.getClearColor(oldClearColor)
 
@@ -58,6 +59,9 @@ proc draw*(i: Image, drawProc: proc()) =
 
     currentContext().withTransform ortho(0, i.size.width, i.size.height, 0, -1, 1):
         drawProc()
+
+    if old_STENCIL:
+        gl.enable(gl.STENCIL_TEST)
 
     # OpenGL framebuffer coordinate system is flipped comparing to how we load
     # and handle the rest of images. Compensate for that by flipping texture
