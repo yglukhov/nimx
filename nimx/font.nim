@@ -419,8 +419,9 @@ when not defined(js):
             if fileExists(f):
                 return f
 
-    proc getAvailableFonts*(isSystem: bool = false): seq[string] =
-        result = newSeq[string]()
+proc getAvailableFonts*(isSystem: bool = false): seq[string] =
+    result = newSeq[string]()
+    when not defined(js):
         for f in walkFiles(getAppDir() /../ "Resources/*.ttf"):
             result.add(splitFile(f).name)
         for f in walkFiles(getAppDir() / "res/*.ttf"):
