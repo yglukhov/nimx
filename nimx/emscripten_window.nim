@@ -56,7 +56,11 @@ proc onMouseButton(eventType: cint, mouseEvent: ptr EmscriptenMouseEvent, userDa
     if mainApplication().handleEvent(evt): result = 1
 
 proc onMouseDown(eventType: cint, mouseEvent: ptr EmscriptenMouseEvent, userData: pointer): EM_BOOL {.cdecl.} =
-    onMouseButton(eventType, mouseEvent, userData, bsDown)
+    result = onMouseButton(eventType, mouseEvent, userData, bsDown)
+    # Preventing default behavior for mousedown may prevent our iframe to become
+    # focused, if we're in an iframe. And that has bad consequenses such as
+    # inability to handle keyboard events.
+    result = 0
 
 proc onMouseUp(eventType: cint, mouseEvent: ptr EmscriptenMouseEvent, userData: pointer): EM_BOOL {.cdecl.} =
     onMouseButton(eventType, mouseEvent, userData, bsUp)
@@ -98,12 +102,10 @@ proc onKeyUp(eventType: cint, keyEvent: ptr EmscriptenKeyboardEvent, userData: p
 proc onFocus(eventType: cint, keyEvent: ptr EmscriptenFocusEvent, userData: pointer): EM_BOOL {.cdecl.} =
     let w = cast[EmscriptenWindow](userData)
     w.onFocusChange(true)
-    result = 0
 
 proc onBlur(eventType: cint, keyEvent: ptr EmscriptenFocusEvent, userData: pointer): EM_BOOL {.cdecl.} =
     let w = cast[EmscriptenWindow](userData)
     w.onFocusChange(false)
-    result = 0
 
 proc getDocumentSize(width, height: var float32) {.inline.} =
     discard EM_ASM_INT("""
@@ -198,8 +200,8 @@ proc initCommon(w: EmscriptenWindow, r: view.Rect) =
     discard emscripten_set_mousemove_callback(docID, cast[pointer](w), 0, onMouseMove)
     discard emscripten_set_wheel_callback(w.canvasId, cast[pointer](w), 0, onMouseWheel)
 
-    discard emscripten_set_keydown_callback(nil, cast[pointer](w), 1, onKeyDown)
-    discard emscripten_set_keyup_callback(nil, cast[pointer](w), 1, onKeyUp)
+    discard emscripten_set_keydown_callback(docID, cast[pointer](w), 1, onKeyDown)
+    discard emscripten_set_keyup_callback(docID, cast[pointer](w), 1, onKeyUp)
 
     discard emscripten_set_blur_callback(nil, cast[pointer](w), 1, onBlur)
     discard emscripten_set_focus_callback(nil, cast[pointer](w), 1, onFocus)
