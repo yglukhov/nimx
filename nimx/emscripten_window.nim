@@ -22,7 +22,7 @@ type EmscriptenWindow* = ref object of Window
 method enableAnimation*(w: EmscriptenWindow, flag: bool) =
     discard
 
-proc getCanvasDimensions(id: cstring, cssRect: var Rect, virtualSize: var Size) =
+proc getCanvasDimensions(id: cstring, cssRect: var Rect, virtualSize: var Size) {.inline.} =
     discard EM_ASM_INT("""
         var c = document.getElementById(Pointer_stringify($0));
         var r = c.getBoundingClientRect();
@@ -34,12 +34,17 @@ proc getCanvasDimensions(id: cstring, cssRect: var Rect, virtualSize: var Size) 
         setValue($2 + 4, c.height, 'float');
         """, id, addr cssRect, addr virtualSize)
 
-proc eventLocationFromJSEvent(mouseEvent: ptr EmscriptenMouseEvent, w: EmscriptenWindow): Point =
+proc eventLocationFromJSEvent(mouseEvent: ptr EmscriptenMouseEvent, w: EmscriptenWindow, eventTargetIsCanvas: bool): Point =
+    # `eventTargetIsCanvas` should be true if `mouseEvent.targetX` and `mouseEvent.targetY`
+    # are relative to canvas.
     var cssRect: Rect
     var virtualSize: Size
     getCanvasDimensions(w.canvasId, cssRect, virtualSize)
-    result.x = (Coord(mouseEvent.targetX) - cssRect.x) / cssRect.width * virtualSize.width / w.pixelRatio
-    result.y = (Coord(mouseEvent.targetY) - cssRect.y) / cssRect.height * virtualSize.height / w.pixelRatio
+    result.x = Coord(mouseEvent.targetX)
+    result.y = Coord(mouseEvent.targetY)
+    if not eventTargetIsCanvas: result -= cssRect.origin
+    result.x = result.x / cssRect.width * virtualSize.width / w.pixelRatio
+    result.y = result.y / cssRect.height * virtualSize.height / w.pixelRatio
 
 proc onMouseButton(eventType: cint, mouseEvent: ptr EmscriptenMouseEvent, userData: pointer, bs: ButtonState): EM_BOOL =
     let w = cast[EmscriptenWindow](userData)
@@ -50,7 +55,7 @@ proc onMouseButton(eventType: cint, mouseEvent: ptr EmscriptenMouseEvent, userDa
         of 1: VirtualKey.MouseButtonMiddle
         else: VirtualKey.Unknown
 
-    let point = eventLocationFromJSEvent(mouseEvent, w)
+    let point = eventLocationFromJSEvent(mouseEvent, w, false)
     var evt = newMouseButtonEvent(point, bcFromE(), bs, uint32(mouseEvent.timestamp))
     evt.window = w
     if mainApplication().handleEvent(evt): result = 1
@@ -67,22 +72,15 @@ proc onMouseUp(eventType: cint, mouseEvent: ptr EmscriptenMouseEvent, userData: 
 
 proc onMouseMove(eventType: cint, mouseEvent: ptr EmscriptenMouseEvent, userData: pointer): EM_BOOL {.cdecl.} =
     let w = cast[EmscriptenWindow](userData)
-    let point = eventLocationFromJSEvent(mouseEvent, w)
+    let point = eventLocationFromJSEvent(mouseEvent, w, false)
     var evt = newMouseMoveEvent(point, uint32(mouseEvent.timestamp))
     evt.window = w
     if mainApplication().handleEvent(evt): result = 1
 
 proc onMouseWheel(eventType: cint, wheelEvent: ptr EmscriptenWheelEvent, userData: pointer): EM_BOOL {.cdecl.} =
     let w = cast[EmscriptenWindow](userData)
-    var cssRect: Rect
-    var virtualSize: Size
-    getCanvasDimensions(w.canvasId, cssRect, virtualSize)
-
-    var pos: Point
-    pos.x = Coord(wheelEvent.mouse.targetX) / cssRect.width * virtualSize.width / w.pixelRatio
-    pos.y = Coord(wheelEvent.mouse.targetY) / cssRect.height * virtualSize.height / w.pixelRatio
-
-    var evt = newEvent(etScroll, pos)
+    let point = eventLocationFromJSEvent(addr wheelEvent.mouse, w, true)
+    var evt = newEvent(etScroll, point)
     evt.window = w
     evt.offset.x = wheelEvent.deltaX.Coord
     evt.offset.y = wheelEvent.deltaY.Coord
