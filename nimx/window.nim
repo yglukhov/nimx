@@ -1,5 +1,4 @@
 # Platform specific implementations follow
-## My fixed comment
 import abstract_window
 when defined(js):
     import js_canvas_window
