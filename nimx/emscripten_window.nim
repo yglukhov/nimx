@@ -79,8 +79,8 @@ proc onMouseWheel(eventType: cint, wheelEvent: ptr EmscriptenWheelEvent, userDat
     getCanvasDimensions(w.canvasId, cssRect, virtualSize)
 
     var pos: Point
-    pos.x = Coord(wheelEvent.mouse.targetX) / cssRect.width * virtualSize.width
-    pos.y = Coord(wheelEvent.mouse.targetY) / cssRect.height * virtualSize.height
+    pos.x = Coord(wheelEvent.mouse.targetX) / cssRect.width * virtualSize.width / w.pixelRatio
+    pos.y = Coord(wheelEvent.mouse.targetY) / cssRect.height * virtualSize.height / w.pixelRatio
 
     var evt = newEvent(etScroll, pos)
     evt.window = w
