@@ -72,7 +72,7 @@ Running nimx samples
 ====================
 .. code-block:: sh
 
-    cd $(nimble path nimx)/test
+    cd $(nimble path nimx | tail -n 1)/test
     nake # Build and run on the current platform
     # or
     nake js # Build and run in default web browser
