@@ -46,13 +46,11 @@ proc bakeChars*(p: StbTtfGlyphProvider, start: int32, data: var GlyphData) =
     let startChar = start * charChunkLength
     let endChar = startChar + charChunkLength
 
-    let fSize = p.size
-
     var rectPacker = newPacker(32, 32)
 
     p.loadFontData()
 
-    let scale = stbtt_ScaleForMappingEmToPixels(p.fontInfo, fSize)
+    let scale = stbtt_ScaleForMappingEmToPixels(p.fontInfo, p.size)
     var ascent, descent, lineGap : cint
     stbtt_GetFontVMetrics(p.fontInfo, ascent, descent, lineGap)
 
@@ -101,4 +99,5 @@ proc bakeChars*(p: StbTtfGlyphProvider, start: int32, data: var GlyphData) =
                     stbtt_MakeGlyphBitmap(p.fontInfo, addr temp_bitmap[x + y * width.int], w, h, width.cint, scale, scale, glyphIndexes[indexOfGlyphInRange])
                     data.dfDoneForGlyph[indexOfGlyphInRange] = false
 
+    p.clearCache()
     shallowCopy(data.bitmap, temp_bitmap)

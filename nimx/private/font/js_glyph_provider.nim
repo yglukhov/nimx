@@ -91,10 +91,7 @@ proc bakeChars*(p: JsGlyphProvider, start: int32, data: var GlyphData) =
     let startChar = start * charChunkLength
     let endChar = startChar + charChunkLength
 
-    let fSize = p.size
-
     var rectPacker = newPacker(32, 32)
-    #f.updateFontMetricsIfNeeded()
 
     var ascent, descent: float32
     p.getFontMetrics(ascent, descent)
@@ -110,11 +107,8 @@ proc bakeChars*(p: JsGlyphProvider, start: int32, data: var GlyphData) =
     for i in startChar .. < endChar:
         if isPrintableCodePoint(i):
             var w: int32
-            var s : cstring
             {.emit: """
-            var mt = ctx.measureText(String.fromCharCode(`i`));
-            `s` = String.fromCharCode(`i`);
-            `w` = mt.width;
+            `w` = ctx.measureText(String.fromCharCode(`i`)).width;
             """.}
 
             if w > 0:
