@@ -83,7 +83,7 @@ when not defined js:
             of 2: GL_LUMINANCE_ALPHA
             of 3: GL_RGB
             of 4: GL_RGBA
-            else: GLenum(0)
+            else: GL_FALSE
         size = newSize(x.Coord, y.Coord)
         let texWidth = if isPowerOfTwo(x): x.int else: nextPowerOfTwo(x)
         let texHeight = if isPowerOfTwo(y): y.int else: nextPowerOfTwo(y)
