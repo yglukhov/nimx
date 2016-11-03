@@ -1,20 +1,18 @@
-import math
 import types
 import system_logger
-import pathutils
 import unicode
-import tables
-import strutils
 import streams
-import rect_packer
 import nimx.resource
 import nimx.timer
+import nimx.private.font.font_data
 
 when defined(js):
-    import dom
-    import private.js_font_metrics
+    import private.font.js_glyph_provider
+    type GlyphProvider = JsGlyphProvider
 else:
-    import ttf
+    import private.font.stb_ttf_glyph_provider
+    type GlyphProvider = StbTtfGlyphProvider
+
     import os
     import write_image_impl
 
@@ -24,35 +22,16 @@ import private.simple_table
 import opengl
 import portable_gl
 
-const charChunkLength = 200
-
-type BackedCharComponent = enum
-    compX = 0
-    compY
-    compAdvance
-    compTexX
-    compTexY
-    compWidth
-    compHeight
-
 type Baseline* = enum
     bTop
     bAlphabetic
     bBottom
 
-const numberOfComponents = ord(high(BackedCharComponent)) + 1
-type BakedCharInfo = array[numberOfComponents * charChunkLength, int16]
-
-template charOff(i: int): int = i * numberOfComponents
-template charOffComp(bc: var BakedCharInfo, charOffset: int, comp: BackedCharComponent): var int16 =
-    bc[charOffset + ord(comp)]
-
 type CharInfo = ref object
-    bakedChars: BakedCharInfo
-    tempBitmap: seq[byte]
+    data: GlyphData
     texture: TextureRef
-    texWidth, texHeight: uint16
-    dfDoneForGlyph: seq[bool]
+
+template bakedChars(ci: CharInfo): GlyphMetrics = ci.data.glyphMetrics
 
 when defined(js):
     type FastString = cstring
@@ -70,6 +49,7 @@ template scaleForSize(s: float): float = s / charHeightForSize(s)
 
 type FontImpl = ref object
     chars: SimpleTable[int32, CharInfo]
+    glyphProvider: GlyphProvider
     ascent: float32
     descent: float32
 
@@ -84,6 +64,13 @@ proc cachedImplForFont(face: string, sz: float): FontImpl =
     else:
         result.new()
         result.chars = newSimpleTable(int32, CharInfo)
+        result.glyphProvider.new()
+        when defined(js):
+            result.glyphProvider.setFace(face)
+        else:
+            result.glyphProvider.setPath(face)
+        result.glyphProvider.setSize(charHeightForSize(sz))
+        result.glyphProvider.glyphMargin = 8
         fontCache[key] = result
 
 type Font* = ref object
@@ -107,88 +94,40 @@ template size*(f: Font): float = f.mSize
 
 const dumpDebugBitmaps = false
 
-when dumpDebugBitmaps and defined(js):
-    proc logBitmap(title: cstring, bytes: openarray[byte], width, height: int) =
-        {.emit: """
-        var span = document.createElement("span");
-        span.innerHTML = `title`;
-        document.body.appendChild(span);
-        var canvas = document.createElement("canvas")
-        document.body.appendChild(canvas);
-        canvas.width = `width`;
-        canvas.height = `height`;
-        var ctx = `canvas`.getContext('2d');
-        var imgData2 = ctx.createImageData(`width`, `height`);
-        var imgData = imgData2.data;
-        var sz = `width` * `height`;
-        for (var i = 0; i < sz; ++i) {
-            var offs = i * 4;
-            imgData[offs] = 0;// `bytes`[i];
-            imgData[offs + 1] = 0; //`bytes`[i];
-            imgData[offs + 2] = 0; //`bytes`[i];
-            imgData[offs + 3] = `bytes`[i];
-        }
-        ctx.putImageData(imgData2, 0, 0);
-        """.}
-
-template isPrintableCodePoint(c: int): bool = not (i <= 0x1f or i == 0x7f or (i >= 0x80 and i <= 0x9F))
-
 when dumpDebugBitmaps:
-    template dumpBitmaps(name: string, bitmap: seq[byte], width, height, start: int, fSize: float) =
-        var bmp = newSeq[byte](width * height * 3)
-        for i in 0 .. < width * height:
-            bmp[3*i] = bitmap[i]
+    when defined(js):
+        proc logBitmap(title: cstring, bytes: openarray[byte], width, height: int) =
+            {.emit: """
+            var span = document.createElement("span");
+            span.innerHTML = `title`;
+            document.body.appendChild(span);
+            var canvas = document.createElement("canvas")
+            document.body.appendChild(canvas);
+            canvas.width = `width`;
+            canvas.height = `height`;
+            var ctx = `canvas`.getContext('2d');
+            var imgData2 = ctx.createImageData(`width`, `height`);
+            var imgData = imgData2.data;
+            var sz = `width` * `height`;
+            for (var i = 0; i < sz; ++i) {
+                var offs = i * 4;
+                imgData[offs] = 0;// `bytes`[i];
+                imgData[offs + 1] = 0; //`bytes`[i];
+                imgData[offs + 2] = 0; //`bytes`[i];
+                imgData[offs + 3] = `bytes`[i];
+            }
+            ctx.putImageData(imgData2, 0, 0);
+            """.}
+    else:
+        template dumpBitmaps(name: string, bitmap: seq[byte], width, height, start: int, fSize: float) =
+            var bmp = newSeq[byte](width * height * 3)
+            for i in 0 .. < width * height:
+                bmp[3*i] = bitmap[i]
 
-        discard stbi_write_bmp("atlas_nimx_" & name & "_" & $fSize & "_" & $start & "_" & $width & "x" & $height & ".bmp", width.cint, height.cint, 3.cint, addr bmp[0])
-
-when defined(js):
-    proc cssFontName(f: Font): cstring =
-        let fSize = charHeightForSize(f.size)
-        let fName : cstring = f.filePath
-        {.emit: """`result` = "" + (`fSize`|0) + "px " + `fName`;""".}
-
-    proc auxCanvasForFont(f: Font): Element =
-        let fName = f.cssFontName
-        result = document.createElement("canvas")
-        {.emit: """
-        var ctx = `result`.getContext('2d');
-        `result`.style.font = `fName`;
-        ctx.font = `fName`;
-        `result`.__nimx_ctx = ctx;
-        """.}
+            discard stbi_write_bmp("atlas_nimx_" & name & "_" & $fSize & "_" & $start & "_" & $width & "x" & $height & ".bmp", width.cint, height.cint, 3.cint, addr bmp[0])
 
 proc updateFontMetrics(f: Font) =
-    when defined(js):
-        var ascent, descent: int32
-        let fSize = charHeightForSize(f.size)
-        let fName = f.cssFontName
-        {.emit: """
-        var metrics = nimx_calculateFontMetricsInCanvas(`fName`, `fSize`);
-        `ascent` = metrics.ascent;
-        `descent` = -metrics.descent;
-        """.}
-        f.impl.ascent = float32(ascent)
-        f.impl.descent = float32(descent)
-    else:
-        var rawData: string
-        if f.filePath.startsWith("res://"):
-            let fstr = streamForResourceWithPath(f.filePath.substr("res://".len))
-            rawData = fstr.readAll()
-            fstr.close()
-        else:
-            rawData = readFile(f.filePath)
-
-        var fontinfo: stbtt_fontinfo
-        if stbtt_InitFont(fontinfo, cast[ptr font_type](rawData.cstring), 0) == 0:
-            logi "Could not init font"
-            raise newException(Exception, "Could not init font")
-
-        let fSize = charHeightForSize(f.size)
-        let scale = stbtt_ScaleForMappingEmToPixels(fontinfo, fSize)
-        var ascent, descent, lineGap : cint
-        stbtt_GetFontVMetrics(fontinfo, ascent, descent, lineGap)
-        f.impl.ascent = float32(ascent) * scale
-        f.impl.descent = float32(descent) * scale
+    f.impl.glyphProvider.getFontMetrics(f.impl.ascent, f.impl.descent)
 
 template updateFontMetricsIfNeeded(f: Font) =
     if f.impl.ascent == 0: f.updateFontMetrics()
@@ -202,148 +141,9 @@ proc descent*(f: Font): float32 =
     result = f.impl.descent * f.scale
 
 proc bakeChars(f: Font, start: int32, res: CharInfo) =
-    let startChar = start * charChunkLength
-    let endChar = startChar + charChunkLength
-
-    let fSize = charHeightForSize(f.size)
-
-    var rectPacker = newPacker(32, 32)
-    when defined(js):
-        f.updateFontMetricsIfNeeded()
-
-        let h = int32(f.impl.ascent - f.impl.descent)
-        let canvas = f.auxCanvasForFont()
-        let fName = f.cssFontName
-
-        {.emit: """
-        var ctx = `canvas`.__nimx_ctx;
-        """.}
-
-        for i in startChar .. < endChar:
-            if isPrintableCodePoint(i):
-                var w: int32
-                var s : cstring
-                {.emit: """
-                var mt = ctx.measureText(String.fromCharCode(`i`));
-                `s` = String.fromCharCode(`i`);
-                `w` = mt.width;
-                """.}
-
-                if w > 0:
-                    let (x, y) = rectPacker.packAndGrow(w + f.glyphMargin * 2, h + f.glyphMargin * 2)
-
-                    let c = charOff(i - startChar)
-                    #res.bakedChars.charOffComp(c, compX) = 0
-                    #res.bakedChars.charOffComp(c, compY) = 0
-                    res.bakedChars.charOffComp(c, compAdvance) = w.int16
-                    res.bakedChars.charOffComp(c, compTexX) = (x + f.glyphMargin).int16
-                    res.bakedChars.charOffComp(c, compTexY) = (y + f.glyphMargin).int16
-                    res.bakedChars.charOffComp(c, compWidth) = w.int16
-                    res.bakedChars.charOffComp(c, compHeight) = h.int16
-
-        let texWidth = rectPacker.width
-        let texHeight = rectPacker.height
-        res.texWidth = texWidth.uint16
-        res.texHeight = texHeight.uint16
-
-        asm """
-        `canvas`.width = `texWidth`;
-        `canvas`.height = `texHeight`;
-        ctx.textBaseline = "top";
-        ctx.font = `fName`;
-        """
-
-        for i in startChar .. < endChar:
-            let indexOfGlyphInRange = i - startChar
-            res.dfDoneForGlyph[indexOfGlyphInRange] = true
-            if isPrintableCodePoint(i) and i != ord(' '):
-                let c = charOff(indexOfGlyphInRange)
-                let w = res.bakedChars.charOffComp(c, compAdvance)
-                if w > 0:
-                    let x = res.bakedChars.charOffComp(c, compTexX)
-                    let y = res.bakedChars.charOffComp(c, compTexY)
-                    {.emit: "ctx.fillText(String.fromCharCode(`i`), `x`, `y`);".}
-                    res.dfDoneForGlyph[indexOfGlyphInRange] = false
-
-        var byteData : seq[byte]
-        {.emit: """
-        var sz = `texWidth` * `texHeight`;
-        var imgData = ctx.getImageData(0, 0, `texWidth`, `texHeight`).data;
-        `byteData` = new Uint8Array(sz);
-        for (var i = 3, j = 0; j < sz; i += 4, ++j) `byteData`[j] = imgData[i];
-        """.}
-
-        when dumpDebugBitmaps:
-            logBitmap("alpha", byteData, texWidth, texHeight)
-
-        shallowCopy(res.tempBitmap, byteData)
-    else:
-        var rawData: string
-        if f.filePath.startsWith("res://"):
-            let fstr = streamForResourceWithPath(f.filePath.substr("res://".len))
-            rawData = fstr.readAll()
-            fstr.close()
-        else:
-            rawData = readFile(f.filePath)
-
-        var fontinfo: stbtt_fontinfo
-        if stbtt_InitFont(fontinfo, cast[ptr font_type](rawData.cstring), 0) == 0:
-            logi "Could not init font"
-            raise newException(Exception, "Could not init font")
-
-        let scale = stbtt_ScaleForMappingEmToPixels(fontinfo, fSize)
-        var ascent, descent, lineGap : cint
-        stbtt_GetFontVMetrics(fontinfo, ascent, descent, lineGap)
-
-        f.impl.ascent = float32(ascent) * scale
-        f.impl.descent = float32(descent) * scale
-
-        var glyphIndexes: array[charChunkLength, cint]
-
-        for i in startChar .. < endChar:
-            if isPrintableCodePoint(i):
-                let g = stbtt_FindGlyphIndex(fontinfo, i) # g > 0 when found
-                glyphIndexes[i - startChar] = g
-                var advance, lsb, x0, y0, x1, y1: cint
-                stbtt_GetGlyphHMetrics(fontinfo, g, advance, lsb)
-                stbtt_GetGlyphBitmapBox(fontinfo, g, scale, scale, x0, y0, x1, y1)
-                let gw = x1 - x0
-                let gh = y1 - y0
-                let (x, y) = rectPacker.packAndGrow(gw + f.glyphMargin * 2, gh + f.glyphMargin * 2)
-
-                let c = charOff(i - startChar)
-                res.bakedChars.charOffComp(c, compX) = (x0.cfloat).int16
-                res.bakedChars.charOffComp(c, compY) = (y0.cfloat + ascent.cfloat * scale).int16
-                res.bakedChars.charOffComp(c, compAdvance) = (scale * advance.cfloat).int16
-                res.bakedChars.charOffComp(c, compTexX) = (x + f.glyphMargin).int16
-                res.bakedChars.charOffComp(c, compTexY) = (y + f.glyphMargin).int16
-                res.bakedChars.charOffComp(c, compWidth) = (gw).int16
-                res.bakedChars.charOffComp(c, compHeight) = (gh).int16
-
-        let width = rectPacker.width
-        let height = rectPacker.height
-        res.texWidth = width.uint16
-        res.texHeight = height.uint16
-        var temp_bitmap = newSeq[byte](width * height)
-
-        for i in startChar .. < endChar:
-            let indexOfGlyphInRange = i - startChar
-            res.dfDoneForGlyph[indexOfGlyphInRange] = true
-            if isPrintableCodePoint(i):
-                let c = charOff(indexOfGlyphInRange)
-                if res.bakedChars.charOffComp(c, compAdvance) > 0:
-                    let x = res.bakedChars.charOffComp(c, compTexX).int
-                    let y = res.bakedChars.charOffComp(c, compTexY).int
-                    let w = res.bakedChars.charOffComp(c, compWidth).cint
-                    let h = res.bakedChars.charOffComp(c, compHeight).cint
-                    if w > 0 and h > 0:
-                        stbtt_MakeGlyphBitmap(fontinfo, addr temp_bitmap[x + y * width.int], w, h, width.cint, scale, scale, glyphIndexes[indexOfGlyphInRange])
-                        res.dfDoneForGlyph[indexOfGlyphInRange] = false
-
-        when dumpDebugBitmaps:
-            dumpBitmaps("df", temp_bitmap, width, height, start, fSize)
-
-        shallowCopy(res.tempBitmap, temp_bitmap)
+    f.impl.glyphProvider.bakeChars(start, res.data)
+    when dumpDebugBitmaps:
+        dumpBitmaps("df", res.data.bitmap, res.data.bitmapWidth, res.data.bitmapHeight, start, fSize)
 
 when not defined(js):
     proc newFontWithFile*(pathToTTFile: string, size: float): Font =
@@ -491,7 +291,7 @@ proc generateDistanceFieldForGlyph(ch: CharInfo, index: int, uploadToTexture: bo
     let w = ch.bakedChars.charOffComp(c, compWidth).cint + glyphMargin * 2
     let h = ch.bakedChars.charOffComp(c, compHeight).cint + glyphMargin * 2
 
-    dfCtx.make_distance_map(ch.tempBitmap, x, y, w, h, ch.texWidth.int, not uploadToTexture)
+    dfCtx.make_distance_map(ch.data.bitmap, x, y, w, h, ch.data.bitmapWidth.int, not uploadToTexture)
     if uploadToTexture:
         let gl = sharedGL()
         gl.bindTexture(gl.TEXTURE_2D, ch.texture)
@@ -501,7 +301,7 @@ proc generateDistanceFieldForGlyph(ch: CharInfo, index: int, uploadToTexture: bo
             gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
             gl.texSubImage2D(gl.TEXTURE_2D, 0, GLint(x), GLint(y), GLsizei(w), GLsizei(h), gl.ALPHA, gl.UNSIGNED_BYTE, dfCtx.output)
             gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4)
-    ch.dfDoneForGlyph[index] = true
+    ch.data.dfDoneForGlyph[index] = true
 
     when dumpDebugBitmaps:
         if not dfCtx.output.isNil:
@@ -512,60 +312,63 @@ var chunksToGen = newSeq[CharInfo]()
 
 proc generateDistanceFields() =
     let ch = chunksToGen[^1]
-    if not ch.dfDoneForGlyph.isNil:
+    if not ch.data.dfDoneForGlyph.isNil:
         for i in 0 ..< charChunkLength:
-            if not ch.dfDoneForGlyph[i]:
+            if not ch.data.dfDoneForGlyph[i]:
                 generateDistanceFieldForGlyph(ch, i, true)
                 return
     chunksToGen.setLen(chunksToGen.len - 1)
-    ch.tempBitmap = nil
-    ch.dfDoneForGlyph = nil
+    ch.data.bitmap = nil
+    ch.data.dfDoneForGlyph = nil
     if chunksToGen.len == 0:
         glyphGenerationTimer.clear()
         glyphGenerationTimer = nil
         dfCtx = nil
 
 proc chunkAndCharIndexForRune(f: Font, r: Rune): tuple[ch: CharInfo, index: int] =
-    let chunkStart = floor(r.int / charChunkLength.int).int32
+    let chunkStart = r.int32 div charChunkLength
     result.index = r.int mod charChunkLength
+    var ch: CharInfo
     if f.impl.chars.hasKey(chunkStart):
-        result.ch = f.impl.chars[chunkStart]
+        ch = f.impl.chars[chunkStart]
     else:
-        result.ch.new()
-        result.ch.dfDoneForGlyph = newSeq[bool](charChunkLength)
-        f.bakeChars(chunkStart, result.ch)
-        f.impl.chars[chunkStart] = result.ch
+        ch.new()
+        ch.data.dfDoneForGlyph = newSeq[bool](charChunkLength)
+        f.bakeChars(chunkStart, ch)
+        f.impl.chars[chunkStart] = ch
+
+    result.ch = ch
 
     let gl = sharedGL()
     if not gl.isNil:
-        if result.ch.texture.isEmpty:
-            if not result.ch.dfDoneForGlyph[result.index]:
-                generateDistanceFieldForGlyph(result.ch, result.index, false)
+        if ch.texture.isEmpty:
+            if not ch.data.dfDoneForGlyph[result.index]:
+                generateDistanceFieldForGlyph(ch, result.index, false)
 
-            chunksToGen.add(result.ch)
+            chunksToGen.add(ch)
             if glyphGenerationTimer.isNil:
                 glyphGenerationTimer = setInterval(0.1, generateDistanceFields)
 
-            result.ch.texture = gl.createTexture()
-            gl.bindTexture(gl.TEXTURE_2D, result.ch.texture)
+            ch.texture = gl.createTexture()
+            gl.bindTexture(gl.TEXTURE_2D, ch.texture)
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
 
-            let texWidth = result.ch.texWidth.GLsizei
-            let texHeight = result.ch.texHeight.GLsizei
-            gl.texImage2D(gl.TEXTURE_2D, 0, GLint(gl.ALPHA), texWidth, texHeight, 0, gl.ALPHA, gl.UNSIGNED_BYTE, result.ch.tempBitmap)
+            let texWidth = ch.data.bitmapWidth.GLsizei
+            let texHeight = ch.data.bitmapHeight.GLsizei
+            gl.texImage2D(gl.TEXTURE_2D, 0, GLint(gl.ALPHA), texWidth, texHeight, 0, gl.ALPHA, gl.UNSIGNED_BYTE, ch.data.bitmap)
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
             #gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST)
             #gl.generateMipmap(gl.TEXTURE_2D)
-        elif not result.ch.dfDoneForGlyph.isNil and not result.ch.dfDoneForGlyph[result.index]:
-            generateDistanceFieldForGlyph(result.ch, result.index, true)
+        elif not ch.data.dfDoneForGlyph.isNil and not ch.data.dfDoneForGlyph[result.index]:
+            generateDistanceFieldForGlyph(ch, result.index, true)
 
 proc getQuadDataForRune*(f: Font, r: Rune, quad: var openarray[Coord], offset: int, texture: var TextureRef, pt: var Point) =
     let (chunk, charIndexInChunk) = f.chunkAndCharIndexForRune(r)
     let c = charOff(charIndexInChunk)
 
-    template charComp(e: BackedCharComponent): auto =
-        chunk.bakedChars.charOffComp(c, e).Coord
+    template charComp(e: GlyphMetricsComponent): auto =
+        chunk.data.glyphMetrics.charOffComp(c, e).Coord
 
     let w = charComp(compWidth)
     let h = charComp(compHeight)
@@ -585,10 +388,10 @@ proc getQuadDataForRune*(f: Font, r: Rune, quad: var openarray[Coord], offset: i
 
     var s0 = charComp(compTexX) - f.glyphMargin.float
     var t0 = charComp(compTexY) - f.glyphMargin.float
-    let s1 = (s0 + w + f.glyphMargin.float * 2.0) / chunk.texWidth.Coord
-    let t1 = (t0 + h + f.glyphMargin.float * 2.0) / chunk.texHeight.Coord
-    s0 /= chunk.texWidth.Coord
-    t0 /= chunk.texHeight.Coord
+    let s1 = (s0 + w + f.glyphMargin.float * 2.0) / chunk.data.bitmapWidth.Coord
+    let t1 = (t0 + h + f.glyphMargin.float * 2.0) / chunk.data.bitmapHeight.Coord
+    s0 /= chunk.data.bitmapWidth.Coord
+    t0 /= chunk.data.bitmapHeight.Coord
 
     quad[offset + 0] = x0; quad[offset + 1] = y0; quad[offset + 2] = s0; quad[offset + 3] = t0
     quad[offset + 4] = x0; quad[offset + 5] = y1; quad[offset + 6] = s0; quad[offset + 7] = t1
