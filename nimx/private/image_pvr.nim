@@ -107,5 +107,5 @@ proc loadPVRDataToTexture(data: ptr uint8, texture: var TextureRef, size: var Si
         inc i
 
 
-proc initWithPVR(i: SelfContainedImage, data: string) =
-    loadPVRDataToTexture(cast[ptr uint8](unsafeAddr data[0]), i.texture, i.mSize, i.texCoords)
+proc initWithPVR(i: SelfContainedImage, data: ptr uint8) =
+    loadPVRDataToTexture(data, i.texture, i.mSize, i.texCoords)

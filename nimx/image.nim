@@ -150,7 +150,7 @@ proc initWithResource*(i: SelfContainedImage, name: string) =
             var data = s.readAll()
             s.close()
             if name.endsWith(".pvr"):
-                i.initWithPVR(data)
+                i.initWithPVR(cast[ptr uint8](data))
             else:
                 var x, y, comp: cint
 
@@ -374,10 +374,11 @@ proc writeToPNGFile*(i: Image, path: string) = i.writeToFile(path, png)
 proc writeToTGAFile*(i: Image, path: string) = i.writeToFile(path, tga)
 #proc writeToHDRFile*(i: Image, path: string) = i.writeToFile(path, hdr) # Crashes...
 
-const asyncResourceLoad = not defined(js) and not defined(android) and not defined(ios) and
-    not defined(emscripten)
+const asyncResourceLoad = not defined(js) and not defined(emscripten)
 
 when asyncResourceLoad:
+    const loadAsyncTextureInMainThread = defined(android) or defined(ios)
+
     import threadpool, sdl_perform_on_main_thread, sdl2
     import private.worker_queue
 
@@ -387,19 +388,34 @@ when asyncResourceLoad:
     type ImageLoadingCtx = ref object
         path, name: string
         completionCallback: proc(i: SelfContainedImage)
-        texture: TextureRef
-        texCoords: array[4, GLfloat]
-        size: Size
-        glCtx: GlContextPtr
-        wnd: WindowPtr
+        when loadAsyncTextureInMainThread:
+            data: ptr uint8
+            width: cint
+            height: cint
+            comp: cint
+            compressed: bool
+        else:
+            texCoords: array[4, GLfloat]
+            size: Size
+            texture: TextureRef
+            glCtx: GlContextPtr
+            wnd: WindowPtr
 
     proc loadComplete(ctx: pointer) {.cdecl.} =
         let c = cast[ImageLoadingCtx](ctx)
         GC_unref(c)
         var i = newSelfContainedImage()
-        i.texture = c.texture
-        i.texCoords = c.texCoords
-        i.mSize = c.size
+        when loadAsyncTextureInMainThread:
+            if c.compressed:
+                i.initWithPVR(c.data)
+                deallocShared(c.data)
+            else:
+                i.initWithBitmap(c.data, c.width, c.height, c.comp)
+                stbi_image_free(c.data)
+        else:
+            i.texture = c.texture
+            i.texCoords = c.texCoords
+            i.mSize = c.size
         i.setFilePath(c.path)
         c.completionCallback(i)
 
@@ -407,26 +423,36 @@ when asyncResourceLoad:
 
     proc loadResourceThreaded(ctx: pointer) {.cdecl.} =
         let c = cast[ImageLoadingCtx](ctx)
-        if not ctxIsCurrent:
-            if glMakeCurrent(c.wnd, c.glCtx) != 0:
-                logi "Error in glMakeCurrent: ", getError()
-            ctxIsCurrent = true
         let s = streamForResourceWithPath(c.path)
         var data = s.readAll()
         s.close()
-        if c.name.endsWith(".pvr"):
-            loadPVRDataToTexture(cast[ptr uint8](addr data[0]), c.texture, c.size, c.texCoords)
-        else:
-            var x, y, comp: cint
-            var bitmap = stbi_load_from_memory(cast[ptr uint8](addr data[0]),
-                data.len.cint, addr x, addr y, addr comp, 0)
-            loadBitmapToTexture(bitmap, x, y, comp, c.texture, c.size, c.texCoords)
-            stbi_image_free(bitmap)
 
-        let fenceId = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, GLbitfield(0))
-        while true:
-          let res = glClientWaitSync(fenceId, GL_SYNC_FLUSH_COMMANDS_BIT, GLuint64(5000000000)); # 5 Second timeout
-          if res != GL_TIMEOUT_EXPIRED: break  # we ignore timeouts and wait until all OpenGL commands are processed!
+        when loadAsyncTextureInMainThread:
+            if c.name.endsWith(".pvr"):
+                c.data = cast[ptr uint8](allocShared(data.len))
+                copyMem(c.data, addr data[0], data.len)
+                c.compressed = true
+            else:
+                c.data = stbi_load_from_memory(cast[ptr uint8](addr data[0]),
+                    data.len.cint, addr c.width, addr c.height, addr c.comp, 0)
+        else:
+            if not ctxIsCurrent:
+                if glMakeCurrent(c.wnd, c.glCtx) != 0:
+                    logi "Error in glMakeCurrent: ", getError()
+                ctxIsCurrent = true
+            if c.name.endsWith(".pvr"):
+                loadPVRDataToTexture(cast[ptr uint8](addr data[0]), c.texture, c.size, c.texCoords)
+            else:
+                var x, y, comp: cint
+                var bitmap = stbi_load_from_memory(cast[ptr uint8](addr data[0]),
+                    data.len.cint, addr x, addr y, addr comp, 0)
+                loadBitmapToTexture(bitmap, x, y, comp, c.texture, c.size, c.texCoords)
+                stbi_image_free(bitmap)
+
+            let fenceId = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, GLbitfield(0))
+            while true:
+                let res = glClientWaitSync(fenceId, GL_SYNC_FLUSH_COMMANDS_BIT, GLuint64(5000000000)); # 5 Second timeout
+                if res != GL_TIMEOUT_EXPIRED: break  # we ignore timeouts and wait until all OpenGL commands are processed!
 
         #discard glMakeCurrent(c.wnd, nil)
         let p = cast[pointer](loadComplete)
@@ -555,15 +581,16 @@ registerResourcePreloader(["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga", "p
         ctx.name = name
         ctx.path = pathForResource(name)
         ctx.completionCallback = callback
-        let curWnd = glGetCurrentWindow()
-        if threadCtx.isNil:
-            let curCtx = glGetCurrentContext()
-            threadCtx = glCreateContext(curWnd)
-            discard glMakeCurrent(curWnd, curCtx)
+        when not loadAsyncTextureInMainThread:
+            let curWnd = glGetCurrentWindow()
+            if threadCtx.isNil:
+                let curCtx = glGetCurrentContext()
+                threadCtx = glCreateContext(curWnd)
+                discard glMakeCurrent(curWnd, curCtx)
 
-        ctx.glCtx = threadCtx
-        doAssert(not ctx.glCtx.isNil)
-        ctx.wnd = curWnd
+            ctx.glCtx = threadCtx
+            doAssert(not ctx.glCtx.isNil)
+            ctx.wnd = curWnd
         GC_ref(ctx)
 
         if loadingQueue.isNil:
