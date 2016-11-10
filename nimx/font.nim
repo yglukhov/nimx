@@ -221,7 +221,7 @@ when not defined(js):
 
 proc getAvailableFonts*(isSystem: bool = false): seq[string] =
     result = newSeq[string]()
-    when not defined(js):
+    when not defined(js) and not defined(android) and not defined(ios):
         for f in walkFiles(getAppDir() /../ "Resources/*.ttf"):
             result.add(splitFile(f).name)
         for f in walkFiles(getAppDir() / "res/*.ttf"):
