@@ -67,7 +67,7 @@ type Builder* = ref object
 
     avoidSDL*: bool # Experimental feature.
 
-proc setBuilderSettings(b: Builder) =
+proc setBuilderSettingsFromCmdLine(b: Builder) =
     for kind, key, val in getopt():
         case kind
         of cmdLongOption, cmdShortOption:
@@ -106,20 +106,11 @@ proc iOSSDKPath*(version: string): string =
 proc iOSSimulatorSDKPath*(version: string): string =
     result = xCodeApp/"Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator" & version & ".sdk"
 
-proc newBuilder*(platform: string): Builder =
-    result.new()
-    let b = result
-
-    b.platform = platform
-    b.appName = "MyGame"
-    b.bundleId = "com.mycompany.MyGame"
-    b.javaPackageId = "com.mycompany.MyGame"
-    b.disableClosureCompiler = false
-
-    if platform == "android" or platform == "ios" or platform == "ios-sim":
+proc findEnvPaths(b: Builder) =
+    if b.platform in ["android", "ios", "ios-sim"]:
         var error_msg = ""
         ## try find binary for android sdk, ndk, and nim
-        if platform == "android":
+        if b.platform == "android":
             var ndk_path = findExe("ndk-stack")
             var sdk_path = findExe("adb")
             var nim_path = findExe("nim")
@@ -166,16 +157,25 @@ proc newBuilder*(platform: string): Builder =
             b.androidNdk = ndk_path
             b.nimIncludeDir = nim_path
 
-        var sdl_home : string
+        var sdlHome : string
         if existsEnv("SDL_HOME"):
-            sdl_home = getEnv("SDL_HOME")
-
-        if sdl_home.len == 0: error_msg &= getEnvErrorMsg("SDL_HOME")
+            sdlHome = getEnv("SDL_HOME")
+            if sdlHome.len == 0: error_msg &= getEnvErrorMsg("SDL_HOME")
 
         if error_msg.len > 0:
             raiseOSError(error_msg)
 
-        b.sdlRoot = sdl_home
+        b.sdlRoot = sdlHome
+
+proc newBuilder*(platform: string): Builder =
+    result.new()
+    let b = result
+
+    b.platform = platform
+    b.appName = "MyGame"
+    b.bundleId = "com.mycompany.MyGame"
+    b.javaPackageId = "com.mycompany.MyGame"
+    b.disableClosureCompiler = false
 
     when defined(windows):
         b.appIconName = "MyGame.ico"
@@ -219,7 +219,8 @@ proc newBuilder*(platform: string): Builder =
     b.emscriptenPreloadFiles = @[]
     b.emscriptenPreJs = @[]
 
-    b.setBuilderSettings()
+    b.setBuilderSettingsFromCmdLine()
+    b.findEnvPaths()
 
 proc nimblePath(package: string): string =
     var nimblecmd = "nimble"
@@ -719,6 +720,18 @@ proc build*(b: Builder) =
     if not afterBuild.isNil:
         afterBuild(b)
 
+proc processOutputFromAutotestStream(s: Stream): bool =
+    var line = ""
+    while s.readLine(line):
+        if line.find("---AUTO-TEST-QUIT---") != -1:
+            result = true
+            break
+        elif line.find("---AUTO-TEST-FAIL---") != -1:
+            break
+        else:
+            echo line
+
+
 proc runAutotestsInFirefox*(pathToMainHTML: string) =
     let ffbin = when defined(macosx):
             "/Applications/Firefox.app/Contents/MacOS/firefox"
@@ -737,18 +750,7 @@ proc runAutotestsInFirefox*(pathToMainHTML: string) =
     user_pref("webgl.disable-fail-if-major-performance-caveat", true);
     """)
     let ffp = startProcess(ffbin, args = ["-profile", "./tempprofile", pathToMainHTML])
-    let so = ffp.outputStream
-    var line = ""
-    var ok = false
-    while so.readLine(line):
-        if line == "---AUTO-TEST-QUIT---":
-            ok = true
-            break
-        elif line == "---AUTO-TEST-FAIL---":
-            break
-        else:
-            echo line
-
+    let ok = processOutputFromAutotestStream(ffp.outputStream)
     ffp.kill()
     discard ffp.waitForExit()
 
@@ -775,17 +777,7 @@ proc runAutotestsInChrome*(pathToMainHTML: string) =
         "--allow-file-access", "--allow-file-access-from-files",
         "--no-sandbox", "--user-data-dir",
         pathToMainHTML])
-    let so = cp.errorStream
-    var line = ""
-    var ok = false
-    while so.readLine(line):
-        if line.find("---AUTO-TEST-QUIT---") != -1:
-            ok = true
-            break
-        elif line.find("---AUTO-TEST-FAIL---") != -1:
-            break
-        else:
-            echo line
+    let ok = processOutputFromAutotestStream(cp.errorStream)
     cp.kill()
     discard cp.waitForExit()
     doAssert(ok, "Chrome autotest failed")
@@ -819,25 +811,14 @@ proc runAutotestsOnConnectedDevices*(b: Builder) =
         let adb = expandTilde(b.androidSdk/"platform-tools/adb")
 
         let logcat = startProcess(adb, args = ["-s", devId, "logcat", "-T", "1", "-s", "NIM_APP"])
-        let so = logcat.outputStream
 
         direShell adb, "-s", devId, "shell", "input", "keyevent", "KEYCODE_WAKEUP"
         let activityName = b.javaPackageId & "/" & b.javaPackageId & ".MainActivity"
         direShell adb, "-s", devId, "shell", "am", "start", "-n", activityName
 
-        var line = ""
-        var ok = true
-        while so.readLine(line):
-            let n = line.find(":")
-            if n != -1:
-                let ln = line[n + 2 .. ^1]
-                if ln == "---AUTO-TEST-QUIT---":
-                    break
-                elif ln == "---AUTO-TEST-FAIL---":
-                    ok = false
-                else:
-                    echo ln
+        let ok = processOutputFromAutotestStream(logcat.outputStream)
         logcat.kill()
+        doAssert(ok, "Android autotest failed")
 
 task defaultTask, "Build and run":
     newBuilder().build()
