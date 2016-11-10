@@ -135,12 +135,12 @@ proc isEqualToString*(s1, s2: NSString): bool {.importobjc, nodecl.}
 template `==`*(s1, s2: NSString): bool = s1.isEqualToString(s2)
 
 proc macPasteboardWithName*(n: NSString): NSPasteboard {.importobjc: "NSPasteboard pasteboardWithName", nodecl.}
-proc NSStringWithstring*(n: cstring): NSString {.importobjc: "NSString stringWithUTF8String", nodecl.}
+proc NSStringWithString*(n: cstring): NSString {.importobjc: "NSString stringWithUTF8String", nodecl.}
 proc stringWithNSString*(n: NSString): string = $n.UTF8String
 
 proc `$`*(o: NSObject): string = stringWithNSString(o.description)
 
-converter toNSString*(s: string): NSString = NSStringWithstring(s)
+converter toNSString*(s: string): NSString = NSStringWithString(s)
 converter nsstringtostring*(s: NSString): string = stringWithNSString(s)
 
 var NSGeneralPboard* {.importc, appkit.} : NSString
