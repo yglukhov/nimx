@@ -415,7 +415,7 @@ when asyncResourceLoad:
         var data = s.readAll()
         s.close()
         if c.name.endsWith(".pvr"):
-            loadPVRDataToTexture(data, c.texture, c.size, c.texCoords)
+            loadPVRDataToTexture(cast[ptr uint8](addr data[0]), c.texture, c.size, c.texCoords)
         else:
             var x, y, comp: cint
             var bitmap = stbi_load_from_memory(cast[ptr uint8](addr data[0]),
