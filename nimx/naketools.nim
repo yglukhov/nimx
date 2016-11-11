@@ -1,7 +1,7 @@
 import nake
 export nake
 
-import tables, osproc, strutils, times, parseopt2, streams, os
+import tables, osproc, strutils, times, parseopt2, streams, os, pegs
 import jester, asyncdispatch, browsers, closure_compiler # Stuff needed for JS target
 import plists
 
@@ -106,6 +106,13 @@ proc iOSSDKPath*(version: string): string =
 proc iOSSimulatorSDKPath*(version: string): string =
     result = xCodeApp/"Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator" & version & ".sdk"
 
+proc getiOSSDKVersion(): string =
+    for f in walkDir(xCodeApp/"Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/"):
+        var dirName = splitFile(f.path).name
+        var matches = dirName.findAll(peg"\d+\.\d+")
+        if matches.len() > 0:
+            return matches[matches.len() - 1]
+
 proc findEnvPaths(b: Builder) =
     if b.platform in ["android", "ios", "ios-sim"]:
         var error_msg = ""
@@ -187,11 +194,7 @@ proc newBuilder*(platform: string): Builder =
             break
     b.macOSMinVersion = "10.7"
 
-    b.iOSSDKVersion = "10.0"
-    for v in ["10.0"]:
-        if dirExists(iOSSDKPath(v)):
-            b.iOSSDKVersion = v
-            break
+    b.iOSSDKVersion = getiOSSDKVersion()
     b.iOSMinVersion = b.iOSSDKVersion
 
     # Simulator device identifier should be set to run the simulator.
