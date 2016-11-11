@@ -529,7 +529,9 @@ proc ndkBuild(b: Builder) =
             b.androidApi = 14 #default android-api level
         direShell b.androidSdk/"tools/android", "update", "project", "-p", ".", "-t", "android-" & $b.androidApi # try with android-16
 
-        var args = @[b.androidNdk/"ndk-build", "V=1"]
+        let verbose = false
+        var args = @[b.androidNdk/"ndk-build"]
+        if verbose: args.add("V=1")
         if b.nimParallelBuild > 0:
             args.add("J=" & $b.nimParallelBuild)
         if b.debugMode:
@@ -537,6 +539,7 @@ proc ndkBuild(b: Builder) =
         else:
             args.add("APP_OPTIM=release")
         direShell args
+        direShell "ant", "debug"
 
 proc makeEmscriptenPreloadData(b: Builder): string =
     let emcc_path = findExe("emcc")
@@ -803,7 +806,7 @@ proc getConnectedAndroidDevices*(b: Builder): seq[string] =
 proc installAppOnConnectedDevice(b: Builder, devId: string) =
     withDir(b.buildRoot / b.javaPackageId):
         putEnv "ANDROID_SERIAL", devId # Target specific device
-        direShell "ant", "debug", "install"
+        direShell "ant", "installd"
 
 proc runAutotestsOnConnectedDevices*(b: Builder) =
     for devId in b.getConnectedAndroidDevices:
@@ -850,7 +853,7 @@ task "droid-debug", "Start application on Android device and connect with debugg
     withDir b.buildRoot / b.javaPackageId:
         if not fileExists("libs/gdb.setup"):
             copyFile("libs/armeabi/gdb.setup", "libs/gdb.setup")
-        direShell([b.androidNdk / "ndk-gdb", "--adb=" & expandTilde(b.androidSdk) / "platform-tools" / "adb", "--force", "--start"])
+        direShell(b.androidNdk / "ndk-gdb", "--adb=" & expandTilde(b.androidSdk) / "platform-tools" / "adb", "--force", "--start")
 
 task "js", "Create Javascript version and run in browser.":
     newBuilder("js").build()
