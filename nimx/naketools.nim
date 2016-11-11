@@ -112,6 +112,7 @@ proc getiOSSDKVersion(): string =
         var matches = dirName.findAll(peg"\d+\.\d+")
         if matches.len() > 0:
             return matches[matches.len() - 1]
+    result = "nil"
 
 proc findEnvPaths(b: Builder) =
     if b.platform in ["android", "ios", "ios-sim"]:
