@@ -112,7 +112,6 @@ proc getiOSSDKVersion(): string =
         var matches = dirName.findAll(peg"\d+\.\d+")
         if matches.len() > 0:
             return matches[matches.len() - 1]
-    result = "nil"
 
 proc findEnvPaths(b: Builder) =
     if b.platform in ["android", "ios", "ios-sim"]:
@@ -188,16 +187,6 @@ proc newBuilder*(platform: string): Builder =
     when defined(windows):
         b.appIconName = "MyGame.ico"
 
-    b.macOSSDKVersion = "10.12"
-    for v in ["10.7", "10.8", "10.9", "10.10", "10.11", "10.12", "10.13"]:
-        if dirExists(macOSSDKPath(v)):
-            b.macOSSDKVersion = v
-            break
-    b.macOSMinVersion = "10.7"
-
-    b.iOSSDKVersion = getiOSSDKVersion()
-    b.iOSMinVersion = b.iOSSDKVersion
-
     # Simulator device identifier should be set to run the simulator.
     # Available simulators can be listed with the command:
     # $ xcrun simctl list
@@ -225,6 +214,17 @@ proc newBuilder*(platform: string): Builder =
 
     b.setBuilderSettingsFromCmdLine()
     b.findEnvPaths()
+
+    if b.platform in ["ios", "ios-sim"]:
+        b.iOSSDKVersion = getiOSSDKVersion()
+        b.iOSMinVersion = b.iOSSDKVersion
+    elif b.platform == "macosx":
+        b.macOSSDKVersion = "10.12"
+        for v in ["10.7", "10.8", "10.9", "10.10", "10.11", "10.12", "10.13"]:
+            if dirExists(macOSSDKPath(v)):
+                b.macOSSDKVersion = v
+                break
+        b.macOSMinVersion = "10.7"
 
 proc nimblePath(package: string): string =
     var nimblecmd = "nimble"
@@ -571,12 +571,9 @@ proc build*(b: Builder) =
         b.linkerFlags.add(f)
         b.compilerFlags.add(f)
 
-    let macOSSDK = macOSSDKPath(b.macOSSDKVersion)
-    let iOSSDK = iOSSDKPath(b.iOSSDKVersion)
-    let iOSSimulatorSDK = iOSSimulatorSDKPath(b.iOSSDKVersion)
-
     case b.platform
     of "macosx":
+        let macOSSDK = macOSSDKPath(b.macOSSDKVersion)
         b.makeMacOsBundle()
         b.executablePath = b.buildRoot / b.bundleName / "Contents" / "MacOS" / b.appName
         b.resourcePath = b.buildRoot / b.bundleName / "Contents" / "Resources"
@@ -594,12 +591,12 @@ proc build*(b: Builder) =
         var sdkPath : string
         var sdlLibDir : string
         if b.platform == "ios":
-            sdkPath = iOSSDK
+            sdkPath = iOSSDKPath(b.iOSSDKVersion)
             sdlLibDir = b.buildSDLForIOS(false)
             b.nimFlags.add("--cpu:arm")
             addCAndLFlags(["-mios-version-min=" & b.iOSMinVersion])
         else:
-            sdkPath = iOSSimulatorSDK
+            sdkPath = iOSSimulatorSDKPath(b.iOSSDKVersion)
             sdlLibDir = b.buildSDLForIOS(true)
             b.nimFlags.add("--cpu:amd64")
             b.nimFlags.add("-d:simulator")
