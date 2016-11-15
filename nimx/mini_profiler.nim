@@ -49,6 +49,12 @@ proc setValueForKey*(p: Profiler, key, value: string) =
 template `[]=`*(p: Profiler, key: string, value: typed) =
     p.setValueForKey(key, $value)
 
+proc valueForKey*(p: Profiler, key: string): string =
+    let v = p.values.getOrDefault(key)
+    if not v.isNil:
+        if v.isDirty: v.updateImpl(v)
+        result = v.stringifiedValue
+
 iterator pairs*(p: Profiler): tuple[key, value: string] =
     for k, v in p.values:
         if v.isDirty: v.updateImpl(v)
