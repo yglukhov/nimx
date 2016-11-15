@@ -24,6 +24,8 @@ var gProfiler : Profiler
 proc newProfiler*(): Profiler =
     result.new()
     result.values = initTable[string, ProfilerDataSourceBase]()
+    when defined(miniProfiler):
+        result.enabled = true
 
 proc newDataSource*(p: Profiler, typ: typedesc, name: string): ProfilerDataSource[typ] =
     result.new()
