@@ -3,7 +3,7 @@ import times, system_logger, mini_profiler
 when defined(js) or defined(emscripten):
     import jsbind
     type TimerID = ref object of JSObj
-elif (defined(macosx) or defined(ios)) and defined(nimxAvoidSDL):
+elif defined(macosx):
     type TimerID = pointer
 else:
     import sdl2
@@ -47,13 +47,11 @@ when defined(js) or defined(emscripten):
         else:
             clearTimeout(t.timer)
 
-elif (defined(macosx) or defined(ios)) and defined(nimxAvoidSDL):
+elif defined(macosx):
     {.emit: """
     #include <CoreFoundation/CoreFoundation.h>
     """.}
     proc cftimerCallback(cfTimer: pointer, t: Timer) {.cdecl.} =
-        if not t.isPeriodic:
-            t.timer = nil
         t.callback()
 
     proc schedule(t: Timer) =
