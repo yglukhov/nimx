@@ -167,7 +167,7 @@ proc findEnvPaths(b: Builder) =
         var sdlHome : string
         if existsEnv("SDL_HOME"):
             sdlHome = getEnv("SDL_HOME")
-            if sdlHome.len == 0: error_msg &= getEnvErrorMsg("SDL_HOME")
+        if sdlHome.len == 0: error_msg &= getEnvErrorMsg("SDL_HOME")
 
         if error_msg.len > 0:
             raiseOSError(error_msg)
@@ -852,8 +852,12 @@ task "droid-debug", "Start application on Android device and connect with debugg
     b.preconfigure()
     withDir b.buildRoot / b.javaPackageId:
         if not fileExists("libs/gdb.setup"):
-            copyFile("libs/armeabi/gdb.setup", "libs/gdb.setup")
-        direShell(b.androidNdk / "ndk-gdb", "--adb=" & expandTilde(b.androidSdk) / "platform-tools" / "adb", "--force", "--start")
+            for arch in ["armeabi", "armeabi-v7a", "x86"]:
+                let p = "libs" / arch / "gdb.setup"
+                if fileExists(p):
+                    copyFile(p, "libs/gdb.setup")
+                    break
+        direShell(b.androidNdk / "ndk-gdb", "--adb=" & expandTilde(b.androidSdk) / "platform-tools" / "adb", "--force", "--launch")
 
 task "js", "Create Javascript version and run in browser.":
     newBuilder("js").build()
