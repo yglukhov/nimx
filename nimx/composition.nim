@@ -1,7 +1,5 @@
-import context
-import types
-import portable_gl
-import image
+import context, types, portable_gl, image
+import private.helper_macros
 import strutils, tables, hashes
 import nimsl.nimsl
 
@@ -259,6 +257,7 @@ type
         mainProcName*: string
         seenFlag: bool # Used on compilation phase, should not be used elsewhere.
         id*: int
+        argTypes*: seq[string]
 
     CompiledComposition* = ref object
         program*: ProgramRef
@@ -315,12 +314,16 @@ proc preprocessDefinition(definition: string): string {.compileTime.} =
         else:
             result &= "\L" & replaceSymbolsInLine(symbolsToReplace, ln)
 
-proc newPostEffect*(definition: static[string], mainProcName: string): PostEffect =
+proc newPostEffect*(definition: static[string], mainProcName: string, argTypes: openarray[string]): PostEffect =
     const preprocessedDefinition = preprocessDefinition(definition)
     result.new()
     result.source = preprocessedDefinition
     result.mainProcName = mainProcName
+    result.argTypes = @argTypes
     result.id = hash(preprocessedDefinition)
+
+template newPostEffect*(definition: static[string], mainProcName: string): PostEffect =
+    newPostEffect(definition, mainProcName, [])
 
 proc newComposition*(vsDef, fsDef: static[string], requiresPrequel: bool = true, precision: string = "highp"): Composition =
     const preprocessedDefinition = preprocessDefinition(fsDef)
@@ -342,6 +345,16 @@ type PostEffectStackElem = object
 
 var postEffectStack = newSeq[PostEffectStackElem]()
 var postEffectIdStack = newSeq[Hash]()
+
+proc getPostEffectUniformName(postEffectIndex, argIndex: int, output: var string) =
+    output &= "uPE_"
+    output &= $postEffectIndex
+    output &= "_"
+    output &= $argIndex
+
+proc postEffectUniformName(postEffectIndex, argIndex: int): string =
+    result = ""
+    getPostEffectUniformName(postEffectIndex, argIndex, result)
 
 proc compileComposition*(gl: GL, comp: Composition, cchash: Hash): CompiledComposition =
     var fragmentShaderCode = ""
@@ -381,6 +394,10 @@ proc compileComposition*(gl: GL, comp: Composition, cchash: Hash): CompiledCompo
         if not pe.seenFlag:
             fragmentShaderCode &= pe.source
             pe.seenFlag = true
+        for j, argType in pe.argTypes:
+            fragmentShaderCode &= "uniform " & argType & " "
+            getPostEffectUniformName(i, j, fragmentShaderCode)
+            fragmentShaderCode &= ";";
         inc i
 
     i = 0
@@ -391,7 +408,12 @@ proc compileComposition*(gl: GL, comp: Composition, cchash: Hash): CompiledCompo
     fragmentShaderCode &= """void main() { gl_FragColor = vec4(0.0); compose(); """
     i = postEffectStack.len - 1
     while i >= 0:
-        fragmentShaderCode &= postEffectStack[i].postEffect.mainProcName & "();"
+        fragmentShaderCode &= postEffectStack[i].postEffect.mainProcName & "("
+        for j in 0 ..< postEffectStack[i].postEffect.argTypes.len:
+            if j != 0:
+                fragmentShaderCode &= ","
+            getPostEffectUniformName(i, j, fragmentShaderCode)
+        fragmentShaderCode &= ");"
         dec i
     fragmentShaderCode &= "}"
 
@@ -456,7 +478,9 @@ template compositionDrawingDefinitions*(cc: CompiledComposition, ctx: GraphicsCo
         gl.uniform1i(uniformLocation(name & "_tex"), cc.iTexIndex)
         inc cc.iTexIndex
 
-template pushPostEffect*(pe: PostEffect, body: untyped) =
+template pushPostEffect*(pe: PostEffect, body: untyped) {.deprecated.} =
+    # Usage of this template implies explicit uniforms, which doesn't work in
+    # general case. This template will be deleted soon.
     postEffectStack.add(PostEffectStackElem(postEffect: pe, setupProc: proc(cc: CompiledComposition) =
         let ctx = currentContext()
         let gl = ctx.gl
@@ -465,6 +489,21 @@ template pushPostEffect*(pe: PostEffect, body: untyped) =
     ))
 
     let oh = if postEffectIdStack.len > 0: postEffectIdStack[^1] else: 0
+    postEffectIdStack.add(oh !& pe.id)
+
+template pushPostEffect*(pe: PostEffect, args: varargs[untyped]) =
+    let stackLen = postEffectIdStack.len
+    postEffectStack.add(PostEffectStackElem(postEffect: pe, setupProc: proc(cc: CompiledComposition) =
+        let ctx = currentContext()
+        let gl = ctx.gl
+        compositionDrawingDefinitions(cc, ctx, gl)
+        var j = 0
+        staticFor uni in args:
+            setUniform(postEffectUniformName(stackLen, j), uni)
+            inc j
+    ))
+
+    let oh = if stackLen > 0: postEffectIdStack[^1] else: 0
     postEffectIdStack.add(oh !& pe.id)
 
 template popPostEffect*() =
