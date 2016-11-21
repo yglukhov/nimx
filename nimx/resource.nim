@@ -180,7 +180,10 @@ when not defined(js):
             raise newException(Exception, "Resource not found")
 
     proc streamForResourceWithName*(name: string): Stream =
-        streamForResourceWithPath(pathForResource(name))
+        let p = pathForResource(name)
+        if p.isNil:
+            raise newException(Exception, "Resource not found: " & name)
+        streamForResourceWithPath(p)
 
 when defined(js):
     import private.js_data_view_stream
