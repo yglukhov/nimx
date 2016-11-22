@@ -416,11 +416,8 @@ proc makeAndroidBuildDir(b: Builder): string =
         echo "Using Android project sdl template: ", sdlDefaultAndroidProjectTemplate
         copyDir sdlDefaultAndroidProjectTemplate, buildDir
 
-        copyDir(nimxTemplateDir/"jni"/"SDL", buildDir/"jni"/"SDL")
-        createDir(buildDir/"jni"/"SDL"/"src")
-        createDir(buildDir/"jni"/"SDL"/"include")
-
-        copyDir(nimxTemplateDir/"jni"/"src", buildDir/"jni"/"src")
+        copyDir(nimxTemplateDir, buildDir)
+        createDir(buildDir/"jni"/"SDL")
 
         when defined(windows):
             copyDir b.sdlRoot/"src", buildDir/"jni"/"SDL"/"src"
@@ -429,11 +426,7 @@ proc makeAndroidBuildDir(b: Builder): string =
             trySymLink(b.sdlRoot/"src", buildDir/"jni"/"SDL"/"src")
             trySymLink(b.sdlRoot/"include", buildDir/"jni"/"SDL"/"include")
 
-        copyFile(nimxTemplateDir/"jni"/"Application.mk", buildDir/"jni"/"Application.mk")
-        copyFile(nimxTemplateDir/"AndroidManifest.xml", buildDir/"AndroidManifest.xml")
-        copyFile(nimxTemplateDir/"strings.xml", buildDir/"res"/"values"/"strings.xml")
-        copyFile(nimxTemplateDir/"project.properties", buildDir/"project.properties")
-        copyFile(nimxTemplateDir/"build.xml", buildDir/"build.xml")
+        copyFile(b.sdlRoot/"Android.mk", buildDir/"jni"/"SDL"/"Android.mk")
 
         for libName in b.additionalLibsToCopy:
             let libPath = "lib"/libName
@@ -451,10 +444,6 @@ proc makeAndroidBuildDir(b: Builder): string =
         """
         writeFile(buildDir/"src"/mainActivityPath/"MainActivity.java", mainActivityJava)
 
-        var linkerFlags = ""
-        for f in b.additionalLinkerFlags: linkerFlags &= " " & f
-        var compilerFlags = ""
-        for f in b.additionalCompilerFlags: compilerFlags &= " " & f
         var permissions = ""
         for p in b.androidPermissions: permissions &= "<uses-permission android:name=\"android.permission." & p & "\"/>\L"
         var debuggable = ""
@@ -468,8 +457,8 @@ proc makeAndroidBuildDir(b: Builder): string =
         let vars = {
             "PACKAGE_ID" : b.javaPackageId,
             "APP_NAME" : b.appName,
-            "ADDITIONAL_LINKER_FLAGS": linkerFlags,
-            "ADDITIONAL_COMPILER_FLAGS": compilerFlags,
+            "ADDITIONAL_LINKER_FLAGS": b.additionalLinkerFlags.join(" "),
+            "ADDITIONAL_COMPILER_FLAGS": b.additionalCompilerFlags.join(" "),
             "TARGET_ARCHITECTURES": b.targetArchitectures.join(" "),
             "ANDROID_PERMISSIONS": permissions,
             "ANDROID_DEBUGGABLE": debuggable,
@@ -766,7 +755,6 @@ proc processOutputFromAutotestStream(s: Stream): bool =
         else:
             echo line
 
-
 proc runAutotestsInFirefox*(pathToMainHTML: string) =
     let ffbin = when defined(macosx):
             "/Applications/Firefox.app/Contents/MacOS/firefox"
@@ -881,7 +869,6 @@ task "droid", "Build for android and install on the connected device":
 task "droid-debug", "Start application on Android device and connect with debugger":
     let b = newBuilder("android")
     b.preconfigure()
-    echo b.buildRoot / b.javaPackageId
     withDir b.buildRoot / b.javaPackageId:
         if not fileExists("libs/gdb.setup"):
             for arch in ["armeabi", "armeabi-v7a", "x86"]:
@@ -889,7 +876,7 @@ task "droid-debug", "Start application on Android device and connect with debugg
                 if fileExists(p):
                     copyFile(p, "libs/gdb.setup")
                     break
-        direShell(b.androidNdk / "ndk-gdb", "--adb=" & expandTilde(b.androidSdk) / "platform-tools" / "adb", "--force")
+        direShell(b.androidNdk / "ndk-gdb", "--adb=" & expandTilde(b.androidSdk) / "platform-tools" / "adb", "--force", "--launch")
 
 task "js", "Create Javascript version and run in browser.":
     newBuilder("js").build()
