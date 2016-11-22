@@ -4,3 +4,4 @@
 # APP_STL := stlport_static
 
 APP_ABI := $(TARGET_ARCHITECTURES)
+APP_PLATFORM:= android-$(TARGET_API)

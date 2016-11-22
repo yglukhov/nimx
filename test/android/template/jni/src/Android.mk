@@ -13,7 +13,7 @@ LOCAL_SRC_FILES := $(SDL_PATH)/src/main/android/SDL_android_main.c \
 	$(patsubst $(LOCAL_PATH)/%, %, $(wildcard $(LOCAL_PATH)/*.cpp)) \
 	$(patsubst $(LOCAL_PATH)/%, %, $(wildcard $(LOCAL_PATH)/*.c))
 
-
+LOCAL_STATIC_LIBRARIES := $(STATIC_LIBRARIES)
 LOCAL_SHARED_LIBRARIES := SDL2
 
 LOCAL_LDLIBS := -lGLESv1_CM -lGLESv2 -llog -landroid $(ADDITIONAL_LINKER_FLAGS)
