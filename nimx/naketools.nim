@@ -426,7 +426,11 @@ proc makeAndroidBuildDir(b: Builder): string =
             trySymLink(b.sdlRoot/"src", buildDir/"jni"/"SDL"/"src")
             trySymLink(b.sdlRoot/"include", buildDir/"jni"/"SDL"/"include")
 
-        copyFile(b.sdlRoot/"Android.mk", buildDir/"jni"/"SDL"/"Android.mk")
+        let sdlmk = buildDir/"jni"/"SDL"/"Android.mk"
+        copyFile(b.sdlRoot/"Android.mk", sdlmk)
+
+        # Patch SDL's Android.mk so that it doesn't build dynamic lib.
+        writeFile(sdlmk, readFile(sdlmk).replace("include $(BUILD_SHARED_LIBRARY)", "#include $(BUILD_SHARED_LIBRARY)"))
 
         for libName in b.additionalLibsToCopy:
             let libPath = "lib"/libName
@@ -440,7 +444,11 @@ proc makeAndroidBuildDir(b: Builder): string =
         let mainActivityJava = """
         package """ & b.javaPackageId & """;
         import org.libsdl.app.SDLActivity;
-        public class MainActivity extends SDLActivity {}
+        public class MainActivity extends SDLActivity {
+            protected String[] getLibraries() {
+                return new String[] { "main" };
+            }
+        }
         """
         writeFile(buildDir/"src"/mainActivityPath/"MainActivity.java", mainActivityJava)
 
