@@ -41,11 +41,14 @@ type Builder* = ref object
     additionalNimFlags*: seq[string]
     additionalLinkerFlags*: seq[string]
     additionalCompilerFlags*: seq[string]
+    additionalLibsToCopy*: seq[string]
 
     runAfterBuild* : bool
     targetArchitectures* : seq[string]
     androidPermissions*: seq[string]
     screenOrientation*: string
+    androidStaticLibraries*: seq[string]
+    additionalAndroidResources*: seq[string]
 
     mainFile*: string
 
@@ -199,12 +202,15 @@ proc newBuilder*(platform: string): Builder =
     b.additionalNimFlags = @[]
     b.additionalLinkerFlags = @[]
     b.additionalCompilerFlags = @[]
+    b.additionalLibsToCopy = @[]
 
     b.mainFile = "main"
 
     b.runAfterBuild = true
     b.targetArchitectures = @["armeabi", "armeabi-v7a", "x86"]
     b.androidPermissions = @[]
+    b.androidStaticLibraries = @[]
+    b.additionalAndroidResources = @[]
 
     b.buildRoot = "build"
     b.originalResourcePath = "res"
@@ -404,10 +410,17 @@ proc buildSDLForIOS(b: Builder, forSimulator: bool = false): string =
 proc makeAndroidBuildDir(b: Builder): string =
     let buildDir = b.buildRoot / b.javaPackageId
     if not dirExists buildDir:
-        let templateDir = nimbleNimxPath() / "test" / "android" / "template"
+        let nimxTemplateDir = nimbleNimxPath() / "test" / "android" / "template"
+        let sdlDefaultAndroidProjectTemplate =  b.sdlRoot/"android-project"
         createDir(buildDir)
-        echo "Using Android app template: ", templateDir
-        copyDir templateDir, buildDir
+        echo "Using Android project sdl template: ", sdlDefaultAndroidProjectTemplate
+        copyDir sdlDefaultAndroidProjectTemplate, buildDir
+
+        copyDir(nimxTemplateDir/"jni"/"SDL", buildDir/"jni"/"SDL")
+        createDir(buildDir/"jni"/"SDL"/"src")
+        createDir(buildDir/"jni"/"SDL"/"include")
+
+        copyDir(nimxTemplateDir/"jni"/"src", buildDir/"jni"/"src")
 
         when defined(windows):
             copyDir b.sdlRoot/"src", buildDir/"jni"/"SDL"/"src"
@@ -415,6 +428,19 @@ proc makeAndroidBuildDir(b: Builder): string =
         else:
             trySymLink(b.sdlRoot/"src", buildDir/"jni"/"SDL"/"src")
             trySymLink(b.sdlRoot/"include", buildDir/"jni"/"SDL"/"include")
+
+        copyFile(nimxTemplateDir/"jni"/"Application.mk", buildDir/"jni"/"Application.mk")
+        copyFile(nimxTemplateDir/"AndroidManifest.xml", buildDir/"AndroidManifest.xml")
+        copyFile(nimxTemplateDir/"strings.xml", buildDir/"res"/"values"/"strings.xml")
+        copyFile(nimxTemplateDir/"project.properties", buildDir/"project.properties")
+        copyFile(nimxTemplateDir/"build.xml", buildDir/"build.xml")
+
+        for libName in b.additionalLibsToCopy:
+            let libPath = "lib"/libName
+            copyDir libPath, buildDir/"jni"/libName
+
+        for resourcePath in b.additionalAndroidResources:
+            copyDir resourcePath, buildDir/"res"
 
         let mainActivityPath = b.javaPackageId.replace(".", "/")
         createDir(buildDir/"src"/mainActivityPath)
@@ -447,13 +473,17 @@ proc makeAndroidBuildDir(b: Builder): string =
             "TARGET_ARCHITECTURES": b.targetArchitectures.join(" "),
             "ANDROID_PERMISSIONS": permissions,
             "ANDROID_DEBUGGABLE": debuggable,
-            "SCREEN_ORIENTATION": screenOrientation
+            "SCREEN_ORIENTATION": screenOrientation,
+            "TARGET_API": $b.androidApi,
+            "STATIC_LIBRARIES": b.androidStaticLibraries.join(" ")
             }.toTable()
 
         replaceVarsInFile buildDir/"AndroidManifest.xml", vars
         replaceVarsInFile buildDir/"res/values/strings.xml", vars
         replaceVarsInFile buildDir/"jni/src/Android.mk", vars
         replaceVarsInFile buildDir/"jni/Application.mk", vars
+        replaceVarsInFile buildDir/"project.properties", vars
+        replaceVarsInFile buildDir/"build.xml", vars
     buildDir
 
 proc packageNameAtPath(d: string): string =
@@ -533,12 +563,13 @@ proc ndkBuild(b: Builder) =
         var args = @[b.androidNdk/"ndk-build"]
         if verbose: args.add("V=1")
         if b.nimParallelBuild > 0:
-            args.add("J=" & $b.nimParallelBuild)
+            args.add("-j " & $b.nimParallelBuild)
         if b.debugMode:
             args.add(["NDK_DEBUG=1", "APP_OPTIM=debug"])
         else:
             args.add("APP_OPTIM=release")
         direShell args
+
         direShell "ant", "debug"
 
 proc makeEmscriptenPreloadData(b: Builder): string =
@@ -850,6 +881,7 @@ task "droid", "Build for android and install on the connected device":
 task "droid-debug", "Start application on Android device and connect with debugger":
     let b = newBuilder("android")
     b.preconfigure()
+    echo b.buildRoot / b.javaPackageId
     withDir b.buildRoot / b.javaPackageId:
         if not fileExists("libs/gdb.setup"):
             for arch in ["armeabi", "armeabi-v7a", "x86"]:
@@ -857,7 +889,7 @@ task "droid-debug", "Start application on Android device and connect with debugg
                 if fileExists(p):
                     copyFile(p, "libs/gdb.setup")
                     break
-        direShell(b.androidNdk / "ndk-gdb", "--adb=" & expandTilde(b.androidSdk) / "platform-tools" / "adb", "--force", "--launch")
+        direShell(b.androidNdk / "ndk-gdb", "--adb=" & expandTilde(b.androidSdk) / "platform-tools" / "adb", "--force")
 
 task "js", "Create Javascript version and run in browser.":
     newBuilder("js").build()
