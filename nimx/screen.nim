@@ -16,19 +16,20 @@ elif defined(macosx):
         `result` = [`s` respondsToSelector: @selector(backingScaleFactor)] ? [`s` backingScaleFactor] : 1.0f;
         """.}
 elif defined(android):
-    import jnim1, sdl2 # TODO: Switch to newer jnim version eventually
-    jnimport:
-        import android.util.DisplayMetrics
-        import android.app.Activity
-        import android.view.WindowManager
-        import android.view.Display
+    import jnim, sdl2
+    jclass android.util.DisplayMetrics of JVMObject:
+        proc new
+        proc density: jfloat {.prop.}
 
-        proc new(t: typedesc[DisplayMetrics])
-        proc getWindowManager(a: Activity): WindowManager
-        proc getDefaultDisplay(w: WindowManager): Display
-        proc getMetrics(d: Display, outMetrics: DisplayMetrics)
+    jclass android.view.Display of JVMObject:
+        proc getMetrics(outMetrics: DisplayMetrics)
 
-        proc density(d: DisplayMetrics): jfloat {.property.}
+    jclass android.view.WindowManager of JVMObject:
+        proc getDefaultDisplay: Display
+
+    jclass android.app.Activity of JVMObject:
+        proc getWindowManager: WindowManager
+
 elif defined(emscripten):
     import jsbind.emscripten
 
@@ -38,7 +39,7 @@ proc screenScaleFactor*(): float =
     elif defined(js):
         asm "`result` = window.devicePixelRatio;"
     elif defined(android):
-        let act = Activity(sdl2.androidGetActivity())
+        let act = Activity.fromJObject(sdl2.androidGetActivity())
         let dm = DisplayMetrics.new()
         act.getWindowManager().getDefaultDisplay().getMetrics(dm)
         result = dm.density

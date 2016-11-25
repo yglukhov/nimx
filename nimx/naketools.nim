@@ -49,6 +49,7 @@ type Builder* = ref object
     screenOrientation*: string
     androidStaticLibraries*: seq[string]
     additionalAndroidResources*: seq[string]
+    activityClassName*: string
 
     mainFile*: string
 
@@ -182,9 +183,10 @@ proc newBuilder*(platform: string): Builder =
     let b = result
 
     b.platform = platform
-    b.appName = "MyGame"
-    b.bundleId = "com.mycompany.MyGame"
-    b.javaPackageId = "com.mycompany.MyGame"
+    b.appName = "NimxApp"
+    b.bundleId = "com.mycompany.NimxApp"
+    b.javaPackageId = "com.mycompany.NimxApp"
+    b.activityClassName = "io.github.yglukhov.nimx.NimxActivity"
     b.disableClosureCompiler = false
 
     when defined(windows):
@@ -437,20 +439,7 @@ proc makeAndroidBuildDir(b: Builder): string =
             copyDir libPath, buildDir/"jni"/libName
 
         for resourcePath in b.additionalAndroidResources:
-            copyDir resourcePath, buildDir/"res"
-
-        let mainActivityPath = b.javaPackageId.replace(".", "/")
-        createDir(buildDir/"src"/mainActivityPath)
-        let mainActivityJava = """
-        package """ & b.javaPackageId & """;
-        import org.libsdl.app.SDLActivity;
-        public class MainActivity extends SDLActivity {
-            protected String[] getLibraries() {
-                return new String[] { "main" };
-            }
-        }
-        """
-        writeFile(buildDir/"src"/mainActivityPath/"MainActivity.java", mainActivityJava)
+            copyDir resourcePath, buildDir
 
         var permissions = ""
         for p in b.androidPermissions: permissions &= "<uses-permission android:name=\"android.permission." & p & "\"/>\L"
@@ -472,7 +461,8 @@ proc makeAndroidBuildDir(b: Builder): string =
             "ANDROID_DEBUGGABLE": debuggable,
             "SCREEN_ORIENTATION": screenOrientation,
             "TARGET_API": $b.androidApi,
-            "STATIC_LIBRARIES": b.androidStaticLibraries.join(" ")
+            "STATIC_LIBRARIES": b.androidStaticLibraries.join(" "),
+            "ACTIVITY_CLASS_NAME": b.activityClassName
             }.toTable()
 
         replaceVarsInFile buildDir/"AndroidManifest.xml", vars
