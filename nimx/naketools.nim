@@ -185,8 +185,8 @@ proc newBuilder*(platform: string): Builder =
     b.platform = platform
     b.appName = "NimxApp"
     b.bundleId = "com.mycompany.NimxApp"
-    b.javaPackageId = "io.github.yglukhov.nimx"
-    b.activityClassName = "NimxActivity"
+    b.javaPackageId = "com.mycompany.NimxApp"
+    b.activityClassName = "io.github.yglukhov.nimx.NimxActivity"
     b.disableClosureCompiler = false
 
     when defined(windows):
@@ -213,7 +213,6 @@ proc newBuilder*(platform: string): Builder =
     b.androidPermissions = @[]
     b.androidStaticLibraries = @[]
     b.additionalAndroidResources = @[]
-    b.activityClassName = "NimxActivity"
 
     b.buildRoot = "build"
     b.originalResourcePath = "res"
