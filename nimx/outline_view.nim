@@ -6,6 +6,9 @@ import nimx.types
 import nimx.event
 import nimx.table_view_cell
 import nimx.view_event_handling
+import nimx.view_event_handling_new
+
+import scroll_view
 
 import math
 import variant
@@ -39,6 +42,8 @@ type OutlineView* = ref object of View
 method init*(v: OutlineView, r: Rect) =
     procCall v.View.init(r)
     v.rootItem = ItemNode.new()
+    v.rootItem.expandable = true
+    v.rootItem.expanded = true
     v.tempIndexPath = newSeq[int]()
     v.selectedIndexPath = newSeq[int]()
 
@@ -111,16 +116,28 @@ proc nodeAtIndexPath(v: OutlineView, indexPath: openarray[int]): ItemNode =
     for i in indexPath:
         result = result.children[i]
 
-proc getExpandedRowsCount(node: ItemNode): int =
-    result = node.children.len
+proc selectedNode(v: OutlineView): ItemNode =
+    v.nodeAtIndexPath(v.selectedIndexPath)
 
-    for i in node.children:
-        if i.expanded:
-            result += i.getExpandedRowsCount()
+proc getExposedRowsCount(node: ItemNode): int =
+    result = 1
+    if node.expanded:
+        for child in node.children:
+            result += child.getExposedRowsCount()
+
+proc getExposingRowNum(v: OutlineView, indexPath: seq[int]): int =
+    if indexPath.len == 0:
+        return -1
+
+    result = v.getExposingRowNum(indexPath[0..^2])
+    let parentNode = v.nodeAtIndexPath(indexPath[0..^2])
+    for i in 0..indexPath[^1] - 1:
+        result += parentNode.children[i].getExposedRowsCount
+    result += 1
 
 proc checkViewSize(v: OutlineView) =
     var size: Size
-    size.height = Coord(v.rootItem.getExpandedRowsCount()) * rowHeight
+    size.height = Coord(v.rootItem.getExposedRowsCount - 1) * rowHeight    # rootItem itself is invisible
     size.width = 300#v.bounds.width
 
     if not v.superview.isNil:
@@ -142,9 +159,12 @@ proc itemAtIndexPath*(v: OutlineView, indexPath: openarray[int]): Variant =
 proc setBranchExpanded*(v: OutlineView, expanded: bool, indexPath: openarray[int]) =
     var path = newSeq[int]()
 
-    for i, index in indexPath:
-        path.add(index)
-        v.setRowExpanded(expanded, path)
+    if expanded:
+        for i, index in indexPath:
+            path.add(index)
+            v.setRowExpanded(true, path)
+    else:
+        v.setRowExpanded(false, indexPath)
 
 proc expandBranch*(v: OutlineView, indexPath: openarray[int]) =
     v.setBranchExpanded(true, indexPath)
@@ -202,9 +222,19 @@ proc reloadData*(v: OutlineView) =
 template selectionChanged(v: OutlineView) =
     if not v.onSelectionChanged.isNil: v.onSelectionChanged()
 
-proc selectItemAtIndexPath*(v: OutlineView, ip: seq[int]) =
+proc scrollToSelection*(v: OutlineView) =
+    let scrollView = v.enclosingViewOfType(ScrollView)
+    if not scrollView.isNil:
+        var targetRect = newRect(newPoint(0, v.getExposingRowNum(v.selectedIndexPath).Coord * rowHeight), newSize(1, rowHeight))
+        scrollView.scrollToRect(targetRect)
+
+proc selectItemAtIndexPath*(v: OutlineView, ip: seq[int], scroll: bool = true) =
+    if ip.len > 1:
+        v.expandBranch(ip[0..^2])
     v.selectedIndexPath = ip
     v.selectionChanged()
+    if scroll:
+        v.scrollToSelection()
 
 proc isSubpathOfPath(subpath, path: openarray[int]): bool =
     if path.len >= subpath.len:
@@ -215,6 +245,7 @@ proc isSubpathOfPath(subpath, path: openarray[int]): bool =
         return true
 
 method onTouchEv*(v: OutlineView, e: var Event): bool =
+    result = procCall v.View.onTouchEv(e)
     if e.buttonState == bsUp:
         let pos = e.localPosition
         let i = v.itemAtPos(pos)
@@ -287,4 +318,68 @@ method onTouchEv*(v: OutlineView, e: var Event): bool =
                 else:
                     v.dropInsideItem = v.nodeAtIndexPath(v.droppedElemIndexPath[0 .. ^2])
 
+    result = true
+
+method acceptsFirstResponder*(v: OutlineView): bool = true
+
+proc moveSelectionUp(v: OutlineView, path: var seq[int]) =
+    if path[^1] > 0:
+        path[^1].dec
+
+        proc getLowestVisibleChildPath(v: OutlineView, path: var seq[int]) =
+            var nodeAtPath = v.nodeAtIndexPath(path)
+            if(nodeAtPath.expandable and nodeAtPath.expanded):
+                path.add(nodeAtPath.children.len - 1)
+                getLowestVisibleChildPath(v, path)
+
+        v.getLowestVisibleChildPath(path)
+        v.selectItemAtIndexPath(path)
+    elif path.len > 1:
+        v.selectItemAtIndexPath(path[0..^2])
+
+proc moveSelectionDown(v: OutlineView, path: var seq[int]) =
+    var nodeAtPath = v.nodeAtIndexPath(path)
+    if nodeAtPath.expandable and nodeAtPath.expanded and nodeAtPath.children.len > 0:
+        path.add(0)
+        v.selectItemAtIndexPath(path)
+        return
+
+    proc getLowerNeighbour(v: OutlineView, path: seq[int]) =
+        if path.len >= 2:
+            var parent = v.nodeAtIndexPath(path[0..^2])
+            if path[^1] + 1 < parent.children.len:
+                var newPath = path
+                newPath[^1].inc
+                v.selectItemAtIndexPath(newPath)
+            else:
+                v.getLowerNeighbour(path[0..^2])
+    v.getLowerNeighbour(path)
+    v.selectItemAtIndexPath(path)
+
+proc moveSelectionLeft(v: OutlineView) =
+    let curNode = v.selectedNode
+    if curNode.expandable and curNode.children.len > 0 and curNode.expanded:
+        v.collapseBranch(v.selectedIndexPath)
+    elif v.selectedIndexPath.len >= 2:
+        v.selectItemAtIndexPath(v.selectedIndexPath[0..^2])
+
+proc moveSelectionRight(v: OutlineView) =
+    let curNode = v.selectedNode
+    if curNode.expandable and curNode.children.len > 0 and not curNode.expanded:
+        v.expandBranch(v.selectedIndexPath)
+    else:
+        v.moveSelectionDown(v.selectedIndexPath)
+
+method onKeyDown*(v: OutlineView, e: var Event): bool =
+    case e.keyCode
+    of VirtualKey.Up:
+        v.moveSelectionUp(v.selectedIndexPath)
+    of VirtualKey.Down:
+        v.moveSelectionDown(v.selectedIndexPath)
+    of VirtualKey.Left:
+        v.moveSelectionLeft()
+    of VirtualKey.Right:
+        v.moveSelectionRight()
+    else:
+        discard
     result = true
