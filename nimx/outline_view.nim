@@ -126,14 +126,13 @@ proc getExposedRowsCount(node: ItemNode): int =
             result += child.getExposedRowsCount()
 
 proc getExposingRowNum(v: OutlineView, indexPath: seq[int]): int =
-    if indexPath.len == 0:
-        return -1
-
-    result = v.getExposingRowNum(indexPath[0..^2])
-    let parentNode = v.nodeAtIndexPath(indexPath[0..^2])
-    for i in 0..indexPath[^1] - 1:
-        result += parentNode.children[i].getExposedRowsCount
-    result += 1
+    result = -1
+    var parentNode = v.rootItem
+    for indexInPath in indexPath:
+        result += 1
+        for neighb in 0 ..< indexInPath:
+            result += parentNode.children[neighb].getExposedRowsCount
+        parentNode = parentNode.children[indexInPath]
 
 proc checkViewSize(v: OutlineView) =
     var size: Size
@@ -371,6 +370,7 @@ proc moveSelectionRight(v: OutlineView) =
         v.moveSelectionDown(v.selectedIndexPath)
 
 method onKeyDown*(v: OutlineView, e: var Event): bool =
+    result = true
     case e.keyCode
     of VirtualKey.Up:
         v.moveSelectionUp(v.selectedIndexPath)
@@ -381,5 +381,4 @@ method onKeyDown*(v: OutlineView, e: var Event): bool =
     of VirtualKey.Right:
         v.moveSelectionRight()
     else:
-        discard
-    result = true
+        result = false
