@@ -114,6 +114,8 @@ method onTouchEv*(t: NumericTextField, e: var Event): bool =
             t.mouseSpeed = 0
             t.prevDirLeft = dirLeft
 
+        if curTime - t.prevMouseTime < 0.001: return
+
         let mouseSpeed = abs(mouseDistance) / (curTime - t.prevMouseTime)
         t.mouseSpeed = t.mouseSpeed * 0.75 + mouseSpeed * 0.25
         let delta = mouseDistance * sqrt(t.mouseSpeed) * 0.05
