@@ -28,20 +28,20 @@ type
     View* = ref object of RootObj
         window*: Window
         name*: string
-        frame: Rect
-        bounds: Rect
+        frame: Rect                 ## view rect in superview coordinate system
+        bounds: Rect                ## view rect in its own coordinate system, starting from 0,0
         subviews*: seq[View]
         superview*: View
         autoresizingMask*: set[AutoresizingFlag]
         backgroundColor*: Color
         gestureDetectors*: seq[GestureDetector]
         touchTarget*: View
-        interceptEvents*: bool
+        interceptEvents*: bool      ## when view starts to handle tap, this flag set to true
         mouseInside*: bool
         handleMouseOver: bool
 
     Window* = ref object of View
-        firstResponder*: View
+        firstResponder*: View       ## handler of untargeted (keyboard and menu) input
         animationRunners*: seq[AnimationRunner]
         needsDisplay*: bool
         mouseOverListeners*: seq[View]
