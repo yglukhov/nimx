@@ -24,7 +24,7 @@ type ButtonStyle* = enum
     bsImage
     bsNinePartImage
 
-type ButtonBehavior = enum
+type ButtonBehavior* = enum
     bbMomentaryLight
     bbToggle
 
@@ -263,13 +263,11 @@ template toggleValue(v: int8): int8 =
 method name(b: Button): string =
     result = "Button"
 
-method onTouchEv*(b: Button, e: var Event): bool =
-    discard procCall b.View.onTouchEv(e)
+proc handleMomentaryTouchEv(b: Button, e: var Event): bool =
     case e.buttonState
     of bsDown:
         b.setState(bsDown)
-        if b.behavior == bbMomentaryLight:
-            b.value = 1
+        b.value = 1
     of bsUnknown:
         if e.localPosition.inRect(b.bounds):
             b.setState(bsDown)
@@ -277,13 +275,55 @@ method onTouchEv*(b: Button, e: var Event): bool =
             b.setState(bsUp)
     of bsUp:
         b.setState(bsUp)
-        if b.behavior == bbMomentaryLight:
-            b.value = 0
+        b.value = 0
         if e.localPosition.inRect(b.bounds):
-            if b.behavior == bbToggle:
-                b.value = toggleValue(b.value)
             b.sendAction(e)
     result = true
+
+proc handleToggleTouchEv(b: Button, e: var Event): bool =
+    case e.buttonState
+    of bsDown:
+        b.setState(if b.value == 0: bsDown else: bsUp)
+    of bsUnknown:
+        if e.localPosition.inRect(b.bounds):
+            b.setState(if b.value == 0: bsDown else: bsUp)
+        else:
+            b.setState(if b.value == 1: bsDown else: bsUp)
+    of bsUp:
+        if e.localPosition.inRect(b.bounds):
+            b.value = toggleValue(b.value)
+            b.sendAction(e)
+        b.setState(if b.value == 1: bsDown else: bsUp)
+    result = true
+
+
+method onTouchEv*(b: Button, e: var Event): bool =
+    discard procCall b.View.onTouchEv(e)
+    case b.behavior
+    of bbMomentaryLight:
+        result = b.handleMomentaryTouchEv(e)
+    of bbToggle:
+        result = b.handleToggleTouchEv(e)
+
+    # case e.buttonState
+    # of bsDown:
+    #     b.setState(bsDown)
+    #     if b.behavior == bbMomentaryLight:
+    #         b.value = 1
+    # of bsUnknown:
+    #     if e.localPosition.inRect(b.bounds):
+    #         b.setState(bsDown)
+    #     else:
+    #         b.setState(bsUp)
+    # of bsUp:
+    #     b.setState(bsUp)
+    #     if b.behavior == bbMomentaryLight:
+    #         b.value = 0
+    #     if e.localPosition.inRect(b.bounds):
+    #         if b.behavior == bbToggle:
+    #             b.value = toggleValue(b.value)
+    #         b.sendAction(e)
+    # result = true
 
 method visitProperties*(v: Button, pv: var PropertyVisitor) =
     procCall v.Control.visitProperties(pv)
