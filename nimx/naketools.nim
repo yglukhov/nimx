@@ -544,7 +544,8 @@ proc ndkBuild(b: Builder) =
         putEnv "NIM_INCLUDE_DIR", expandTilde(b.nimIncludeDir)
         if b.androidApi == 0:
             b.androidApi = 14 #default android-api level
-        direShell b.androidSdk/"tools/android", "update", "project", "-p", ".", "-t", "android-" & $b.androidApi # try with android-16
+        # this update phase is doesnt look necessary
+        #direShell b.androidSdk/"tools/android", "update", "project", "-p", ".", "-t", "android-" & $b.androidApi # try with android-16
 
         let verbose = false
         var args = @[b.androidNdk/"ndk-build"]
