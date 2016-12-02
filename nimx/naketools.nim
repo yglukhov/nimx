@@ -542,6 +542,8 @@ proc signIosBundle(b: Builder) =
 proc ndkBuild(b: Builder) =
     withDir(b.buildRoot / b.javaPackageId):
         putEnv "NIM_INCLUDE_DIR", expandTilde(b.nimIncludeDir)
+        putEnv "ANDROID_HOME", expandTilde(b.androidSdk)
+
         if b.androidApi == 0:
             b.androidApi = 14 #default android-api level
         # this update phase is doesnt look necessary
