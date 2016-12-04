@@ -579,7 +579,10 @@ proc ndkBuild(b: Builder) =
             args.add("APP_OPTIM=release")
         direShell args
 
-        direShell "ant", "debug"
+        if b.debugMode:
+            direShell "ant", "debug"
+        else:
+            direShell "ant", "release"
 
 proc makeEmscriptenPreloadData(b: Builder): string =
     let emcc_path = findExe("emcc")
@@ -845,7 +848,10 @@ proc getConnectedAndroidDevices*(b: Builder): seq[string] =
 proc installAppOnConnectedDevice(b: Builder, devId: string) =
     withDir(b.buildRoot / b.javaPackageId):
         putEnv "ANDROID_SERIAL", devId # Target specific device
-        direShell "ant", "installd"
+        if b.debugMode:
+            direShell "ant", "installd"
+        else:
+            direShell "ant", "installr"
 
 proc runAutotestsOnConnectedDevices*(b: Builder) =
     for devId in b.getConnectedAndroidDevices:
