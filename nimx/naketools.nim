@@ -9,6 +9,8 @@ type Builder* = ref object
     platform*: string
 
     appName* : string
+    appVersion*: string
+    buildNumber*: int
     bundleId* : string
     javaPackageId* : string
     disableClosureCompiler* : bool
@@ -178,12 +180,24 @@ proc findEnvPaths(b: Builder) =
 
         b.sdlRoot = sdlHome
 
+proc versionCodeWithTime*(t: TimeInfo): int =
+    let month = (t.year - 2016) * 12 + (t.month.int + 1)
+    result = t.minute + t.hour * 100 + t.monthday * 10000 + month * 1000000
+
+proc versionCodeWithTime*(t: Time): int =
+    versionCodeWithTime(getLocalTime(t))
+
+proc versionCodeWithTime*(): int =
+    versionCodeWithTime(getTime())
+
 proc newBuilder*(platform: string): Builder =
     result.new()
     let b = result
 
     b.platform = platform
     b.appName = "NimxApp"
+    b.appVersion = "1.0"
+    b.buildNumber = versionCodeWithTime()
     b.bundleId = "com.mycompany.NimxApp"
     b.javaPackageId = "com.mycompany.NimxApp"
     b.activityClassName = "io.github.yglukhov.nimx.NimxActivity"
@@ -316,14 +330,19 @@ proc preprocessResourcesAux(b: Builder) =
 proc absPath(path: string): string =
     if path.isAbsolute(): path else: getCurrentDir() / path
 
+proc fillInfoPlist(b: Builder, plist: JsonNode) =
+    plist["CFBundleName"] = %b.appName
+    plist["CFBundleIdentifier"] = %b.bundleId
+    plist["CFBundleExecutable"] = %b.appName
+    plist["CFBundleShortVersionString"] = %b.appVersion
+    plist["CFBundleVersion"] = % $b.buildNumber
+
 proc makeIosBundle(b: Builder) =
     let loadPath = b.originalResourcePath / "Info.plist"
     var plist = loadPlist(loadPath)
     if plist.isNil:
         plist = newJObject()
-    plist["CFBundleName"] = %b.appName
-    plist["CFBundleIdentifier"] = %b.bundleId
-    plist["CFBundleExecutable"] = %b.appName
+    b.fillInfoPlist(plist)
 
     let savePath = b.buildRoot / b.bundleName
     createDir savePath
@@ -334,9 +353,7 @@ proc makeMacOsBundle(b: Builder) =
     createDir(bundlePath / "Contents")
 
     let plist = newJObject()
-    plist["CFBundleName"] = %b.appName
-    plist["CFBundleIdentifier"] = %b.bundleId
-    plist["CFBundleExecutable"] = %b.appName
+    b.fillInfoPlist(plist)
     plist["NSHighResolutionCapable"] = %true
     plist.writePlist(bundlePath / "Contents" / "Info.plist")
 
@@ -454,6 +471,8 @@ proc makeAndroidBuildDir(b: Builder): string =
         let vars = {
             "PACKAGE_ID" : b.javaPackageId,
             "APP_NAME" : b.appName,
+            "APP_VERSION": b.appVersion,
+            "BUILD_NUMBER": $b.buildNumber,
             "ADDITIONAL_LINKER_FLAGS": b.additionalLinkerFlags.join(" "),
             "ADDITIONAL_COMPILER_FLAGS": b.additionalCompilerFlags.join(" "),
             "TARGET_ARCHITECTURES": b.targetArchitectures.join(" "),
@@ -842,6 +861,7 @@ proc runAutotestsOnConnectedDevices*(b: Builder) =
 
         let ok = processOutputFromAutotestStream(logcat.outputStream)
         logcat.kill()
+        direShell adb, "-s", devId, "shell", "input", "keyevent", "KEYCODE_HOME"
         doAssert(ok, "Android autotest failed")
 
 task defaultTask, "Build and run":
