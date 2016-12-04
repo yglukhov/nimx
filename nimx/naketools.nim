@@ -841,7 +841,7 @@ proc getConnectedAndroidDevices*(b: Builder): seq[string] =
     while so.readLine(line):
         if i > 0:
             let ln = line.split('\t')
-            if ln.len > 0:
+            if ln.len == 2:
                 result.add(ln[0])
         inc i
 
