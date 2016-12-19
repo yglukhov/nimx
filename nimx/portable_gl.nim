@@ -50,7 +50,7 @@ when defined js:
             RED* : GLenum
             RGBA* : GLenum
             RGBA16F*: GLenum
-            ALPHA* : GLenum
+            ALPHA*, LUMINANCE* : GLenum
             UNSIGNED_BYTE* : GLenum
             COLOR_ATTACHMENT0* : GLenum
             DEPTH_ATTACHMENT* : GLenum
@@ -225,6 +225,7 @@ else:
     template RGBA*(gl: GL): GLenum = GL_RGBA
     template RGBA16F*(gl: GL): GLenum = GL_RGBA16F
     template ALPHA*(gl: GL): GLenum = GL_ALPHA
+    template LUMINANCE*(gl: GL): GLenum = GL_LUMINANCE
     template UNSIGNED_BYTE*(gl: GL): GLenum = GL_UNSIGNED_BYTE
     template COLOR_ATTACHMENT0*(gl: GL): GLenum = GL_COLOR_ATTACHMENT0
     template DEPTH_ATTACHMENT*(gl: GL): GLenum = GL_DEPTH_ATTACHMENT
