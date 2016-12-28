@@ -12,20 +12,11 @@ else:
         dummyv: TVal
     proc newSimpleTable*(TKey, TVal: typedesc): SimpleTable[TKey, TVal] {.importc: "new Object".}
 
-    {.push stackTrace: off.}
-    proc getVal(t, k: ref RootObj): ref RootObj = {.emit: "`result` = `t`[`k`];".}
-    proc setVal(t, k, v: ref RootObj) = {.emit: "`t`[`k`] = `v`;".}
-    proc hasKeyImpl(t, k: ref RootObj): bool = {.emit: "`result` = (`k` in `t`);".}
-    {.pop.}
+    proc `[]`*[A, B](t: SimpleTable[A, B]; k: A): B {.importcpp: "#[#]".}
+    proc `[]=`*[A, B](t: SimpleTable[A, B]; k: A, v: B) {.importcpp: "#[#]=#".}
 
-    proc dummySimpleTableValueType*[A, B](t: SimpleTable[A, B]): B = discard
-
-    template `[]`*[A, B](t: SimpleTable[A, B]; k: A): B =
-        cast[type(t.dummySimpleTableValueType())](getVal(cast[ref RootObj](t), cast[ref RootObj](k)))
-
-    template `[]=`*[A, B](t: SimpleTable[A, B]; k: A, v: B) = setVal(cast[ref RootObj](t), cast[ref RootObj](k), cast[ref RootObj](v))
-
-    template hasKey*[A, B](t: SimpleTable[A, B], k: A): bool = hasKeyImpl(cast[ref RootObj](t), cast[ref RootObj](k))
+    proc keyInTable[A, B](k: A, t: SimpleTable[A, B]): bool {.importcpp: "(# in #)".}
+    template hasKey*[A, B](t: SimpleTable[A, B], k: A): bool = keyInTable(k, t)
 
 when isMainModule:
     let t = newSimpleTable(int, int)

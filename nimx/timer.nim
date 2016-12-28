@@ -48,37 +48,51 @@ when defined(js) or defined(emscripten):
             clearTimeout(t.timer)
 
 elif defined(macosx):
-    {.emit: """
-    #include <CoreFoundation/CoreFoundation.h>
-    """.}
-    proc cftimerCallback(cfTimer: pointer, t: Timer) {.cdecl.} =
-        t.callback()
+    type
+        CFTimeInterval = float64
+        CFAbsoluteTime = CFTimeInterval
+        CFIndex = cint
+        CFOptionFlags = culong
+        CFRunLoopTimerContext = object
+            version: CFIndex
+            info: pointer
+            retain: pointer
+            release: pointer
+            copyDescription: pointer
+        CFTypeRef = pointer
+        CFRunLoopTimerRef = CFTypeRef
+        CFAllocatorRef = CFTypeRef
+        CFRunLoopRef = CFTypeRef
+        CFStringRef = CFTypeRef
+        CFRunLoopMode = CFStringRef
+
+        CFRunLoopTimerCallBack = proc(cfTimer: CFRunLoopTimerRef, info: pointer) {.cdecl.}
+
+    var kCFRunLoopCommonModes {.importc.}: CFRunLoopMode
+
+    proc CFAbsoluteTimeGetCurrent(): CFAbsoluteTime {.importc.}
+    proc CFRunLoopGetCurrent(): CFRunLoopRef {.importc.}
+    proc CFRunLoopAddTimer(rl: CFRunLoopRef, timer: CFRunLoopTimerRef, mode: CFRunLoopMode) {.importc.}
+    proc CFRunLoopTimerCreate(allocator: CFAllocatorRef, fireDate: CFAbsoluteTime, interval: CFTimeInterval, flags: CFOptionFlags, order: CFIndex, callout: CFRunLoopTimerCallBack, context: ptr CFRunLoopTimerContext): CFRunLoopTimerRef {.importc.}
+    proc CFRunLoopTimerInvalidate(t: CFRunLoopTimerRef) {.importc.}
+    proc CFRelease(o: CFTypeRef) {.importc.}
+
+    proc cftimerCallback(cfTimer: CFRunLoopTimerRef, t: pointer) {.cdecl.} =
+        cast[Timer](t).callback()
 
     proc schedule(t: Timer) =
         var interval = t.interval
-        var repeats = t.isPeriodic
-        var cfTimer: TimerID
-        {.emit: """
-        CFAbsoluteTime nextFireTime = CFAbsoluteTimeGetCurrent() + `interval`;
-        if (!`repeats`) `interval` = 0;
-        CFRunLoopTimerContext context;
-        context.version = 0;
-        context.info = `t`;
-        context.retain = NULL;
-        context.release = NULL;
-        context.copyDescription = NULL;
-        CFRunLoopTimerRef tr = CFRunLoopTimerCreate(NULL, nextFireTime, `interval`, 0, 0, `cftimerCallback`, &context);
-        CFRunLoopAddTimer(CFRunLoopGetCurrent(), tr, kCFRunLoopCommonModes);
-        `cfTimer` = tr;
-        CFRelease(tr);
-        """.}
+        let nextFireTime = CFAbsoluteTimeGetCurrent() + interval
+        if not t.isPeriodic: interval = 0
+        var context: CFRunLoopTimerContext
+        context.info = cast[pointer](t)
+        let cfTimer = CFRunLoopTimerCreate(nil, nextFireTime, interval, 0, 0, cftimerCallback, addr context)
+        CFRunLoopGetCurrent().CFRunLoopAddTimer(cfTimer, kCFRunLoopCommonModes)
+        CFRelease(cfTimer)
         t.timer = cfTimer
 
     proc cancel(t: Timer) {.inline.} =
-        let cfTimer = t.timer
-        {.emit: """
-        CFRunLoopTimerInvalidate(`cfTimer`);
-        """.}
+        CFRunLoopTimerInvalidate(t.timer)
 else:
     import sdl_perform_on_main_thread
 
