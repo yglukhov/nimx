@@ -30,7 +30,8 @@ proc recalculateContent(v: StackView) =
     var y = 0.0
     for sub in v.subviews:
         let frame = sub.frame
-        sub.setFrameOrigin(newPoint(0, y))
+        if not sub.dragInProcess:
+            sub.setFrameOrigin(newPoint(0, y))
 
         y = y + frame.size.height
 

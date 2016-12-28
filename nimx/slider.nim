@@ -59,6 +59,7 @@ proc `value=`*(s: Slider, p: Coord) =
     if p < 0: s.mValue = 0
     elif p > 1: s.mValue = 1
     s.setNeedsDisplay()
+    s.sendAction()
 
 template value*(s: Slider): Coord = s.mValue
 

@@ -99,7 +99,8 @@ method resizeSubviews*(v: LinearLayout, oldSize: Size) =
                 v.bounds.height - v.mTopMargin - v.mBottomMargin)
             for s in v.subviews:
                 if grows: f.size.width = s.frame.width
-                s.setFrame(f)
+                if not s.dragInProcess:
+                    s.setFrame(f)
                 f.origin.x += f.width + v.mPadding
         else:
             var f = newRect(v.mLeftMargin, v.mTopMargin,
@@ -107,7 +108,8 @@ method resizeSubviews*(v: LinearLayout, oldSize: Size) =
                 (v.bounds.height - (v.subviews.len - 1).Coord * v.mPadding) / v.subviews.len.Coord)
             for s in v.subviews:
                 if grows: f.size.height = s.frame.height
-                s.setFrame(f)
+                if not s.dragInProcess:
+                    s.setFrame(f)
                 f.origin.y += f.height + v.mPadding
 
 proc updateSize*(v: LinearLayout) =

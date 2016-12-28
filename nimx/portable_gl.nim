@@ -226,6 +226,7 @@ else:
     template RGBA16F*(gl: GL): GLenum = GL_RGBA16F
     template ALPHA*(gl: GL): GLenum = GL_ALPHA
     template UNSIGNED_BYTE*(gl: GL): GLenum = GL_UNSIGNED_BYTE
+    template UNSIGNED_SHORT4*(gl: GL): GLenum = GL_UNSIGNED_SHORT_4_4_4_4
     template COLOR_ATTACHMENT0*(gl: GL): GLenum = GL_COLOR_ATTACHMENT0
     template DEPTH_ATTACHMENT*(gl: GL): GLenum = GL_DEPTH_ATTACHMENT
     template DEPTH_STENCIL_ATTACHMENT*(gl: GL): GLenum = GL_DEPTH_STENCIL_ATTACHMENT

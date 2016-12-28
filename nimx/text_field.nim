@@ -116,7 +116,15 @@ proc bumpCursorVisibility(t: TextField) =
 
     let sv = t.enclosingViewOfType(ScrollView)
     if not sv.isNil:
-        sv.scrollToRect(t.cursorRect())
+        var view: View = t
+        var point  = t.cursorRect().origin
+        while not (view.superview of ScrollView):
+            point = view.convertPointToParent(point)
+            view = view.superview
+
+        var rect = t.cursorRect()
+        rect.origin = point
+        sv.scrollToRect(rect)
 
     cursorUpdateTimer = setInterval(0.5) do():
         cursorVisible = not cursorVisible
@@ -217,6 +225,9 @@ method draw*(t: TextField, r: Rect) =
             t.drawFocusRing()
         drawCursorWithRect(t.cursorRect())
 
+proc updateCursorOffset(t: TextField) =
+    cursorOffset = t.mText.xOfRuneAtPos(cursorPos)
+
 method onTouchEv*(t: TextField, e: var Event): bool =
     result = false
     var pt = e.localPosition
@@ -255,8 +266,8 @@ method onTouchEv*(t: TextField, e: var Event): bool =
 
             result = false
 
-proc updateCursorOffset(t: TextField) =
-    cursorOffset = t.mText.xOfRuneAtPos(cursorPos)
+    t.updateCursorOffset()
+    t.bumpCursorVisibility()
 
 proc clearSelection(t: TextField) =
     # Clears selected text

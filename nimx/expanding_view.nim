@@ -22,6 +22,10 @@ type ExpandingView* = ref object of View
     expanded*: bool
     hasOffset*: bool
     expandBut*: ExpandButton
+    isDraggable*: bool
+    isDragged: bool
+    dragPoint: Point
+
     # initRect: Rect
 
 proc updateFrame(v: ExpandingView) =
@@ -83,22 +87,57 @@ method draw(v: ExpandingView, r: Rect) =
     c.fillColor = titleTextColor()
     c.drawText(f, newPoint(25, 1), v.title)
 
-    # content rect
-    # var contentRect: Rect
-    # contentRect.origin.x = 20.0
-    # contentRect.origin.y = titleSize
-    # contentRect.size.width = r.width - 20.0
-    # contentRect.size.height = r.height - titleSize
-    # c.fillColor = contentViewColor()
-    # c.drawRect(contentRect)
 
 proc addContent*(v: ExpandingView, subView: View) =
     v.contentView.addSubview(subView)
     v.updateFrame()
 
+proc startDrag(v: ExpandingView, e: Event) =
+    v.isDragged = true
+    v.dragPoint = v.frame.origin - e.position
+    echo "start drag"
+
+proc processDrag(v: ExpandingView, e: Event) =
+    if v.isDragged:
+        v.setFrameOrigin(e.position + v.dragPoint)
+
+        let index = v.superview.subviews.find(v)
+        let count = v.superview.subviews.len()
+        for i in 0 .. count - 2:
+            if v.frame.origin.y > v.superview.subviews[i].frame.origin.y and v.frame.origin.y < v.superview.subviews[i + 1].frame.origin.y:
+                if index < i:
+                    v.superview.insertSubview(v, i)
+                elif index > i:
+                    v.superview.insertSubview(v, i + 1)
+
+        if v.frame.origin.y < v.superview.subviews[0].frame.origin.y:
+            v.superview.insertSubview(v, 0)
+        elif v.frame.origin.y > v.superview.subviews[count - 1].frame.origin.y:
+            v.superview.insertSubview(v, count - 1)
+
+proc stopDrag(v: ExpandingView) =
+    if v.isDragged:
+        v.isDragged = false
+        v.updateFrame()
+        echo "stopDrag"
+
+method dragInProcess*(v: ExpandingView): bool = v.isDragged
+
 method onTouchEv*(v: ExpandingView, e: var Event) : bool =
     discard procCall v.View.onTouchEv(e)
     result = true
+
+    case e.buttonState
+    of bsDown:
+        echo e.position
+        if v.convertPointFromWindow(e.position).inRect(newRect(0.0, 0.0, v.bounds.width, titleSize)):
+            v.startDrag(e)
+    of bsUnknown:
+        v.processDrag(e)
+    of bsUp:
+        v.stopDrag()
+    else:
+        discard
 
 method subviewDidChangeDesiredSize*(v: ExpandingView, sub: View, desiredSize: Size) =
     v.updateFrame()
