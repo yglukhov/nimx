@@ -210,6 +210,19 @@ proc insertSubview*(v, s: View, i: int) =
         s.viewDidMoveToWindow()
         v.didAddSubview(s)
         v.setNeedsDisplay()
+    else:
+        var index = v.subviews.find(s)
+        if index < 0 or i == index:
+            return
+
+        v.subviews.delete(index)
+        if i < index:
+            v.subviews.insert(s, i)
+        elif i > index:
+            v.subviews.insert(s, i - 1)
+
+        s.superview = v
+        v.setNeedsDisplay()
 
 proc insertSubviewAfter*(v, s, a: View) = v.insertSubview(s, v.subviews.find(a) + 1)
 proc insertSubviewBefore*(v, s, a: View) = v.insertSubview(s, v.subviews.find(a))

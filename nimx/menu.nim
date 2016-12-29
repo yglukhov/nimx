@@ -29,13 +29,13 @@ type MenuView = ref object of View
 
 const menuItemHeight = 20.Coord
 
-proc newViewWithMenuItems(items: seq[MenuItem]): MenuView =
-    result = MenuView.new(newRect(0, 0, 150, items.len.Coord * menuItemHeight))
+proc newViewWithMenuItems(items: seq[MenuItem], size: Size): MenuView =
+    result = MenuView.new(newRect(0, 0, size.width - 20.0, items.len.Coord * menuItemHeight))
     result.menuItems = items
     result.highlightedRow = -1
     var yOff = 0.Coord
     for i, item in items:
-        let label = newLabel(newRect(0, 0, 150, menuItemHeight))
+        let label = newLabel(newRect(0, 0, size.width - 20.0, size.height))
         label.text = item.title
         let cell = newTableViewCell(label)
         cell.setFrameOrigin(newPoint(0, yOff))
@@ -50,8 +50,8 @@ method draw(v: MenuView, r: Rect) =
     c.strokeWidth = 0
     c.drawRoundedRect(v.bounds, 5)
 
-proc popupAtPoint*(m: Menu, v: View, p: Point) =
-    let mv = newViewWithMenuItems(m.items)
+proc popupAtPoint*(m: Menu, v: View, p: Point, size: Size = newSize(150.0, menuItemHeight)) =
+    let mv = newViewWithMenuItems(m.items, size)
     var wp = v.convertPointToWindow(p)
     let win = v.window
 

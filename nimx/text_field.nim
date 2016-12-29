@@ -114,13 +114,22 @@ proc bumpCursorVisibility(t: TextField) =
     cursorUpdateTimer.clear()
     t.setNeedsDisplay()
 
-    let sv = t.enclosingViewOfType(ScrollView)
-    if not sv.isNil:
-        sv.scrollToRect(t.cursorRect())
-
     cursorUpdateTimer = setInterval(0.5) do():
         cursorVisible = not cursorVisible
         t.setNeedsDisplay()
+
+proc focusOnCursor(t: TextField) =
+    let sv = t.enclosingViewOfType(ScrollView)
+    if not sv.isNil:
+        var view: View = t
+        var point  = t.cursorRect().origin
+        while not (view.superview of ScrollView):
+            point = view.convertPointToParent(point)
+            view = view.superview
+
+        var rect = t.cursorRect()
+        rect.origin = point
+        sv.scrollToRect(rect)
 
 proc updateSelectionWithCursorPos(v: TextField, prev, cur: int) =
     if v.textSelection.len == 0:
@@ -380,6 +389,7 @@ method onKeyDown*(t: TextField, e: var Event): bool =
 
     let cmd = commandFromEvent(e)
     if cmd == kcSelectAll: t.selectAll()
+    t.focusOnCursor()
 
     when defined(macosx) or defined(windows):
         case cmd
