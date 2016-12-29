@@ -101,27 +101,23 @@ proc processDrag(v: ExpandingView, e: Event) =
     if v.isDragged:
         v.setFrameOrigin(e.position + v.dragPoint)
 
+proc stopDrag(v: ExpandingView, e: Event) =
+    if v.isDragged:
         let index = v.superview.subviews.find(v)
         let count = v.superview.subviews.len()
         for i in 0 .. count - 2:
             if v.frame.origin.y > v.superview.subviews[i].frame.origin.y and v.frame.origin.y < v.superview.subviews[i + 1].frame.origin.y:
-                if index < i:
-                    v.superview.insertSubview(v, i)
-                elif index > i:
-                    v.superview.insertSubview(v, i + 1)
+                v.superview.insertSubview(v, i + 1)
+                break
 
         if v.frame.origin.y < v.superview.subviews[0].frame.origin.y:
             v.superview.insertSubview(v, 0)
         elif v.frame.origin.y > v.superview.subviews[count - 1].frame.origin.y:
-            v.superview.insertSubview(v, count - 1)
+            v.superview.insertSubview(v, count)
 
-proc stopDrag(v: ExpandingView) =
-    if v.isDragged:
         v.isDragged = false
         v.updateFrame()
         echo "stopDrag"
-
-method dragInProcess*(v: ExpandingView): bool = v.isDragged
 
 method onTouchEv*(v: ExpandingView, e: var Event) : bool =
     discard procCall v.View.onTouchEv(e)
@@ -135,7 +131,7 @@ method onTouchEv*(v: ExpandingView, e: var Event) : bool =
     of bsUnknown:
         v.processDrag(e)
     of bsUp:
-        v.stopDrag()
+        v.stopDrag(e)
     else:
         discard
 

@@ -114,6 +114,11 @@ proc bumpCursorVisibility(t: TextField) =
     cursorUpdateTimer.clear()
     t.setNeedsDisplay()
 
+    cursorUpdateTimer = setInterval(0.5) do():
+        cursorVisible = not cursorVisible
+        t.setNeedsDisplay()
+
+proc focusOnCursor(t: TextField) =
     let sv = t.enclosingViewOfType(ScrollView)
     if not sv.isNil:
         var view: View = t
@@ -125,10 +130,6 @@ proc bumpCursorVisibility(t: TextField) =
         var rect = t.cursorRect()
         rect.origin = point
         sv.scrollToRect(rect)
-
-    cursorUpdateTimer = setInterval(0.5) do():
-        cursorVisible = not cursorVisible
-        t.setNeedsDisplay()
 
 proc updateSelectionWithCursorPos(v: TextField, prev, cur: int) =
     if v.textSelection.len == 0:
@@ -225,9 +226,6 @@ method draw*(t: TextField, r: Rect) =
             t.drawFocusRing()
         drawCursorWithRect(t.cursorRect())
 
-proc updateCursorOffset(t: TextField) =
-    cursorOffset = t.mText.xOfRuneAtPos(cursorPos)
-
 method onTouchEv*(t: TextField, e: var Event): bool =
     result = false
     var pt = e.localPosition
@@ -266,8 +264,8 @@ method onTouchEv*(t: TextField, e: var Event): bool =
 
             result = false
 
-    t.updateCursorOffset()
-    t.bumpCursorVisibility()
+proc updateCursorOffset(t: TextField) =
+    cursorOffset = t.mText.xOfRuneAtPos(cursorPos)
 
 proc clearSelection(t: TextField) =
     # Clears selected text
@@ -391,6 +389,7 @@ method onKeyDown*(t: TextField, e: var Event): bool =
 
     let cmd = commandFromEvent(e)
     if cmd == kcSelectAll: t.selectAll()
+    t.focusOnCursor()
 
     when defined(macosx) or defined(windows):
         case cmd

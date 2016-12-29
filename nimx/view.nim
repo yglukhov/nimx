@@ -211,19 +211,22 @@ proc insertSubview*(v, s: View, i: int) =
         v.didAddSubview(s)
         v.setNeedsDisplay()
     else:
-        if i > v.subviews.len() - 1:
+        var index = v.subviews.find(s)
+        if index < 0 or i == index:
             return
-        s.removeFromSuperview(false)
-        v.subviews.insert(s, i)
+
+        v.subviews.delete(index)
+        if i < index:
+            v.subviews.insert(s, i)
+        elif i > index:
+            v.subviews.insert(s, i - 1)
+
         s.superview = v
-        v.didAddSubview(s)
         v.setNeedsDisplay()
 
 proc insertSubviewAfter*(v, s, a: View) = v.insertSubview(s, v.subviews.find(a) + 1)
 proc insertSubviewBefore*(v, s, a: View) = v.insertSubview(s, v.subviews.find(a))
 proc addSubview*(v: View, s: View) = v.insertSubview(s, v.subviews.len)
-
-method dragInProcess*(v: View): bool {.base.} = false
 
 method replaceSubview*(v, s, withView: View) {.base.} =
     assert(s.superview == v)
