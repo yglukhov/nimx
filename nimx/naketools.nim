@@ -831,9 +831,15 @@ proc runAutotestsInChrome*(pathToMainHTML: string) =
 proc runAutotestsInChrome*(b: Builder) =
     runAutotestsInChrome(b.buildRoot / "main.html")
 
+proc adbExe(b: Builder): string =
+    expandTilde(b.androidSdk/"platform-tools/adb")
+
+proc adbServerName(b: Builder): string =
+    result = getEnv("ADB_SERVER_NAME")
+    if result.len == 0: result = "localhost"
+
 proc getConnectedAndroidDevices*(b: Builder): seq[string] =
-    let adb = expandTilde(b.androidSdk/"platform-tools/adb")
-    let logcat = startProcess(adb, args = ["devices"])
+    let logcat = startProcess(b.adbExe, args = ["-H", b.adbServerName, "devices"])
     let so = logcat.outputStream
     var line = ""
     var i = 0
@@ -854,20 +860,22 @@ proc installAppOnConnectedDevice(b: Builder, devId: string) =
             direShell "ant", "installr"
 
 proc runAutotestsOnConnectedDevices*(b: Builder) =
+    let adb = b.adbExe
+    let host = b.adbServerName
+
     for devId in b.getConnectedAndroidDevices:
         echo "Running on device: ", devId
         b.installAppOnConnectedDevice(devId)
-        let adb = expandTilde(b.androidSdk/"platform-tools/adb")
 
-        let logcat = startProcess(adb, args = ["-s", devId, "logcat", "-T", "1", "-s", "NIM_APP"])
+        let logcat = startProcess(adb, args = ["-H", host, "-s", devId, "logcat", "-T", "1", "-s", "NIM_APP"])
 
-        direShell adb, "-s", devId, "shell", "input", "keyevent", "KEYCODE_WAKEUP"
+        direShell adb, "-H", host, "-s", devId, "shell", "input", "keyevent", "KEYCODE_WAKEUP"
         let activityName = b.javaPackageId & "/" & b.javaPackageId & ".MainActivity"
-        direShell adb, "-s", devId, "shell", "am", "start", "-n", activityName
+        direShell adb, "-H", host, "-s", devId, "shell", "am", "start", "-n", activityName
 
         let ok = processOutputFromAutotestStream(logcat.outputStream)
         logcat.kill()
-        direShell adb, "-s", devId, "shell", "input", "keyevent", "KEYCODE_HOME"
+        direShell adb, "-H", host, "-s", devId, "shell", "input", "keyevent", "KEYCODE_HOME"
         doAssert(ok, "Android autotest failed")
 
 task defaultTask, "Build and run":
