@@ -4,7 +4,7 @@ when defined(js) or defined(emscripten):
     import jsbind
     when defined(emscripten):
         import jsbind.emscripten
-elif defined(appKit):
+elif appKit:
     import private.objc_appkit
     enableObjC()
 else:
@@ -28,7 +28,7 @@ type
     Cursor* = ref object
         when defined(js) or defined(emscripten):
             c: jsstring
-        elif defined(appKit):
+        elif appKit:
             c: pointer
         else:
             c: CursorPtr
@@ -48,7 +48,7 @@ when defined(js) or defined(emscripten):
         of ckSizeAll: "all-scroll"
         of ckNotAllowed: "not-allowed"
         of ckHand: "pointer"
-elif defined(appKit):
+elif appKit:
     proc NSCursorOfKind(c: CursorKind): NSCursor =
         case c
         of ckArrow: arrowCursor()
@@ -91,7 +91,7 @@ proc newCursor*(k: CursorKind): Cursor =
         result.c = cursorKindToCSSName(k)
     else:
         result.new(finalizeCursor)
-        when defined(appKit):
+        when appKit:
             result.c = NSCursorOfKind(k).retain()
         else:
             result.c = createSystemCursor(cursorKindToSdl(k))
@@ -113,7 +113,7 @@ proc setCurrent*(c: Cursor) =
         discard EM_ASM_INT("""
         document.body.style.cursor = Pointer_stringify($0);
         """, cstring(c.c))
-    elif defined(appKit):
+    elif appKit:
         cast[NSCursor](c.c).setCurrent()
     else:
         setCursor(c.c)
