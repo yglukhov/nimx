@@ -87,7 +87,7 @@ const virtualKeyMapping: Table[Scancode, VirtualKey] = {
     SDL_SCANCODE_KP_3:             VirtualKey.Keypad3,
     SDL_SCANCODE_KP_0:             VirtualKey.Keypad0,
     SDL_SCANCODE_KP_PERIOD:        VirtualKey.KeypadPeriod,
-    #0:                 VirtualKey.NonUSBackSlash, # -
+    SDL_SCANCODE_NONUSBACKSLASH:   VirtualKey.NonUSBackSlash,
     SDL_SCANCODE_F11:              VirtualKey.F11,
     SDL_SCANCODE_F12:              VirtualKey.F12,
     #0:                 VirtualKey.International1, # -

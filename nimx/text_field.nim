@@ -41,9 +41,14 @@ var cursorOffset : Coord
 
 const leftMargin = 3.0
 
+proc `cursorPosition=`*(t: TextField, pos: int)
+
 proc `text=`*(tf: TextField, text: string) =
     tf.mText.text = text
     tf.setNeedsDisplay()
+
+    if cursorPos > tf.mText.text.len():
+        tf.cursorPosition = tf.mText.text.len()
 
 proc text*(tf: TextField) : string =
     result = tf.mText.text
@@ -266,6 +271,11 @@ method onTouchEv*(t: TextField, e: var Event): bool =
 
 proc updateCursorOffset(t: TextField) =
     cursorOffset = t.mText.xOfRuneAtPos(cursorPos)
+
+proc `cursorPosition=`*(t: TextField, pos: int) =
+    cursorPos = pos
+    t.updateCursorOffset()
+    t.bumpCursorVisibility()
 
 proc clearSelection(t: TextField) =
     # Clears selected text

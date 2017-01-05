@@ -33,6 +33,22 @@ type SdlWindow* = ref object of Window
     sdlGlContext: GlContextPtr
     renderingContext: GraphicsContext
 
+when defined(macosx):
+    import private.objc_appkit
+    enableObjC()
+    {.emit: "#import <AppKit/AppKit.h>".}
+    type NSWindow {.importc, header: "<AppKit/AppKit.h>", final.} = distinct int
+
+    proc scaleFactor(w: SdlWindow): float32 =
+        var wminfo: WMInfo
+        discard w.impl.getWMInfo(wminfo)
+        let nsWindow = cast[NSWindow](wminfo.padding)
+
+        {.emit: """
+        `result` = [`nsWindow` respondsToSelector: @selector(backingScaleFactor)] ? [`nsWindow` backingScaleFactor] : 1.0f;
+        """.}
+
+
 var animationEnabled = 0
 
 method enableAnimation*(w: SdlWindow, flag: bool) =
@@ -264,7 +280,10 @@ proc handleEvent(event: ptr sdl2.Event): Bool32 =
     result = True32
 
 method onResize*(w: SdlWindow, newSize: Size) =
-    w.pixelRatio = screenScaleFactor()
+    when defined(macosx):
+        w.pixelRatio = w.scaleFactor()
+    else:
+        w.pixelRatio = screenScaleFactor()
     glViewport(0, 0, GLSizei(newSize.width * w.pixelRatio), GLsizei(newSize.height * w.pixelRatio))
     procCall w.Window.onResize(newSize)
 
