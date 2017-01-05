@@ -86,7 +86,7 @@ const virtualKeyMapping: Table[int, VirtualKey] = {
     99: VirtualKey.Keypad3,
     96: VirtualKey.Keypad0,
    110: VirtualKey.KeypadPeriod,
-    # 0: VirtualKey.NonUSBackSlash, # -
+   192: VirtualKey.NonUSBackSlash,
    122: VirtualKey.F11,
    123: VirtualKey.F12,
     # 0: VirtualKey.International1, # -
