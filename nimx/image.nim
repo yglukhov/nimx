@@ -374,7 +374,7 @@ proc writeToPNGFile*(i: Image, path: string) = i.writeToFile(path, png)
 proc writeToTGAFile*(i: Image, path: string) = i.writeToFile(path, tga)
 #proc writeToHDRFile*(i: Image, path: string) = i.writeToFile(path, hdr) # Crashes...
 
-const asyncResourceLoad = not defined(js) and not defined(emscripten)
+const asyncResourceLoad = not defined(js) and not defined(emscripten) and not defined(nimxAvoidSDL)
 
 when asyncResourceLoad:
     const loadAsyncTextureInMainThread = defined(android) or defined(ios)
