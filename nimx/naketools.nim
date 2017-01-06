@@ -852,12 +852,9 @@ proc getConnectedAndroidDevices*(b: Builder): seq[string] =
         inc i
 
 proc installAppOnConnectedDevice(b: Builder, devId: string) =
-    withDir(b.buildRoot / b.javaPackageId):
-        putEnv "ANDROID_SERIAL", devId # Target specific device
-        if b.debugMode:
-            direShell "ant", "installd"
-        else:
-            direShell "ant", "installr"
+    let conf = if b.debugMode: "debug" else: "release"
+    let apkPath = b.buildRoot / b.javaPackageId / "bin" / b.appName & "-" & conf & ".apk"
+    direShell b.adbExe, "-H", b.adbServerName, "-s", devId, "install", "-r", apkPath
 
 proc runAutotestsOnConnectedDevices*(b: Builder) =
     let adb = b.adbExe
