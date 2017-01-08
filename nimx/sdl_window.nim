@@ -33,7 +33,7 @@ type SdlWindow* = ref object of Window
     sdlGlContext: GlContextPtr
     renderingContext: GraphicsContext
 
-when defined(macosx):
+when defined(macosx) and not defined(ios):
     import private.objc_appkit
     enableObjC()
     {.emit: "#import <AppKit/AppKit.h>".}
@@ -280,7 +280,7 @@ proc handleEvent(event: ptr sdl2.Event): Bool32 =
     result = True32
 
 method onResize*(w: SdlWindow, newSize: Size) =
-    when defined(macosx):
+    when defined(macosx) and not defined(ios):
         w.pixelRatio = w.scaleFactor()
     else:
         w.pixelRatio = screenScaleFactor()
