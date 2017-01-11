@@ -517,7 +517,9 @@ proc nimbleOverrideFlags(b: Builder): seq[string] =
                     var absPath = path
                     if not isAbsolute(absPath): absPath = d / absPath
                     let pkgName = packageNameAtPath(absPath)
-                    let origNimblePath = nimblePath(pkgName)
+                    var origNimblePath: string
+                    if not pkgName.isNil:
+                        origNimblePath = nimblePath(pkgName)
                     if not origNimblePath.isNil: result.add("--excludePath:" & origNimblePath)
                     result.add("--NimblePath:" & absPath)
         d = d.parentDir()
