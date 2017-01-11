@@ -72,6 +72,7 @@ type Builder* = ref object
     linkerFlags: seq[string]
 
     avoidSDL*: bool # Experimental feature.
+    useGradle*: bool # Experimental
 
 proc setBuilderSettingsFromCmdLine(b: Builder) =
     for kind, key, val in getopt():
@@ -130,11 +131,8 @@ proc findEnvPaths(b: Builder) =
 
             if ndk_path.len > 0:
                 ndk_path = replaceInStr(ndk_path, "ndk-stack")
-            elif existsEnv("NDK_HOME") or existsEnv("NDK_ROOT"):
-                if existsEnv("NDK_HOME"):
-                    ndk_path = getEnv("NDK_HOME")
-                else:
-                    ndk_path = getEnv("NDK_ROOT")
+            elif existsEnv("ANDROID_NDK_HOME"):
+                ndk_path = getEnv("ANDROID_NDK_HOME")
 
             if sdk_path.len > 0:
                 sdk_path = replaceInStr(sdk_path, "platform")
@@ -162,8 +160,8 @@ proc findEnvPaths(b: Builder) =
                     if not fileExists(expandTilde(sdk_path / "platform-tools/adb")):
                         sdk_path = nil
 
-            if sdk_path.len == 0: error_msg &= getEnvErrorMsg("ANDROID_HOME")
-            if ndk_path.len == 0: error_msg &= getEnvErrorMsg("NDK_HOME")
+            if sdk_path.len == 0: error_msg &= getEnvErrorMsg("ANDROID_SDK_HOME")
+            if ndk_path.len == 0: error_msg &= getEnvErrorMsg("ANDROID_NDK_HOME")
             if nim_path.len == 0: error_msg &= getEnvErrorMsg("NIM_HOME")
 
             b.androidSdk = sdk_path
@@ -429,23 +427,27 @@ proc buildSDLForIOS(b: Builder, forSimulator: bool = false): string =
 proc makeAndroidBuildDir(b: Builder): string =
     let buildDir = b.buildRoot / b.javaPackageId
     if not dirExists buildDir:
-        let nimxTemplateDir = nimbleNimxPath() / "test" / "android" / "template"
+        let templ = if b.useGradle: "template" else: "template_ant"
+        let nimxTemplateDir = nimbleNimxPath() / "test" / "android" / templ
         let sdlDefaultAndroidProjectTemplate =  b.sdlRoot/"android-project"
         createDir(buildDir)
         echo "Using Android project sdl template: ", sdlDefaultAndroidProjectTemplate
-        copyDir sdlDefaultAndroidProjectTemplate, buildDir
+        if not b.useGradle:
+            copyDir sdlDefaultAndroidProjectTemplate, buildDir
 
         copyDir(nimxTemplateDir, buildDir)
-        createDir(buildDir/"jni"/"SDL")
+
+        let sdlJni = buildDir/"jni"/"SDL"
+        createDir(sdlJni)
 
         when defined(windows):
-            copyDir b.sdlRoot/"src", buildDir/"jni"/"SDL"/"src"
-            copyDir b.sdlRoot/"include", buildDir/"jni"/"SDL"/"include"
+            copyDir b.sdlRoot/"src", sdlJni/"src"
+            copyDir b.sdlRoot/"include", sdlJni/"include"
         else:
-            trySymLink(b.sdlRoot/"src", buildDir/"jni"/"SDL"/"src")
-            trySymLink(b.sdlRoot/"include", buildDir/"jni"/"SDL"/"include")
+            trySymLink(b.sdlRoot/"src", sdlJni/"src")
+            trySymLink(b.sdlRoot/"include", sdlJni/"include")
 
-        let sdlmk = buildDir/"jni"/"SDL"/"Android.mk"
+        let sdlmk = sdlJni/"Android.mk"
         copyFile(b.sdlRoot/"Android.mk", sdlmk)
 
         # Patch SDL's Android.mk so that it doesn't build dynamic lib.
@@ -484,12 +486,17 @@ proc makeAndroidBuildDir(b: Builder): string =
             "ACTIVITY_CLASS_NAME": b.activityClassName
             }.toTable()
 
-        replaceVarsInFile buildDir/"AndroidManifest.xml", vars
-        replaceVarsInFile buildDir/"res/values/strings.xml", vars
         replaceVarsInFile buildDir/"jni/src/Android.mk", vars
         replaceVarsInFile buildDir/"jni/Application.mk", vars
-        replaceVarsInFile buildDir/"project.properties", vars
-        replaceVarsInFile buildDir/"build.xml", vars
+
+        if b.useGradle:
+            replaceVarsInFile buildDir/"src/main/AndroidManifest.xml", vars
+            replaceVarsInFile buildDir/"src/main/res/values/strings.xml", vars
+        else:
+            replaceVarsInFile buildDir/"AndroidManifest.xml", vars
+            replaceVarsInFile buildDir/"res/values/strings.xml", vars
+            replaceVarsInFile buildDir/"project.properties", vars
+            replaceVarsInFile buildDir/"build.xml", vars
     buildDir
 
 proc packageNameAtPath(d: string): string =
@@ -563,28 +570,34 @@ proc signIosBundle(b: Builder) =
 proc ndkBuild(b: Builder) =
     withDir(b.buildRoot / b.javaPackageId):
         putEnv "NIM_INCLUDE_DIR", expandTilde(b.nimIncludeDir)
-        putEnv "ANDROID_HOME", expandTilde(b.androidSdk)
-
-        if b.androidApi == 0:
-            b.androidApi = 14 #default android-api level
-        # this update phase is doesnt look necessary
-        #direShell b.androidSdk/"tools/android", "update", "project", "-p", ".", "-t", "android-" & $b.androidApi # try with android-16
-
-        let verbose = false
-        var args = @[b.androidNdk/"ndk-build"]
-        if verbose: args.add("V=1")
-        if b.nimParallelBuild > 0:
-            args.add("-j " & $b.nimParallelBuild)
-        if b.debugMode:
-            args.add(["NDK_DEBUG=1", "APP_OPTIM=debug"])
+        if b.useGradle:
+            putEnv "ANDROID_SDK_HOME", expandTilde(b.androidSdk)
+            putEnv "ANDROID_NDK_HOME", expandTilde(b.androidNdk)
+            var args = @["gradle", "build"]
+            direShell args
         else:
-            args.add("APP_OPTIM=release")
-        direShell args
+            putEnv "ANDROID_HOME", expandTilde(b.androidSdk)
 
-        if b.debugMode:
-            direShell "ant", "debug"
-        else:
-            direShell "ant", "release"
+            if b.androidApi == 0:
+                b.androidApi = 14 #default android-api level
+            # this update phase is doesnt look necessary
+            #direShell b.androidSdk/"tools/android", "update", "project", "-p", ".", "-t", "android-" & $b.androidApi # try with android-16
+
+            let verbose = false
+            var args = @[b.androidNdk/"ndk-build"]
+            if verbose: args.add("V=1")
+            if b.nimParallelBuild > 0:
+                args.add("-j " & $b.nimParallelBuild)
+            if b.debugMode:
+                args.add(["NDK_DEBUG=1", "APP_OPTIM=debug"])
+            else:
+                args.add("APP_OPTIM=release")
+            direShell args
+
+            if b.debugMode:
+                direShell "ant", "debug"
+            else:
+                direShell "ant", "release"
 
 proc makeEmscriptenPreloadData(b: Builder): string =
     let emcc_path = findExe("emcc")
@@ -656,7 +669,10 @@ proc build*(b: Builder) =
     of "android":
         let buildDir = b.makeAndroidBuildDir()
         b.nimcachePath = buildDir / "jni/src"
-        b.resourcePath = buildDir / "assets"
+        if b.useGradle:
+            b.resourcePath = buildDir / "src/main/assets"
+        else:
+            b.resourcePath = buildDir / "assets"
         b.nimFlags.add(["--compileOnly", "--cpu:arm", "--os:linux", "-d:android", "-d:SDL_Static"])
 
     of "js":

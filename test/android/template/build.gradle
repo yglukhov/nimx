@@ -1,0 +1,31 @@
+buildscript {
+    repositories {
+        jcenter()
+    }
+
+    dependencies {
+        classpath 'com.android.tools.build:gradle:2.2.3'
+    }
+}
+
+apply plugin: 'com.android.application'
+
+android {
+    compileSdkVersion 14
+    buildToolsVersion "25.0.2"
+
+    externalNativeBuild {
+        ndkBuild {
+            path "jni/Android.mk"
+        }
+    }
+
+    productFlavors {
+        arm7 {
+            // in the future, ndk.abiFilter might also work
+            ndk {
+                abiFilter 'armeabi-v7a'
+            }
+        }
+    }
+}
