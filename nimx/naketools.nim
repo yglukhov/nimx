@@ -573,7 +573,7 @@ proc ndkBuild(b: Builder) =
         if b.useGradle:
             putEnv "ANDROID_SDK_HOME", expandTilde(b.androidSdk)
             putEnv "ANDROID_NDK_HOME", expandTilde(b.androidNdk)
-            var args = @["gradle", "build"]
+            var args = @[getCurrentDir() / "gradlew", "build"]
             direShell args
         else:
             putEnv "ANDROID_HOME", expandTilde(b.androidSdk)
