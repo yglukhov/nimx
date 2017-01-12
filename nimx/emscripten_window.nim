@@ -97,13 +97,19 @@ proc onKeyDown(eventType: cint, keyEvent: ptr EmscriptenKeyboardEvent, userData:
 proc onKeyUp(eventType: cint, keyEvent: ptr EmscriptenKeyboardEvent, userData: pointer): EM_BOOL {.cdecl.} =
     onKey(keyEvent, userData, bsUp)
 
-proc onFocus(eventType: cint, keyEvent: ptr EmscriptenFocusEvent, userData: pointer): EM_BOOL {.cdecl.} =
-    let w = cast[EmscriptenWindow](userData)
-    w.onFocusChange(true)
+proc c_strcmp(s1, s2: cstring): cint {.importc: "strcmp", nodecl.}
 
-proc onBlur(eventType: cint, keyEvent: ptr EmscriptenFocusEvent, userData: pointer): EM_BOOL {.cdecl.} =
-    let w = cast[EmscriptenWindow](userData)
-    w.onFocusChange(false)
+template isTargetWindow(event: ptr EmscriptenFocusEvent): bool = c_strcmp(cstring(addr event.nodeName[0]), "#window") == 0
+
+proc onFocus(eventType: cint, event: ptr EmscriptenFocusEvent, userData: pointer): EM_BOOL {.cdecl.} =
+    if event.isTargetWindow():
+        let w = cast[EmscriptenWindow](userData)
+        w.onFocusChange(true)
+
+proc onBlur(eventType: cint, event: ptr EmscriptenFocusEvent, userData: pointer): EM_BOOL {.cdecl.} =
+    if event.isTargetWindow():
+        let w = cast[EmscriptenWindow](userData)
+        w.onFocusChange(false)
 
 proc getDocumentSize(width, height: var float32) {.inline.} =
     discard EM_ASM_INT("""
