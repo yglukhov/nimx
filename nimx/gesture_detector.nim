@@ -106,10 +106,6 @@ when false:
         result.angle = 0.0'f32
         result.angle_offset = 0.0'f32
 
-    method onTouchGesEvent*(d: BaseGestureDetector, e: var Event) : bool =
-        if e.pointerId == 0 and e.buttonState == bsDown:
-            registerDetector(d, e)
-
     proc getPointersCenter(arr : openarray[Event]) : Point =
         result = newPoint(0,0)
         if  arr.len > 0:
