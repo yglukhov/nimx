@@ -577,7 +577,11 @@ proc ndkBuild(b: Builder) =
             putEnv "ANDROID_SDK_HOME", expandTilde(b.androidSdk)
             putEnv "ANDROID_HOME", expandTilde(b.androidSdk)
             putEnv "ANDROID_NDK_HOME", expandTilde(b.androidNdk)
-            var args = @[getCurrentDir() / "gradlew", "build"]
+            var args = @[getCurrentDir() / "gradlew"]
+            if b.debugMode:
+                args.add("assembleDebug")
+            else:
+                args.add("assembleRelease")
             direShell args
         else:
             putEnv "ANDROID_HOME", expandTilde(b.androidSdk)
@@ -875,7 +879,9 @@ proc getConnectedAndroidDevices*(b: Builder): seq[string] =
 
 proc installAppOnConnectedDevice(b: Builder, devId: string) =
     let conf = if b.debugMode: "debug" else: "release"
-    let apkPath = b.buildRoot / b.javaPackageId / "bin" / b.appName & "-" & conf & ".apk"
+    var apkPath = b.buildRoot / b.javaPackageId / "build" / "outputs" / "apk" / b.javaPackageId & "-" & conf & ".apk"
+    if not b.useGradle:
+        apkPath = b.buildRoot / b.javaPackageId / "bin" / b.appName & "-" & conf & ".apk"
     direShell b.adbExe, "-H", b.adbServerName, "-s", devId, "install", "-r", apkPath
 
 proc runAutotestsOnConnectedDevices*(b: Builder) =
