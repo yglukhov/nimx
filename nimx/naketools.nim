@@ -435,7 +435,10 @@ proc makeAndroidBuildDir(b: Builder): string =
         if not b.useGradle:
             copyDir sdlDefaultAndroidProjectTemplate, buildDir
 
-        copyDir(nimxTemplateDir, buildDir)
+        copyDirWithPermissions(nimxTemplateDir, buildDir)
+
+        if b.useGradle:
+            copyDir(sdlDefaultAndroidProjectTemplate / "src", buildDir / "src"/"main"/"java")
 
         let sdlJni = buildDir/"jni"/"SDL"
         createDir(sdlJni)
@@ -572,6 +575,7 @@ proc ndkBuild(b: Builder) =
         putEnv "NIM_INCLUDE_DIR", expandTilde(b.nimIncludeDir)
         if b.useGradle:
             putEnv "ANDROID_SDK_HOME", expandTilde(b.androidSdk)
+            putEnv "ANDROID_HOME", expandTilde(b.androidSdk)
             putEnv "ANDROID_NDK_HOME", expandTilde(b.androidNdk)
             var args = @[getCurrentDir() / "gradlew", "build"]
             direShell args
