@@ -233,50 +233,56 @@ method isLoaded*(i: FixedTexCoordSpriteImage): bool = i.spriteSheet.isLoaded
 method getTextureQuad*(i: Image, gl: GL, texCoords: var array[4, GLfloat]): TextureRef {.base.} =
     raise newException(Exception, "Abstract method called!")
 
+when defined(js):
+    proc initWithJSImage(i: SelfContainedImage, gl: GL, jsImg: RootRef) =
+        var width, height : Coord
+        {.emit: """
+        `width` = `jsImg`.width;
+        `height` = `jsImg`.height;
+        """.}
+
+        i.texture = gl.createTexture()
+        gl.bindTexture(gl.TEXTURE_2D, i.texture)
+        {.emit: """
+        `gl`.pixelStorei(`gl`.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+        """.}
+        let texWidth = if isPowerOfTwo(width.int): width.int else: nextPowerOfTwo(width.int)
+        let texHeight = if isPowerOfTwo(height.int): height.int else: nextPowerOfTwo(height.int)
+        i.mSize.width = width
+        i.mSize.height = height
+        i.texCoords[2] = width / texWidth.Coord
+        i.texCoords[3] = height / texHeight.Coord
+        if texWidth != width.int or texHeight != height.int:
+            asm """
+            var canvas = document.createElement('canvas');
+            canvas.width = `texWidth`;
+            canvas.height = `texHeight`;
+            var ctx2d = canvas.getContext('2d');
+            ctx2d.globalCompositeOperation = "copy";
+            ctx2d.drawImage(`i`.__image, 0, 0);
+            `gl`.texImage2D(`gl`.TEXTURE_2D, 0, `gl`.RGBA, `gl`.RGBA, `gl`.UNSIGNED_BYTE, canvas);
+            """
+        else:
+            {.emit:"`gl`.texImage2D(`gl`.TEXTURE_2D, 0, `gl`.RGBA, `gl`.RGBA, `gl`.UNSIGNED_BYTE, `i`.__image);".}
+        setupTexParams(gl)
+
+        let err = gl.getError()
+        if err != 0.GLenum:
+            logi "GL error in texture load: ", err.int.toHex(), ": ", if i.mFilePath.isNil: "nil" else: i.mFilePath
+
 method getTextureQuad*(i: SelfContainedImage, gl: GL, texCoords: var array[4, GLfloat]): TextureRef =
     when defined js:
         if i.texture.isEmpty and not gl.isNil:
-            var width, height : Coord
             var loadingComplete = false
+            var jsImg: RootRef
             asm """
             if (`i`.__image !== undefined) {
+                `jsImg` = `i`.__image;
                 `loadingComplete` = `i`.__image.complete;
-                if (`loadingComplete`) {
-                    `width` = `i`.__image.width;
-                    `height` = `i`.__image.height;
-                }
             }
             """
             if loadingComplete:
-                discard gl.getError() # Clear last error
-                i.texture = gl.createTexture()
-                gl.bindTexture(gl.TEXTURE_2D, i.texture)
-                {.emit: """
-                `gl`.pixelStorei(`gl`.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
-                """.}
-                let texWidth = if isPowerOfTwo(width.int): width.int else: nextPowerOfTwo(width.int)
-                let texHeight = if isPowerOfTwo(height.int): height.int else: nextPowerOfTwo(height.int)
-                i.mSize.width = width
-                i.mSize.height = height
-                i.texCoords[2] = width / texWidth.Coord
-                i.texCoords[3] = height / texHeight.Coord
-                if texWidth != width.int or texHeight != height.int:
-                    asm """
-                    var canvas = document.createElement('canvas');
-                    canvas.width = `texWidth`;
-                    canvas.height = `texHeight`;
-                    var ctx2d = canvas.getContext('2d');
-                    ctx2d.globalCompositeOperation = "copy";
-                    ctx2d.drawImage(`i`.__image, 0, 0);
-                    `gl`.texImage2D(`gl`.TEXTURE_2D, 0, `gl`.RGBA, `gl`.RGBA, `gl`.UNSIGNED_BYTE, canvas);
-                    """
-                else:
-                    {.emit:"`gl`.texImage2D(`gl`.TEXTURE_2D, 0, `gl`.RGBA, `gl`.RGBA, `gl`.UNSIGNED_BYTE, `i`.__image);".}
-                setupTexParams(gl)
-
-                let err = gl.getError()
-                if err != 0.GLenum:
-                    logi "GL error in texture load: ", err.int.toHex(), ": ", if i.mFilePath.isNil: "nil" else: i.mFilePath
+                i.initWithJSImage(gl, jsImg)
 
     texCoords[0] = i.texCoords[0]
     texCoords[1] = i.texCoords[1]
@@ -462,7 +468,7 @@ when defined(emscripten):
     import jsbind.emscripten
 
     type ImageLoadingCtx = ref object
-        name, path: string
+        path: string
         callback: proc(i: SelfContainedImage)
         image: SelfContainedImage
 
@@ -503,10 +509,9 @@ when defined(emscripten):
             logi "Error loading image: ", ctx.path
             ctx.callback(nil)
 
-    proc nimxImageLoadFromURL*(url: string, name: string, callback: proc(i: SelfContainedImage)) =
+    proc loadImageFromURL*(url: string, callback: proc(i: SelfContainedImage)) =
         var ctx: ImageLoadingCtx
         ctx.new()
-        ctx.name = name
         ctx.path = url
         ctx.callback = callback
         GC_ref(ctx)
@@ -553,6 +558,47 @@ when defined(emscripten):
         };
         i.src = url;
         """, cast[pointer](ctx), cstring(ctx.path))
+
+    proc nimxImageLoadFromURL*(url: string, name: string, callback: proc(i: SelfContainedImage)) {.deprecated.} =
+        loadImageFromURL(url, callback)
+
+elif defined(js):
+    proc loadImageFromURL*(url: string, callback: proc(i: SelfContainedImage)) =
+        let nativeURL: cstring = url
+        let onLoad = proc(jsImg: RootRef) =
+            if jsImg.isNil:
+                callback(nil)
+            else:
+                let i = newSelfContainedImage()
+                i.setFilePath(url)
+                {.emit: """
+                `i`.__image = `jsImg`;
+                """.}
+                callback(i)
+
+        {.emit: """
+        var jsImg = new Image();
+        jsImg.crossOrigin = '';
+        jsImg.src = `nativeURL`;
+        jsImg.onload = function(){`onLoad`(jsImg)};
+        jsImg.onerror = function(){`onLoad`(null)};
+        """.}
+
+else:
+    import nimx.http_request
+    proc loadImageFromURL*(url: string, callback: proc(i: SelfContainedImage)) =
+        sendRequest("GET", url, nil, []) do(r: Response):
+            if r.statusCode >= 200 and r.statusCode < 300:
+                let i = newSelfContainedImage()
+                var x, y, comp: cint
+                var bitmap = stbi_load_from_memory(cast[ptr uint8](unsafeAddr r.body[0]),
+                        r.body.len.cint, addr x, addr y, addr comp, 0)
+                i.initWithBitmap(bitmap, x, y, comp)
+                stbi_image_free(bitmap)
+                i.setFilePath(url)
+                callback(i)
+            else:
+                callback(nil)
 
 registerResourcePreloader(["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga", "pvr"]) do(name: string, callback: proc(i: SelfContainedImage)):
     when defined(js):

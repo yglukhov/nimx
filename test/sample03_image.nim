@@ -8,6 +8,13 @@ import sample_registry
 type ImageSampleView = ref object of View
     image: Image
     generatedImage: Image
+    httpImage: Image
+
+method init*(v: ImageSampleView, r: Rect) =
+    procCall v.View.init(r)
+    loadImageFromURL("http://gravatar.com/avatar/71b7b08fbc2f989a8246913ac608cca9") do(i: SelfContainedImage):
+        v.httpImage = i
+        v.setNeedsDisplay()
 
 proc renderToImage(): Image =
     result = imageWithSize(newSize(200, 80))
@@ -41,5 +48,8 @@ method draw(v: ImageSampleView, r: Rect) =
     imageRect.origin.y += imageSize.height - 60
     imageRect.size = v.generatedImage.size
     c.drawImage(v.generatedImage, imageRect)
+
+    if not v.httpImage.isNil:
+        c.drawImage(v.httpImage, newRect(50, 50, 100, 100))
 
 registerSample(ImageSampleView, "Image")
