@@ -47,7 +47,7 @@ proc `text=`*(tf: TextField, text: string) =
     tf.mText.text = text
     tf.setNeedsDisplay()
 
-    if cursorPos > tf.mText.text.len():
+    if tf.isFirstResponder and cursorPos > tf.mText.text.len():
         tf.cursorPosition = tf.mText.text.len()
 
 proc text*(tf: TextField) : string =
