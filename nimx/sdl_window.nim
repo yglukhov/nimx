@@ -232,8 +232,9 @@ proc eventWithSDLEvent(event: ptr sdl2.Event): Event =
                 let pos = newPoint(x.Coord, y.Coord)
                 result = newEvent(etScroll, pos)
                 result.window = wnd
-                result.offset.x = mouseEv.x.Coord
-                result.offset.y = mouseEv.y.Coord
+                const multiplier = when defined(windows): 30.0 else: 1.0
+                result.offset.x = mouseEv.x.Coord * multiplier
+                result.offset.y = mouseEv.y.Coord * multiplier
 
         of KeyDown, KeyUp:
             let keyEv = cast[KeyboardEventPtr](event)
