@@ -701,8 +701,7 @@ proc build*(b: Builder) =
             b.nimFlags.add(["--cpu:i386", "--os:windows", "--cc:gcc", "--gcc.exe:" & mxeBin, "--gcc.linkerexe:" & mxeBin])
         b.makeWindowsResource()
     of "emscripten":
-        let emcc_path = findExe("emcc")
-        let emcc = if emcc_path.len > 0: emcc_path else: emccWrapperPath()
+        let emcc = emccWrapperPath()
         b.emscriptenPreloadFiles.add(b.originalResourcePath & "/OpenSans-Regular.ttf@/res/OpenSans-Regular.ttf")
         b.executablePath = b.buildRoot / "main.js"
         b.nimFlags.add(["--cpu:i386", "-d:emscripten", "--os:linux", "--cc:clang",
