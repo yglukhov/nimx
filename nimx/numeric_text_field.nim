@@ -6,14 +6,16 @@ import nimx.window_event_handling
 import nimx.composition
 import nimx.context
 import nimx.font
+import nimx.animation
+import nimx.window
 
 type NumericTextField* = ref object of TextField
     precision*: uint
     initialMouseTime: float
-    prevMouseTime: float
-    prevMouseX: Coord
-    mouseSpeed: Coord
-    prevDirLeft: bool
+    initialMouseX: Coord
+    mouseX: Coord
+    touchAnim: Animation
+    directionChanged: bool
 
 proc newNumericTextField*(r: Rect, precision: uint = 2): NumericTextField =
     result.new()
@@ -80,6 +82,7 @@ method draw*(t: NumericTextField, r: Rect) =
     else:
         procCall t.TextField.draw(r)
 
+#[
 proc roundTo(v, t: float): float =
     let vv = abs(v)
     let m = vv mod t
@@ -88,6 +91,7 @@ proc roundTo(v, t: float): float =
     else:
         result = vv - m
     if v < 0: result = -result
+ ]#
 
 method onTouchEv*(t: NumericTextField, e: var Event): bool =
     if t.isFirstResponder():
@@ -96,44 +100,41 @@ method onTouchEv*(t: NumericTextField, e: var Event): bool =
     case e.buttonState
     of bsDown:
         t.initialMouseTime = epochTime()
-        t.prevMouseTime = t.initialMouseTime
-        t.prevMouseX = e.localPosition.x
-        t.mouseSpeed = 0
+
+        t.initialMouseX = e.localPosition.x
+        t.mouseX = t.initialMouseX
+
+        var val = try: parseFloat(t.text)
+                  except: 0.0
+
+        t.touchAnim = newAnimation()
+        t.touchAnim.loopDuration = 1.0
+        t.touchAnim.numberOfLoops = -1
+        t.touchAnim.onAnimate = proc(p: float)=
+            let diff = t.initialMouseX - t.mouseX
+            let absDiff = abs(diff)
+            if absDiff > 0.0:
+                val = val + (diff) / (10000.0 / absDiff)
+                t.text = formatFloat(val, ffDecimal, t.precision)
+                t.sendAction()
+
+        t.window.addAnimation(t.touchAnim)
+
         result = true
+
     of bsUp:
         if epochTime() - t.initialMouseTime < 0.3:
             result = t.makeFirstResponder()
             t.selectAll()
 
+        t.mouseX = t.initialMouseX
+        t.touchAnim.cancel()
+        t.touchAnim = nil
+
     of bsUnknown:
+        var direction = t.mouseX > e.localPosition.x
+        if direction != t.directionChanged:
+            t.directionChanged = direction
+            t.initialMouseX = e.localPosition.x
+        t.mouseX = e.localPosition.x
         result = true
-        let curTime = epochTime()
-        let mouseDistance = e.localPosition.x - t.prevMouseX
-        let dirLeft = mouseDistance < 0
-        if dirLeft != t.prevDirLeft:
-            t.mouseSpeed = 0
-            t.prevDirLeft = dirLeft
-
-        if curTime - t.prevMouseTime < 0.001: return
-
-        let mouseSpeed = abs(mouseDistance) / (curTime - t.prevMouseTime)
-        t.mouseSpeed = t.mouseSpeed * 0.75 + mouseSpeed * 0.25
-        let delta = mouseDistance * sqrt(t.mouseSpeed) * 0.05
-        t.prevMouseX = e.localPosition.x
-        t.prevMouseTime = curTime
-        var action = false
-        try:
-            var val = parseFloat(t.text) + delta
-            if abs(t.mouseSpeed) > 1000:
-                val = val.roundTo(100)
-            elif abs(t.mouseSpeed) > 500:
-                val = val.roundTo(10)
-            elif abs(t.mouseSpeed) > 50:
-                val = val.roundTo(1)
-
-            t.text = formatFloat(val, ffDecimal, t.precision)
-            action = true
-        except:
-            discard
-        if action:
-            t.sendAction()
