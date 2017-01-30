@@ -15,7 +15,7 @@ type NumericTextField* = ref object of TextField
     initialMouseX: Coord
     mouseX: Coord
     touchAnim: Animation
-    directionChanged: bool
+    directionLeft: bool
 
 proc newNumericTextField*(r: Rect, precision: uint = 2): NumericTextField =
     result.new()
@@ -114,7 +114,7 @@ method onTouchEv*(t: NumericTextField, e: var Event): bool =
             let diff = t.initialMouseX - t.mouseX
             let absDiff = abs(diff)
             if absDiff > 0.0:
-                val = val + (diff) / (10000.0 / absDiff)
+                val = val - (diff) / (10000.0 / absDiff)
                 t.text = formatFloat(val, ffDecimal, t.precision)
                 t.sendAction()
 
@@ -133,8 +133,8 @@ method onTouchEv*(t: NumericTextField, e: var Event): bool =
 
     of bsUnknown:
         var direction = t.mouseX > e.localPosition.x
-        if direction != t.directionChanged:
-            t.directionChanged = direction
+        if direction != t.directionLeft:
+            t.directionLeft = direction
             t.initialMouseX = e.localPosition.x
         t.mouseX = e.localPosition.x
         result = true
