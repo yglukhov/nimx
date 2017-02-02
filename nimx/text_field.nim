@@ -23,6 +23,7 @@ type TextField* = ref object of Control
     #mText*: string
     editable*: bool
     continuous*: bool
+    selectable*: bool
     textColor*: Color
     mFont*: Font
     selectionStartLine: int
@@ -66,6 +67,7 @@ proc newTextField*(r: Rect): TextField =
 proc newTextField*(parent: View = nil, position: Point = newPoint(0, 0), size: Size = newSize(100, 20), text: string = ""): TextField =
     result = newTextField(newRect(position.x, position.y, size.width, size.height))
     result.editable = true
+    result.selectable = true
     result.mText.text = text
     if not isNil(parent):
         parent.addSubview(result)
@@ -73,10 +75,12 @@ proc newTextField*(parent: View = nil, position: Point = newPoint(0, 0), size: S
 proc newLabel*(r: Rect): TextField =
     result = newTextField(r)
     result.editable = false
+    result.selectable = false
 
 proc newLabel*(parent: View = nil, position: Point = newPoint(0, 0), size: Size = newSize(100, 20), text: string = "label"): TextField =
     result = newLabel(newRect(position.x, position.y, size.width, size.height))
     result.editable = false
+    result.selectable = false
     result.mText.text = text
     if not isNil(parent):
         parent.addSubview(result)
@@ -84,6 +88,7 @@ proc newLabel*(parent: View = nil, position: Point = newPoint(0, 0), size: Size 
 method init*(t: TextField, r: Rect) =
     procCall t.Control.init(r)
     t.editable = true
+    t.selectable = true
     t.textSelection = -1 .. -1
     t.textColor = newGrayColor(0.0)
     t.hasBezel = true
@@ -236,7 +241,7 @@ method onTouchEv*(t: TextField, e: var Event): bool =
     var pt = e.localPosition
     case e.buttonState
     of bsDown:
-        if t.editable:
+        if t.selectable:
             result = t.makeFirstResponder()
             if t.mText.isNil:
                 cursorPos = 0
@@ -247,7 +252,7 @@ method onTouchEv*(t: TextField, e: var Event): bool =
                 t.textSelection = cursorPos .. cursorPos
 
     of bsUp:
-        if t.editable:
+        if t.selectable:
             if t.textSelection.len != 0:
 
                 let oldPos = cursorPos
@@ -258,10 +263,10 @@ method onTouchEv*(t: TextField, e: var Event): bool =
 
                 t.setNeedsDisplay()
 
-        result = false
+            result = false
 
     of bsUnknown:
-        if t.editable:
+        if t.selectable:
             let oldPos = cursorPos
             t.mText.getClosestCursorPositionToPoint(pt, cursorPos, cursorOffset)
             t.updateSelectionWithCursorPos(oldPos, cursorPos)
@@ -307,118 +312,123 @@ proc insertText(t: TextField, s: string) =
         t.sendAction()
 
 method onKeyDown*(t: TextField, e: var Event): bool =
-    if e.keyCode == VirtualKey.Backspace:
-        result = true
-        if t.textSelection.len > 0: t.clearSelection()
-        elif cursorPos > 0:
-            t.mText.uniDelete(cursorPos - 1, cursorPos - 1)
-            dec cursorPos
-            if t.continuous:
-                t.sendAction()
+    if t.editable:
 
-        t.updateCursorOffset()
-        t.bumpCursorVisibility()
-    elif e.keyCode == VirtualKey.Delete and not t.mText.isNil:
-        if t.textSelection.len > 0: t.clearSelection()
-        elif cursorPos < t.mText.runeLen:
-            t.mText.uniDelete(cursorPos, cursorPos)
-            if t.continuous:
-                t.sendAction()
-        t.bumpCursorVisibility()
-    elif e.keyCode == VirtualKey.Left:
-        let oldCursorPos = cursorPos
-        dec cursorPos
-        if cursorPos < 0: cursorPos = 0
-        if (alsoPressed(VirtualKey.LeftShift) or alsoPressed(VirtualKey.RightShift)) and t.mText.len > 0:
-            t.updateSelectionWithCursorPos(oldCursorPos, cursorPos)
-        else:
-            t.textSelection = -1 .. -1
-        t.updateCursorOffset()
-        t.bumpCursorVisibility()
-    elif e.keyCode == VirtualKey.Right:
-        let oldCursorPos = cursorPos
-        inc cursorPos
-        let textLen = t.mText.runeLen
-        if cursorPos > textLen: cursorPos = textLen
+        if e.keyCode == VirtualKey.Backspace:
+            result = true
+            if t.textSelection.len > 0: t.clearSelection()
+            elif cursorPos > 0:
+                t.mText.uniDelete(cursorPos - 1, cursorPos - 1)
+                dec cursorPos
+                if t.continuous:
+                    t.sendAction()
 
-        if (alsoPressed(VirtualKey.LeftShift) or alsoPressed(VirtualKey.RightShift)) and t.mText.len > 0:
-            t.updateSelectionWithCursorPos(oldCursorPos, cursorPos)
-        else:
-            t.textSelection = -1 .. -1
-
-        t.updateCursorOffset()
-        t.bumpCursorVisibility()
-    elif e.keyCode == VirtualKey.Return:
-        if t.multiline:
-            t.insertText("\l")
-        else:
-            t.sendAction()
-            t.textSelection = -1 .. -1
-    elif e.keyCode == VirtualKey.Home:
-        if alsoPressed(VirtualKey.LeftShift) or alsoPressed(VirtualKey.RightShift):
-            t.updateSelectionWithCursorPos(cursorPos, 0)
-        else:
-            t.textSelection = -1 .. -1
-
-        cursorPos = 0
-        t.updateCursorOffset()
-        t.bumpCursorVisibility()
-    elif e.keyCode == VirtualKey.End:
-        if alsoPressed(VirtualKey.LeftShift) or alsoPressed(VirtualKey.RightShift):
-            t.updateSelectionWithCursorPos(cursorPos, t.mText.runeLen)
-        else:
-            t.textSelection = -1 .. -1
-
-        cursorPos = t.mText.runeLen
-        t.updateCursorOffset()
-        t.bumpCursorVisibility()
-    elif t.multiline:
-        if e.keyCode == VirtualKey.Down:
+            t.updateCursorOffset()
+            t.bumpCursorVisibility()
+        elif e.keyCode == VirtualKey.Delete and not t.mText.isNil:
+            if t.textSelection.len > 0: t.clearSelection()
+            elif cursorPos < t.mText.runeLen:
+                t.mText.uniDelete(cursorPos, cursorPos)
+                if t.continuous:
+                    t.sendAction()
+            t.bumpCursorVisibility()
+        elif e.keyCode == VirtualKey.Left:
             let oldCursorPos = cursorPos
-            let ln = t.mText.lineOfRuneAtPos(cursorPos)
-            var offset: Coord
-            t.mText.getClosestCursorPositionToPointInLine(ln + 1, newPoint(cursorOffset, 0), cursorPos, offset)
-            cursorOffset = offset
-            if alsoPressed(VirtualKey.LeftShift) or alsoPressed(VirtualKey.RightShift):
+            dec cursorPos
+            if cursorPos < 0: cursorPos = 0
+            if (alsoPressed(VirtualKey.LeftShift) or alsoPressed(VirtualKey.RightShift)) and t.mText.len > 0:
                 t.updateSelectionWithCursorPos(oldCursorPos, cursorPos)
             else:
                 t.textSelection = -1 .. -1
+            t.updateCursorOffset()
             t.bumpCursorVisibility()
-        elif e.keyCode == VirtualKey.Up:
+        elif e.keyCode == VirtualKey.Right:
             let oldCursorPos = cursorPos
-            let ln = t.mText.lineOfRuneAtPos(cursorPos)
-            if ln > 0:
+            inc cursorPos
+            let textLen = t.mText.runeLen
+            if cursorPos > textLen: cursorPos = textLen
+
+            if (alsoPressed(VirtualKey.LeftShift) or alsoPressed(VirtualKey.RightShift)) and t.mText.len > 0:
+                t.updateSelectionWithCursorPos(oldCursorPos, cursorPos)
+            else:
+                t.textSelection = -1 .. -1
+
+            t.updateCursorOffset()
+            t.bumpCursorVisibility()
+        elif e.keyCode == VirtualKey.Return:
+            if t.multiline:
+                t.insertText("\l")
+            else:
+                t.sendAction()
+                t.textSelection = -1 .. -1
+        elif e.keyCode == VirtualKey.Home:
+            if alsoPressed(VirtualKey.LeftShift) or alsoPressed(VirtualKey.RightShift):
+                t.updateSelectionWithCursorPos(cursorPos, 0)
+            else:
+                t.textSelection = -1 .. -1
+
+            cursorPos = 0
+            t.updateCursorOffset()
+            t.bumpCursorVisibility()
+        elif e.keyCode == VirtualKey.End:
+            if alsoPressed(VirtualKey.LeftShift) or alsoPressed(VirtualKey.RightShift):
+                t.updateSelectionWithCursorPos(cursorPos, t.mText.runeLen)
+            else:
+                t.textSelection = -1 .. -1
+
+            cursorPos = t.mText.runeLen
+            t.updateCursorOffset()
+            t.bumpCursorVisibility()
+        elif t.multiline:
+            if e.keyCode == VirtualKey.Down:
+                let oldCursorPos = cursorPos
+                let ln = t.mText.lineOfRuneAtPos(cursorPos)
                 var offset: Coord
-                t.mText.getClosestCursorPositionToPointInLine(ln - 1, newPoint(cursorOffset, 0), cursorPos, offset)
+                t.mText.getClosestCursorPositionToPointInLine(ln + 1, newPoint(cursorOffset, 0), cursorPos, offset)
                 cursorOffset = offset
                 if alsoPressed(VirtualKey.LeftShift) or alsoPressed(VirtualKey.RightShift):
                     t.updateSelectionWithCursorPos(oldCursorPos, cursorPos)
                 else:
                     t.textSelection = -1 .. -1
                 t.bumpCursorVisibility()
+            elif e.keyCode == VirtualKey.Up:
+                let oldCursorPos = cursorPos
+                let ln = t.mText.lineOfRuneAtPos(cursorPos)
+                if ln > 0:
+                    var offset: Coord
+                    t.mText.getClosestCursorPositionToPointInLine(ln - 1, newPoint(cursorOffset, 0), cursorPos, offset)
+                    cursorOffset = offset
+                    if alsoPressed(VirtualKey.LeftShift) or alsoPressed(VirtualKey.RightShift):
+                        t.updateSelectionWithCursorPos(oldCursorPos, cursorPos)
+                    else:
+                        t.textSelection = -1 .. -1
+                    t.bumpCursorVisibility()
 
-    let cmd = commandFromEvent(e)
-    if cmd == kcSelectAll: t.selectAll()
-    t.focusOnCursor()
+    if t.selectable or t.editable:
+        let cmd = commandFromEvent(e)
+        if cmd == kcSelectAll: t.selectAll()
+        t.focusOnCursor()
 
-    when defined(macosx) or defined(windows):
-        case cmd
-        of kcPaste:
-            let s = pasteboardWithName(PboardGeneral).readString()
-            if not s.isNil:
-                t.insertText(s)
-        of kcCopy, kcCut, kcUseSelectionForFind:
-            let s = t.selectedText()
-            if not s.isNil:
-                if cmd == kcUseSelectionForFind:
-                    pasteboardWithName(PboardFind).writeString(s)
-                else:
-                    pasteboardWithName(PboardGeneral).writeString(s)
-                if cmd == kcCut:
-                    t.clearSelection()
-        else: discard
+        when defined(macosx) or defined(windows):
+            case cmd
+            of kcPaste:
+                if t.editable:
+                    let s = pasteboardWithName(PboardGeneral).readString()
+                    if not s.isNil:
+                        t.insertText(s)
+            of kcCopy, kcCut, kcUseSelectionForFind:
+                let s = t.selectedText()
+                if not s.isNil:
+                    if cmd == kcUseSelectionForFind:
+                        pasteboardWithName(PboardFind).writeString(s)
+                    else:
+                        pasteboardWithName(PboardGeneral).writeString(s)
+                    if cmd == kcCut and t.editable:
+                        t.clearSelection()
+            else: discard
 
 method onTextInput*(t: TextField, s: string): bool =
+    if not t.editable: return false
     result = true
     t.insertText(s)
 
