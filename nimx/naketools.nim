@@ -614,6 +614,7 @@ proc makeEmscriptenPreloadData(b: Builder): string =
     doAssert(emcc.len > 0)
     result = b.nimcachePath / "preload.js"
     let packagerPy = emcc.parentDir() / "tools" / "file_packager.py"
+    createDir(b.nimcachePath)
     var args = @["python", packagerPy.quoteShell(), b.buildRoot / "main.data", "--js-output=" & result]
     for p in b.emscriptenPreloadFiles:
         args.add(["--preload", p])
@@ -707,16 +708,14 @@ proc build*(b: Builder) =
         b.nimFlags.add(["--cpu:i386", "-d:emscripten", "--os:linux", "--cc:clang",
             "--clang.exe=" & emcc.quoteShell(), "--clang.linkerexe=" & emcc.quoteShell(), "-d:SDL_Static"])
 
-        if b.emscriptenPreloadFiles.len > 0:
-            b.emscriptenPreJS.add(b.makeEmscriptenPreloadData())
+        b.emscriptenPreJS.add(b.makeEmscriptenPreloadData())
 
-        if b.emscriptenPreJS.len > 0:
-            var preJsContent = ""
-            for js in b.emscriptenPreJS:
-                preJsContent &= readFile(js)
-            let preJS = b.nimcachePath / "pre.js"
-            writeFile(preJS, preJsContent)
-            b.additionalLinkerFlags.add(["--pre-js", preJS])
+        var preJsContent = ""
+        for js in b.emscriptenPreJS:
+            preJsContent &= readFile(js)
+        let preJS = b.nimcachePath / "pre.js"
+        writeFile(preJS, preJsContent)
+        b.additionalLinkerFlags.add(["--pre-js", preJS])
 
         b.additionalNimFlags.add(["-d:useRealtimeGC"])
         b.additionalLinkerFlags.add(["-s", "ALLOW_MEMORY_GROWTH=1"])
