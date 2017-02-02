@@ -25,6 +25,9 @@ type ExpandingView* = ref object of View
     isDraggable*: bool
     isDragged: bool
     dragPoint: Point
+    titleBarColor*: Color
+    titleTextColor*: Color
+
 
     # initRect: Rect
 
@@ -43,6 +46,12 @@ proc updateFrame(v: ExpandingView) =
     if not v.superview.isNil:
         v.superview.subviewDidChangeDesiredSize(v, v.frame().size)
 
+    if v.expanded:
+        if v.contentView.superview.isNil:
+            v.addSubview v.contentView
+    elif not v.contentView.superview.isNil:
+        v.contentView.removeFromSuperView()
+
 method init*(v: ExpandingView, r: Rect, hasOffset: bool) =
     procCall v.View.init(r)
     v.backgroundColor = newColor(0.2, 0.2, 0.2, 1.0)
@@ -60,6 +69,9 @@ method init*(v: ExpandingView, r: Rect, hasOffset: bool) =
     v.expandBut.onExpandAction =  proc(state: bool) =
         v.expanded = state
         v.updateFrame()
+
+    v.titleBarColor = titleBarColor()
+    v.titleTextColor = titleTextColor()
 
     v.updateFrame()
 
@@ -81,10 +93,11 @@ method draw(v: ExpandingView, r: Rect) =
     var titleRect: Rect
     titleRect.size.width = r.width
     titleRect.size.height = titleSize
-    c.fillColor = titleBarColor()
+
+    c.fillColor = v.titleBarColor
     c.drawRect(titleRect)
 
-    c.fillColor = titleTextColor()
+    c.fillColor = v.titleTextColor
     c.drawText(f, newPoint(25, 1), v.title)
 
 
@@ -123,17 +136,18 @@ method onTouchEv*(v: ExpandingView, e: var Event) : bool =
     discard procCall v.View.onTouchEv(e)
     result = true
 
-    case e.buttonState
-    of bsDown:
-        echo e.position
-        if v.convertPointFromWindow(e.position).inRect(newRect(0.0, 0.0, v.bounds.width, titleSize)):
-            v.startDrag(e)
-    of bsUnknown:
-        v.processDrag(e)
-    of bsUp:
-        v.stopDrag(e)
-    else:
-        discard
+    # case e.buttonState
+    # of bsDown:
+    #     discard
+    #     # echo e.position
+    #     # if v.convertPointFromWindow(e.position).inRect(newRect(0.0, 0.0, v.bounds.width, titleSize)):
+    #     #     v.startDrag(e)
+    # of bsUnknown:
+    #     v.processDrag(e)
+    # of bsUp:
+    #     v.stopDrag(e)
+    # else:
+    #     discard
 
 method subviewDidChangeDesiredSize*(v: ExpandingView, sub: View, desiredSize: Size) =
     v.updateFrame()
