@@ -52,7 +52,7 @@ when defined(macosx) and not defined(ios):
 var animationEnabled = 0
 
 method enableAnimation*(w: SdlWindow, flag: bool) =
-    doAssert( (animationEnabled == 0 and flag) or (animationEnabled != 0 and not flag) )
+    doAssert( (animationEnabled == 0 and flag) or (animationEnabled != 0 and not flag) , "animationEnabled: " & $animationEnabled & " flag: " & $flag)
     if flag:
         inc animationEnabled
         when defined(ios):

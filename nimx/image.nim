@@ -334,13 +334,16 @@ proc imageNamed*(s: SpriteSheet, name: string): SpriteImage =
         if s.images.isNil: s.images = newTable[string, SpriteImage]()
         s.images[name] = result
 
-template flipVertically*(i: SelfContainedImage) =
+proc flipVertically*(i: SelfContainedImage) =
     swap(i.texCoords[1], i.texCoords[3])
+
+proc flipped*(i: SelfContainedImage): bool=
+    result = i.texCoords[1] > i.texCoords[3]
 
 type ImageFileFormat = enum tga, hdr, bmp, png
 
 proc writeToFile(i: Image, path: string, format: ImageFileFormat) =
-    when not defined(js) and not defined(android):
+    when not defined(js) and not defined(emscripten) and not defined(android):
         var texCoords : array[4, GLfloat]
         let texture = i.getTextureQuad(nil, texCoords)
         glBindTexture(GL_TEXTURE_2D, texture)

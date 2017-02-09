@@ -55,6 +55,7 @@ proc handleMouseOverEvent(v: View, e : var Event) =
 
 proc processTouchEvent*(v: View, e : var Event): bool =
     if e.buttonState == bsDown:
+        if v.hidden: return false
         v.interceptEvents = false
         v.touchTarget = nil
         if v.subviews.isNil or v.subviews.len == 0:
@@ -115,6 +116,7 @@ proc processTouchEvent*(v: View, e : var Event): bool =
             v.interceptEvents = false
 
 proc processMouseWheelEvent*(v: View, e : var Event): bool =
+    if v.hidden: return false
     let localPosition = e.localPosition
     for i in countdown(v.subviews.len - 1, 0):
         let s = v.subviews[i]
