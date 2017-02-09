@@ -623,7 +623,7 @@ registerResourcePreloader(["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga", "p
 
         loadJSResourceAsync(name, "blob", nil, nil, handler)
     elif defined(emscripten):
-        nimxImageLoadFromURL(urlForResourcePath(pathForResource(name)), name, callback)
+        loadImageFromURL(urlForResourcePath(pathForResource(name)), callback)
     elif asyncResourceLoad:
         var ctx: ImageLoadingCtx
         ctx.new()
