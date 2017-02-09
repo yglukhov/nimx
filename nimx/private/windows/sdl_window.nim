@@ -1,17 +1,10 @@
-import abstract_window
 import sdl2 except Event, Rect
-import system_logger
-import view
+
+import nimx/[ abstract_window, system_logger, view, context, event, app, screen,
+                linkage_details, portable_gl ]
+import nimx.private.sdl_vk_map
 import opengl
-import context
-import event
-import font
-import unicode
-import app
-import linkage_details
-import portable_gl
-import screen
-import private.sdl_vk_map
+
 
 export abstract_window
 
