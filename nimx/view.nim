@@ -39,6 +39,7 @@ type
         interceptEvents*: bool      ## when view starts to handle tap, this flag set to true
         mouseInside*: bool
         handleMouseOver: bool
+        hidden*: bool
 
     Window* = ref object of View
         firstResponder*: View       ## handler of untargeted (keyboard and menu) input
@@ -240,6 +241,8 @@ proc recursiveDrawSubviews*(view: View)
 
 proc drawWithinSuperview*(v: View) =
     # Assume current coordinate system is superview
+    if v.hidden: return
+
     let c = currentContext()
     var tmpTransform = c.transform
     if v.bounds.size == v.frame.size:

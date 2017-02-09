@@ -99,6 +99,7 @@ method stopTextInput*(w: Window) {.base.} = discard
 proc runAnimations*(w: Window) =
     # New animations can be added while in the following loop. They will
     # have to be ticked on the next frame.
+    var prevAnimsCount = totalAnims
     totalAnims = 0
     if not w.isNil:
 
@@ -106,49 +107,24 @@ proc runAnimations*(w: Window) =
         let runnersLen = w.animationRunners.len
 
         while index < runnersLen:
-            let runner = w.animationRunners[index]
-            totalAnims += runner.animations.len
-            runner.update()
+            if index < w.animationRunners.len:
+                let runner = w.animationRunners[index]
+                totalAnims += runner.animations.len
+                runner.update()
             inc index
 
         if totalAnims > 0:
             w.needsDisplay = true
 
-proc animationAdded(w: Window, count: int = 1)=
-    var animsCount = 0
-
-    for runner in w.animationRunners:
-        animsCount += runner.animations.len
-
-    if animsCount >= 1 and totalAnims == 0:
+    if prevAnimsCount == 0 and totalAnims >= 1:
         w.enableAnimation(true)
-
-    totalAnims += count
-
-proc animationRemoved(w: Window, count: int = 1)=
-    var animsCount = 0
-
-    totalAnims -= count
-
-    for runner in w.animationRunners:
-        animsCount += runner.animations.len
-
-    if animsCount == 0 and totalAnims == 0:
+    elif prevAnimsCount >= 1 and totalAnims == 0:
         w.enableAnimation(false)
 
 proc addAnimationRunner*(w: Window, ar: AnimationRunner)=
     if not w.isNil:
         if not (ar in w.animationRunners):
             w.animationRunners.add(ar)
-
-            ar.onAnimationAdded = proc()=
-                w.animationAdded()
-
-            ar.onAnimationRemoved = proc()=
-                w.animationRemoved()
-
-            if ar.animations.len > 0:
-                w.animationAdded(ar.animations.len)
 
 template animations*(w: Window): seq[Animation] = w.animationRunners[DEFAULT_RUNNER].animations
 
@@ -159,8 +135,8 @@ proc removeAnimationRunner*(w: Window, ar: AnimationRunner)=
                 if idx == DEFAULT_RUNNER: break
                 runner.onDelete()
                 w.animationRunners.delete(idx)
-                if runner.animations.len > 0:
-                    w.animationRemoved( runner.animations.len )
+                # if runner.animations.len > 0:
+                #     w.animationRemoved( runner.animations.len )
                 break
 
 proc addAnimation*(w: Window, a: Animation) =

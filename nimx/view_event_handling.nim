@@ -11,6 +11,8 @@ method onKeyUp*(v: View, e: var Event): bool {.base.} = discard
 method onTextInput*(v: View, s: string): bool {.base.} = discard
 
 proc processKeyboardEvent*(v: View, e: var Event): bool =
+    if v.hidden: return false
+
     case e.kind
     of etKeyboard:
         if e.buttonState == bsDown:

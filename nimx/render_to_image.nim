@@ -66,7 +66,8 @@ proc draw*(i: Image, drawProc: proc()) =
     # OpenGL framebuffer coordinate system is flipped comparing to how we load
     # and handle the rest of images. Compensate for that by flipping texture
     # coords here.
-    sci.flipVertically()
+    if not sci.flipped:
+        sci.flipVertically()
 
     gl.clearColor(oldClearColor[0], oldClearColor[1], oldClearColor[2], oldClearColor[3])
 
