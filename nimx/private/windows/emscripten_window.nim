@@ -1,18 +1,9 @@
-import abstract_window
-import system_logger
-import view
+import nimx/[ abstract_window, system_logger, view, context, event, app, screen,
+            portable_gl, linkage_details ]
 import opengl
-import context
-import event
-import font
 import unicode, times
-import app
-import linkage_details
-import portable_gl
-import screen
 import jsbind, jsbind.emscripten
-
-import private.js_vk_map
+import nimx.private.js_vk_map
 
 type EmscriptenWindow* = ref object of Window
     ctx: EMSCRIPTEN_WEBGL_CONTEXT_HANDLE

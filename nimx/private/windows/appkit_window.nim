@@ -1,15 +1,8 @@
-import abstract_window
-import system_logger
-import view
-import opengl
-import context
-import event
-import unicode, times
-import app
-import linkage_details
-import portable_gl
-import screen
+import nimx/[ abstract_window, system_logger, view, context, event, app,
+             linkage_details, portable_gl, screen ]
 import nimx.private.objc_appkit
+import opengl
+import unicode, times
 
 enableObjC()
 

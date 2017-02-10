@@ -1,17 +1,10 @@
-import abstract_window
 import sdl2 except Event, Rect
-import system_logger
-import view
+
+import nimx/[ abstract_window, system_logger, view, context, event, app, screen,
+                linkage_details, portable_gl ]
+import nimx.private.sdl_vk_map
 import opengl
-import context
-import event
-import font
-import unicode
-import app
-import linkage_details
-import portable_gl
-import screen
-import private.sdl_vk_map
+
 
 export abstract_window
 
@@ -34,7 +27,7 @@ type SdlWindow* = ref object of Window
     renderingContext: GraphicsContext
 
 when defined(macosx) and not defined(ios):
-    import private.objc_appkit
+    import nimx.private.objc_appkit
     enableObjC()
     {.emit: "#import <AppKit/AppKit.h>".}
     type NSWindow {.importc, header: "<AppKit/AppKit.h>", final.} = distinct int
