@@ -27,7 +27,7 @@ type SdlWindow* = ref object of Window
     renderingContext: GraphicsContext
 
 when defined(macosx) and not defined(ios):
-    import private.objc_appkit
+    import nimx.private.objc_appkit
     enableObjC()
     {.emit: "#import <AppKit/AppKit.h>".}
     type NSWindow {.importc, header: "<AppKit/AppKit.h>", final.} = distinct int
