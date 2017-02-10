@@ -1,13 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="org.hello"
-    android:versionCode="1"
-    android:versionName="1.0.0" >
+    package="$(PACKAGE_ID)"
+    android:versionCode="$(BUILD_NUMBER)"
+    android:versionName="$(APP_VERSION)" >
 
-    <application android:label="@string/app_name" >
-        <activity
-            android:name=".HelloActivity"
-            android:label="@string/app_name" >
+    <application android:label="@string/app_name"
+                 android:hardwareAccelerated="true"
+                 >
+        <activity android:name="android.app.NativeActivity"
+                  android:label="@string/app_name"
+                  android:configChanges="keyboardHidden|orientation|screenSize"
+                  $(SCREEN_ORIENTATION)
+                  >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

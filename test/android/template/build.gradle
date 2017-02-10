@@ -11,8 +11,23 @@ buildscript {
 apply plugin: 'com.android.application'
 
 android {
-    compileSdkVersion 14
+    compileSdkVersion 23
     buildToolsVersion "25.0.2"
+
+    defaultConfig {
+        ndk {
+            abiFilter 'armeabi-v7a'
+        }
+
+        externalNativeBuild {
+            ndkBuild {
+                arguments "-j8"
+                if (org.gradle.internal.os.OperatingSystem.current().isWindows()) {
+                    arguments "LOCAL_SHORT_COMMANDS=true"
+                }
+            }
+        }
+    }
 
     externalNativeBuild {
         ndkBuild {
@@ -20,12 +35,9 @@ android {
         }
     }
 
-    productFlavors {
-        arm7 {
-            // in the future, ndk.abiFilter might also work
-            ndk {
-                abiFilter 'armeabi-v7a'
-            }
+    buildTypes {
+        debug {
+            jniDebuggable true
         }
     }
 }
