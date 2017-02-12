@@ -129,50 +129,14 @@ proc resourceNameForPath*(path: string): string =
     result = resourceNameForPathAux(path)
 
 when not defined(js):
-    type
-        RWOpsStream = ref RWOpsStreamObj
-        RWOpsStreamObj = object of StreamObj
-            ops: RWopsPtr
-
-    proc rwClose(s: Stream) {.nimcall.} =
-        let ops = RWOpsStream(s).ops
-        if ops != nil:
-            discard ops.close(ops)
-            RWOpsStream(s).ops = nil
-    proc rwAtEnd(s: Stream): bool {.nimcall.} =
-        let ops = s.RWOpsStream.ops
-        result = ops.size(ops) == ops.seek(ops, 0, 1)
-    proc rwSetPosition(s: Stream, pos: int) {.nimcall.} =
-        let ops = s.RWOpsStream.ops
-        discard ops.seek(ops, pos.int64, 0)
-    proc rwGetPosition(s: Stream): int {.nimcall.} =
-        let ops = s.RWOpsStream.ops
-        result = ops.seek(ops, 0, 1).int
-
-    proc rwReadData(s: Stream, buffer: pointer, bufLen: int): int {.nimcall.} =
-        let ops = s.RWOpsStream.ops
-        let res = ops.read(ops, buffer, 1, bufLen.csize)
-        result = res
-
-    proc rwWriteData(s: Stream, buffer: pointer, bufLen: int) {.nimcall.} =
-        let ops = s.RWOpsStream.ops
-        if ops.write(ops, buffer, 1, bufLen) != bufLen:
-            raise newException(IOError, "cannot write to stream")
-
-    proc newStreamWithRWops*(ops: RWopsPtr): RWOpsStream =
-        if ops.isNil: return
-        result.new()
-        result.ops = ops
-        result.closeImpl = cast[type(result.closeImpl)](rwClose)
-        result.atEndImpl = cast[type(result.atEndImpl)](rwAtEnd)
-        result.setPositionImpl = cast[type(result.setPositionImpl)](rwSetPosition)
-        result.getPositionImpl = cast[type(result.getPositionImpl)](rwGetPosition)
-        result.readDataImpl = cast[type(result.readDataImpl)](rwReadData)
-        result.writeDataImpl = cast[type(result.writeDataImpl)](rwWriteData)
+    when defined(android):
+        import android.ndk.aasset_manager
 
     proc streamForResourceWithPath*(path: string): Stream =
         when defined(android):
-            result = newStreamWithRWops(rwFromFile(path, "rb"))
+            proc nimx_getAndroidAssetManager(): AAssetManager {.importc.} # Defined in android_window.nim
+            let am = nimx_getAndroidAssetManager()
+            result = am.streamForReading(path)
         else:
             result = newFileStream(path, fmRead)
         if result.isNil:

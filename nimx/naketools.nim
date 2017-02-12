@@ -440,21 +440,24 @@ proc makeAndroidBuildDir(b: Builder): string =
         if b.useGradle:
             copyDir(sdlDefaultAndroidProjectTemplate / "src", buildDir / "src"/"main"/"java")
 
-        let sdlJni = buildDir/"jni"/"SDL"
-        createDir(sdlJni)
+        # let sdlJni = buildDir/"jni"/"SDL"
+        # createDir(sdlJni)
 
-        when defined(windows):
-            copyDir b.sdlRoot/"src", sdlJni/"src"
-            copyDir b.sdlRoot/"include", sdlJni/"include"
-        else:
-            trySymLink(b.sdlRoot/"src", sdlJni/"src")
-            trySymLink(b.sdlRoot/"include", sdlJni/"include")
+        # when defined(windows):
+        #     copyDir b.sdlRoot/"src", sdlJni/"src"
+        #     copyDir b.sdlRoot/"include", sdlJni/"include"
+        # else:
+        #     trySymLink(b.sdlRoot/"src", sdlJni/"src")
+        #     trySymLink(b.sdlRoot/"include", sdlJni/"include")
 
-        let sdlmk = sdlJni/"Android.mk"
-        copyFile(b.sdlRoot/"Android.mk", sdlmk)
+        # let sdlmk = sdlJni/"Android.mk"
+        # copyFile(b.sdlRoot/"Android.mk", sdlmk)
 
-        # Patch SDL's Android.mk so that it doesn't build dynamic lib.
-        writeFile(sdlmk, readFile(sdlmk).replace("include $(BUILD_SHARED_LIBRARY)", "#include $(BUILD_SHARED_LIBRARY)"))
+        # # Patch SDL's Android.mk so that it doesn't build dynamic lib.
+        # var androidMk = readFile(sdlmk)
+        # androidMk = androidMk.replace("include $(BUILD_SHARED_LIBRARY)", "#include $(BUILD_SHARED_LIBRARY)")
+        # androidMk = androidMk.replace("LOCAL_SRC_FILES +=", "#LOCAL_SRC_FILES +=")
+        # writeFile(sdlmk, androidMk)
 
         for libName in b.additionalLibsToCopy:
             let libPath = "lib"/libName
@@ -927,7 +930,10 @@ task "droid", "Build for android and install on the connected device":
 task "droid-debug", "Start application on Android device and connect with debugger":
     let b = newBuilder("android")
     b.preconfigure()
-    withDir b.buildRoot / b.javaPackageId:
+    let projDir =
+        if b.useGradle: b.buildRoot / b.javaPackageId / "src/main"
+        else: b.buildRoot / b.javaPackageId
+    withDir projDir:
         if not fileExists("libs/gdb.setup"):
             for arch in ["armeabi", "armeabi-v7a", "x86"]:
                 let p = "libs" / arch / "gdb.setup"

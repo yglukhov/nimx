@@ -32,6 +32,12 @@ when (defined(macosx) or defined(ios)) and defined(nimxAvoidSDL):
         """.}
     {.pop.}
 
+elif defined(android):
+    {.push stack_trace:off.}
+    proc performOnMainThread*(fun: proc(data: pointer) {.cdecl.}, data: pointer): int {.discardable.} =
+        proc nimx_performOnMainThread(procAddr, dataAddr: pointer) {.importc.} # Defined in android_window.nim
+        nimx_performOnMainThread(cast[pointer](fun), data)
+    {.pop.}
 else:
     import sdl2
 

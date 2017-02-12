@@ -5,6 +5,8 @@ when defined(js) or defined(emscripten):
     type TimerID = ref object of JSObj
 elif defined(macosx):
     type TimerID = pointer
+elif defined(android):
+    type TimerID = bool
 else:
     import sdl2
 
@@ -19,6 +21,8 @@ when defined(debugLeaks):
 type Timer* = ref object
     callback: proc()
     origCallback: proc()
+    when defined(android):
+        nextFireTime: float
     timer: TimerID
     interval: float
     isPeriodic: bool
@@ -28,6 +32,15 @@ type Timer* = ref object
         ready: bool
     when defined(debugLeaks):
         instantiationStackTrace*: string
+
+proc getNextFireTime(t: Timer, curTime: float = epochTime()): float =
+    if t.interval == 0: return curTime
+    let firedTimes = int((curTime - t.scheduleTime) / t.interval) + 1
+    result = t.scheduleTime + float(firedTimes) * t.interval
+
+proc timeLeftUntilNextFire(t: Timer): float =
+    let curTime = epochTime()
+    result = t.getNextFireTime(curTime) - curTime
 
 when defined(js) or defined(emscripten):
     proc setInterval(p: proc(), timeout: float): TimerID {.jsImportg.}
@@ -76,9 +89,11 @@ elif defined(macosx):
     proc CFRunLoopTimerCreate(allocator: CFAllocatorRef, fireDate: CFAbsoluteTime, interval: CFTimeInterval, flags: CFOptionFlags, order: CFIndex, callout: CFRunLoopTimerCallBack, context: ptr CFRunLoopTimerContext): CFRunLoopTimerRef {.importc.}
     proc CFRunLoopTimerInvalidate(t: CFRunLoopTimerRef) {.importc.}
     proc CFRelease(o: CFTypeRef) {.importc.}
+    proc CFRunLoopWakeUp(o: CFRunLoopRef) {.importc.}
 
     proc cftimerCallback(cfTimer: CFRunLoopTimerRef, t: pointer) {.cdecl.} =
         cast[Timer](t).callback()
+        CFRunLoopGetCurrent().CFRunLoopWakeUp()
 
     proc schedule(t: Timer) =
         var interval = t.interval
@@ -93,6 +108,52 @@ elif defined(macosx):
 
     proc cancel(t: Timer) {.inline.} =
         CFRunLoopTimerInvalidate(t.timer)
+
+elif defined(android):
+    import heapqueue
+
+    proc `<`(a, b: Timer): bool =
+        cmp(a.nextFireTime, b.nextFireTime) < 0
+
+    var allTimers {.threadVar.}: HeapQueue[Timer]
+
+    proc schedule(t: Timer) =
+        t.timer = true
+        t.nextFireTime = t.getNextFireTime()
+        if seq[Timer](allTimers).isNil:
+            allTimers = newHeapQueue[Timer]()
+        allTimers.push(t)
+
+    proc cancel(t: Timer) =
+        let i = seq[Timer](allTimers).find(t)
+        assert(i != -1, "Internal nimx error: timer.cancel")
+        allTimers.del(i)
+
+    proc processTimers*(): bool {.inline.} =
+        # Private!
+        if not seq[Timer](allTimers).isNil and allTimers.len > 0:
+            let curTime = epochTime()
+            while allTimers.len > 0:
+                if curTime >= allTimers[0].nextFireTime:
+                    let t = allTimers.pop()
+                    t.nextFireTime = t.getNextFireTime(curTime)
+                    allTimers.push(t)
+
+                    # Call the callback after the timer is repositioned in the
+                    # queue to prevent reentrancy errors.
+                    t.callback()
+                    result = true
+                else:
+                    break
+
+    proc timeoutToNearestFire*(): cint {.inline.} =
+        # Private!
+        if not seq[Timer](allTimers).isNil and allTimers.len > 0:
+            let d = allTimers[0].nextFireTime - epochTime()
+            if d <= 0: return 0
+            return cint(d * 1000)
+        return -1
+
 else:
     import sdl_perform_on_main_thread
 
@@ -194,12 +255,6 @@ proc setTimeout*(interval: float, callback: proc()): Timer {.discardable.} =
 
 proc setInterval*(interval: float, callback: proc()): Timer {.discardable.} =
     newTimer(interval, true, callback)
-
-proc timeLeftUntilNextFire(t: Timer): float =
-    let curTime = epochTime()
-    let firedTimes = int((curTime - t.scheduleTime) / t.interval) + 1
-    result = t.scheduleTime + float(firedTimes) * t.interval
-    result = result - curTime
 
 proc pause*(t: Timer) =
     if t.state == tsRunning:

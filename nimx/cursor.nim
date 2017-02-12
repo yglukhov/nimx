@@ -66,6 +66,10 @@ elif appKit:
 
     proc finalizeCursor(c: Cursor) =
         cast[NSCursor](c.c).release()
+
+elif defined(android):
+    proc finalizeCursor(c: Cursor) =
+        discard
 else:
     proc cursorKindToSdl(c: CursorKind): SystemCursor =
         case c
@@ -93,6 +97,8 @@ proc newCursor*(k: CursorKind): Cursor =
         result.new(finalizeCursor)
         when appKit:
             result.c = NSCursorOfKind(k).retain()
+        elif defined(android):
+            discard
         else:
             result.c = createSystemCursor(cursorKindToSdl(k))
 
@@ -115,5 +121,7 @@ proc setCurrent*(c: Cursor) =
         """, cstring(c.c))
     elif appKit:
         cast[NSCursor](c.c).setCurrent()
+    elif defined(android):
+        discard
     else:
         setCursor(c.c)

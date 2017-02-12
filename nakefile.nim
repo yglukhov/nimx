@@ -5,6 +5,8 @@ beforeBuild = proc(b: Builder) =
     b.disableClosureCompiler = false
     b.mainFile = "test/main"
     b.originalResourcePath = "test/res"
+    b.useGradle = true
+#    b.androidApi = 24
 
 task "samples", "Build and run samples":
     newBuilder().build()
