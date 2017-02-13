@@ -29,6 +29,7 @@ type
         startTime*: float
         pauseTime*: float
         loopDuration*: float
+        loopProg: float
         loopPattern*: LoopPattern
         cancelBehavior*: CancelBehavior
         numberOfLoops*: int
@@ -58,6 +59,9 @@ proc init*(a: Animation) =
 proc newAnimation*(): Animation =
     result.new()
     result.init()
+
+proc loopProgress*(a: Animation) : float =
+    result = a.loopProg
 
 proc addHandler(s: var seq[ProgressHandler], ph: ProgressHandler) =
     if s.isNil: s = newSeq[ProgressHandler]()
@@ -132,7 +136,7 @@ method tick*(a: Animation, t: float) {.base.} =
     doAssert(duration > -0.0001)
     let oldLoop = a.curLoop
     a.curLoop = a.currentLoopForTotalDuration(duration)
-    var loopProgress = (duration mod a.loopDuration) / a.loopDuration
+    a.loopProg = (duration mod a.loopDuration) / a.loopDuration
 
     var totalProgress =
         if a.numberOfLoops > 0: duration / (float(a.numberOfLoops) * a.loopDuration)
@@ -144,27 +148,27 @@ method tick*(a: Animation, t: float) {.base.} =
             a.finished = true
 
             if a.cancelBehavior == cbJumpToEnd:
-                loopProgress = 1.0
+                a.loopProg = 1.0
             elif a.cancelBehavior == cbJumpToStart:
-                loopProgress = 0.0
+                a.loopProg = 0.0
 
         elif a.curLoop > a.cancelLoop:
             a.finished = true
-            loopProgress = 1.0
+            a.loopProg = 1.0
 
     if a.numberOfLoops >= 0 and a.curLoop >= a.numberOfLoops:
         a.finished = true
-        loopProgress = 1.0
+        a.loopProg = 1.0
         totalProgress = 1.0
 
-    a.onProgress(loopProgress)
+    a.onProgress(a.loopProg)
 
     if a.curLoop > oldLoop:
         if not a.loopProgressHandlers.isNil:
             processRemainingHandlersInLoop(a.loopProgressHandlers, a.lphIt, stopped=false)
 
     if not a.finished:
-        if not a.loopProgressHandlers.isNil: processHandlers(a.loopProgressHandlers, a.lphIt, loopProgress)
+        if not a.loopProgressHandlers.isNil: processHandlers(a.loopProgressHandlers, a.lphIt, a.loopProg)
         if not a.totalProgressHandlers.isNil: processHandlers(a.totalProgressHandlers, a.tphIt, totalProgress)
 
     if a.finished:
