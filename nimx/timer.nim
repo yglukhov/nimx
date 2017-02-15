@@ -22,7 +22,7 @@ type Timer* = ref object
     callback: proc()
     origCallback: proc()
     when defined(android):
-        nextFireTime: float
+        mNextFireTime: float
     timer: TimerID
     interval: float
     isPeriodic: bool
@@ -33,7 +33,8 @@ type Timer* = ref object
     when defined(debugLeaks):
         instantiationStackTrace*: string
 
-proc getNextFireTime(t: Timer, curTime: float = epochTime()): float =
+proc getNextFireTime*(t: Timer, curTime: float = epochTime()): float =
+    # Private
     if t.interval == 0: return curTime
     let firedTimes = int((curTime - t.scheduleTime) / t.interval) + 1
     result = t.scheduleTime + float(firedTimes) * t.interval
@@ -110,50 +111,98 @@ elif defined(macosx):
         CFRunLoopTimerInvalidate(t.timer)
 
 elif defined(android):
-    import heapqueue
+    import heapqueue, locks, times, math
+    import posix except Timer
+    import android.ndk.alooper
+    import sdl_perform_on_main_thread
+
+    var timersLock: Lock
+    var timersCond: Cond
+    var timersThread: Thread[void]
+
+    type Timeval {.importc: "struct timeval",
+              header: "<sys/select.h>".} = object ## struct timeval
+      tv_sec: int  ## Seconds.
+      tv_usec: int ## Microseconds.
+
+    proc posix_gettimeofday(tp: var Timeval, unused: pointer = nil) {.
+        importc: "gettimeofday", header: "<sys/time.h>".}
+
+    var nextFireTime: Timespec
+    var armed = false
 
     proc `<`(a, b: Timer): bool =
-        cmp(a.nextFireTime, b.nextFireTime) < 0
+        cmp(a.mNextFireTime, b.mNextFireTime) < 0
 
-    var allTimers {.threadVar.}: HeapQueue[Timer]
+    var allTimers: HeapQueue[Timer]
 
-    proc schedule(t: Timer) =
-        t.timer = true
-        t.nextFireTime = t.getNextFireTime()
-        if seq[Timer](allTimers).isNil:
-            allTimers = newHeapQueue[Timer]()
-        allTimers.push(t)
+    proc armTimer(fireTime: float) =
+        let nf = splitDecimal(fireTime)
+        timersLock.acquire()
+        nextFireTime.tv_sec = Time(int(nf.intpart))
+        nextFireTime.tv_nsec = int(nf.floatpart * 1000000000) # int((allTimers[0].mNextFireTime - curT) * 1000000000.float)
+        armed = true
+        timersCond.signal()
+        timersLock.release()
 
-    proc cancel(t: Timer) =
-        let i = seq[Timer](allTimers).find(t)
-        assert(i != -1, "Internal nimx error: timer.cancel")
-        allTimers.del(i)
-
-    proc processTimers*(): bool {.inline.} =
-        # Private!
+    proc processTimers(unused: pointer) {.cdecl.} =
         if not seq[Timer](allTimers).isNil and allTimers.len > 0:
             let curTime = epochTime()
             while allTimers.len > 0:
-                if curTime >= allTimers[0].nextFireTime:
+                if curTime >= allTimers[0].mNextFireTime:
                     let t = allTimers.pop()
-                    t.nextFireTime = t.getNextFireTime(curTime)
+                    t.mNextFireTime = t.getNextFireTime(curTime)
                     allTimers.push(t)
 
                     # Call the callback after the timer is repositioned in the
                     # queue to prevent reentrancy errors.
                     t.callback()
-                    result = true
                 else:
                     break
+            if allTimers.len > 0:
+                armTimer(allTimers[0].mNextFireTime)
 
-    proc timeoutToNearestFire*(): cint {.inline.} =
-        # Private!
-        if not seq[Timer](allTimers).isNil and allTimers.len > 0:
-            let d = allTimers[0].nextFireTime - epochTime()
-            if d <= 0: return 0
-            return cint(d * 1000)
-        return -1
+    proc wait*(cond: var Cond, lock: var Lock, timeout: ptr Timespec): cint {.nodecl, importc: "pthread_cond_timedwait".}
 
+    proc timersRunner() {.cdecl.} =
+        while true:
+            var fireTime: Timespec
+            timersLock.acquire()
+            if armed:
+                fireTime = nextFireTime
+                armed = false
+            else:
+                var now: Timeval
+                posix_gettimeofday(now)
+                fireTime.tv_sec = Time(now.tv_sec + 60)
+            let r = timersCond.wait(timersLock, addr fireTime)
+            timersLock.release()
+            if r == 110:
+                performOnMainThread(processTimers, nil)
+
+    proc timersRunnerAux() {.thread.} =
+        let p = cast[proc(){.gcsafe, cdecl.}](timersRunner)
+        p()
+
+    proc initTimers() =
+        initLock(timersLock)
+        initCond(timersCond)
+        allTimers = newHeapQueue[Timer]()
+        createThread(timersThread, timersRunnerAux)
+
+    proc schedule*(t: Timer) =
+        t.timer = true
+        t.mNextFireTime = t.getNextFireTime()
+        if seq[Timer](allTimers).isNil:
+            initTimers()
+        allTimers.push(t)
+        if allTimers[0] == t:
+            armTimer(t.mNextFireTime)
+
+    proc cancel*(t: Timer) =
+        let i = seq[Timer](allTimers).find(t)
+        assert(i != -1, "Internal nimx error: timer.cancel")
+        allTimers.del(i)
 else:
     import sdl_perform_on_main_thread
 
