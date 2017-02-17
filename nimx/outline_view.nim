@@ -24,28 +24,31 @@ type ItemNode = ref object
     item: Variant
     cell: TableViewCell
 
-type OutlineView* = ref object of View
-    rootItem: ItemNode
-    selectedIndexPath*: seq[int]
-    numberOfChildrenInItem*: proc(item: Variant, indexPath: openarray[int]): int
-    childOfItem*: proc(item: Variant, indexPath: openarray[int]): Variant
-    createCell*: proc(): TableViewCell
-    configureCell*: proc (cell: TableViewCell, indexPath: openarray[int])
-    onSelectionChanged*: proc()
-    onDragAndDrop*: proc(fromIndexPath, toIndexPath: openarray[int])
-    tempIndexPath: seq[int]
-    draggedElemIndexPath: seq[int] # Initial index path of the element that is currently being dragged
-    droppedElemIndexPath: seq[int] # Initial index path of the element that is currently being dragged
-    dropAfterItem: ItemNode
-    dropInsideItem: ItemNode
+type
+    OutlineView* = ref object of View
+        rootItem: ItemNode
+        selectedIndexPath*: IndexPath
+        numberOfChildrenInItem*: proc(item: Variant, indexPath: openarray[int]): int
+        childOfItem*: proc(item: Variant, indexPath: openarray[int]): Variant
+        createCell*: proc(): TableViewCell
+        configureCell*: proc (cell: TableViewCell, indexPath: openarray[int])
+        onSelectionChanged*: proc()
+        onDragAndDrop*: proc(fromIndexPath, toIndexPath: openarray[int])
+        tempIndexPath: IndexPath
+        draggedElemIndexPath: IndexPath # Initial index path of the element that is currently being dragged
+        droppedElemIndexPath: IndexPath # Initial index path of the element that is currently being dragged
+        dropAfterItem: ItemNode
+        dropInsideItem: ItemNode
+
+    IndexPath* = seq[int]
 
 method init*(v: OutlineView, r: Rect) =
     procCall v.View.init(r)
     v.rootItem = ItemNode.new()
     v.rootItem.expandable = true
     v.rootItem.expanded = true
-    v.tempIndexPath = newSeq[int]()
-    v.selectedIndexPath = newSeq[int]()
+    v.tempIndexPath = @[]
+    v.selectedIndexPath = @[]
 
 const rowHeight = 20.Coord
 
@@ -61,19 +64,18 @@ void compose() {
 proc drawDisclosureTriangle(disclosed: bool, r: Rect) =
     disclosureTriangleComposition.draw r:
         setUniform("uAngle", if disclosed: Coord(PI / 2.0) else: Coord(0))
-    discard
 
-template xOffsetBasedOnTempIndexPath(v: OutlineView): Coord =
-    Coord(offsetOutline + v.tempIndexPath.len * offsetOutline * 2)
+template xOffsetForIndexPath(ip: IndexPath): Coord =
+    Coord(offsetOutline + ip.len * offsetOutline * 2)
 
-proc drawNode(v: OutlineView, n: ItemNode, y: var Coord) =
+proc drawNode(v: OutlineView, n: ItemNode, y: var Coord, indexPath: var IndexPath) =
     let c = currentContext()
     if n.cell.isNil:
         n.cell = v.createCell()
-    n.cell.selected = v.tempIndexPath == v.selectedIndexPath
-    let indent = v.xOffsetBasedOnTempIndexPath
+    n.cell.selected = indexPath == v.selectedIndexPath
+    let indent = xOffsetForIndexPath(indexPath)
     n.cell.setFrame(newRect(indent + 6, y, v.bounds.width - indent - 6, rowHeight))
-    v.configureCell(n.cell, v.tempIndexPath)
+    v.configureCell(n.cell, indexPath)
     n.cell.drawWithinSuperview()
     if n.expandable and n.children.len > 0:
         drawDisclosureTriangle(n.expanded, newRect(indent - offsetOutline * 2, y, offsetOutline * 2, rowHeight))
@@ -96,12 +98,12 @@ proc drawNode(v: OutlineView, n: ItemNode, y: var Coord) =
         c.drawEllipseInRect(newRect(offset - circleRadius, y - circleRadius, circleRadius * 2, circleRadius * 2))
 
     if n.expanded and not n.children.isNil:
-        let lastIndex = v.tempIndexPath.len
-        v.tempIndexPath.add(0)
+        let lastIndex = indexPath.len
+        indexPath.add(0)
         for i, c in n.children:
-            v.tempIndexPath[lastIndex] = i
-            v.drawNode(c, y)
-        v.tempIndexPath.setLen(lastIndex)
+            indexPath[lastIndex] = i
+            v.drawNode(c, y, indexPath)
+        indexPath.setLen(lastIndex)
 
 method draw*(v: OutlineView, r: Rect) =
     var y = 0.Coord
@@ -109,7 +111,7 @@ method draw*(v: OutlineView, r: Rect) =
         v.tempIndexPath.setLen(1)
         for i, c in v.rootItem.children:
             v.tempIndexPath[0] = i
-            v.drawNode(c, y)
+            v.drawNode(c, y, v.tempIndexPath)
 
 proc nodeAtIndexPath(v: OutlineView, indexPath: openarray[int]): ItemNode =
     result = v.rootItem
@@ -125,7 +127,7 @@ proc getExposedRowsCount(node: ItemNode): int =
         for child in node.children:
             result += child.getExposedRowsCount()
 
-proc getExposingRowNum(v: OutlineView, indexPath: seq[int]): int =
+proc getExposingRowNum(v: OutlineView, indexPath: IndexPath): int =
     result = -1
     var parentNode = v.rootItem
     for indexInPath in indexPath:
@@ -156,10 +158,9 @@ proc itemAtIndexPath*(v: OutlineView, indexPath: openarray[int]): Variant =
     v.nodeAtIndexPath(indexPath).item
 
 proc setBranchExpanded*(v: OutlineView, expanded: bool, indexPath: openarray[int]) =
-    var path = newSeq[int]()
-
     if expanded:
-        for i, index in indexPath:
+        var path = newSeqOfCap[int](indexPath.len)
+        for index in indexPath:
             path.add(index)
             v.setRowExpanded(true, path)
     else:
@@ -171,29 +172,29 @@ proc expandBranch*(v: OutlineView, indexPath: openarray[int]) =
 proc collapseBranch*(v: OutlineView, indexPath: openarray[int]) =
     v.setBranchExpanded(false, indexPath)
 
-proc itemAtPos(v: OutlineView, n: ItemNode, p: Point, y: var Coord): ItemNode =
+proc itemAtPos(v: OutlineView, n: ItemNode, p: Point, y: var Coord, indexPath: var IndexPath): ItemNode =
     y += rowHeight
     if p.y < y: return n
     if n.expanded and not n.children.isNil:
-        let lastIndex = v.tempIndexPath.len
-        v.tempIndexPath.add(0)
+        let lastIndex = indexPath.len
+        indexPath.add(0)
         for i, c in n.children:
-            v.tempIndexPath[lastIndex] = i
-            result = v.itemAtPos(c, p, y)
+            indexPath[lastIndex] = i
+            result = v.itemAtPos(c, p, y, indexPath)
             if not result.isNil: return
-        v.tempIndexPath.setLen(lastIndex)
+        indexPath.setLen(lastIndex)
 
-proc itemAtPos(v: OutlineView, p: Point): ItemNode =
-    v.tempIndexPath.setLen(1)
+proc itemAtPos(v: OutlineView, p: Point, indexPath: var IndexPath): ItemNode =
+    indexPath.setLen(1)
     var y = 0.Coord
     if not v.rootItem.children.isNil:
         for i, c in v.rootItem.children:
-            v.tempIndexPath[0] = i
-            result = v.itemAtPos(c, p, y)
+            indexPath[0] = i
+            result = v.itemAtPos(c, p, y, indexPath)
             if not result.isNil: break
 
-proc reloadDataForNode(v: OutlineView, n: ItemNode) =
-    let childrenCount = v.numberOfChildrenInItem(n.item, v.tempIndexPath)
+proc reloadDataForNode(v: OutlineView, n: ItemNode, indexPath: var IndexPath) =
+    let childrenCount = v.numberOfChildrenInItem(n.item, indexPath)
     if childrenCount > 0 and n.children.isNil:
         n.children = newSeq[ItemNode](childrenCount)
     elif not n.children.isNil:
@@ -203,20 +204,20 @@ proc reloadDataForNode(v: OutlineView, n: ItemNode) =
         when defined(js): # Workaround for nim bug. Increasing seq len does not init items in js.
             for i in oldLen ..< childrenCount: n.children[i] = ItemNode(expandable: true)
 
-    let lastIndex = v.tempIndexPath.len
-    v.tempIndexPath.add(0)
+    let lastIndex = indexPath.len
+    indexPath.add(0)
     for i in 0 ..< childrenCount:
-        v.tempIndexPath[lastIndex] = i
+        indexPath[lastIndex] = i
         if n.children[i].isNil:
             n.children[i] = ItemNode(expandable: true)
         if not v.childOfItem.isNil:
-            n.children[i].item = v.childOfItem(n.item, v.tempIndexPath)
-        v.reloadDataForNode(n.children[i])
-    v.tempIndexPath.setLen(lastIndex)
+            n.children[i].item = v.childOfItem(n.item, indexPath)
+        v.reloadDataForNode(n.children[i], indexPath)
+    indexPath.setLen(lastIndex)
 
 proc reloadData*(v: OutlineView) =
     v.tempIndexPath.setLen(0)
-    v.reloadDataForNode(v.rootItem)
+    v.reloadDataForNode(v.rootItem, v.tempIndexPath)
 
 template selectionChanged(v: OutlineView) =
     if not v.onSelectionChanged.isNil: v.onSelectionChanged()
@@ -247,9 +248,9 @@ method onTouchEv*(v: OutlineView, e: var Event): bool =
     result = procCall v.View.onTouchEv(e)
     if e.buttonState == bsUp:
         let pos = e.localPosition
-        let i = v.itemAtPos(pos)
+        let i = v.itemAtPos(pos, v.tempIndexPath)
         if not i.isNil:
-            if pos.x < v.xOffsetBasedOnTempIndexPath and i.expandable:
+            if pos.x < xOffsetForIndexPath(v.tempIndexPath) and i.expandable:
                 i.expanded = not i.expanded
                 v.checkViewSize()
             elif v.tempIndexPath == v.selectedIndexPath:
@@ -268,14 +269,14 @@ method onTouchEv*(v: OutlineView, e: var Event): bool =
     elif not v.onDragAndDrop.isNil:
         if e.buttonState == bsDown:
             let pos = e.localPosition
-            let i = v.itemAtPos(pos)
+            let i = v.itemAtPos(pos, v.tempIndexPath)
             if i.isNil:
                 v.draggedElemIndexPath = @[]
             else:
                 v.draggedElemIndexPath = v.tempIndexPath
         else: # Dragging
             let pos = e.localPosition
-            var i = v.itemAtPos(pos)
+            var i = v.itemAtPos(pos, v.tempIndexPath)
             if i.isNil:
                 v.droppedElemIndexPath = @[]
             else:
@@ -321,13 +322,13 @@ method onTouchEv*(v: OutlineView, e: var Event): bool =
 
 method acceptsFirstResponder*(v: OutlineView): bool = true
 
-proc moveSelectionUp(v: OutlineView, path: var seq[int]) =
+proc moveSelectionUp(v: OutlineView, path: var IndexPath) =
     if path[^1] > 0:
         path[^1].dec
 
-        proc getLowestVisibleChildPath(v: OutlineView, path: var seq[int]) =
-            var nodeAtPath = v.nodeAtIndexPath(path)
-            if(nodeAtPath.expandable and nodeAtPath.expanded):
+        proc getLowestVisibleChildPath(v: OutlineView, path: var IndexPath) =
+            let nodeAtPath = v.nodeAtIndexPath(path)
+            if nodeAtPath.expandable and nodeAtPath.expanded:
                 path.add(nodeAtPath.children.len - 1)
                 getLowestVisibleChildPath(v, path)
 
@@ -336,14 +337,14 @@ proc moveSelectionUp(v: OutlineView, path: var seq[int]) =
     elif path.len > 1:
         v.selectItemAtIndexPath(path[0..^2])
 
-proc moveSelectionDown(v: OutlineView, path: var seq[int]) =
+proc moveSelectionDown(v: OutlineView, path: var IndexPath) =
     var nodeAtPath = v.nodeAtIndexPath(path)
     if nodeAtPath.expandable and nodeAtPath.expanded and nodeAtPath.children.len > 0:
         path.add(0)
         v.selectItemAtIndexPath(path)
         return
 
-    proc getLowerNeighbour(v: OutlineView, path: seq[int]) =
+    proc getLowerNeighbour(v: OutlineView, path: IndexPath) =
         if path.len >= 2:
             var parent = v.nodeAtIndexPath(path[0..^2])
             if path[^1] + 1 < parent.children.len:
