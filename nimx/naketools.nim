@@ -439,6 +439,7 @@ proc makeAndroidBuildDir(b: Builder): string =
 
         if b.useGradle:
             copyDir(sdlDefaultAndroidProjectTemplate / "src", buildDir / "src"/"main"/"java")
+            copyDir(nimblePath("jnim") / "support", buildDir / "src"/"main"/"java")
 
         # let sdlJni = buildDir/"jni"/"SDL"
         # createDir(sdlJni)
