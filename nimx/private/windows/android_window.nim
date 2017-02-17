@@ -156,8 +156,6 @@ proc dispatchPerformOnMainThread(fd, events: cint, data: pointer): cint {.cdecl.
 
     animateAndDraw()
 
-var redrawAttempts = 0
-
 proc animatedDraw(fd, events: cint, data: pointer): cint {.cdecl.} =
     result = 1
     atomicDec pendingDrawRequests
