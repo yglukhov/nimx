@@ -3,28 +3,31 @@ import nimx.types
 import tables
 import variant
 
-type SetterAndGetter*[T] = tuple[setter: proc(v: T), getter: proc(): T]
+type
+    Setter*[T] = proc(v: T)
+    Getter*[T] = proc(): T
+    SetterAndGetter*[T] = tuple[setter: Setter[T], getter: Getter[T]]
 
-type PropertyFlag* = enum
-    pfEditable
-    pfAnimatable
+    PropertyFlag* = enum
+        pfEditable
+        pfAnimatable
 
-type EnumValue* = object
-    possibleValues*: Table[string, int]
-    curValue*: int
+    EnumValue* = object
+        possibleValues*: Table[string, int]
+        curValue*: int
 
-type PropertyVisitor* = tuple # Tuple is a workaround for nim bug #4428. PropertyVisitor should better be an object.
-    qualifiers: seq[string]
-    requireSetter: bool
-    requireGetter: bool
-    requireName: bool
-    flags: set[PropertyFlag]
+    PropertyVisitor* = object
+        qualifiers: seq[string]
+        requireSetter*: bool
+        requireGetter*: bool
+        requireName*: bool
+        flags*: set[PropertyFlag]
 
-    setterAndGetter: Variant
+        setterAndGetter*: Variant
 
-    name: string
-    commit: proc()
-    onChangeCallback: proc()
+        name*: string
+        commit*: proc()
+        onChangeCallback* {.deprecated.}: proc()
 
 proc clear*(p: var PropertyVisitor) =
     p.setterAndGetter = newVariant()
@@ -62,10 +65,9 @@ template visitProperty*(p: PropertyVisitor, propName: string, s: untyped, defFla
         if p.requireName:
             p.name = propName
         p.setterAndGetter = newVariant(sng)
-        p.onChangeCallback = nil
         p.commit()
 
-template visitProperty*(p: PropertyVisitor, propName: string, s: untyped, onChange: proc()) =
+template visitProperty*(p: PropertyVisitor, propName: string, s: untyped, onChange: proc()) {.deprecated.} =
     var defFlags = { pfEditable, pfAnimatable }
     if (defFlags * p.flags) != {}:
         when s is enum:
@@ -91,6 +93,5 @@ template visitProperty*(p: PropertyVisitor, propName: string, s: untyped, onChan
         if p.requireName:
             p.name = propName
         p.setterAndGetter = newVariant(sng)
-        p.onChangeCallback = onChange
 
         p.commit()
