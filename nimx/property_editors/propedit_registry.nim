@@ -30,7 +30,7 @@ proc editorFont*(): Font =
 
 const editorRowHeight* = 16
 
-proc propertyEditorForProperty*(editedObject: Variant, title: string, v: Variant, onChangeCallback, changeInspectorCallback: proc()): View =
+proc propertyEditorForProperty*(editedObject: Variant, title: string, v: Variant, notUsed, changeInspectorCallback: proc() = nil): View =
     let creator = propEditors.getOrDefault(v.typeId)
     result = View.new(newRect(0, 0, 328, editorRowHeight))
     result.autoresizingMask = {afFlexibleWidth, afFlexibleMaxY}
@@ -53,5 +53,4 @@ proc propertyEditorForProperty*(editedObject: Variant, title: string, v: Variant
         sz.height = editor.frame.height
         result.setFrameSize(sz)
 
-        editor.onChange = onChangeCallback
         editor.changeInspector = changeInspectorCallback

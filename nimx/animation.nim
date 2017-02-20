@@ -234,12 +234,30 @@ proc animateValue*[T](fromValue, toValue: T, cb: proc(value: T)): AnimationFunct
     result = proc(progress: float) =
         cb((toValue - fromValue) * progress)
 
-proc chainOnAnimate*(a: Animation, oa: proc(p: float)) =
+proc chainOnAnimate*(a: Animation, oa: proc(p: float)) {.deprecated.} = #use addOnAnimate instead of this proc
     if a.onAnimate.isNil:
         a.onAnimate = oa
     else:
         let oldProc = a.onAnimate
         a.onAnimate = proc(p: float) =
+            oldProc(p)
+            oa(p)
+
+proc addOnAnimate*(a: Animation, oa: proc(p: float)): Animation =
+    result.new()
+    result.numberOfLoops = a.numberOfLoops
+    result.loopPattern = a.loopPattern
+    result.loopDuration = a.loopDuration
+    result.cancelBehavior = a.cancelBehavior
+    result.timingFunction = a.timingFunction
+    result.loopProgressHandlers = a.loopProgressHandlers
+    result.totalProgressHandlers = a.totalProgressHandlers
+
+    if a.onAnimate.isNil:
+        result.onAnimate = oa
+    else:
+        let oldProc = a.onAnimate
+        result.onAnimate = proc(p: float) =
             oldProc(p)
             oa(p)
 
