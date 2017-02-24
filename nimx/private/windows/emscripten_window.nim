@@ -9,6 +9,7 @@ type EmscriptenWindow* = ref object of Window
     ctx: EMSCRIPTEN_WEBGL_CONTEXT_HANDLE
     renderingContext: GraphicsContext
     canvasId: string
+    textInputActive: bool
 
 method enableAnimation*(w: EmscriptenWindow, flag: bool) =
     discard
@@ -79,8 +80,9 @@ proc onMouseWheel(eventType: cint, wheelEvent: ptr EmscriptenWheelEvent, userDat
 
 proc onKey(keyEvent: ptr EmscriptenKeyboardEvent, userData: pointer, buttonState: ButtonState): EM_BOOL =
     var e = newKeyboardEvent(virtualKeyFromNative(int(keyEvent.keyCode)), buttonState, bool(keyEvent.repeat))
-    e.window = cast[EmscriptenWindow](userData)
-    if mainApplication().handleEvent(e): result = 1
+    let w = cast[EmscriptenWindow](userData)
+    e.window = w
+    if mainApplication().handleEvent(e) and not w.textInputActive: result = 1
 
 proc onKeyDown(eventType: cint, keyEvent: ptr EmscriptenKeyboardEvent, userData: pointer): EM_BOOL {.cdecl.} =
     onKey(keyEvent, userData, bsDown)
@@ -251,7 +253,8 @@ proc nimx_OnTextInput(wnd: pointer, text: cstring) {.EMSCRIPTEN_KEEPALIVE.} =
     e.text = $text
     discard mainApplication().handleEvent(e)
 
-method startTextInput*(wnd: EmscriptenWindow, r: Rect) =
+method startTextInput*(w: EmscriptenWindow, r: Rect) =
+    w.textInputActive = true
     discard EM_ASM_INT("""
     if (window.__nimx_textinput === undefined) {
         var i = window.__nimx_textinput = document.createElement('input');
@@ -267,9 +270,11 @@ method startTextInput*(wnd: EmscriptenWindow, r: Rect) =
         _free(str);
     };
     setTimeout(function(){ window.__nimx_textinput.focus(); }, 1);
-    """, cast[pointer](wnd))
+    """, cast[pointer](w))
 
 method stopTextInput*(w: EmscriptenWindow) =
+    w.textInputActive = false
+
     discard EM_ASM_INT("""
     if (window.__nimx_textinput !== undefined) {
         window.__nimx_textinput.oninput = null;
