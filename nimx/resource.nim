@@ -215,10 +215,10 @@ when defined(js) or defined(emscripten):
         jsRef(reqListener)
         jsRef(errorListener)
 
-        oReq.responseType = resourceType
         oReq.addEventListener("load", reqListener)
         oReq.addEventListener("error", errorListener)
         oReq.open("GET", urlForResourcePath(pathForResource(resourceName)))
+        oReq.responseType = resourceType
         oReq.send()
 
 when defined(emscripten):
