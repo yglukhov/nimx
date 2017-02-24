@@ -313,9 +313,8 @@ proc insertText(t: TextField, s: string) =
 
 method onKeyDown*(t: TextField, e: var Event): bool =
     if t.editable:
-
+        result = true
         if e.keyCode == VirtualKey.Backspace:
-            result = true
             if t.textSelection.len > 0: t.clearSelection()
             elif cursorPos > 0:
                 t.mText.uniDelete(cursorPos - 1, cursorPos - 1)
