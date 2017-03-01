@@ -33,9 +33,11 @@ const editorRowHeight* = 16
 proc propertyEditorForProperty*(editedObject: Variant, title: string, v: Variant, notUsed, changeInspectorCallback: proc() = nil): View =
     let creator = propEditors.getOrDefault(v.typeId)
     result = View.new(newRect(0, 0, 328, editorRowHeight))
+    result.name = "'" & title & "'"
     result.autoresizingMask = {afFlexibleWidth, afFlexibleMaxY}
     let label = newLabel(newRect(0, 0, 100, editorRowHeight))
     label.textColor = newGrayColor(0.9)
+    label.name = "label"
     label.text = title & ":"
     label.font = editorFont()
     result.addSubview(label)
@@ -43,6 +45,7 @@ proc propertyEditorForProperty*(editedObject: Variant, title: string, v: Variant
         label.text = title & " - Unknown property"
     else:
         let editor = creator(editedObject, v)
+        editor.name = "editor"
         editor.setFrameOrigin(newPoint(label.frame.width, 0))
         var sz = newSize(result.bounds.width - label.frame.width, editor.frame.height)
         editor.setFrameSize(sz)

@@ -24,6 +24,7 @@ type TextField* = ref object of Control
     editable*: bool
     continuous*: bool
     selectable*: bool
+    isSelecting*: bool
     textColor*: Color
     mFont*: Font
     selectionStartLine: int
@@ -236,25 +237,31 @@ method draw*(t: TextField, r: Rect) =
             t.drawFocusRing()
         drawCursorWithRect(t.cursorRect())
 
+method acceptsFirstResponder*(t: TextField): bool = t.editable
+
 method onTouchEv*(t: TextField, e: var Event): bool =
     result = false
     var pt = e.localPosition
     case e.buttonState
     of bsDown:
         if t.selectable:
-            result = t.makeFirstResponder()
-            if t.mText.isNil:
-                cursorPos = 0
-                cursorOffset = 0
+            if not t.isFirstResponder():
+                result = t.makeFirstResponder()
+                t.isSelecting = false
             else:
-                t.mText.getClosestCursorPositionToPoint(pt, cursorPos, cursorOffset)
-
-                t.textSelection = cursorPos .. cursorPos
+                result = true
+                t.isSelecting = true
+                if t.mText.isNil:
+                    cursorPos = 0
+                    cursorOffset = 0
+                else:
+                    t.mText.getClosestCursorPositionToPoint(pt, cursorPos, cursorOffset)
+                    t.textSelection = cursorPos .. cursorPos
 
     of bsUp:
-        if t.selectable:
+        if t.selectable and t.isSelecting:
+            t.isSelecting = false
             if t.textSelection.len != 0:
-
                 let oldPos = cursorPos
                 t.mText.getClosestCursorPositionToPoint(pt, cursorPos, cursorOffset)
                 t.updateSelectionWithCursorPos(oldPos, cursorPos)
@@ -312,9 +319,12 @@ proc insertText(t: TextField, s: string) =
         t.sendAction()
 
 method onKeyDown*(t: TextField, e: var Event): bool =
+    if e.keyCode == VirtualKey.Tab:
+        return false
+
     if t.editable:
-        result = true
         if e.keyCode == VirtualKey.Backspace:
+            result = true
             if t.textSelection.len > 0: t.clearSelection()
             elif cursorPos > 0:
                 t.mText.uniDelete(cursorPos - 1, cursorPos - 1)
@@ -354,7 +364,7 @@ method onKeyDown*(t: TextField, e: var Event): bool =
 
             t.updateCursorOffset()
             t.bumpCursorVisibility()
-        elif e.keyCode == VirtualKey.Return:
+        elif e.keyCode == VirtualKey.Return or e.keyCode == VirtualKey.KeypadEnter:
             if t.multiline:
                 t.insertText("\l")
             else:
@@ -443,6 +453,7 @@ method viewDidBecomeFirstResponder*(t: TextField) =
     cursorPos = if t.mText.isNil: 0 else: t.mText.runeLen
     t.updateCursorOffset()
     t.bumpCursorVisibility()
+    t.selectAll()
 
 method visitProperties*(v: TextField, pv: var PropertyVisitor) =
     procCall v.Control.visitProperties(pv)
