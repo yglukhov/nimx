@@ -83,6 +83,7 @@ proc newVecPropertyView[T](setter: proc(s: T), getter: proc(): T): PropertyEdito
     let val = getter()
     for i in 0 ..< vecLen:
         let textField = newNumericTextField(zeroRect)
+        textField.name = "#" & $i
         textField.font = editorFont()
         textField.text = toStr(val[i], textField.precision)
         textField.onAction complexSetter

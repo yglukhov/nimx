@@ -62,6 +62,7 @@ method init*(v: ExpandingView, r: Rect, hasOffset: bool) =
         v.contentView = newStackView(newRect(expandButtonSize, titleSize, r.width - expandButtonSize, r.height - titleSize))
     else:
         v.contentView = newStackView(newRect(0, titleSize, r.width, r.height - titleSize))
+    v.contentView.name = "contentView"
     v.contentView.resizingMask = "wb"
     v.addSubview(v.contentView)
 
@@ -83,6 +84,7 @@ proc expand*(v: ExpandingView) =
 proc newExpandingView*(r: Rect, hasOffset: bool = false): ExpandingView =
     result.new()
     result.init(r, hasOffset)
+    result.name = "expandingView"
 
 method draw(v: ExpandingView, r: Rect) =
     procCall v.View.draw(r)
