@@ -284,29 +284,30 @@ proc addAnimationOnProgress(m: MetaAnimation, progress: float, a: Animation) =
         handler: (
             proc() =
                 a.prepare(epochTime())
-                echo "lol ", progress
             ),
         progress: progress,
         callIfCancelled: false)
 
-proc resetAnimationOnProgress(m: MetaAnimation)=
+proc resetAnimationsHandlers(m: MetaAnimation)=
     if not m.mAnimationsHandlers.isNil: m.mAnimationsHandlers.setLen(0)
 
 proc `parallelMode=`*(m: MetaAnimation, val: bool)=
-    if m.mParallelMode != val:
-        m.mParallelMode = val
-        if val:
-            for a in m.animations:
-                m.loopDuration = max(a.loopDuration, m.loopDuration)
-                m.addAnimationOnProgress(0.0, a)
-        else:
-            for a in m.animations:
-                m.loopDuration += a.loopDuration
+    m.mParallelMode = val
+    m.resetAnimationsHandlers()
+    m.loopDuration = 0.0
+    if val:
+        for a in m.animations:
+            m.loopDuration = max(a.loopDuration * a.numberOfLoops.float, m.loopDuration)
+            m.addAnimationOnProgress(0.0, a)
+    else:
+        for a in m.animations:
+            m.loopDuration += a.loopDuration * a.numberOfLoops.float
 
-            var cp = 0.0
-            for a in m.animations:
-                m.addAnimationOnProgress(cp, a)
-                cp += a.loopDuration / m.loopDuration
+        var cp = 0.0
+        for a in m.animations:
+            m.addAnimationOnProgress(cp, a)
+            cp += a.loopDuration / m.loopDuration
+    echo "parallelMode ch ", val, " loopDuration ", m.loopDuration
 
 proc parallelMode*(m: MetaAnimation): bool = m.mParallelMode
 
@@ -328,11 +329,16 @@ method prepare*(m: MetaAnimation, t: float)=
 
 method onProgress*(m: MetaAnimation, p: float) =
     let cp = m.curvedProgress(p)
-    for a in m.animations:
-        if a.startTime != 0.0 and a.pauseTime == 0.0 and not a.finished:
-            let sc = a.loopDuration / m.loopDuration
-            a.onProgress(cp * sc)
-    # echo "meta onProgress ", p
+    for i, a in m.animations:
+        if a.startTime != 0.0 and a.pauseTime == 0.0:
+            let sp = 1.0 - (m.startTime - m.loopDuration * m.curLoop.float) / (a.startTime - m.loopDuration * m.curLoop.float)
+            let sc = (a.loopDuration * (a.curLoop + 1).float) / m.loopDuration
+            let ep = sp + sc
+
+            let t = a.startTime + (a.curLoop + 1).float * a.loopDuration * cp
+
+            # if p >= sp and p <= ep:
+            a.tick(t)
 
 method checkHandlers(m: MetaAnimation, oldLoop: int, lp, tp: float) =
     if m.curLoop > oldLoop:
