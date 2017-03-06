@@ -52,6 +52,7 @@ proc recalcScrollKnobSizes(v: ScrollView)
 
 proc newScrollView*(r: Rect): ScrollView =
     result.new()
+    result.name = "scrollView"
     result.init(r)
 
     var sb = ScrollBar.new(newRect(0, r.height - scrollBarWidth, 0, scrollBarWidth))

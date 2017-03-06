@@ -9,6 +9,7 @@ type EmscriptenWindow* = ref object of Window
     ctx: EMSCRIPTEN_WEBGL_CONTEXT_HANDLE
     renderingContext: GraphicsContext
     canvasId: string
+    textInputActive: bool
 
 method enableAnimation*(w: EmscriptenWindow, flag: bool) =
     discard
@@ -79,8 +80,9 @@ proc onMouseWheel(eventType: cint, wheelEvent: ptr EmscriptenWheelEvent, userDat
 
 proc onKey(keyEvent: ptr EmscriptenKeyboardEvent, userData: pointer, buttonState: ButtonState): EM_BOOL =
     var e = newKeyboardEvent(virtualKeyFromNative(int(keyEvent.keyCode)), buttonState, bool(keyEvent.repeat))
-    e.window = cast[EmscriptenWindow](userData)
-    if mainApplication().handleEvent(e): result = 1
+    let w = cast[EmscriptenWindow](userData)
+    e.window = w
+    if mainApplication().handleEvent(e) and not w.textInputActive: result = 1
 
 proc onKeyDown(eventType: cint, keyEvent: ptr EmscriptenKeyboardEvent, userData: pointer): EM_BOOL {.cdecl.} =
     onKey(keyEvent, userData, bsDown)
@@ -102,7 +104,7 @@ proc onBlur(eventType: cint, event: ptr EmscriptenFocusEvent, userData: pointer)
         let w = cast[EmscriptenWindow](userData)
         w.onFocusChange(false)
 
-proc getDocumentSize(width, height: var float32) {.inline.} =
+template getDocumentSize(width, height: var float32) =
     discard EM_ASM_INT("""
         var w = window;
         var d = document;
@@ -114,6 +116,13 @@ proc getDocumentSize(width, height: var float32) {.inline.} =
         setValue($1, y, 'float');
     """, addr width, addr height)
 
+template setElementWidthHeight(elementName: cstring, w, h: float32) =
+    discard EM_ASM_INT("""
+    var c = document.getElementById(Pointer_stringify($0));
+    c.width = $1;
+    c.height = $2;
+    """, cstring(elementName), float32(w), float32(h))
+
 proc updateCanvasSize(w: EmscriptenWindow) =
     let aspectRatio = w.bounds.width / w.bounds.height
 
@@ -123,13 +132,13 @@ proc updateCanvasSize(w: EmscriptenWindow) =
     var width, height: float32
     getDocumentSize(width, height)
 
-    let screenAspect = width / height;
+    let screenAspect = width / height
 
     var scaleFactor: Coord
     if (screenAspect > aspectRatio):
-        scaleFactor = height / maxHeight;
+        scaleFactor = height / maxHeight
     else:
-        scaleFactor = width / maxWidth;
+        scaleFactor = width / maxWidth
 
     width = maxWidth * scaleFactor
     height = maxHeight * scaleFactor
@@ -140,11 +149,7 @@ proc updateCanvasSize(w: EmscriptenWindow) =
     let canvWidth = maxWidth * scaleFactor
     let canvHeight = maxHeight * scaleFactor
 
-    discard EM_ASM_INT("""
-    var c = document.getElementById(Pointer_stringify($0));
-    c.width = $1;
-    c.height = $2;
-    """, cstring(w.canvasId), w.pixelRatio * canvWidth, w.pixelRatio * canvHeight)
+    setElementWidthHeight(w.canvasId, w.pixelRatio * canvWidth, w.pixelRatio * canvHeight)
 
     discard emscripten_set_element_css_size(w.canvasId, width, height)
 
@@ -248,7 +253,8 @@ proc nimx_OnTextInput(wnd: pointer, text: cstring) {.EMSCRIPTEN_KEEPALIVE.} =
     e.text = $text
     discard mainApplication().handleEvent(e)
 
-method startTextInput*(wnd: EmscriptenWindow, r: Rect) =
+method startTextInput*(w: EmscriptenWindow, r: Rect) =
+    w.textInputActive = true
     discard EM_ASM_INT("""
     if (window.__nimx_textinput === undefined) {
         var i = window.__nimx_textinput = document.createElement('input');
@@ -264,9 +270,11 @@ method startTextInput*(wnd: EmscriptenWindow, r: Rect) =
         _free(str);
     };
     setTimeout(function(){ window.__nimx_textinput.focus(); }, 1);
-    """, cast[pointer](wnd))
+    """, cast[pointer](w))
 
 method stopTextInput*(w: EmscriptenWindow) =
+    w.textInputActive = false
+
     discard EM_ASM_INT("""
     if (window.__nimx_textinput !== undefined) {
         window.__nimx_textinput.oninput = null;
@@ -315,10 +323,7 @@ proc mainLoopPreload() {.cdecl.} =
             """
     else:
         let r = EM_ASM_INT """
-        if (document.readyState === 'complete') {
-            return 1;
-        }
-        return 0;
+        return (document.readyState === 'complete') ? 1 : 0;
         """
         if r == 1:
             GC_disable() # GC Should only be called close to the bottom of the stack on emscripten.

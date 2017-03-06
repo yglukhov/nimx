@@ -125,7 +125,6 @@ method onTouchEv*(t: NumericTextField, e: var Event): bool =
     of bsUp:
         if epochTime() - t.initialMouseTime < 0.3:
             result = t.makeFirstResponder()
-            t.selectAll()
 
         t.mouseX = t.initialMouseX
         t.touchAnim.cancel()
