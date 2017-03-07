@@ -181,7 +181,7 @@ method tick*(a: Animation, t: float) =
     a.onProgress(loopProgress)
     a.checkHandlers(oldLoop, loopProgress, totalProgress)
 
-proc cancel*(a: Animation) =
+method cancel*(a: Animation) =
     a.cancelLoop = a.curLoop
 
 proc isCancelled*(a: Animation): bool = a.cancelLoop != -1
@@ -283,8 +283,11 @@ proc addAnimationOnProgress(m: MetaAnimation, progress: float, a: Animation) =
     addHandler m.mAnimationsHandlers, ProgressHandler(
         handler: (
             proc() =
-                a.prepare(epochTime())
-                echo "prepare anim at p ", progress
+                if a.cancelLoop < 0:
+                    a.prepare(epochTime())
+                    for i, anim in m.animations:
+                        if anim == a:
+                            echo "prepare anim ", i, " at p ", progress
             ),
         progress: progress,
         callIfCancelled: false)
@@ -317,15 +320,16 @@ proc `parallelMode=`*(m: MetaAnimation, val: bool)=
             m.addAnimationOnProgress(cp, a)
             cp += (a.loopDuration * a.numberOfLoops.float) / m.loopDuration
 
+    echo "parallelMode ch ", val, " loopDuration ", m.loopDuration, " handlers ", m.mAnimationsHandlers.len, " anims ", m.animations.len
+    assert m.mAnimationsHandlers.len == m.animations.len
+
     m.addAnimationProgressHandler(1.0) do():
         echo "reset onloop ", m.curLoop
         for a in m.animations:
-            a.finished = true
-            a.checkHandlers(a.curLoop, 1.0, 1.0)
+            # a.finished = true
+            # a.checkHandlers(a.curLoop, 1.0, 1.0)
             a.startTime = 0.0
             a.finished = false
-
-    echo "parallelMode ch ", val, " loopDuration ", m.loopDuration
 
 proc parallelMode*(m: MetaAnimation): bool = m.mParallelMode
 
@@ -347,31 +351,40 @@ method prepare*(m: MetaAnimation, t: float)=
     m.curLoop = 0
     for a in m.animations:
         a.startTime = 0.0
+        a.cancelLoop = -1
 
 method onProgress*(m: MetaAnimation, p: float) =
     let cp = m.curvedProgress(p)
+    if m.curLoop >= m.numberOfLoops and m.numberOfLoops >= 0: return
     for i, a in m.animations:
-        if a.startTime != 0.0 : # and not a.finished
+        if a.startTime != 0.0: # and not a.finished
             var sc = m.loopDuration / (a.loopDuration * a.numberOfLoops.float)
-            var cpl = 1.0
+            var cpl = -1.0
 
             if m.mParallelMode:
                 cpl = cp * a.numberOfLoops.float
             else:
-                let pp = m.curvedProgress((a.startTime - m.startTime) / m.loopDuration - m.curLoop.float)
+                let sp = m.curvedProgress((a.startTime - m.startTime) / m.loopDuration - m.curLoop.float)
                 let ep = m.curvedProgress((a.loopDuration * a.numberOfLoops.float) / m.loopDuration)
-                if i == 0:
-                    echo " pp ", pp, " ep ", ep, " pep ", pp + ep, " cl ", m.curLoop
-                if cp >= pp and cp <= pp + ep: # TODO: fix last tick in the loop
-                    cpl = interpolate(0.0, 1.0, (cp - pp) * a.numberOfLoops.float)
+                let lp = cp - sp
+                if lp < 0.0 or lp > sp + ep:
+                    continue
+
+                cpl = interpolate(0.0, 1.0, lp * a.numberOfLoops.float)
 
             var t = a.startTime + a.loopDuration * cpl * sc
-
-            if a.pauseTime != 0: continue
+            if a.pauseTime != 0:
+                echo "animation paused ", i
+                continue
 
             let oldLoop = a.curLoop
             var loopProgress = a.loopProgress(t)
             var totalProgress = a.totalProgress(t)
+
+            if loopProgress < 0.0 and loopProgress > 1.0:
+                echo "i ", i, " skip loopProgress ", loopProgress
+                doAssert(false)
+                continue
 
             if a.cancelLoop >= 0:
                 if a.cancelBehavior != cbContinueUntilEndOfLoop:
@@ -395,12 +408,28 @@ method tick*(m: MetaAnimation, t: float) =
     let oldLoop = m.curLoop
     procCall m.Animation.tick(t)
 
-    if oldLoop != m.curLoop:
-        m.aphIt = 0
+    if m.cancelLoop >= 0:
+        for a in m.animations:
+            a.cancel()
+
+method cancel*(m: MetaAnimation) =
+    var playUntilEnd = false
+    for a in m.animations:
+        if a.cancelBehavior == cbContinueUntilEndOfLoop:
+            playUntilEnd = true
+        else:
+            a.cancel()
+
+    if playUntilEnd:
+        m.addAnimationProgressHandler(1.0) do():
+            m.cancelLoop = m.curLoop
+    else:
+        m.cancelLoop = m.curLoop
 
 method checkHandlers(m: MetaAnimation, oldLoop: int, lp, tp: float) =
     let cp = m.curvedProgress(lp)
     if m.curLoop > oldLoop:
+        echo " reset aphIt "
         if not m.mAnimationsHandlers.isNil:
             processRemainingHandlersInLoop(m.mAnimationsHandlers, m.aphIt, stopped=false)
 
