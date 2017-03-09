@@ -53,7 +53,8 @@ proc removeObserver*(nc: NotificationCenter, observerId: ref | SomeOrdinal) =
     var toRemoveKeys = newSeq[string]()
 
     for key, val in pairs(nc.observers):
-        val.del(obsId)
+        while not val.getOrDefault(obsId).isNil:
+            val.del(obsId)
         if val.len == 0:
             toRemoveKeys.add(key)
 
@@ -66,7 +67,7 @@ proc addObserver*(nc: NotificationCenter, ev: string, observerId: ref | SomeOrdi
     if o.isNil:
         o = newTable[int, NCCallback]()
         nc.observers[ev] = o
-    o[obsId] = cb
+    o.add(obsId, cb)
 
 proc postNotification*(nc: NotificationCenter, ev: string, args: Variant) =
     let o = nc.observers.getOrDefault(ev)
