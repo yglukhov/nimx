@@ -1,3 +1,4 @@
+import os
 import nake
 export nake
 
@@ -200,6 +201,7 @@ proc newBuilder*(platform: string): Builder =
     b.javaPackageId = "com.mycompany.NimxApp"
     b.activityClassName = "io.github.yglukhov.nimx.NimxActivity"
     b.disableClosureCompiler = false
+    b.enableClosureCompilerSourceMap = false
 
     when defined(windows):
         b.appIconName = "MyGame.ico"
@@ -541,8 +543,11 @@ proc nimbleOverrideFlags(b: Builder): seq[string] =
         result.add("--NimblePath:" & cp.path)
 
 proc jsPostBuild(b: Builder) =
-    if not b.disableClosureCompiler and b.platform == "js":
-        closure_compiler.compileFileAndRewrite(b.buildRoot / "main.js", ADVANCED_OPTIMIZATIONS, b.enableClosureCompilerSourceMap)
+    if not b.disableClosureCompiler:
+        # If source map is disabled, emscripten has already run build-in closure compiler
+        if not (b.platform == "emscripten" and not b.enableClosureCompilerSourceMap):
+            # Closure compiler ADVANCED_OPTIMIZATIONS has no compatibility with emscripten
+            closure_compiler.compileFileAndRewrite(b.executablePath, SIMPLE_OPTIMIZATIONS, b.enableClosureCompilerSourceMap)
 
     let sf = splitFile(b.mainFile)
     var mainHTML = sf.dir / sf.name & ".html"
@@ -721,8 +726,15 @@ proc build*(b: Builder) =
         b.additionalLinkerFlags.add(["-s", "ALLOW_MEMORY_GROWTH=1"])
 
         if not b.debugMode:
-            b.additionalLinkerFlags.add("-Oz")
             b.additionalCompilerFlags.add("-Oz")
+
+        if not b.disableClosureCompiler:
+            b.additionalLinkerFlags.add("-Oz")
+
+            # Emscripten creates step-by-step optimization if env EMCC_DEBUG=2. One of the steps will be used later in closure compiler. 
+            # In this case we can receive source map and size of the output file will be the smallest.
+            if b.enableClosureCompilerSourceMap:
+              putEnv("EMCC_DEBUG", "2")
 
     else: discard
 
@@ -776,9 +788,15 @@ proc build*(b: Builder) =
     args.add(b.nimFlags)
     args.add(b.nimbleOverrideFlags())
     args.add b.mainFile
+
     direShell args
 
-    if b.platform == "js" or b.platform == "emscripten":
+    if b.platform == "emscripten":
+        # Copy one of the optimization steps for using in closure compiler
+        if not b.disableClosureCompiler and b.enableSourceMap:
+            copyFile(getTempDir() / "emscripten_temp" / "emcc-10-eval-ctors.js", b.executablePath)
+        b.jsPostBuild()
+    if b.platform == "js":
         b.jsPostBuild()
     elif b.platform == "ios":
         if not b.codesignIdentity.isNil:
