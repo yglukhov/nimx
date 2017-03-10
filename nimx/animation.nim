@@ -53,10 +53,8 @@ type
     MetaAnimation* = ref object of Animation
         animations*: seq[Animation]
         mParallelMode: bool
-        mOnAnimate: AnimationFunction
         mMarkers: seq[MetaAnimationMarker]
-        # mAnimationsHandlers: seq[ProgressHandler]
-        aphIt: int # cursor for animationsHandlers array
+        mPrevDirection: bool
 
 proc init*(a: Animation) =
     a.numberOfLoops = -1
@@ -129,6 +127,9 @@ proc curvedProgress(a: Animation, p: float): float =
         if curvedProgress > 1.0: curvedProgress = 2 - curvedProgress
     elif a.loopPattern == lpEndToStart:
         curvedProgress = 1.0 - curvedProgress
+    # elif a.loopPattern == lpEndToStartToEnd:
+    #     curvedProgress *= 2
+    #     if curvedProgress > 1.0:
     if not a.timingFunction.isNil:
         curvedProgress = a.timingFunction(curvedProgress)
     result = curvedProgress
@@ -163,6 +164,23 @@ method checkHandlers(a: Animation, oldLoop: int, lp, tp: float) {.base.} =
         if not a.totalProgressHandlers.isNil and a.tphIt < a.totalProgressHandlers.len:
             processRemainingHandlersInLoop(a.totalProgressHandlers, a.tphIt, stopped=true)
 
+proc loopFinishCheck(a: Animation, lp, tp: var float)=
+    if a.cancelLoop >= 0:
+        if a.cancelBehavior != cbContinueUntilEndOfLoop:
+            a.finished = true
+            if a.cancelBehavior == cbJumpToEnd:
+                lp = 1.0
+            elif a.cancelBehavior == cbJumpToStart:
+                lp = 0.0
+        elif a.curLoop > a.cancelLoop:
+            a.finished = true
+            lp = 1.0
+
+    if a.numberOfLoops >= 0 and a.curLoop >= a.numberOfLoops:
+        a.finished = true
+        lp = 1.0
+        tp = 1.0
+
 method tick*(a: Animation, t: float) =
     if a.pauseTime != 0: return
 
@@ -170,21 +188,7 @@ method tick*(a: Animation, t: float) =
     var loopProgress = a.loopProgress(t)
     var totalProgress = a.totalProgress(t)
 
-    if a.cancelLoop >= 0:
-        if a.cancelBehavior != cbContinueUntilEndOfLoop:
-            a.finished = true
-            if a.cancelBehavior == cbJumpToEnd:
-                loopProgress = 1.0
-            elif a.cancelBehavior == cbJumpToStart:
-                loopProgress = 0.0
-        elif a.curLoop > a.cancelLoop:
-            a.finished = true
-            loopProgress = 1.0
-
-    if a.numberOfLoops >= 0 and a.curLoop >= a.numberOfLoops:
-        a.finished = true
-        loopProgress = 1.0
-        totalProgress = 1.0
+    a.loopFinishCheck(loopProgress, totalProgress)
 
     a.onProgress(loopProgress)
     a.checkHandlers(oldLoop, loopProgress, totalProgress)
@@ -293,19 +297,19 @@ proc addAnimationOnProgress(m: MetaAnimation, pStart, pEnd: float, a: Animation)
     marker.positionEnd = pEnd
     marker.animation = a
     marker.onAction = proc(p: float)=
+
         if marker.isActive:
-            echo "markerOnAction start ", a.tag, " ", p
             let diff = m.loopDuration * (p - marker.positionStart)
             a.prepare(epochTime() - diff)
+
         else:
-            echo "markerOnAction end ", a.tag, " ", p
-            a.checkHandlers(a.curLoop, 1.0, 1.0)
+            # a.finished = true
+            # a.checkHandlers(a.curLoop - 1, 1.0, 1.0)
+
             a.startTime = 0.0
             a.finished = false
             a.curLoop = 0
 
-        # echo "a on ", p
-    # echo "marker: ", a.tag, " ps ", pStart, " pe ", pEnd
     m.mMarkers.add(marker)
 
 proc `parallelMode=`*(m: MetaAnimation, val: bool)=
@@ -315,10 +319,10 @@ proc `parallelMode=`*(m: MetaAnimation, val: bool)=
     if val:
         for a in m.animations:
             m.loopDuration = max(a.loopDuration * a.numberOfLoops.float, m.loopDuration)
+        # m.loopDuration += 0.01
 
         for a in m.animations:
             doAssert(a.numberOfLoops > 0)
-            # m.loopDuration = max(a.loopDuration * a.numberOfLoops.float, m.loopDuration)
             let pStart = 0.0
             let pEnd = (a.loopDuration * a.numberOfLoops.float) / m.loopDuration
             m.addAnimationOnProgress(pStart, pEnd, a)
@@ -326,6 +330,7 @@ proc `parallelMode=`*(m: MetaAnimation, val: bool)=
     else:
         for a in m.animations:
             m.loopDuration += a.loopDuration * a.numberOfLoops.float
+        # m.loopDuration += 0.01
 
         var cp = 0.0
         for a in m.animations:
@@ -335,8 +340,9 @@ proc `parallelMode=`*(m: MetaAnimation, val: bool)=
             m.addAnimationOnProgress(pStart, pEnd, a)
             cp += (a.loopDuration * a.numberOfLoops.float) / m.loopDuration
 
-    m.mMarkers[m.mMarkers.len - 1].positionEnd = 1.0
-    echo "markers ", m.mMarkers.len
+    echo "\nmarkers : "
+    for cm in m.mMarkers:
+        echo " marker ", cm.animation.tag, " start ", cm.positionStart, " end ", cm.positionEnd
 
 proc parallelMode*(m: MetaAnimation): bool = m.mParallelMode
 
@@ -352,68 +358,80 @@ method prepare*(m: MetaAnimation, t: float)=
     m.startTime = t
     m.lphIt = 0
     m.tphIt = 0
-    # m.aphIt = 0
     m.cancelLoop = -1
     m.curLoop = 0
     for a in m.animations:
         a.startTime = 0.0
         a.cancelLoop = -1
 
-proc markerAtProgress(m: MetaAnimation, p: float, tick: proc(marker: MetaAnimationMarker))=
+    for cm in m.mMarkers:
+        cm.isActive = false
+
+proc markerAtProgress(m: MetaAnimation, p: float, directionChanged: bool, tick: proc(marker: MetaAnimationMarker))=
     for marker in m.mMarkers:
-        if p >= marker.positionStart and p <= marker.positionEnd:
+        if (p >= marker.positionStart and p < marker.positionEnd) and not directionChanged:
             if not marker.isActive:
                 marker.isActive = true
                 marker.onAction(p)
             tick(marker)
 
         elif marker.isActive:
-            # tick(marker)
             marker.isActive = false
+            tick(marker)
             marker.onAction(p)
-            # result.add marker
+
+proc isDirectionForward(m: MetaAnimation, p: float): bool =
+    result = true
+    if m.loopPattern == lpEndToStart:
+        result = false
+    elif m.loopPattern == lpStartToEndToStart and p > 0.5:
+        result = false
+    elif m.loopPattern == lpEndToStartToEnd and p < 0.5:
+        result = false
 
 method onProgress*(m: MetaAnimation, p: float) =
     let cp = m.curvedProgress(p)
-    m.markerAtProgress(cp) do(cm: MetaAnimationMarker):
+    var directionForward = m.isDirectionForward(p)
+    let directionChangedR = m.mPrevDirection and directionForward == false
+    let directionChangedL = not m.mPrevDirection and directionForward
+
+    m.markerAtProgress(cp, directionChangedR or directionChangedL) do(cm: MetaAnimationMarker):
         let a = cm.animation
-        let acp = cp - cm.positionStart
+        var acp = cp - cm.positionStart
+
+        if acp <= 0.0:
+            acp = 0.0
+
+        if directionChangedR:
+            acp = 1.0
+        elif directionChangedL:
+            acp = 0.0
+
         var sc = m.loopDuration / (a.loopDuration * a.numberOfLoops.float)
-        let t = a.startTime + a.loopDuration * acp * a.numberOfLoops.float * sc
+        var ap = acp * a.numberOfLoops.float * sc
+        let t = a.startTime + a.loopDuration * ap
 
-        a.tick(t)
+        let oldLoop = a.curLoop
+        var loopProgress = a.loopProgress(t)
+        var totalProgress = a.totalProgress(t)
+        a.loopFinishCheck(loopProgress, totalProgress)
 
+        a.onProgress(loopProgress)
 
-# proc markerAtProgress(m: MetaAnimation, p: float): seq[MetaAnimationMarker]=
-#     result = @[]
-#     for marker in m.mMarkers:
-#         if p >= marker.positionStart and p <= marker.positionEnd:
-#             result.add marker
-#             if not marker.isActive:
-#                 marker.isActive = true
-#                 marker.onAction(p)
+        loopProgress = if directionForward: loopProgress else: 1.0 - loopProgress
+        totalProgress = if directionForward: totalProgress else: 1.0 - totalProgress
+        if not cm.isActive:
+            loopProgress = 1.0
+            totalProgress = 1.0
 
-#         elif marker.isActive:
-#             marker.isActive = false
-#             marker.onAction(p)
-#             result.add marker
+        a.checkHandlers(oldLoop, loopProgress, totalProgress)
 
-# method onProgress*(m: MetaAnimation, p: float) =
-#     let cp = m.curvedProgress(p)
-#     let curMarkers = m.markerAtProgress(cp)
-#     for cm in curMarkers:
-#         let a = cm.animation
-#         let acp = cp - cm.positionStart
-#         var sc = m.loopDuration / (a.loopDuration * a.numberOfLoops.float)
-#         let t = a.startTime + a.loopDuration * acp * a.numberOfLoops.float * sc
-
-#         a.tick(t)
-
+    m.mPrevDirection = directionForward
 
 method tick*(m: MetaAnimation, t: float) =
     # let oldLoop = m.curLoop
-    procCall m.Animation.tick(t)
 
+    procCall m.Animation.tick(t)
     if m.cancelLoop >= 0:
         for a in m.animations:
             a.cancel()
