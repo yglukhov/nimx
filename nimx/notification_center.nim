@@ -53,7 +53,8 @@ proc removeObserver*(nc: NotificationCenter, observerId: ref | SomeOrdinal) =
     var toRemoveKeys = newSeq[string]()
 
     for key, val in pairs(nc.observers):
-        val.del(obsId)
+        while not val.getOrDefault(obsId).isNil:
+            val.del(obsId)
         if val.len == 0:
             toRemoveKeys.add(key)
 
