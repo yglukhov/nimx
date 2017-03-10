@@ -312,11 +312,11 @@ proc addAnimationOnProgress(m: MetaAnimation, pStart, pEnd: float, a: Animation)
 
     m.mMarkers.add(marker)
 
-proc `parallelMode=`*(m: MetaAnimation, val: bool)=
+proc `parallelMode=`*(m: MetaAnimation, mode: bool)=
     m.mMarkers = @[]
-    m.mParallelMode = val
+    m.mParallelMode = mode
     m.loopDuration = 0.0
-    if val:
+    if mode:
         for a in m.animations:
             m.loopDuration = max(a.loopDuration * a.numberOfLoops.float, m.loopDuration)
         # m.loopDuration += 0.01
@@ -352,6 +352,7 @@ proc newMetaAnimation*(anims: varargs[Animation]): MetaAnimation =
     m.animations = @anims
     m.numberOfLoops = -1
     m.loopPattern = lpStartToEnd
+    m.parallelMode = false
 
 method prepare*(m: MetaAnimation, t: float)=
     m.finished = m.animations.len == 0
