@@ -544,8 +544,10 @@ proc nimbleOverrideFlags(b: Builder): seq[string] =
 
 proc jsPostBuild(b: Builder) =
     if not b.disableClosureCompiler:
+        if b.platform == "js":
+            closure_compiler.compileFileAndRewrite(b.executablePath, ADVANCED_OPTIMIZATIONS, b.enableClosureCompilerSourceMap)
         # If source map is disabled, emscripten has already run build-in closure compiler
-        if not (b.platform == "emscripten" and not b.enableClosureCompilerSourceMap):
+        elif not (b.platform == "emscripten" and not b.enableClosureCompilerSourceMap):
             # Closure compiler ADVANCED_OPTIMIZATIONS has no compatibility with emscripten
             closure_compiler.compileFileAndRewrite(b.executablePath, SIMPLE_OPTIMIZATIONS, b.enableClosureCompilerSourceMap)
 
