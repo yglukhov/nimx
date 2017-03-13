@@ -795,7 +795,7 @@ proc build*(b: Builder) =
 
     if b.platform == "emscripten":
         # Copy one of the optimization steps for using in closure compiler
-        if not b.disableClosureCompiler and b.enableSourceMap:
+        if not b.disableClosureCompiler and b.enableClosureCompilerSourceMap:
             copyFile(getTempDir() / "emscripten_temp" / "emcc-10-eval-ctors.js", b.executablePath)
         b.jsPostBuild()
     if b.platform == "js":
