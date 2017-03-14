@@ -39,9 +39,9 @@ type
         curLoop*: int
         tag*: string
 
-        loopProgressHandlers*: seq[ProgressHandler]
-        totalProgressHandlers*: seq[ProgressHandler]
-        lphIt*, tphIt*: int # Cursors for progressHandlers arrays
+        loopProgressHandlers: seq[ProgressHandler]
+        totalProgressHandlers: seq[ProgressHandler]
+        lphIt, tphIt: int # Cursors for progressHandlers arrays
 
     ComposeMarker* = ref object
         positionStart: float
@@ -113,7 +113,7 @@ method prepare*(a: Animation, st: float) {.base.} =
 
 template currentLoopForTotalDuration(a: Animation, d: float): int = int(d / a.loopDuration)
 
-proc processHandlers*(handlers: openarray[ProgressHandler], it: var int, progress: float) =
+proc processHandlers(handlers: openarray[ProgressHandler], it: var int, progress: float) =
     while it < handlers.len:
         if handlers[it].progress <= progress:
             handlers[it].handler()
@@ -121,7 +121,7 @@ proc processHandlers*(handlers: openarray[ProgressHandler], it: var int, progres
         else:
             break
 
-proc processRemainingHandlersInLoop*(handlers: openarray[ProgressHandler], it: var int, stopped: bool) =
+proc processRemainingHandlersInLoop(handlers: openarray[ProgressHandler], it: var int, stopped: bool) =
     while it < handlers.len:
         if not stopped or handlers[it].callIfCancelled:
             handlers[it].handler()
