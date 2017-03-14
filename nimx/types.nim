@@ -113,6 +113,12 @@ proc `+`*(s1, s2: Size): Size =
 proc `-`*(s1, s2: Size): Size =
     newSize(s1.width - s2.width, s1.height - s2.height)
 
+proc `*`*(s: Size, v: float32): Size =
+    (width: s.width * v, height: s.height * v)
+
+proc `/`*(s: Size, v: float32): Size =
+    (width: s.width / v, height: s.height / v)
+
 proc distanceTo*(p : Point, to: Point) : float32 =
     result = sqrt(pow(p.x - to.x, 2) + pow(p.y - to.y, 2))
 
