@@ -35,28 +35,34 @@ type
         timingFunction*: TimingFunction
         onAnimate*: AnimationFunction
         finished*: bool
-        cancelLoop: int # Loop at which animation was cancelled. -1 if not cancelled
+        cancelLoop*: int # Loop at which animation was cancelled. -1 if not cancelled
         curLoop*: int
         tag*: string
 
-        loopProgressHandlers: seq[ProgressHandler]
-        totalProgressHandlers: seq[ProgressHandler]
-        lphIt, tphIt: int # Cursors for progressHandlers arrays
+        loopProgressHandlers*: seq[ProgressHandler]
+        totalProgressHandlers*: seq[ProgressHandler]
+        lphIt*, tphIt*: int # Cursors for progressHandlers arrays
 
-    MetaAnimationMarker = ref object
+    ComposeMarker* = ref object
         positionStart: float
         positionEnd: float
-        onAction: proc(p:float)
+        onMarkerActive: proc(p:float)
         animation: Animation
         isActive: bool
-        isCancelMarker: bool
+
+    CompositAnimation* = ref object of Animation
+        animations*: seq[Animation]
+        mParallelMode: bool
+        mMarkers: seq[ComposeMarker]
+        mPrevDirection: bool
+
+    ComposedAnimation* = ref object of CompositAnimation
 
     MetaAnimation* = ref object of Animation
         animations*: seq[Animation]
-        mParallelMode: bool
-        mMarkers: seq[MetaAnimationMarker]
-        mPrevDirection: bool
-        cancelMarkers: int
+        curIndex*: int
+        parallelMode*: bool
+        currentLoopPattern: LoopPattern
 
 proc init*(a: Animation) =
     a.numberOfLoops = -1
@@ -107,7 +113,7 @@ method prepare*(a: Animation, st: float) {.base.} =
 
 template currentLoopForTotalDuration(a: Animation, d: float): int = int(d / a.loopDuration)
 
-proc processHandlers(handlers: openarray[ProgressHandler], it: var int, progress: float) =
+proc processHandlers*(handlers: openarray[ProgressHandler], it: var int, progress: float) =
     while it < handlers.len:
         if handlers[it].progress <= progress:
             handlers[it].handler()
@@ -115,7 +121,7 @@ proc processHandlers(handlers: openarray[ProgressHandler], it: var int, progress
         else:
             break
 
-proc processRemainingHandlersInLoop(handlers: openarray[ProgressHandler], it: var int, stopped: bool) =
+proc processRemainingHandlersInLoop*(handlers: openarray[ProgressHandler], it: var int, stopped: bool) =
     while it < handlers.len:
         if not stopped or handlers[it].callIfCancelled:
             handlers[it].handler()
@@ -296,77 +302,48 @@ proc resume*(a: Animation) =
         a.startTime += epochTime() - a.pauseTime
         a.pauseTime = 0
 
-## ---------------------------------------- META ANIMATION'S ---------------------------------------- ##
+## ---------------------------------------- ANIMATIONS COMPOSE ---------------------------------------- ##
 
-proc addAnimationOnProgress(m: MetaAnimation, pStart, pEnd: float, a: Animation) =
-    var marker = new(MetaAnimationMarker)
-    marker.positionStart = pStart
-    marker.positionEnd = pEnd
-    marker.animation = a
-    marker.onAction = proc(p: float)=
+proc newComposeMarker*(pStart, pEnd: float, a: Animation): ComposeMarker=
+    result.new()
+    result.positionStart = pStart
+    result.positionEnd = pEnd
+    result.animation = a
 
+proc addComposeMarker(m: CompositAnimation, marker: ComposeMarker) =
+    marker.onMarkerActive = proc(p: float)=
+        var a = marker.animation
         if marker.isActive:
             let diff = m.loopDuration * (p - marker.positionStart)
             a.prepare(epochTime() - diff)
-
         else:
-            # a.finished = true
-            # a.checkHandlers(a.curLoop - 1, 1.0, 1.0)
-
             a.startTime = 0.0
             a.finished = false
             a.curLoop = 0
 
     m.mMarkers.add(marker)
 
-proc `parallelMode=`*(m: MetaAnimation, mode: bool)=
-    m.mMarkers = @[]
-    m.mParallelMode = mode
-    m.loopDuration = 0.0
-    if mode:
-        for a in m.animations:
-            m.loopDuration = max(a.loopDuration * a.numberOfLoops.float, m.loopDuration)
-
-        for a in m.animations:
-            doAssert(a.numberOfLoops > 0)
-            let pStart = 0.0
-            let pEnd = (a.loopDuration * a.numberOfLoops.float) / m.loopDuration
-            m.addAnimationOnProgress(pStart, pEnd, a)
-
-    else:
-        for a in m.animations:
-            m.loopDuration += a.loopDuration * a.numberOfLoops.float
-
-        var cp = 0.0
-        for a in m.animations:
-            doAssert(a.numberOfLoops > 0)
-            let pStart = cp
-            let pEnd = (a.loopDuration * a.numberOfLoops.float) / m.loopDuration + pStart
-            m.addAnimationOnProgress(pStart, pEnd, a)
-            cp += (a.loopDuration * a.numberOfLoops.float) / m.loopDuration
-
-    echo "\nmarkers : "
-    for cm in m.mMarkers:
-        echo " marker ", cm.animation.tag, " start ", cm.positionStart, " end ", cm.positionEnd
-
-proc parallelMode*(m: MetaAnimation): bool = m.mParallelMode
-
-proc newMetaAnimation*(anims: varargs[Animation]): MetaAnimation =
+proc newCompositAnimation*(duration: float, markers: varargs[ComposeMarker]): CompositAnimation =
     result.new()
     let m = result
-    m.animations = @anims
     m.numberOfLoops = -1
     m.loopPattern = lpStartToEnd
-    m.parallelMode = false
+    m.loopDuration = duration
+    m.mParallelMode = true
+    m.animations = @[]
+    m.mMarkers = @[]
 
-method prepare*(m: MetaAnimation, t: float)=
+    for marker in markers:
+        m.animations.add(marker.animation)
+        m.addComposeMarker(marker)
+
+method prepare*(m: CompositAnimation, t: float)=
     m.finished = m.animations.len == 0
     m.startTime = t
     m.lphIt = 0
     m.tphIt = 0
     m.cancelLoop = -1
     m.curLoop = 0
-    m.cancelMarkers = 0
     for a in m.animations:
         a.startTime = 0.0
         a.cancelLoop = -1
@@ -374,23 +351,20 @@ method prepare*(m: MetaAnimation, t: float)=
     for cm in m.mMarkers:
         cm.isActive = false
 
-proc markerAtProgress(m: MetaAnimation, p: float, directionChanged: bool, tick: proc(marker: MetaAnimationMarker))=
+proc markerAtProgress(m: CompositAnimation, p: float, directionChanged: bool, tick: proc(marker: ComposeMarker))=
     for marker in m.mMarkers:
         if (p >= marker.positionStart and p < marker.positionEnd) and not directionChanged:
             if not marker.isActive:
                 marker.isActive = true
-                marker.onAction(p)
+                marker.onMarkerActive(p)
             tick(marker)
 
         elif marker.isActive:
             marker.isActive = false
-            if marker.isCancelMarker:
-                dec m.cancelMarkers
-                marker.isCancelMarker = false
             tick(marker)
-            marker.onAction(p)
+            marker.onMarkerActive(p)
 
-proc isDirectionForward(m: MetaAnimation, p: float): bool =
+proc isDirectionForward(m: CompositAnimation, p: float): bool =
     result = true
     if m.loopPattern == lpEndToStart:
         result = false
@@ -399,13 +373,13 @@ proc isDirectionForward(m: MetaAnimation, p: float): bool =
     elif m.loopPattern == lpEndToStartToEnd and p < 0.5:
         result = false
 
-method onProgress*(m: MetaAnimation, p: float) =
+method onProgress*(m: CompositAnimation, p: float) =
     let cp = m.curvedProgress(p)
     var directionForward = m.isDirectionForward(p)
     let directionChangedR = m.mPrevDirection and directionForward == false
     let directionChangedL = not m.mPrevDirection and directionForward
 
-    m.markerAtProgress(cp, directionChangedR or directionChangedL) do(cm: MetaAnimationMarker):
+    m.markerAtProgress(cp, directionChangedR or directionChangedL) do(cm: ComposeMarker):
         let a = cm.animation
         if not a.finished:
             var acp = cp - cm.positionStart
@@ -439,42 +413,171 @@ method onProgress*(m: MetaAnimation, p: float) =
 
     m.mPrevDirection = directionForward
 
-method tick*(m: MetaAnimation, t: float) =
-    if m.pauseTime != 0: return
+proc parallelMode*(m: ComposedAnimation): bool = m.mParallelMode
 
-    let oldLoop = m.curLoop
-    var loopProgress = m.loopProgress(t)
-    var totalProgress = m.totalProgress(t)
+proc `parallelMode=`*(m: ComposedAnimation, mode: bool)=
+    m.mMarkers = @[]
+    m.mParallelMode = mode
+    m.loopDuration = 0.0
+    if mode:
+        for a in m.animations:
+            m.loopDuration = max(a.loopDuration * a.numberOfLoops.float, m.loopDuration)
 
-    if m.cancelLoop >= 0:
-        var playUntilEnd = m.cancelMarkers > 0
-        if not playUntilEnd:
-            for marker in m.mMarkers:
-                let a = marker.animation
-                if a.cancelBehavior == cbContinueUntilEndOfLoop and not a.finished:
-                    marker.isCancelMarker = true
-                    playUntilEnd = true
-                    inc m.cancelMarkers
-                else:
-                    a.cancel()
+        for a in m.animations:
+            doAssert(a.numberOfLoops > 0)
+            let pStart = 0.0
+            let pEnd = (a.loopDuration * a.numberOfLoops.float) / m.loopDuration
+            m.addComposeMarker(newComposeMarker(pStart, pEnd, a))
 
-        if m.cancelBehavior != cbContinueUntilEndOfLoop and not playUntilEnd:
-            m.finished = true
-            if m.cancelBehavior == cbJumpToEnd:
-                loopProgress = 1.0
-            elif m.cancelBehavior == cbJumpToStart:
-                loopProgress = 0.0
-        elif m.curLoop > m.cancelLoop:
-            m.finished = true
-            loopProgress = 1.0
+    else:
+        for a in m.animations:
+            m.loopDuration += a.loopDuration * a.numberOfLoops.float
 
-    if m.numberOfLoops >= 0 and m.curLoop >= m.numberOfLoops:
-        m.finished = true
-        loopProgress = 1.0
-        totalProgress = 1.0
+        var cp = 0.0
+        for a in m.animations:
+            doAssert(a.numberOfLoops > 0)
+            let pStart = cp
+            let pEnd = (a.loopDuration * a.numberOfLoops.float) / m.loopDuration + pStart
+            m.addComposeMarker(newComposeMarker(pStart, pEnd, a))
+            cp += (a.loopDuration * a.numberOfLoops.float) / m.loopDuration
 
-    m.onProgress(loopProgress)
-    m.checkHandlers(oldLoop, loopProgress, totalProgress)
+proc newComposedAnimation*(anims: varargs[Animation]): ComposedAnimation =
+    result.new()
+    let m = result
+    m.animations = @anims
+    m.numberOfLoops = -1
+    m.loopPattern = lpStartToEnd
+    m.parallelMode = false
+
+## -------------------------------- META ANIMATION --------------------------------- ##
+proc newMetaAnimation*(anims: varargs[Animation]): MetaAnimation {.deprecated.} =
+    result.new()
+    result.numberOfLoops = -1
+    result.loopPattern = lpStartToEnd
+    result.animations = @anims
+    result.curIndex = -1
+    result.loopDuration = 1.0
+
+proc nextIndex(a: MetaAnimation) =
+    if a.loopPattern == lpStartToEnd:
+        if a.currentLoopPattern != lpStartToEnd:
+            a.curIndex = -1
+
+        a.currentLoopPattern = lpStartToEnd
+        inc a.curIndex
+
+    elif a.loopPattern == lpEndToStart:
+        if a.curIndex == -1 or a.currentLoopPattern != lpEndToStart:
+            a.curIndex = a.animations.len
+
+        a.currentLoopPattern = lpEndToStart
+        dec a.curIndex
+
+    elif a.loopPattern == lpStartToEndToStart:
+
+        if a.curIndex == -1 and a.curLoop mod 2 == 0:
+            a.currentLoopPattern = lpStartToEnd
+        elif a.curIndex == -1 and a.currentLoopPattern != lpEndToStart:
+            a.curIndex = a.animations.len
+            a.currentLoopPattern = lpEndToStart
+
+        if a.currentLoopPattern == lpStartToEnd:
+            inc a.curIndex
+        elif a.currentLoopPattern == lpEndToStart:
+            dec a.curIndex
+
+    elif a.loopPattern == lpEndToStartToEnd:
+
+        if a.curIndex == -1 and a.curLoop mod 2 == 0:
+            a.currentLoopPattern = lpEndToStart
+            a.curIndex = a.animations.len
+        elif a.curIndex == -1 and a.currentLoopPattern != lpStartToEnd:
+            a.currentLoopPattern = lpStartToEnd
+
+        if a.currentLoopPattern == lpStartToEnd:
+            inc a.curIndex
+        elif a.currentLoopPattern == lpEndToStart:
+            dec a.curIndex
+
+
+method prepare*(a: MetaAnimation, t: float)=
+    a.finished = false
+    a.startTime = t
+    a.lphIt = 0
+    a.tphIt = 0
+    a.cancelLoop = -1
+    a.curLoop = 0
+    a.curIndex = -1
+
+method tick*(a: MetaAnimation, t: float) =
+
+    if a.pauseTime != 0 : return
+
+    if a.animations.isNil or a.animations.len == 0:
+        a.finished = true
+        return
+
+    var
+        updateAnims: seq[Animation]
+        animsFinished = true
+        needPrepare = a.curIndex == -1 or (not a.parallelMode and a.animations[a.curIndex].startTime == 0)
+        curTime = epochTime()
+
+    if a.curIndex == -1:
+        a.nextIndex()
+
+    if a.parallelMode:
+        updateAnims = a.animations
+    else:
+        updateAnims = @[]
+        updateAnims.add(a.animations[a.curIndex])
+
+    for anim in updateAnims:
+
+        anim.loopPattern = a.currentLoopPattern
+
+        if needPrepare:
+            anim.prepare(curTime)
+
+        if a.cancelLoop >= 0:
+            anim.cancel()
+
+        if not anim.finished:
+            anim.tick(curTime)
+
+        if not anim.finished: #if we call cancel, anim will be finished after tick
+            animsFinished = false
+
+    if animsFinished:
+        if (a.curIndex < a.animations.len - 1 and a.currentLoopPattern == lpStartToEnd) or
+            (a.curIndex > 0 and a.currentLoopPattern == lpEndToStart):
+            a.nextIndex()
+            a.animations[a.curIndex].startTime = 0
+
+        elif ( (a.curIndex == a.animations.len - 1 and a.currentLoopPattern == lpStartToEnd) or
+            (a.curIndex == 0 and a.currentLoopPattern == lpEndToStart) ) and (a.curLoop < a.numberOfLoops - 1 or a.numberOfLoops == -1):
+
+            a.curIndex = -1
+            inc a.curLoop
+
+            if not a.loopProgressHandlers.isNil:
+                processRemainingHandlersInLoop(a.loopProgressHandlers, a.lphIt, stopped=false)
+
+        elif ((a.loopPattern == lpEndToStartToEnd or a.loopPattern == lpStartToEndToStart) and
+            (a.curIndex == a.animations.len - 1 or a.curIndex == 0) and
+            (a.curLoop < a.numberOfLoops * 2 - 1 or a.numberOfLoops == -1)):
+            a.curIndex = -1
+            inc a.curLoop
+
+            if not a.loopProgressHandlers.isNil:
+                processRemainingHandlersInLoop(a.loopProgressHandlers, a.lphIt, stopped=false)
+        else:
+            a.finished = true
+            if not a.loopProgressHandlers.isNil and a.lphIt < a.loopProgressHandlers.len:
+                processRemainingHandlersInLoop(a.loopProgressHandlers, a.lphIt, stopped=true)
+            if not a.totalProgressHandlers.isNil and a.tphIt < a.totalProgressHandlers.len:
+                processRemainingHandlersInLoop(a.totalProgressHandlers, a.tphIt, stopped=true)
+
 
 when isMainModule:
     proc emulateAnimationRun(a: Animation, startTime, endTime, fps: float): float =
