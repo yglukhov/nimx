@@ -35,7 +35,7 @@ type
         timingFunction*: TimingFunction
         onAnimate*: AnimationFunction
         finished*: bool
-        cancelLoop*: int # Loop at which animation was cancelled. -1 if not cancelled
+        cancelLoop: int # Loop at which animation was cancelled. -1 if not cancelled
         curLoop*: int
         tag*: string
 
