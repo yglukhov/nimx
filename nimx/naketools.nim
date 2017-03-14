@@ -547,7 +547,7 @@ proc jsPostBuild(b: Builder) =
         if b.platform == "js":
             closure_compiler.compileFileAndRewrite(b.executablePath, ADVANCED_OPTIMIZATIONS, b.enableClosureCompilerSourceMap)
         # If source map is disabled, emscripten has already run build-in closure compiler
-        elif not (b.platform == "emscripten" and not b.enableClosureCompilerSourceMap):
+        elif b.platform == "emscripten" and b.enableClosureCompilerSourceMap:
             # Closure compiler ADVANCED_OPTIMIZATIONS has no compatibility with emscripten
             closure_compiler.compileFileAndRewrite(b.executablePath, SIMPLE_OPTIMIZATIONS, b.enableClosureCompilerSourceMap)
 
@@ -733,7 +733,7 @@ proc build*(b: Builder) =
         if not b.disableClosureCompiler:
             b.additionalLinkerFlags.add("-Oz")
 
-            # Emscripten creates step-by-step optimization if env EMCC_DEBUG=2. One of the steps will be used later in closure compiler. 
+            # Emscripten creates step-by-step optimization if env EMCC_DEBUG=2. One of the steps will be used later in closure compiler.
             # In this case we can receive source map and size of the output file will be the smallest.
             if b.enableClosureCompilerSourceMap:
               putEnv("EMCC_DEBUG", "2")
@@ -798,7 +798,7 @@ proc build*(b: Builder) =
         if not b.disableClosureCompiler and b.enableClosureCompilerSourceMap:
             copyFile(getTempDir() / "emscripten_temp" / "emcc-10-eval-ctors.js", b.executablePath)
         b.jsPostBuild()
-    if b.platform == "js":
+    elif b.platform == "js":
         b.jsPostBuild()
     elif b.platform == "ios":
         if not b.codesignIdentity.isNil:
