@@ -49,12 +49,14 @@ type
         onAction: proc(p:float)
         animation: Animation
         isActive: bool
+        isCancelMarker: bool
 
     MetaAnimation* = ref object of Animation
         animations*: seq[Animation]
         mParallelMode: bool
         mMarkers: seq[MetaAnimationMarker]
         mPrevDirection: bool
+        cancelMarkers: int
 
 proc init*(a: Animation) =
     a.numberOfLoops = -1
@@ -193,7 +195,7 @@ method tick*(a: Animation, t: float) =
     a.onProgress(loopProgress)
     a.checkHandlers(oldLoop, loopProgress, totalProgress)
 
-method cancel*(a: Animation) =
+proc cancel*(a: Animation) =
     a.cancelLoop = a.curLoop
 
 proc isCancelled*(a: Animation): bool = a.cancelLoop != -1
@@ -231,6 +233,11 @@ proc bezierTimingFunction*(x1, y1, x2, y2: float): TimingFunction =
         bezierXForProgress(x1, y1, x2, y2, p)
 
 template interpolate*[T](fromValue, toValue: T, p: float): T = fromValue + (toValue - fromValue) * p
+template interpolate*(fromValue, toValue: bool, p: float): bool =
+    if p > 0.5:
+        toValue
+    else:
+        fromValue
 template interpolate*(fromValue, toValue: SomeInteger, p: float): auto = fromValue + type(fromValue)(float(toValue - fromValue) * p)
 
 when defined(js): ## workaround for int64 in javascript
@@ -319,7 +326,6 @@ proc `parallelMode=`*(m: MetaAnimation, mode: bool)=
     if mode:
         for a in m.animations:
             m.loopDuration = max(a.loopDuration * a.numberOfLoops.float, m.loopDuration)
-        # m.loopDuration += 0.01
 
         for a in m.animations:
             doAssert(a.numberOfLoops > 0)
@@ -330,7 +336,6 @@ proc `parallelMode=`*(m: MetaAnimation, mode: bool)=
     else:
         for a in m.animations:
             m.loopDuration += a.loopDuration * a.numberOfLoops.float
-        # m.loopDuration += 0.01
 
         var cp = 0.0
         for a in m.animations:
@@ -361,6 +366,7 @@ method prepare*(m: MetaAnimation, t: float)=
     m.tphIt = 0
     m.cancelLoop = -1
     m.curLoop = 0
+    m.cancelMarkers = 0
     for a in m.animations:
         a.startTime = 0.0
         a.cancelLoop = -1
@@ -378,6 +384,9 @@ proc markerAtProgress(m: MetaAnimation, p: float, directionChanged: bool, tick: 
 
         elif marker.isActive:
             marker.isActive = false
+            if marker.isCancelMarker:
+                dec m.cancelMarkers
+                marker.isCancelMarker = false
             tick(marker)
             marker.onAction(p)
 
@@ -398,70 +407,74 @@ method onProgress*(m: MetaAnimation, p: float) =
 
     m.markerAtProgress(cp, directionChangedR or directionChangedL) do(cm: MetaAnimationMarker):
         let a = cm.animation
-        var acp = cp - cm.positionStart
+        if not a.finished:
+            var acp = cp - cm.positionStart
 
-        if acp <= 0.0:
-            acp = 0.0
+            if acp <= 0.0:
+                acp = 0.0
 
-        if directionChangedR:
-            acp = 1.0
-        elif directionChangedL:
-            acp = 0.0
+            if directionChangedR:
+                acp = 1.0
+            elif directionChangedL:
+                acp = 0.0
 
-        var sc = m.loopDuration / (a.loopDuration * a.numberOfLoops.float)
-        var ap = acp * a.numberOfLoops.float * sc
-        let t = a.startTime + a.loopDuration * ap
+            var sc = m.loopDuration / (a.loopDuration * a.numberOfLoops.float)
+            var ap = acp * a.numberOfLoops.float * sc
+            let t = a.startTime + a.loopDuration * ap
 
-        let oldLoop = a.curLoop
-        var loopProgress = a.loopProgress(t)
-        var totalProgress = a.totalProgress(t)
-        a.loopFinishCheck(loopProgress, totalProgress)
+            let oldLoop = a.curLoop
+            var loopProgress = a.loopProgress(t)
+            var totalProgress = a.totalProgress(t)
+            a.loopFinishCheck(loopProgress, totalProgress)
 
-        a.onProgress(loopProgress)
+            a.onProgress(loopProgress)
 
-        loopProgress = if directionForward: loopProgress else: 1.0 - loopProgress
-        totalProgress = if directionForward: totalProgress else: 1.0 - totalProgress
-        if not cm.isActive:
-            loopProgress = 1.0
-            totalProgress = 1.0
+            loopProgress = if directionForward: loopProgress else: 1.0 - loopProgress
+            totalProgress = if directionForward: totalProgress else: 1.0 - totalProgress
+            if not cm.isActive:
+                loopProgress = 1.0
+                totalProgress = 1.0
 
-        a.checkHandlers(oldLoop, loopProgress, totalProgress)
+            a.checkHandlers(oldLoop, loopProgress, totalProgress)
 
     m.mPrevDirection = directionForward
 
 method tick*(m: MetaAnimation, t: float) =
-    # let oldLoop = m.curLoop
+    if m.pauseTime != 0: return
 
-    procCall m.Animation.tick(t)
+    let oldLoop = m.curLoop
+    var loopProgress = m.loopProgress(t)
+    var totalProgress = m.totalProgress(t)
+
     if m.cancelLoop >= 0:
-        for a in m.animations:
-            a.cancel()
+        var playUntilEnd = m.cancelMarkers > 0
+        if not playUntilEnd:
+            for marker in m.mMarkers:
+                let a = marker.animation
+                if a.cancelBehavior == cbContinueUntilEndOfLoop and not a.finished:
+                    marker.isCancelMarker = true
+                    playUntilEnd = true
+                    inc m.cancelMarkers
+                else:
+                    a.cancel()
 
-method cancel*(m: MetaAnimation) =
-    var playUntilEnd = false
-    for a in m.animations:
-        if a.cancelBehavior == cbContinueUntilEndOfLoop:
-            playUntilEnd = true
-        else:
-            a.cancel()
+        if m.cancelBehavior != cbContinueUntilEndOfLoop and not playUntilEnd:
+            m.finished = true
+            if m.cancelBehavior == cbJumpToEnd:
+                loopProgress = 1.0
+            elif m.cancelBehavior == cbJumpToStart:
+                loopProgress = 0.0
+        elif m.curLoop > m.cancelLoop:
+            m.finished = true
+            loopProgress = 1.0
 
-    # if playUntilEnd:
-    #     m.addAnimationProgressHandler(1.0) do():
-    #         m.cancelLoop = m.curLoop
-    # else:
-    #     m.cancelLoop = m.curLoop
+    if m.numberOfLoops >= 0 and m.curLoop >= m.numberOfLoops:
+        m.finished = true
+        loopProgress = 1.0
+        totalProgress = 1.0
 
-# method checkHandlers(m: MetaAnimation, oldLoop: int, lp, tp: float) =
-#     let cp = m.curvedProgress(lp)
-#     if m.curLoop > oldLoop:
-#         echo " reset aphIt "
-#         if not m.mAnimationsHandlers.isNil:
-#             processRemainingHandlersInLoop(m.mAnimationsHandlers, m.aphIt, stopped=false)
-
-#     if not m.finished:
-#         if not m.mAnimationsHandlers.isNil: processHandlers(m.mAnimationsHandlers, m.aphIt, cp)
-
-#     procCall m.Animation.checkHandlers(oldLoop, lp, tp)
+    m.onProgress(loopProgress)
+    m.checkHandlers(oldLoop, loopProgress, totalProgress)
 
 when isMainModule:
     proc emulateAnimationRun(a: Animation, startTime, endTime, fps: float): float =
