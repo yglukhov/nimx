@@ -18,17 +18,19 @@ macro staticFor*(cond: untyped, body: untyped): untyped =
     let counterName = $cond[1]
 
     result = newNimNode(nnkStmtList)
-
-    let subject = cond[2]
-    case subject.kind
-    of nnkBracket:
-        for c in subject:
+    if cond.len == 3 and cond[2].kind == nnkBracket:
+        for c in cond[2]:
             let copiedBody = body.copyNimTree()
             copiedBody.replaceIf(c) do(n: NimNode) -> bool:
                 result = n.kind == nnkIdent and $n == counterName
             result.add(copiedBody)
     else:
-        assert(false, "Wrong subject type")
+        for i in 2 ..< cond.len:
+            let subject = cond[i]
+            let copiedBody = body.copyNimTree()
+            copiedBody.replaceIf(subject) do(n: NimNode) -> bool:
+                result = n.kind == nnkIdent and $n == counterName
+            result.add(copiedBody)
 
 when isMainModule:
     import typetraits
