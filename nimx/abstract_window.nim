@@ -73,7 +73,7 @@ method drawWindow*(w: Window) {.base.} =
         c.strokeWidth = 0
         c.drawRect(rect)
 
-        var pt = newPoint(0, 5)
+        var pt = newPoint(0, rect.y)
         c.fillColor = blackColor()
         for k, v in profiler:
             pt.x = w.frame.width - profilerWidth
