@@ -9,6 +9,7 @@ import nimx.system_logger
 type UITestSuiteStep* = tuple
     code : proc()
     astrepr: string
+    lineinfo: string
 
 type UITestSuite* = seq[UITestSuiteStep]
 
@@ -32,7 +33,7 @@ proc testSuiteDefinitionWithNameAndBody(name, body: NimNode): NimNode =
         let procDef = newProc(body = newStmtList().add(n), procType = nnkLambda)
         procDef.pragma = newNimNode(nnkPragma).add(newIdentNode("closure"))
 
-        let step = newNimNode(nnkPar).add(procDef, toStrLit(n))
+        let step = newNimNode(nnkPar).add(procDef, toStrLit(n), newLit(n.lineinfo))
         result.add(step)
     return newNimNode(nnkLetSection).add(
         newNimNode(nnkIdentDefs).add(name, bindsym "UITestSuite", newCall("@", result)))
@@ -114,14 +115,13 @@ proc startTest*(t: UITestSuite) =
     testRunnerContext.waitTries = -1
 
     var tim : Timer
-    tim = setInterval(0.5, proc() =
-        logi "RUNNING ", t[testRunnerContext.curTest].astrepr
+    tim = setInterval(0.5) do():
+        logi t[testRunnerContext.curTest].lineinfo, ": RUNNING ", t[testRunnerContext.curTest].astrepr
         t[testRunnerContext.curTest].code()
         inc testRunnerContext.curTest
         if testRunnerContext.curTest == t.len:
             tim.clear()
             testRunnerContext = nil
-        )
 
 proc startRegisteredTests*() =
     testRunnerContext.new()
@@ -131,7 +131,7 @@ proc startRegisteredTests*() =
     var curTestSuite = 0
     var tim : Timer
     tim = setInterval(0.5) do():
-        logi "RUNNING ", registeredTests[curTestSuite][testRunnerContext.curTest].astrepr
+        logi registeredTests[curTestSuite][testRunnerContext.curTest].lineinfo, ": RUNNING ", registeredTests[curTestSuite][testRunnerContext.curTest].astrepr
         registeredTests[curTestSuite][testRunnerContext.curTest].code()
         inc testRunnerContext.curTest
         if testRunnerContext.curTest == registeredTests[curTestSuite].len:
