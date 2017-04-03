@@ -61,7 +61,7 @@ proc update*(ar: AnimationRunner)=
     var index = 0
     let animLen = ar.animations.len
 
-    while index < animLen:
+    while index < min(animLen, ar.animations.len):
         var anim = ar.animations[index]
         if not anim.finished:
             anim.tick(epochTime())
