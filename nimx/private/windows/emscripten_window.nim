@@ -175,6 +175,10 @@ proc initCommon(w: EmscriptenWindow, r: view.Rect) =
         ++window.__nimx_canvas_id;
     }
     var canvas = document.createElement("canvas");
+    canvas.onclick = function() {
+        if (window.__nimx_textinput && window.__nimx_textinput.oninput)
+            window.__nimx_textinput.focus();
+    };
     canvas.id = "nimx_canvas" + window.__nimx_canvas_id;
     canvas.width = $0;
     canvas.height = $1;
