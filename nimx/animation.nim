@@ -51,12 +51,8 @@ type
         isActive: bool
 
     CompositAnimation* = ref object of Animation
-        animations*: seq[Animation]
-        mParallelMode: bool
         mMarkers: seq[ComposeMarker]
         mPrevDirection: bool
-
-    ComposedAnimation* = ref object of CompositAnimation
 
     MetaAnimation* = ref object of Animation
         animations*: seq[Animation]
@@ -329,40 +325,67 @@ proc newCompositAnimation*(duration: float, markers: varargs[ComposeMarker]): Co
     m.numberOfLoops = -1
     m.loopPattern = lpStartToEnd
     m.loopDuration = duration
-    m.mParallelMode = true
-    m.animations = @[]
     m.mMarkers = @[]
 
     for marker in markers:
-        m.animations.add(marker.animation)
         m.addComposeMarker(marker)
 
+proc newCompositAnimation*(parallelMode: bool, anims: varargs[Animation]): CompositAnimation =
+    var duration = 0.0
+    var markers = newSeq[ComposeMarker]()
+    if parallelMode:
+        for a in anims:
+            duration = max(a.loopDuration * a.numberOfLoops.float, duration)
+
+        for a in anims:
+            doAssert(a.numberOfLoops > 0)
+            let pStart = 0.0
+            let pEnd = (a.loopDuration * a.numberOfLoops.float) / duration
+            markers.add(newComposeMarker(pStart, pEnd, a))
+
+    else:
+        for a in anims:
+            duration += a.loopDuration * a.numberOfLoops.float
+
+        var cp = 0.0
+        for a in anims:
+            doAssert(a.numberOfLoops > 0)
+            let pStart = cp
+            let pEnd = (a.loopDuration * a.numberOfLoops.float) / duration + pStart
+            markers.add(newComposeMarker(pStart, pEnd, a))
+            cp += (a.loopDuration * a.numberOfLoops.float) / duration
+
+    result = newCompositAnimation(duration, markers)
+
 method prepare*(m: CompositAnimation, t: float)=
-    m.finished = m.animations.len == 0
+    m.finished = false
     m.startTime = t
     m.lphIt = 0
     m.tphIt = 0
     m.cancelLoop = -1
     m.curLoop = 0
-    for a in m.animations:
-        a.startTime = 0.0
-        a.cancelLoop = -1
 
     for cm in m.mMarkers:
+        cm.animation.startTime = 0.0
+        cm.animation.cancelLoop = -1
         cm.isActive = false
 
-proc markerAtProgress(m: CompositAnimation, p: float, directionChanged: bool, tick: proc(marker: ComposeMarker))=
+iterator markersAtProgress(m: CompositAnimation, p: float, directionChanged: bool): ComposeMarker=
     for marker in m.mMarkers:
+        var m: ComposeMarker
         if (p >= marker.positionStart and p < marker.positionEnd) and not directionChanged:
             if not marker.isActive:
                 marker.isActive = true
                 marker.onMarkerActive(p)
-            tick(marker)
+            m = marker
 
         elif marker.isActive:
             marker.isActive = false
-            tick(marker)
+            m = marker
             marker.onMarkerActive(p)
+
+        if not m.isNil:
+            yield m
 
 proc isDirectionForward(m: CompositAnimation, p: float): bool =
     result = true
@@ -379,7 +402,7 @@ method onProgress*(m: CompositAnimation, p: float) =
     let directionChangedR = m.mPrevDirection and directionForward == false
     let directionChangedL = not m.mPrevDirection and directionForward
 
-    m.markerAtProgress(cp, directionChangedR or directionChangedL) do(cm: ComposeMarker):
+    for cm in m.markersAtProgress(cp, directionChangedR or directionChangedL):
         let a = cm.animation
         if not a.finished:
             var acp = cp - cm.positionStart
@@ -413,41 +436,6 @@ method onProgress*(m: CompositAnimation, p: float) =
 
     m.mPrevDirection = directionForward
 
-proc parallelMode*(m: ComposedAnimation): bool = m.mParallelMode
-
-proc `parallelMode=`*(m: ComposedAnimation, mode: bool)=
-    m.mMarkers = @[]
-    m.mParallelMode = mode
-    m.loopDuration = 0.0
-    if mode:
-        for a in m.animations:
-            m.loopDuration = max(a.loopDuration * a.numberOfLoops.float, m.loopDuration)
-
-        for a in m.animations:
-            doAssert(a.numberOfLoops > 0)
-            let pStart = 0.0
-            let pEnd = (a.loopDuration * a.numberOfLoops.float) / m.loopDuration
-            m.addComposeMarker(newComposeMarker(pStart, pEnd, a))
-
-    else:
-        for a in m.animations:
-            m.loopDuration += a.loopDuration * a.numberOfLoops.float
-
-        var cp = 0.0
-        for a in m.animations:
-            doAssert(a.numberOfLoops > 0)
-            let pStart = cp
-            let pEnd = (a.loopDuration * a.numberOfLoops.float) / m.loopDuration + pStart
-            m.addComposeMarker(newComposeMarker(pStart, pEnd, a))
-            cp += (a.loopDuration * a.numberOfLoops.float) / m.loopDuration
-
-proc newComposedAnimation*(anims: varargs[Animation]): ComposedAnimation =
-    result.new()
-    let m = result
-    m.animations = @anims
-    m.numberOfLoops = -1
-    m.loopPattern = lpStartToEnd
-    m.parallelMode = false
 
 ## -------------------------------- META ANIMATION --------------------------------- ##
 proc newMetaAnimation*(anims: varargs[Animation]): MetaAnimation {.deprecated.} =

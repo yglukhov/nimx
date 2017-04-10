@@ -474,6 +474,9 @@ template compositionDrawingDefinitions*(cc: CompiledComposition, ctx: GraphicsCo
     template setUniform(name: string, v: Vector2) {.hint[XDeclaredButNotUsed]: off.}  =
         gl.uniform2fv(uniformLocation(name), v)
 
+    template setUniform(name: string, v: Matrix4) {.hint[XDeclaredButNotUsed]: off.}  =
+        gl.uniformMatrix4fv(uniformLocation(name), false, v)
+
     template setUniform(name: string, tex: TextureRef) {.hint[XDeclaredButNotUsed]: off.} =
         gl.activeTexture(GLenum(int(gl.TEXTURE0) + cc.iTexIndex))
         gl.bindTexture(gl.TEXTURE_2D, tex)

@@ -8,11 +8,12 @@ import pathutils
 import variant
 import typetraits
 
-when not defined(js):
-    import os
-    import sdl2
-else:
+when defined(js) or defined(emscripten):
     import ospaths
+else:
+    import os
+    when defined(android):
+        import sdl2
 
 type ResourceCache* = ref object
     cache: Table[string, Variant]
@@ -87,7 +88,7 @@ proc pathForResourceAux(name: string): string =
         if name[0] == '/': return name # Absolute
     else:
         if name.isAbsolute: return name
-    if parentResources.len > 0:
+    if parentResources.len > 0 and parentResources[^1] != "":
         return parentResources[^1] / name
 
     when defined(android):
@@ -128,47 +129,50 @@ proc resourceNameForPathAux(path: string): string =
 proc resourceNameForPath*(path: string): string =
     result = resourceNameForPathAux(path)
 
-when not defined(js):
-    type
-        RWOpsStream = ref RWOpsStreamObj
-        RWOpsStreamObj = object of StreamObj
-            ops: RWopsPtr
+when defined(js):
+    import private.js_data_view_stream
+else:
+    when defined(android):
+        type
+            RWOpsStream = ref RWOpsStreamObj
+            RWOpsStreamObj = object of StreamObj
+                ops: RWopsPtr
 
-    proc rwClose(s: Stream) {.nimcall.} =
-        let ops = RWOpsStream(s).ops
-        if ops != nil:
-            discard ops.close(ops)
-            RWOpsStream(s).ops = nil
-    proc rwAtEnd(s: Stream): bool {.nimcall.} =
-        let ops = s.RWOpsStream.ops
-        result = ops.size(ops) == ops.seek(ops, 0, 1)
-    proc rwSetPosition(s: Stream, pos: int) {.nimcall.} =
-        let ops = s.RWOpsStream.ops
-        discard ops.seek(ops, pos.int64, 0)
-    proc rwGetPosition(s: Stream): int {.nimcall.} =
-        let ops = s.RWOpsStream.ops
-        result = ops.seek(ops, 0, 1).int
+        proc rwClose(s: Stream) {.nimcall.} =
+            let ops = RWOpsStream(s).ops
+            if ops != nil:
+                discard ops.close(ops)
+                RWOpsStream(s).ops = nil
+        proc rwAtEnd(s: Stream): bool {.nimcall.} =
+            let ops = s.RWOpsStream.ops
+            result = ops.size(ops) == ops.seek(ops, 0, 1)
+        proc rwSetPosition(s: Stream, pos: int) {.nimcall.} =
+            let ops = s.RWOpsStream.ops
+            discard ops.seek(ops, pos.int64, 0)
+        proc rwGetPosition(s: Stream): int {.nimcall.} =
+            let ops = s.RWOpsStream.ops
+            result = ops.seek(ops, 0, 1).int
 
-    proc rwReadData(s: Stream, buffer: pointer, bufLen: int): int {.nimcall.} =
-        let ops = s.RWOpsStream.ops
-        let res = ops.read(ops, buffer, 1, bufLen.csize)
-        result = res
+        proc rwReadData(s: Stream, buffer: pointer, bufLen: int): int {.nimcall.} =
+            let ops = s.RWOpsStream.ops
+            let res = ops.read(ops, buffer, 1, bufLen.csize)
+            result = res
 
-    proc rwWriteData(s: Stream, buffer: pointer, bufLen: int) {.nimcall.} =
-        let ops = s.RWOpsStream.ops
-        if ops.write(ops, buffer, 1, bufLen) != bufLen:
-            raise newException(IOError, "cannot write to stream")
+        proc rwWriteData(s: Stream, buffer: pointer, bufLen: int) {.nimcall.} =
+            let ops = s.RWOpsStream.ops
+            if ops.write(ops, buffer, 1, bufLen) != bufLen:
+                raise newException(IOError, "cannot write to stream")
 
-    proc newStreamWithRWops*(ops: RWopsPtr): RWOpsStream =
-        if ops.isNil: return
-        result.new()
-        result.ops = ops
-        result.closeImpl = cast[type(result.closeImpl)](rwClose)
-        result.atEndImpl = cast[type(result.atEndImpl)](rwAtEnd)
-        result.setPositionImpl = cast[type(result.setPositionImpl)](rwSetPosition)
-        result.getPositionImpl = cast[type(result.getPositionImpl)](rwGetPosition)
-        result.readDataImpl = cast[type(result.readDataImpl)](rwReadData)
-        result.writeDataImpl = cast[type(result.writeDataImpl)](rwWriteData)
+        proc newStreamWithRWops*(ops: RWopsPtr): RWOpsStream =
+            if ops.isNil: return
+            result.new()
+            result.ops = ops
+            result.closeImpl = cast[type(result.closeImpl)](rwClose)
+            result.atEndImpl = cast[type(result.atEndImpl)](rwAtEnd)
+            result.setPositionImpl = cast[type(result.setPositionImpl)](rwSetPosition)
+            result.getPositionImpl = cast[type(result.getPositionImpl)](rwGetPosition)
+            result.readDataImpl = cast[type(result.readDataImpl)](rwReadData)
+            result.writeDataImpl = cast[type(result.writeDataImpl)](rwWriteData)
 
     proc streamForResourceWithPath*(path: string): Stream =
         when defined(android):
@@ -184,9 +188,6 @@ when not defined(js):
         if p.isNil:
             raise newException(Exception, "Resource not found: " & name)
         streamForResourceWithPath(p)
-
-when defined(js):
-    import private.js_data_view_stream
 
 type ResourceLoadingError* = object
     description*: string
