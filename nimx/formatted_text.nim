@@ -132,7 +132,6 @@ proc updateCache(t: FormattedText) =
 
     while i < textLen:
         let font = t.mAttributes[curAttrIndex].font
-        let charStart = i
 
         fastRuneAt(t.mText, i, c, true)
 
@@ -181,7 +180,7 @@ proc updateCache(t: FormattedText) =
             curWordFirstAttr = curAttrIndex
 
         # Switch to next attribute if its time
-        if charStart + 1 == nextAttrStartIndex:
+        if i == nextAttrStartIndex:
             inc curAttrIndex
             if t.mAttributes[curAttrIndex].strokeSize > 0: t.strokeAttrs.add(curAttrIndex)
             if t.mAttributes[curAttrIndex].shadowColor.a != 0: t.shadowAttrs.add(curAttrIndex)
