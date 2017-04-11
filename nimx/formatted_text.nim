@@ -350,12 +350,13 @@ proc uniDelete*(t: FormattedText, start, stop: int) =
     t.getByteOffsetsForRunePositions([start, stop], byteOffsets)
 
     let startByte = byteOffsets[0]
-    let stopByte = byteOffsets[1]
+    let stopRuneByte = byteOffsets[1]
+    let stopByte = stopRuneByte + t.mText.runeLenAt(stopRuneByte) - 1
 
     let bl = stopByte - startByte + 1
     let rl = stop - start + 1
 
-    t.mText.uniDelete(start, stop) # TODO: Call non-unicode delete here
+    t.mText.delete(startByte, stopByte)
 
     if sa == ea:
         for i in ea + 1 .. t.mAttributes.high:
