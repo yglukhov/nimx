@@ -39,7 +39,7 @@ proc screenScaleFactor*(): float =
     elif defined(js):
         asm "`result` = window.devicePixelRatio;"
     elif defined(android):
-        let act = Activity.fromJObject(sdl2.androidGetActivity())
+        let act = Activity.fromJObject(cast[jobject](sdl2.androidGetActivity()))
         let dm = DisplayMetrics.new()
         act.getWindowManager().getDefaultDisplay().getMetrics(dm)
         result = dm.density

@@ -234,8 +234,7 @@ proc loadResourceAsync*(resourceName: string, handler: proc(s: Stream)) =
         loadJSResourceAsync(resourceName, "arraybuffer", nil, nil, reqListener)
     elif defined(emscripten):
         let path = pathForResource(resourceName)
-        emscripten_async_wget_data(urlForResourcePath(path))
-        do(data: pointer, sz: cint):
+        emscripten_async_wget_data(urlForResourcePath(path)) do(data: pointer, sz: cint):
             handleJSExceptions:
                 var str = newString(sz)
                 copyMem(addr str[0], data, sz)
