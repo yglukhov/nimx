@@ -7,7 +7,10 @@ attribute vec4 aPosition;
 uniform mat4 uModelViewProjectionMatrix;
 varying vec2 vTexCoord;
 
+varying vec2 vPos;
+
 void main() {
+    vPos = aPosition.xy;
     vTexCoord = aPosition.zw;
     gl_Position = uModelViewProjectionMatrix * vec4(aPosition.xy, 0, 1);
 }
@@ -18,6 +21,8 @@ uniform vec4 fillColor;
 uniform float preScale;
 
 varying vec2 vTexCoord;
+
+varying vec2 vPos;
 
 float thresholdFunc(float glyphScale)
 {
@@ -56,7 +61,10 @@ when false:
     uniform mat4 uModelViewProjectionMatrix;
     varying vec2 vTexCoord;
 
+    varying vec2 vPos;
+
     void main() {
+        vPos = aPosition.xy;
         vTexCoord = aPosition.zw;
         gl_Position = uModelViewProjectionMatrix * vec4(aPosition.xy, 0, 1);
     }
@@ -68,6 +76,8 @@ when false:
     uniform float alphaMax;
 
     varying vec2 vTexCoord;
+
+    varying vec2 vPos;
 
     void subpixelCompose()
     {
@@ -108,7 +118,10 @@ attribute vec4 aPosition;
 uniform mat4 uModelViewProjectionMatrix;
 varying vec2 vTexCoord;
 
+varying vec2 vPos;
+
 void main() {
+    vPos = aPosition.xy;
     vTexCoord = aPosition.zw;
     gl_Position = uModelViewProjectionMatrix * vec4(aPosition.xy, 0, 1);
 }
@@ -119,6 +132,8 @@ uniform vec4 fillColor;
 uniform float preScale;
 
 varying vec2 vTexCoord;
+
+varying vec2 vPos;
 
 float thresholdFunc(float glyphScale)
 {
