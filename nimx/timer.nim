@@ -49,9 +49,9 @@ when defined(js) or defined(emscripten):
 
 elif defined(macosx):
     type
-        CFTimeInterval = float64
+        CFTimeInterval = cdouble
         CFAbsoluteTime = CFTimeInterval
-        CFIndex = cint
+        CFIndex = clong
         CFOptionFlags = culong
         CFRunLoopTimerContext = object
             version: CFIndex
