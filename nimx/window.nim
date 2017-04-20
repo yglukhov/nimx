@@ -1,4 +1,5 @@
 # Platform specific implementations follow
+## My fixed comment
 import abstract_window
 when defined(js):
     import private.windows.js_canvas_window
