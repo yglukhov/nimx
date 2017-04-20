@@ -357,18 +357,14 @@ proc newCompositAnimation*(parallelMode: bool, anims: varargs[Animation]): Compo
 
     result = newCompositAnimation(duration, markers)
 
-method prepare*(m: CompositAnimation, t: float)=
-    m.finished = false
-    m.startTime = t
-    m.lphIt = 0
-    m.tphIt = 0
-    m.cancelLoop = -1
-    m.curLoop = 0
-
-    for cm in m.mMarkers:
-        cm.animation.startTime = 0.0
-        cm.animation.cancelLoop = -1
-        cm.isActive = false
+proc isDirectionForward(m: CompositAnimation, p: float): bool =
+    result = true
+    if m.loopPattern == lpEndToStart:
+        result = false
+    elif m.loopPattern == lpStartToEndToStart and p > 0.5:
+        result = false
+    elif m.loopPattern == lpEndToStartToEnd and p < 0.5:
+        result = false
 
 iterator markersAtProgress(m: CompositAnimation, p: float, directionChanged: bool): ComposeMarker=
     for marker in m.mMarkers:
@@ -379,6 +375,9 @@ iterator markersAtProgress(m: CompositAnimation, p: float, directionChanged: boo
                 marker.onMarkerActive(p)
             m = marker
 
+        elif p == marker.positionEnd and not directionChanged and not marker.isActive:
+            m = marker
+
         elif marker.isActive:
             marker.isActive = false
             m = marker
@@ -387,14 +386,21 @@ iterator markersAtProgress(m: CompositAnimation, p: float, directionChanged: boo
         if not m.isNil:
             yield m
 
-proc isDirectionForward(m: CompositAnimation, p: float): bool =
-    result = true
-    if m.loopPattern == lpEndToStart:
-        result = false
-    elif m.loopPattern == lpStartToEndToStart and p > 0.5:
-        result = false
-    elif m.loopPattern == lpEndToStartToEnd and p < 0.5:
-        result = false
+method prepare*(m: CompositAnimation, t: float)=
+    m.finished = false
+    m.startTime = t
+    m.lphIt = 0
+    m.tphIt = 0
+    m.cancelLoop = -1
+    m.curLoop = 0
+    m.mPrevDirection = m.isDirectionForward(0.0)
+
+    for marker in m.markersAtProgress(0.0, false): discard
+
+    for cm in m.mMarkers:
+        cm.animation.startTime = 0.0
+        cm.animation.cancelLoop = -1
+        cm.isActive = false
 
 method onProgress*(m: CompositAnimation, p: float) =
     let cp = m.curvedProgress(p)
