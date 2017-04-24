@@ -1,3 +1,4 @@
+
 import math
 import macros
 import algorithm
@@ -76,10 +77,12 @@ proc addHandler(s: var seq[ProgressHandler], ph: ProgressHandler) =
         s.lowerBound(ph, proc (a, b: ProgressHandler): int = cmp(a.progress, b.progress)))
 
 proc addLoopProgressHandler*(a: Animation, progress: float, callIfCancelled: bool, handler: proc()) =
+    assert(not handler.isNil)
     addHandler(a.loopProgressHandlers, ProgressHandler(handler: handler, progress: progress,
         callIfCancelled: callIfCancelled))
 
 proc addTotalProgressHandler*(a: Animation, progress: float, callIfCancelled: bool, handler: proc()) =
+    assert(not handler.isNil)
     addHandler(a.totalProgressHandlers, ProgressHandler(handler: handler, progress: progress,
         callIfCancelled: callIfCancelled))
 
@@ -109,7 +112,7 @@ method prepare*(a: Animation, st: float) {.base.} =
 
 template currentLoopForTotalDuration(a: Animation, d: float): int = int(d / a.loopDuration)
 
-proc processHandlers(handlers: openarray[ProgressHandler], it: var int, progress: float) =
+proc processHandlers(handlers: seq[ProgressHandler], it: var int, progress: float) =
     while it < handlers.len:
         if handlers[it].progress <= progress:
             handlers[it].handler()
@@ -407,6 +410,9 @@ method onProgress*(m: CompositAnimation, p: float) =
     var directionForward = m.isDirectionForward(p)
     let directionChangedR = m.mPrevDirection and directionForward == false
     let directionChangedL = not m.mPrevDirection and directionForward
+
+    if not m.onAnimate.isNil:
+        m.onAnimate(cp)
 
     for cm in m.markersAtProgress(cp, directionChangedR or directionChangedL):
         let a = cm.animation
