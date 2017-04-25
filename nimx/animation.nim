@@ -1,3 +1,4 @@
+
 import math
 import macros
 import algorithm
@@ -76,10 +77,12 @@ proc addHandler(s: var seq[ProgressHandler], ph: ProgressHandler) =
         s.lowerBound(ph, proc (a, b: ProgressHandler): int = cmp(a.progress, b.progress)))
 
 proc addLoopProgressHandler*(a: Animation, progress: float, callIfCancelled: bool, handler: proc()) =
+    assert(not handler.isNil)
     addHandler(a.loopProgressHandlers, ProgressHandler(handler: handler, progress: progress,
         callIfCancelled: callIfCancelled))
 
 proc addTotalProgressHandler*(a: Animation, progress: float, callIfCancelled: bool, handler: proc()) =
+    assert(not handler.isNil)
     addHandler(a.totalProgressHandlers, ProgressHandler(handler: handler, progress: progress,
         callIfCancelled: callIfCancelled))
 
@@ -109,7 +112,7 @@ method prepare*(a: Animation, st: float) {.base.} =
 
 template currentLoopForTotalDuration(a: Animation, d: float): int = int(d / a.loopDuration)
 
-proc processHandlers(handlers: openarray[ProgressHandler], it: var int, progress: float) =
+proc processHandlers(handlers: seq[ProgressHandler], it: var int, progress: float) =
     while it < handlers.len:
         if handlers[it].progress <= progress:
             handlers[it].handler()
@@ -357,18 +360,14 @@ proc newCompositAnimation*(parallelMode: bool, anims: varargs[Animation]): Compo
 
     result = newCompositAnimation(duration, markers)
 
-method prepare*(m: CompositAnimation, t: float)=
-    m.finished = false
-    m.startTime = t
-    m.lphIt = 0
-    m.tphIt = 0
-    m.cancelLoop = -1
-    m.curLoop = 0
-
-    for cm in m.mMarkers:
-        cm.animation.startTime = 0.0
-        cm.animation.cancelLoop = -1
-        cm.isActive = false
+proc isDirectionForward(m: CompositAnimation, p: float): bool =
+    result = true
+    if m.loopPattern == lpEndToStart:
+        result = false
+    elif m.loopPattern == lpStartToEndToStart and p > 0.5:
+        result = false
+    elif m.loopPattern == lpEndToStartToEnd and p < 0.5:
+        result = false
 
 iterator markersAtProgress(m: CompositAnimation, p: float, directionChanged: bool): ComposeMarker=
     for marker in m.mMarkers:
@@ -379,6 +378,9 @@ iterator markersAtProgress(m: CompositAnimation, p: float, directionChanged: boo
                 marker.onMarkerActive(p)
             m = marker
 
+        elif p == marker.positionEnd and not directionChanged and not marker.isActive:
+            m = marker
+
         elif marker.isActive:
             marker.isActive = false
             m = marker
@@ -387,20 +389,30 @@ iterator markersAtProgress(m: CompositAnimation, p: float, directionChanged: boo
         if not m.isNil:
             yield m
 
-proc isDirectionForward(m: CompositAnimation, p: float): bool =
-    result = true
-    if m.loopPattern == lpEndToStart:
-        result = false
-    elif m.loopPattern == lpStartToEndToStart and p > 0.5:
-        result = false
-    elif m.loopPattern == lpEndToStartToEnd and p < 0.5:
-        result = false
+method prepare*(m: CompositAnimation, t: float)=
+    m.finished = false
+    m.startTime = t
+    m.lphIt = 0
+    m.tphIt = 0
+    m.cancelLoop = -1
+    m.curLoop = 0
+    m.mPrevDirection = m.isDirectionForward(0.0)
+
+    for marker in m.markersAtProgress(0.0, false): discard
+
+    for cm in m.mMarkers:
+        cm.animation.startTime = 0.0
+        cm.animation.cancelLoop = -1
+        cm.isActive = false
 
 method onProgress*(m: CompositAnimation, p: float) =
     let cp = m.curvedProgress(p)
     var directionForward = m.isDirectionForward(p)
     let directionChangedR = m.mPrevDirection and directionForward == false
     let directionChangedL = not m.mPrevDirection and directionForward
+
+    if not m.onAnimate.isNil:
+        m.onAnimate(cp)
 
     for cm in m.markersAtProgress(cp, directionChangedR or directionChangedL):
         let a = cm.animation

@@ -9,8 +9,7 @@ template enableObjC*() =
     ## Should be called in global scope of a nim file to ensure it will be
     ## translated to Objective-C
     block:
-        {.hint[XDeclaredButNotUsed]: off.}
-        proc dummyWithNoParticularMeaning() {.importobjc.}
+        proc dummyWithNoParticularMeaning() {.used, importobjc.}
 
 type NSPoint* {.importc: "CGPoint", header: "<CoreGraphics/CoreGraphics.h>".} = object
     x*, y*: float32
@@ -80,7 +79,7 @@ proc bounds*(v: NSView): NSRect {.importobjc.}
 proc NSLog*(fmt: NSString) {.appkit, varargs.}
 
 {.push stackTrace: off.}
-proc alloc*(t: typedesc): t {.noInit.} =
+proc alloc*(t: typedesc): t {.noInit, inline.} =
     const typeName = typetraits.name(t)
     {.emit:"`result` = [" & typeName & " alloc];".}
 {.pop.}
@@ -90,7 +89,7 @@ proc description*(o: NSObject): NSString {.importobjc, nodecl.}
 proc arrayWithObjectsAndCount*(objs: pointer, count: int): NSArrayAbstract {.importobjc: "NSArray arrayWithObjects", nodecl.}
 proc newMutableArrayAbstract*(): NSMutableArrayAbstract {.importobjc: "NSMutableArray new", nodecl.}
 proc addObject*(a: NSMutableArrayAbstract, o: NSObject) {.importobjc, nodecl.}
-template newMutableArray*[T](): NSMutableArray[T] = cast[NSMutableArray[T]](newMutableArrayAbstract())
+proc newMutableArray*[T](): NSMutableArray[T] {.inline.} = cast[NSMutableArray[T]](newMutableArrayAbstract())
 
 template add*[T](a: NSMutableArray[T], v: T) = cast[NSMutableArrayAbstract](a).addObject(v)
 
