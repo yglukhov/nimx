@@ -663,6 +663,7 @@ proc drawStroke(c: GraphicsContext, origP: Point, t: FormattedText) =
     let numLines = t.lines.len
     var curLine = 0
     let top = t.topOffset() + origP.y
+    const magicStrokeMaxSizeCoof = 0.46
 
     while curLine < numLines:
         p.x = origP.x + t.lineLeft(curLine)
@@ -682,7 +683,7 @@ proc drawStroke(c: GraphicsContext, origP: Point, t: FormattedText) =
 
                 compositionDrawingDefinitions(cc, c, gl)
 
-                setUniform("strokeSize", t.mAttributes[curAttrIndex].strokeSize / 15)
+                setUniform("strokeSize", min(t.mAttributes[curAttrIndex].strokeSize / 15, magicStrokeMaxSizeCoof))
 
                 if t.mAttributes[curAttrIndex].isStrokeGradient:
                     setUniform("point_y", p.y)
