@@ -400,6 +400,13 @@ proc getQuadDataForRune*(f: Font, r: Rune, quad: var openarray[Coord], offset: i
     pt.x += charComp(compAdvance) * f.scale
     texture = chunk.texture
 
+proc getCharComponent*(f: Font, text: string, comp: GlyphMetricsComponent): Coord =
+    let (chunk, charIndexInChunk) = f.chunkAndCharIndexForRune(text.runeAtPos(0))
+    let c = charOff(charIndexInChunk)
+
+    f.updateFontMetricsIfNeeded()
+    result = chunk.data.glyphMetrics.charOffComp(c, comp).Coord
+
 template getQuadDataForRune*(f: Font, r: Rune, quad: var array[16, Coord], texture: var TextureRef, pt: var Point) =
     f.getQuadDataForRune(r, quad, 0, texture, pt)
 
