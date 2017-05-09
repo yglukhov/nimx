@@ -3,7 +3,7 @@ import unicode
 import abstract_window
 
 import keyboard
-export VirtualKey
+export keyboard
 
 type EventType* = enum
     etUnknown
@@ -39,6 +39,7 @@ type Event* = object
     repeat*: bool
     window*: Window
     text*: string
+    modifiers*: ModifiersSet
 
 proc newEvent*(kind: EventType, position: Point = zeroPoint, keyCode: VirtualKey = VirtualKey.Unknown,
                buttonState: ButtonState = bsUnknown, pointerId : int = 0, timestamp : uint32 = 0): Event =

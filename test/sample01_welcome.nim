@@ -8,7 +8,7 @@ import nimx.composition
 import nimx.button
 import nimx.autotest
 
-import nimx.gesture_detector_newtouch
+import nimx.gesture_detector
 import nimx.view_event_handling_new
 import nimx.event
 

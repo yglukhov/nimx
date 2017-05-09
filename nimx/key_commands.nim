@@ -59,10 +59,10 @@ template nonMacOsCommands(body: untyped) =
 proc commandFromEvent*(e: Event): KeyCommand =
     if e.kind == etKeyboard and e.buttonState == bsDown:
         var curModifiers: set[Modifier]
-        if alsoPressed(VirtualKey.LeftGUI) or alsoPressed(VirtualKey.RightGUI): curModifiers.incl(Gui)
-        if alsoPressed(VirtualKey.LeftShift) or alsoPressed(VirtualKey.RightShift): curModifiers.incl(Shift)
-        if alsoPressed(VirtualKey.LeftControl) or alsoPressed(VirtualKey.RightControl): curModifiers.incl(Ctrl)
-        if alsoPressed(VirtualKey.LeftAlt) or alsoPressed(VirtualKey.RightAlt): curModifiers.incl(Alt)
+        if e.modifiers.anyGui(): curModifiers.incl(Gui)
+        if e.modifiers.anyShift(): curModifiers.incl(Shift)
+        if e.modifiers.anyCtrl(): curModifiers.incl(Ctrl)
+        if e.modifiers.anyAlt(): curModifiers.incl(Alt)
 
         template defineCmd(cmd: KeyCommand, vk: VirtualKey, modifiers: set[Modifier]) =
             if e.keyCode == vk and curModifiers == modifiers: return cmd
