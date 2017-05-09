@@ -3,7 +3,7 @@ import times, json, math
 import view, panel_view, context, undo_manager, toolbar, button, menu, resource
 import inspector_panel
 
-import gesture_detector_newtouch
+import gesture_detector
 import view_event_handling_new
 import window_event_handling
 

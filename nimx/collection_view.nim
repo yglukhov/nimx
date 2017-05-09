@@ -1,7 +1,7 @@
 import math
 
 import nimx.event
-import nimx.gesture_detector_newtouch
+import nimx.gesture_detector
 import nimx.types
 import nimx.view
 
@@ -147,7 +147,7 @@ proc updateLayout*(v: CollectionView) =
     let rangeCache = v.visibleRangeOfItems()
     for i in rangeCache.start .. rangeCache.finish:
         let posX = if v.layoutDirection == LayoutDirection.LeftToRight:
-                       -(r.x.int mod v.itemSize.width.int).Coord + ((i - v.rangeCache.start) div v.rowCount()).Coord * v.itemSize.width 
+                       -(r.x.int mod v.itemSize.width.int).Coord + ((i - v.rangeCache.start) div v.rowCount()).Coord * v.itemSize.width
                    else:
                        ((i - rangeCache.start) mod v.columnCount()).Coord * v.itemSize.width
         let posY = if v.layoutDirection == LayoutDirection.LeftToRight:
@@ -155,7 +155,7 @@ proc updateLayout*(v: CollectionView) =
                    else:
                        -(r.y.int mod v.itemSize.height.int).Coord + ((i - v.rangeCache.start) div v.columnCount()).Coord * v.itemSize.height
         v.subviews[i - rangeCache.start].setFrameOrigin(newPoint(posX, posY))
-        
+
     v.setNeedsDisplay()
 
 method init*(v: CollectionView, r: Rect) =

@@ -5,9 +5,19 @@
 ## on those keys places (so that e.g. 'k' and 'K' share same scan code).
 
 import tables
-
 type VirtualKey* {.pure.} = enum
     Unknown = 0
+
+    LeftControl  # Modifier, order shouldn't be changed
+    LeftShift    # Modifier, order shouldn't be changed
+    RightShift   # Modifier, order shouldn't be changed
+    LeftAlt      # Modifier, order shouldn't be changed
+    RightControl # Modifier, order shouldn't be changed
+    RightAlt     # Modifier, order shouldn't be changed
+    LeftGUI      # Modifier, order shouldn't be changed
+    RightGUI     # Modifier, order shouldn't be changed
+
+
     MouseButtonPrimary
     MouseButtonSecondary
     MouseButtonMiddle
@@ -39,7 +49,7 @@ type VirtualKey* {.pure.} = enum
     LeftBracket
     RightBracket
     Return
-    LeftControl
+
     A
     S
     D
@@ -52,7 +62,7 @@ type VirtualKey* {.pure.} = enum
     Semicolon
     Apostrophe
     Backtick
-    LeftShift
+
     BackSlash
     Z
     X
@@ -64,9 +74,9 @@ type VirtualKey* {.pure.} = enum
     Comma
     Period
     Slash
-    RightShift
+
     KeypadMultiply
-    LeftAlt
+
     Space
     CapsLock
     F1
@@ -105,10 +115,10 @@ type VirtualKey* {.pure.} = enum
     International5
     International6
     KeypadEnter
-    RightControl
+
     KeypadDivide
     PrintScreen
-    RightAlt
+
     Home
     Up
     PageUp
@@ -130,8 +140,8 @@ type VirtualKey* {.pure.} = enum
     Lang1
     Lang2
     International3
-    LeftGUI
-    RightGUI
+
+
     Stop
     Again
     Undo
@@ -177,3 +187,36 @@ type VirtualKey* {.pure.} = enum
     IlluminateToggle
     IlluminateDown
     IlluminateUp
+
+type ModifiersSet* = distinct int16
+
+{.push inline.}
+
+proc isModifier*(vk:VirtualKey):bool =
+    result = vk.int >= VirtualKey.LeftControl.int and vk.int <= VirtualKey.RightGUI.int
+
+proc incl*(s: var ModifiersSet, vk: VirtualKey) =
+    assert(vk.isModifier)
+    s = (s.int16 or (1 shl vk.int16)).ModifiersSet
+
+proc excl*(s: var ModifiersSet, vk: VirtualKey) =
+    assert(vk.isModifier)
+    s = (s.int16 and not (1 shl vk.int16)).ModifiersSet
+
+proc contains*(s: ModifiersSet, vk: VirtualKey): bool =
+    assert(vk.isModifier)
+    result = ((s.int16 shr vk.int16) and 1).bool
+
+proc anyCtrl*(s: ModifiersSet): bool=
+    result = VirtualKey.LeftControl in s or VirtualKey.RightControl in s
+
+proc anyAlt*(s: ModifiersSet): bool=
+    result = VirtualKey.LeftAlt in s or VirtualKey.RightAlt in s
+
+proc anyGui*(s: ModifiersSet): bool =
+    result = VirtualKey.LeftGUI in s or VirtualKey.RightGUI in s
+
+proc anyShift*(s: ModifiersSet): bool =
+    result = VirtualKey.LeftShift in s or VirtualKey.RightShift in s
+
+{.pop.}
