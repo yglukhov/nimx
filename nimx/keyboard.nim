@@ -188,15 +188,23 @@ type VirtualKey* {.pure.} = enum
     IlluminateDown
     IlluminateUp
 
+type ModifiersSet* = distinct int16
+
+{.push inline.}
+
 proc isModifier*(vk:VirtualKey):bool =
     result = vk.int >= VirtualKey.LeftControl.int and vk.int <= VirtualKey.RightGUI.int
 
-type ModifiersSet* = distinct int16
-
-proc incl*(s: var ModifiersSet, vk: VirtualKey) {.inline.} =
+proc incl*(s: var ModifiersSet, vk: VirtualKey) =
+    assert(vk.isModifier)
     s = (s.int16 or (1 shl vk.int16)).ModifiersSet
 
-proc contains*(s: ModifiersSet, vk: VirtualKey): bool {.inline.} =
+proc excl*(s: var ModifiersSet, vk: VirtualKey) =
+    assert(vk.isModifier)
+    s = (s.int16 and not (1 shl vk.int16)).ModifiersSet
+
+proc contains*(s: ModifiersSet, vk: VirtualKey): bool =
+    assert(vk.isModifier)
     result = ((s.int16 shr vk.int16) and 1).bool
 
 proc anyCtrl*(s: ModifiersSet): bool=
@@ -211,7 +219,4 @@ proc anyGui*(s: ModifiersSet): bool =
 proc anyShift*(s: ModifiersSet): bool =
     result = VirtualKey.LeftShift in s or VirtualKey.RightShift in s
 
-proc excl*(s: var ModifiersSet, vk: VirtualKey) {.inline.} =
-    s = (s.int16 and not (1 shl vk.int16)).ModifiersSet
-
-# proc contains(s: ModifiersSet, vk: VirtualKey, moreVK: varargs[VirtualKey]): bool
+{.pop.}
