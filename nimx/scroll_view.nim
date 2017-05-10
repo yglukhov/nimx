@@ -12,10 +12,14 @@ import math
 type ScrollView* = ref object of View
     clipView: ClipView
     mHorizontalScrollBar, mVerticalScrollBar: ScrollBar
+    mOnScrollCallback: proc()
 
 const scrollBarWidth = 12.Coord
 
 proc onScrollBar(v: ScrollView, sb: ScrollBar)
+
+proc onScroll*(v: ScrollView, cb:proc())=
+    v.mOnScrollCallback = cb
 
 proc relayout(v: ScrollView) =
     var cvs = v.bounds.size
@@ -102,14 +106,23 @@ proc contentSize(v: ScrollView): Size =
     if not cv.isNil:
         result = cv.frame.size
 
-proc recalcScrollbarKnobPositions(v: ScrollView) =
+proc scrollPosition*(v: ScrollView): Point=
+    #[
+        Result: Point where x and y between 0.0 .. 1.0
+     ]#
     var cs = v.contentSize
+    result = newPoint(0.0, 0.0)
+    let csx = cs.width - v.clipView.bounds.width
+    let csy = cs.height - v.clipView.bounds.height
+    result.x = if csx > 0.0: v.clipView.bounds.x / csx else: 0
+    result.y = if csy > 0.0: v.clipView.bounds.y / csy else: 0
+
+proc recalcScrollbarKnobPositions(v: ScrollView) =
+    let sp = v.scrollPosition()
     if not v.mHorizontalScrollBar.isNil:
-        let csd = cs.width - v.clipView.bounds.width
-        v.mHorizontalScrollBar.value = if csd > 0: v.clipView.bounds.x / csd else: 0
+        v.mHorizontalScrollBar.value = sp.x
     if not v.mVerticalScrollBar.isNil:
-        let csd = cs.height - v.clipView.bounds.height
-        v.mVerticalScrollBar.value = if csd > 0: v.clipView.bounds.y / csd else: 0
+        v.mVerticalScrollBar.value = sp.y
 
 method onScroll*(v: ScrollView, e: var Event): bool =
     let cvBounds = v.clipView.bounds
@@ -132,6 +145,9 @@ method onScroll*(v: ScrollView, e: var Event): bool =
 
     v.clipView.setBoundsOrigin(o)
     v.recalcScrollbarKnobPositions()
+    if not v.mOnScrollCallback.isNil:
+        v.mOnScrollCallback()
+
     result = true
 
 proc onScrollBar(v: ScrollView, sb: ScrollBar) =
