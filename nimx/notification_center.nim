@@ -146,7 +146,7 @@ template postNotification*[T: proc](nc: NotificationCenter, name: Notification[T
     else:
         pt = addr t
 
-    nc.dispatchNotification(int(name), pt) do(prc: proc(), ctx: pointer):
+    dispatchNotification(nc, int(name), pt) do(prc: proc(), ctx: pointer):
         let p = castProc[T, proc()](prc)
         when defined(js):
             var localT: type(t)
