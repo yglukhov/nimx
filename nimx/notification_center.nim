@@ -138,6 +138,15 @@ proc dispatchNotification(nc: NotificationCenter, notificationId: int, ctx: poin
         let vals = toSeq(values(obsMap))
         for p in vals: dispatch(p, ctx)
 
+proc dispatchForwarder[TProc, TTuple](prc: proc(), ctx: pointer) =
+    let p = castProc[TProc, proc()](prc)
+    when defined(js):
+        var localT: TTuple
+        {.emit: [localT, "=", ctx, ";"].}
+        appendTupleToCall(p(), localT)
+    else:
+        appendTupleToCall(p(), cast[ptr TTuple](ctx)[])
+
 template postNotification*[T: proc](nc: NotificationCenter, name: Notification[T], args: varargs[typed]) =
     var t = newTuple(args)
     var pt {.noInit.}: pointer
@@ -146,14 +155,7 @@ template postNotification*[T: proc](nc: NotificationCenter, name: Notification[T
     else:
         pt = addr t
 
-    dispatchNotification(nc, int(name), pt) do(prc: proc(), ctx: pointer):
-        let p = castProc[T, proc()](prc)
-        when defined(js):
-            var localT: type(t)
-            {.emit: [localT, "=", ctx, ";"].}
-            appendTupleToCall(p(), localT)
-        else:
-            appendTupleToCall(p(), cast[ptr type(t)](ctx)[])
+    dispatchNotification(nc, int(name), pt, dispatchForwarder[T, type(t)])
 
 
 when isMainModule:
