@@ -6,7 +6,7 @@ import nimx.view_event_handling_new
 import nimx.context
 import nimx.types
 import nimx.composition
-import nimx.gesture_detector_newtouch
+import nimx.gesture_detector
 import nimx.view
 import view_dragging_listener
 

@@ -32,9 +32,9 @@ method onScroll*(v: NumericTextField, e: var Event): bool =
     var action = false
     try:
         var val = parseFloat(v.text)
-        if alsoPressed(VirtualKey.LeftControl):
+        if VirtualKey.LeftControl in e.modifiers:
             val += e.offset.y * 0.1
-        elif alsoPressed(VirtualKey.LeftShift):
+        elif VirtualKey.LeftShift in e.modifiers:
             val += e.offset.y * 10
         else:
             val += e.offset.y

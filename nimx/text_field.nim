@@ -345,7 +345,7 @@ method onKeyDown*(t: TextField, e: var Event): bool =
             let oldCursorPos = cursorPos
             dec cursorPos
             if cursorPos < 0: cursorPos = 0
-            if (alsoPressed(VirtualKey.LeftShift) or alsoPressed(VirtualKey.RightShift)) and t.mText.len > 0:
+            if e.modifiers.anyShift() and t.mText.len > 0:
                 t.updateSelectionWithCursorPos(oldCursorPos, cursorPos)
             else:
                 t.textSelection = -1 .. -1
@@ -357,7 +357,7 @@ method onKeyDown*(t: TextField, e: var Event): bool =
             let textLen = t.mText.runeLen
             if cursorPos > textLen: cursorPos = textLen
 
-            if (alsoPressed(VirtualKey.LeftShift) or alsoPressed(VirtualKey.RightShift)) and t.mText.len > 0:
+            if e.modifiers.anyShift() and t.mText.len > 0:
                 t.updateSelectionWithCursorPos(oldCursorPos, cursorPos)
             else:
                 t.textSelection = -1 .. -1
@@ -371,7 +371,7 @@ method onKeyDown*(t: TextField, e: var Event): bool =
                 t.sendAction()
                 t.textSelection = -1 .. -1
         elif e.keyCode == VirtualKey.Home:
-            if alsoPressed(VirtualKey.LeftShift) or alsoPressed(VirtualKey.RightShift):
+            if e.modifiers.anyShift():
                 t.updateSelectionWithCursorPos(cursorPos, 0)
             else:
                 t.textSelection = -1 .. -1
@@ -380,7 +380,7 @@ method onKeyDown*(t: TextField, e: var Event): bool =
             t.updateCursorOffset()
             t.bumpCursorVisibility()
         elif e.keyCode == VirtualKey.End:
-            if alsoPressed(VirtualKey.LeftShift) or alsoPressed(VirtualKey.RightShift):
+            if e.modifiers.anyShift():
                 t.updateSelectionWithCursorPos(cursorPos, t.mText.runeLen)
             else:
                 t.textSelection = -1 .. -1
@@ -395,7 +395,7 @@ method onKeyDown*(t: TextField, e: var Event): bool =
                 var offset: Coord
                 t.mText.getClosestCursorPositionToPointInLine(ln + 1, newPoint(cursorOffset, 0), cursorPos, offset)
                 cursorOffset = offset
-                if alsoPressed(VirtualKey.LeftShift) or alsoPressed(VirtualKey.RightShift):
+                if e.modifiers.anyShift():
                     t.updateSelectionWithCursorPos(oldCursorPos, cursorPos)
                 else:
                     t.textSelection = -1 .. -1
@@ -407,7 +407,7 @@ method onKeyDown*(t: TextField, e: var Event): bool =
                     var offset: Coord
                     t.mText.getClosestCursorPositionToPointInLine(ln - 1, newPoint(cursorOffset, 0), cursorPos, offset)
                     cursorOffset = offset
-                    if alsoPressed(VirtualKey.LeftShift) or alsoPressed(VirtualKey.RightShift):
+                    if e.modifiers.anyShift():
                         t.updateSelectionWithCursorPos(oldCursorPos, cursorPos)
                     else:
                         t.textSelection = -1 .. -1

@@ -1,4 +1,4 @@
-import nimx.gesture_detector_newtouch
+import nimx.gesture_detector
 import nimx.view
 import nimx.event
 import nimx.context

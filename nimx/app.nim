@@ -5,7 +5,6 @@ import event
 import window_event_handling
 import logging
 
-
 type EventFilterControl* = enum
     efcContinue
     efcBreak
@@ -15,6 +14,8 @@ type EventFilter* = proc(evt: var Event, control: var EventFilterControl): bool
 type Application* = ref object of RootObj
     windows : seq[Window]
     eventFilters: seq[EventFilter]
+    inputState: set[VirtualKey]
+    modifiers: ModifiersSet
 
 proc pushEventFilter*(a: Application, f: EventFilter) = a.eventFilters.add(f)
 
@@ -22,6 +23,7 @@ proc newApplication(): Application =
     result.new()
     result.windows = @[]
     result.eventFilters = @[]
+    result.inputState = {}
 
 var mainApp : Application
 
@@ -36,12 +38,35 @@ proc addWindow*(a: Application, w: Window) =
 proc handleEvent*(a: Application, e: var Event): bool =
     if numberOfActiveTouches() == 0 and e.kind == etMouse and e.buttonState == bsUp:
         # There may be cases when mouse up is not paired with mouse down.
-        # This behavior observed in Safari, when clicking on canvas in menu-modal
+        # This behavior may be observed in Web and native platforms, when clicking on canvas in menu-modal
         # mode. We just ignore such events.
         warn "Mouse up event ignored"
         return false
 
+    if e.kind == etMouse and e.buttonState == bsDown and e.keyCode in a.inputState:
+        # There may be cases when mouse down is not paired with mouse up.
+        # This behavior may be observed in Web and native platforms
+        # We just send mouse bsUp fake event
+
+        var fakeEvent = newMouseButtonEvent(e.position, e.keyCode, bsUp, e.timestamp)
+        fakeEvent.window = e.window
+        discard a.handleEvent(fakeEvent)
+
     incrementActiveTouchesIfNeeded(e)
+
+    if e.kind == etMouse or e.kind == etTouch or e.kind == etKeyboard:
+        let kc = e.keyCode
+        let isModifier = kc.isModifier
+        if e.buttonState == bsDown:
+            if isModifier:
+                a.modifiers.incl(kc)
+            a.inputState.incl(kc)
+        else:
+            if isModifier:
+                a.modifiers.excl(kc)
+            a.inputState.excl(kc)
+
+        e.modifiers = a.modifiers
 
     var control = efcContinue
     var cleanupEventFilters = false

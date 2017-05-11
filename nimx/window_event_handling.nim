@@ -3,8 +3,6 @@ import abstract_window
 import event
 import view_event_handling
 import view_event_handling_new
-import sets
-import system_logger
 
 proc propagateEventThroughResponderChain(w: Window, e: var Event): bool =
     var r = w.firstResponder
@@ -14,19 +12,12 @@ proc propagateEventThroughResponderChain(w: Window, e: var Event): bool =
     if not result:
         result = w.processKeyboardEvent(e)
 
-var keyboardState: set[VirtualKey] = {}
-
-proc alsoPressed*(vk: VirtualKey): bool =
-    return vk in keyboardState
-
-
 proc getOtherResponders(v: View, exceptV: View, responders: var seq[View]) =
     for sv in v.subviews:
         if sv != exceptV:
             if sv.acceptsFirstResponder():
                 responders.add sv
             sv.getOtherResponders(exceptV, responders)
-
 
 proc findNearestNextResponder(fromX: float, fromY: float, responders: seq[View], forward: bool): View =
     let sign: float = if forward: 1 else: -1
@@ -44,10 +35,9 @@ proc findNearestNextResponder(fromX: float, fromY: float, responders: seq[View],
                 bestDV = dV
     return bestResponder
 
-
 method onKeyDown*(w: Window, e: var Event): bool =
     if e.keyCode == VirtualKey.Tab:
-        let forward = not alsoPressed(VirtualKey.LeftShift) and not alsoPressed(VirtualKey.RightShift)
+        let forward = not e.modifiers.anyShift()
         var curResp = w.firstResponder
         let firstRespRect = w.firstResponder.convertRectToWindow(w.firstResponder.bounds)
         var nextResponder: View
@@ -72,7 +62,6 @@ method onKeyDown*(w: Window, e: var Event): bool =
 
         return true
 
-
 method handleEvent*(w: Window, e: var Event): bool {.base.} =
     case e.kind:
         of etScroll:
@@ -80,12 +69,7 @@ method handleEvent*(w: Window, e: var Event): bool {.base.} =
         of etMouse, etTouch:
             result = w.processTouchEvent(e)
         of etKeyboard:
-            if e.buttonState == bsDown:
-                keyboardState.incl(e.keyCode)
-                result = w.propagateEventThroughResponderChain(e)
-            else:
-                result = w.propagateEventThroughResponderChain(e)
-                keyboardState.excl(e.keyCode)
+            result = w.propagateEventThroughResponderChain(e)
         of etTextInput:
             result = w.propagateEventThroughResponderChain(e)
         of etWindowResized:

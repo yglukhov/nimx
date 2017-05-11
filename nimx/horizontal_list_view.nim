@@ -4,7 +4,7 @@ export view
 import view_event_handling
 import view_event_handling_new
 import nimx.gesture_detector
-import nimx.gesture_detector_newtouch
+import nimx.gesture_detector
 import types
 import event
 import context
