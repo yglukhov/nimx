@@ -21,6 +21,7 @@ type SelfContainedImage* = ref object of Image
     mSize: Size
     texCoords*: array[4, GLfloat]
     framebuffer*: FramebufferRef
+    renderbuffer*: RenderbufferRef
     mFilePath: string
 
 type
@@ -62,6 +63,8 @@ when not defined(js):
             glDeleteTextures(1, addr i.texture)
         if i.framebuffer != invalidFrameBuffer:
             glDeleteFramebuffers(1, addr i.framebuffer)
+        if i.renderbuffer != invalidRenderbuffer:
+            glDeleteRenderbuffers(1, addr i.renderbuffer)
         dec totalImages
 
 proc newSelfContainedImage(): SelfContainedImage {.inline.} =
@@ -339,6 +342,31 @@ proc flipVertically*(i: SelfContainedImage) =
 
 proc flipped*(i: SelfContainedImage): bool=
     result = i.texCoords[1] > i.texCoords[3]
+
+proc resetToSize*(i: SelfContainedImage, size: Size, gl: GL) =
+    i.mSize = size
+
+    let flipped = i.flipped
+
+    let texWidth = if isPowerOfTwo(size.width.int): size.width.int else: nextPowerOfTwo(size.width.int)
+    let texHeight = if isPowerOfTwo(size.height.int): size.height.int else: nextPowerOfTwo(size.height.int)
+
+    i.texCoords[0] = 0
+    i.texCoords[1] = 0
+    i.texCoords[2] = size.width / texWidth.Coord
+    i.texCoords[3] = size.height / texHeight.Coord
+
+    if flipped:
+        i.flipVertically()
+
+    if i.texture != invalidTexture:
+        gl.bindTexture(gl.TEXTURE_2D, i.texture)
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA.GLint, texWidth.GLsizei, texHeight.GLsizei, 0, gl.RGBA, gl.UNSIGNED_BYTE, nil)
+
+        if i.renderbuffer != invalidRenderbuffer:
+            gl.bindRenderbuffer(gl.RENDERBUFFER, i.renderbuffer)
+            let depthStencilFormat = when defined(js) or defined(emscripten): gl.DEPTH_STENCIL else: gl.DEPTH24_STENCIL8
+            gl.renderbufferStorage(gl.RENDERBUFFER, depthStencilFormat, texWidth.GLsizei, texHeight.GLsizei)
 
 type ImageFileFormat = enum tga, hdr, bmp, png
 

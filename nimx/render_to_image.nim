@@ -31,6 +31,8 @@ proc bindFramebuffer*(gl: GL, i: SelfContainedImage, makeDepthAndStencil: bool =
 
             gl.renderbufferStorage(gl.RENDERBUFFER, depthStencilFormat, texWidth.GLsizei, texHeight.GLsizei)
             gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_STENCIL_ATTACHMENT, gl.RENDERBUFFER, depthBuffer)
+
+            i.renderbuffer = depthBuffer
     else:
         gl.bindFramebuffer(gl.FRAMEBUFFER, i.framebuffer)
 

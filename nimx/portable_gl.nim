@@ -79,6 +79,7 @@ when defined js:
     const invalidShader* : ShaderRef = nil
     const invalidBuffer* : BufferRef = nil
     const invalidFrameBuffer* : FramebufferRef = nil
+    const invalidRenderBuffer* : RenderbufferRef = nil
     const invalidTexture* : TextureRef = nil
 
     {.push importcpp.}
@@ -183,6 +184,7 @@ else:
     const invalidShader* : ShaderRef = 0
     const invalidBuffer* : BufferRef = 0
     const invalidFrameBuffer* : FramebufferRef = 0
+    const invalidRenderBuffer* : RenderbufferRef = 0
     const invalidTexture* : TextureRef = 0
 
     template VERTEX_SHADER*(gl: GL): GLenum = GL_VERTEX_SHADER
