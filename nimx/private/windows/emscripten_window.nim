@@ -214,7 +214,6 @@ proc initCommon(w: EmscriptenWindow, r: view.Rect) =
 
     discard emscripten_set_resize_callback(nil, cast[pointer](w), 0, onResize)
 
-    #w.enableAnimation(true)
     mainApplication().addWindow(w)
     w.updateCanvasSize()
 
