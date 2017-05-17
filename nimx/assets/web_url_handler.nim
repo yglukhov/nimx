@@ -66,7 +66,6 @@ proc getHttpStream(url: string, handler: Handler) =
                 {.emit: "`dataView` = new DataView(`data`);".}
                 handler(newStreamWithDataView(dataView), nil)
             else:
-                info "Processing url: ", url
                 handler(newStringStream(arrayBufferToString(data)), nil)
 
         let errorListener = proc(e: URLLoadingError) =
