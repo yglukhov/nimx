@@ -8,8 +8,10 @@ proc newNativeAssetBundle*(): NativeAssetBundle =
     result.new()
     when defined(macosx):
         result.mBaseUrl = "file://" & getAppDir() /../ "Resources"
-    else:
+    elif defined(ios):
         result.mBaseUrl = "file://" & getAppDir()
+    else:
+        result.mBaseUrl = "file://" & getAppDir() / "res"
 
 method urlForPath*(ab: NativeAssetBundle, path: string): string =
     return ab.mBaseUrl / path
