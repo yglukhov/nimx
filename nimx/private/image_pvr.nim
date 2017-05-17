@@ -111,4 +111,4 @@ proc initWithPVR(i: SelfContainedImage, data: ptr uint8) =
     loadPVRDataToTexture(data, i.texture, i.mSize, i.texCoords)
 
 proc isPVRData*(data: string): bool =
-    raise newException(Exception, "Not implemented")
+    discard # TODO: implement this
