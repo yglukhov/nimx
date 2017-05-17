@@ -9,6 +9,10 @@ import sequtils
 import oswalkdir
 import variant
 
+import nimx.assets.asset_loading
+import nimx.assets.url_stream
+import nimx.assets.json_loading
+
 const debugResCache = false
 
 const jsEnv = defined(js) or defined(emscripten)
@@ -84,8 +88,14 @@ registerResourcePreloader(["json", "zsm"]) do(name: string, callback: proc(j: Js
     loadJsonResourceAsync(name) do(j: JsonNode):
         callback(j)
 
+registerAssetLoader(["json", "zsm"]) do(url: string, callback: proc(j: JsonNode)):
+    loadJsonFromURL(url, callback)
+
 when defined(js) or defined(emscripten):
     import jsbind
+
+registerAssetLoader(["obj", "txt"]) do(s: Stream, callback: proc(s: string)):
+    callback(s.readAll())
 
 registerResourcePreloader(["obj", "txt"]) do(name: string, callback: proc(s: string)):
     when defined(js) or defined(emscripten):

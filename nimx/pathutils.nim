@@ -64,5 +64,21 @@ proc normalizePath*(path: var string) =
             inc i
     path.setLen(j)
 
+when defined(js):
+    proc getCurrentHref*(): string =
+        var s: cstring
+        {.emit: """
+        `s` = window.location.href;
+        """.}
+        result = $s
+elif defined(emscripten):
+    import jsbind.emscripten
+
+    proc getCurrentHref*(): string =
+        let r = EM_ASM_INT """
+        return _nimem_s(window.location.href);
+        """
+        result = cast[string](r)
+
 when isMainModule:
     doAssert(relativePathToPath("/a/b/c/d/e", "/a/b/c/f/g") == "../../f/g")
