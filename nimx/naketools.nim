@@ -45,6 +45,7 @@ type Builder* = ref object
     additionalLinkerFlags*: seq[string]
     additionalCompilerFlags*: seq[string]
     additionalLibsToCopy*: seq[string]
+    additionalPlistAttrs*: JsonNode
 
     runAfterBuild* : bool
     targetArchitectures* : seq[string]
@@ -219,6 +220,7 @@ proc newBuilder*(platform: string): Builder =
     b.additionalLinkerFlags = @[]
     b.additionalCompilerFlags = @[]
     b.additionalLibsToCopy = @[]
+    b.additionalPlistAttrs = newJObject()
 
     b.mainFile = "main"
 
@@ -336,6 +338,8 @@ proc fillInfoPlist(b: Builder, plist: JsonNode) =
     plist["CFBundleExecutable"] = %b.appName
     plist["CFBundleShortVersionString"] = %b.appVersion
     plist["CFBundleVersion"] = % $b.buildNumber
+    for key, value in b.additionalPlistAttrs:
+        plist[key] = value
 
 proc makeIosBundle(b: Builder) =
     let loadPath = b.originalResourcePath / "Info.plist"
