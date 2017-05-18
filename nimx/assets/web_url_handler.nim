@@ -49,7 +49,7 @@ when web:
     when defined(emscripten):
         import jsbind.emscripten
 
-        proc arrayBufferToString(arrayBuffer: JSObj): string =
+        proc arrayBufferToString(arrayBuffer: JSObj): string {.inline.} =
             let r = EM_ASM_INT("""
             var a = new Int8Array(_nimem_o[$0]);
             var b = _nimem_ps(a.length);
