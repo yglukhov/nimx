@@ -527,6 +527,7 @@ proc nimbleOverrideFlags(b: Builder): seq[string] =
     while d.len > 1:
         let nimbleoverride = d / "nimbleoverride"
         if fileExists(nimbleoverride):
+            echo "WARNING: nimbleoverride feature is deprecated and will soon be removed!"
             for ln in lines(nimbleoverride):
                 let path = ln.strip()
                 if path.len > 0 and path[0] != '#':
