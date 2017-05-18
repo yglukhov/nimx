@@ -94,7 +94,7 @@ elif defined(macosx):
     proc cancel(t: Timer) {.inline.} =
         CFRunLoopTimerInvalidate(t.timer)
 else:
-    import sdl_perform_on_main_thread
+    import perform_on_main_thread
 
     proc fireCallback(timer: pointer) {.cdecl.} =
         var t = cast[Timer](timer)

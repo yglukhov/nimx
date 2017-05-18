@@ -423,7 +423,7 @@ const asyncResourceLoad = not defined(js) and not defined(emscripten) and not de
 when asyncResourceLoad:
     const loadAsyncTextureInMainThread = defined(android) or defined(ios)
 
-    import threadpool, sdl_perform_on_main_thread, sdl2
+    import threadpool, perform_on_main_thread, sdl2
     import private.worker_queue
 
     var threadCtx : GlContextPtr
