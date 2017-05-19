@@ -1,0 +1,116 @@
+version: '{build}'
+
+cache:
+  - DIST
+
+matrix:
+  fast_finish: true
+
+environment:
+  matrix:
+    - MINGW_DIR: mingw64
+      #MINGW_URL: https://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win64/Personal%20Builds/mingw-builds/7.1.0/threads-posix/seh/x86_64-7.1.0-release-posix-seh-rt_v5-rev0.7z
+      MINGW_URL: https://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win64/Personal%20Builds/mingw-builds/4.9.2/threads-win32/seh/x86_64-4.9.2-release-win32-seh-rt_v4-rev4.7z/download
+      MINGW_ARCHIVE: x86_64-4.9.2-release-win32-seh-rt_v4-rev4.7z
+      SDL_URL: https://www.libsdl.org/release/SDL2-2.0.5-win32-x64.zip
+      platform: x64
+    # - MINGW_DIR: mingw32
+    #   MINGW_URL: https://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win32/Personal%20Builds/mingw-builds/4.9.2/threads-win32/dwarf/i686-4.9.2-release-win32-dwarf-rt_v4-rev4.7z/download
+    #   MINGW_ARCHIVE: i686-4.9.2-release-win32-dwarf-rt_v4-rev4.7z
+    #   platform: x86
+
+install:
+  - ps: |
+      Get-ChildItem Env:
+
+      $MESA_GL_URL = "https://github.com/vispy/demo-data/raw/master/mesa/"
+
+      # Mesa DLLs found linked from:
+      #     http://qt-project.org/wiki/Cross-compiling-Mesa-for-Windows
+      # to:
+      #     http://sourceforge.net/projects/msys2/files/REPOS/MINGW/x86_64/mingw-w64-x86_64-mesa-10.2.4-1-any.pkg.tar.xz/download
+
+      function DownloadMesaOpenGL ($architecture) {
+          $webclient = New-Object System.Net.WebClient
+          $basedir = $pwd.Path + "\"
+          $filepath = $basedir + "opengl32.dll"
+          # Download and retry up to 3 times in case of network transient errors.
+          $url = $MESA_GL_URL + "opengl32_mingw_" + $architecture + ".dll"
+          Write-Host "Downloading" $url
+          $retry_attempts = 2
+          for($i=0; $i -lt $retry_attempts; $i++){
+              try {
+                  $webclient.DownloadFile($url, $filepath)
+                  break
+              }
+              Catch [Exception]{
+                  Start-Sleep 1
+              }
+          }
+          if (Test-Path $filepath) {
+              Write-Host "File saved at" $filepath
+          } else {
+              # Retry once to get the error message if any at the last try
+              $webclient.DownloadFile($url, $filepath)
+          }
+      }
+
+      DownloadMesaOpenGL "64"
+      New-Item .\build\windows -ItemType Directory
+      Copy-Item .\opengl32.dll ".\build\windows\"
+
+      $cwd = Convert-Path .
+      $env:Path += ";$cwd\DIST\Nim\bin;$cwd\DIST\$env:MINGW_DIR\bin;$env:USERPROFILE\.nimble\bin"
+      if (Test-Path "DIST") {
+        echo "Using dist cache"
+        cd DIST\Nim
+        git pull origin devel
+        koch boot -d:release
+      }
+      else {
+        echo "Building dist cache"
+
+        appveyor DownloadFile "$env:SDL_URL" -FileName "sdl2.zip"
+        Expand-Archive .\sdl2.zip -DestinationPath "$env:SystemRoot\system32\"
+        Remove-Item .\sdl2.zip
+
+        MKDIR DIST
+        MKDIR DIST\PCRE
+        nuget install pcre -Verbosity quiet -Version 8.33.0.1 -OutputDirectory DIST\PCRE
+        appveyor DownloadFile "$env:MINGW_URL" -FileName "$env:MINGW_ARCHIVE"
+        7z x -y "$env:MINGW_ARCHIVE" -o"DIST" > $null
+        Remove-Item "$env:MINGW_ARCHIVE"
+        cd DIST
+        Copy-Item PCRE\pcre.redist.8.33.0.1\build\native\bin\v100\x64\Release\dynamic\utf8\pcre8.dll "$env:SystemRoot\system32\pcre64.dll"
+        Copy-Item PCRE\pcre.redist.8.33.0.1\build\native\bin\v100\Win32\Release\dynamic\utf8\pcre8.dll "$env:SystemRoot\system32\pcre32.dll"
+        git clone -q --depth 1 https://github.com/nim-lang/Nim
+        cd Nim
+        git clone -q --depth 1 https://github.com/nim-lang/csources
+        cd csources
+        if ("$env:PLATFORM" -eq "x64") { cmd /c build64.bat } else { cmd /c build.bat }
+        cd ..
+        bin\nim c koch 2>&1
+        .\koch boot -d:release 2>&1
+        .\koch nimble 2>&1
+        Remove-Item -Recurse -Force dist
+        Remove-Item -Recurse -Force csources
+        Remove-Item -Recurse -Force nimcache
+        Copy-Item C:\OpenSSL-Win64\libeay32.dll BIN\libeay32.dll
+        Copy-Item C:\OpenSSL-Win64\libssl32.dll BIN\libssl32.dll
+        Copy-Item C:\OpenSSL-Win64\libeay32.dll BIN\libeay64.dll
+        Copy-Item C:\OpenSSL-Win64\libssl32.dll BIN\libssl64.dll
+      }
+
+      cd ..\..
+
+  - nimble install -y
+  - nake tests && nake samples -d:js --norun && nake docs
+
+build_script:
+  - nake tests
+  - nake samples -d:js --norun
+
+# test_script:
+#   - echo "hello test"
+
+deploy: off
