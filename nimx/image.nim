@@ -171,12 +171,8 @@ proc initWithResource*(i: SelfContainedImage, name: string) =
             i.initWithStream(s)
             i.setFilePath(path)
 
-proc imageWithResource*(name: string): SelfContainedImage =
-    result = findCachedResource[SelfContainedImage](name)
-    if result.isNil:
-        resourceNotCached(name)
-        result = newSelfContainedImage()
-        result.initWithResource(name)
+proc imageWithResource*(name: string): Image =
+    result = sharedAssetManager().cachedAsset(Image, name)
 
 proc initSpriteImages(s: SpriteSheet, data: JsonNode) =
     let images = newTable[string, SpriteImage]()
