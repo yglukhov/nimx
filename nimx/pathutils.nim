@@ -1,4 +1,4 @@
-import strutils
+import strutils, ospaths
 
 proc relativePathToPath*(path, toPath: string): string =
     # Returns a relative path to `toPath` which is equivalent of absolute `path`
@@ -72,6 +72,11 @@ proc isSubpathOf*(child, parent: string): bool =
         if parent[i] != child[i]: return false
         inc i
     return i == child.len or child[i] == '/' or parent[i - 1] == '/'
+
+proc toAbsolutePath*(relativeOrAbsolutePath, basePath: string): string =
+    if isAbsolute(relativeOrAbsolutePath): return relativeOrAbsolutePath
+    result = basePath / relativeOrAbsolutePath
+    normalizePath(result)
 
 when defined(js):
     proc getCurrentHref*(): string =
