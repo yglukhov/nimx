@@ -1,6 +1,7 @@
 import strutils, tables
 import variant
-import abstract_asset_bundle, asset_cache, url_stream, asset_loading
+import abstract_asset_bundle, asset_cache, url_stream, asset_loading, asset_loader
+import nimx.pathutils
 
 type
     AssetManager* = ref object
@@ -53,7 +54,13 @@ proc defaultAssetBundle(am: AssetManager): AssetBundle =
 
 proc mountIndex(am: AssetManager, path: string): int =
     for i, m in am.mounts:
-        if m.path.startsWith(path):
+        if path.isSubpathOf(m.path):
+            return i
+    return -1
+
+proc mountIndex(am: AssetManager, ab: AssetBundle): int =
+    for i, m in am.mounts:
+        if m.ab == ab:
             return i
     return -1
 
@@ -61,7 +68,7 @@ proc mountForPath(am: AssetManager, path: string): tuple[ab: AssetBundle, cache:
     let i = am.mountIndex(path)
     if i == -1:
         return (am.defaultAssetBundle, am.defaultCache, path)
-    return (am.mounts[i].ab, am.mounts[i].cache, path.substr(am.mounts[i].path.len))
+    return (am.mounts[i].ab, am.mounts[i].cache, path.substr(am.mounts[i].path.len + 1))
 
 proc mount*(am: AssetManager, path: string, assetBundle: AssetBundle) =
     am.mounts.add((path, assetBundle, newAssetCache()))
@@ -82,6 +89,14 @@ proc urlForResource*(am: AssetManager, path: string): string =
     var (a, _, p) = am.mountForPath(path)
     result = a.urlForPath(p)
 
+proc resolveUrl*(am: AssetManager, url: string): string =
+    const prefix = "res://"
+    if url.startsWith(prefix):
+        let path = url.substr(prefix.len)
+        result = sharedAssetManager().urlForResource(path)
+    else:
+        result = url
+
 proc cachedAssetAux(am: AssetManager, path: string): Variant =
     let (_, c, p) = am.mountForPath(path)
     result = c.getOrDefault(p)
@@ -90,7 +105,7 @@ proc cacheAssetAux(am: AssetManager, path: string, v: Variant) =
     let (_, c, p) = am.mountForPath(path)
     c[p] = v
 
-proc cachedAsset*[T](am: AssetManager, path: string): T {.inline.} =
+proc cachedAsset*(am: AssetManager, T: typedesc, path: string): T {.inline.} =
     am.cachedAssetAux(path).get(T)
 
 proc cachedAsset*[T](am: AssetManager, path: string, default: T): T =
@@ -135,8 +150,26 @@ proc getAssetAtPath*[T](am: AssetManager, path: string, putToCache: bool, handle
 proc getAssetAtPath*[T](am: AssetManager, path: string, handler: proc(res: T, err: string)) {.inline.} =
     am.getAssetAtPath(path, true, handler)
 
+proc loadAssetsInBundles*(am: AssetManager, bundles: openarray[AssetBundle], onProgress: proc(p: float), onComplete: proc()) =
+    let al = newAssetLoader()
+    var tempCache = newAssetCache()
+
+    al.onComplete = proc() =
+        for k, v in tempCache:
+            am.cacheAssetAux(k, v)
+        onComplete()
+
+    al.onProgress = onProgress
+    al.assetCache = tempCache
+
+    var allAssets = newSeq[string]()
+    for b in bundles:
+        let i = am.mountIndex(b)
+        if i == -1:
+            raise newException(Exception, "AssetBundle not mounted")
+        allAssets &= b.allAssetsWithBasePath(am.mounts[i].path)
+
+    al.loadAssets(allAssets)
+
 registerUrlHandler("res") do(url: string, handler: Handler) {.gcsafe.}:
-    const prefixLen = "res://".len
-    let p = url.substr(prefixLen)
-    let resolvedUrl = sharedAssetManager().urlForResource(p)
-    openStreamForUrl(resolvedUrl, handler)
+    openStreamForUrl(sharedAssetManager().resolveUrl(url), handler)

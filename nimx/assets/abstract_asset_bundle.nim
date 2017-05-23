@@ -6,6 +6,10 @@ type
 
 proc abstractMethod() = raise newException(Exception, "Abstract method called")
 
-method isEnumerable*(ab: AssetBundle): bool {.base.} = true
-method forEachAsset*(ab: AssetBundle, action: proc(path: string): bool) {.base.} = abstractMethod()
+method allAssets*(ab: AssetBundle): seq[string] {.base.} = abstractMethod()
 method urlForPath*(ab: AssetBundle, path: string): string {.base, gcsafe.} = abstractMethod()
+
+proc allAssetsWithBasePath*(ab: AssetBundle, path: string): seq[string] =
+    result = ab.allAssets()
+    for i in 0 ..< result.len:
+        result[i] = path / result[i]
