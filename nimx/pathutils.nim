@@ -64,6 +64,15 @@ proc normalizePath*(path: var string) =
             inc i
     path.setLen(j)
 
+proc isSubpathOf*(child, parent: string): bool =
+    if child.len < parent.len: return false
+    let ln = parent.len
+    var i = 0
+    while i < ln:
+        if parent[i] != child[i]: return false
+        inc i
+    return i == child.len or child[i] == '/' or parent[i - 1] == '/'
+
 when defined(js):
     proc getCurrentHref*(): string =
         var s: cstring
@@ -82,3 +91,6 @@ elif defined(emscripten):
 
 when isMainModule:
     doAssert(relativePathToPath("/a/b/c/d/e", "/a/b/c/f/g") == "../../f/g")
+    doAssert("a/b/c".isSubpathOf("a/b"))
+    doAssert(not "a/b/ca".isSubpathOf("a/b/c"))
+    doAssert("a/b/c/a".isSubpathOf("a/b/c/"))
