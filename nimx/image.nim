@@ -194,7 +194,7 @@ proc initSpriteImages(s: SpriteSheet, data: JsonNode) =
             if not images.hasKey(k): v.spriteSheet = nil
     s.images = images
 
-proc newSpriteSheetWithResourceAndJson*(name: string, spriteDesc: JsonNode): SpriteSheet =
+proc newSpriteSheetWithResourceAndJson*(name: string, spriteDesc: JsonNode): SpriteSheet {.deprecated.} =
     result.new()
     result.initWithResource(name)
     result.initSpriteImages(spriteDesc)
@@ -210,7 +210,7 @@ when defined(js):
             if r.len != chunkSize: break
         result = parseJson(fullJson)
 
-proc newSpriteSheetWithResourceAndJson*(imageFileName, jsonDescFileName: string): SpriteSheet =
+proc newSpriteSheetWithResourceAndJson*(imageFileName, jsonDescFileName: string): SpriteSheet {.deprecated.} =
     result.new()
     result.initWithResource(imageFileName)
     let res = result
@@ -655,8 +655,9 @@ proc loadImageFromURL*(url: string, callback: proc(i: SelfContainedImage)) {.dep
             callback(SelfContainedImage(i))
 
 when defined(js) or defined(emscripten):
-    registerAssetLoader(["file", "http", "https"], ["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga"]) do(url: string, handler: proc(i: Image)):
-        loadImageFromURL(url, handler)
+    registerAssetLoader(["file", "http", "https", "res"], ["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga"]) do(url: string, handler: proc(i: Image)):
+        loadImageFromURL(sharedAssetManager().resolveUrl(url), handler)
+
 else:
     registerAssetLoader(["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga", "pvr"]) do(url: string, handler: proc(i: Image)):
         when asyncResourceLoad:
