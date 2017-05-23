@@ -1,4 +1,4 @@
-import json
+import json, logging
 import url_stream, web_url_handler
 
 when defined(js):
@@ -11,5 +11,9 @@ proc loadJsonFromURL*(url: string, handler: proc(j: JsonNode)) =
         loadJSURL(url, "text", nil, nil, reqListener)
     else:
         openStreamForUrl(url) do(s: Stream, err: string):
-            handler(parseJson(s, url))
-            s.close()
+            if err.isNil:
+                handler(parseJson(s, url))
+                s.close()
+            else:
+                error "Error loading json from url (", url, "): ", err
+                handler(nil)
