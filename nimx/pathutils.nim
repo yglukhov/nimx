@@ -75,7 +75,7 @@ proc isSubpathOf*(child, parent: string): bool =
 
 proc toAbsolutePath*(relativeOrAbsolutePath, basePath: string): string =
     if isAbsolute(relativeOrAbsolutePath): return relativeOrAbsolutePath
-    result = basePath / relativeOrAbsolutePath
+    result = basePath & '/' & relativeOrAbsolutePath
     normalizePath(result)
 
 when defined(js):

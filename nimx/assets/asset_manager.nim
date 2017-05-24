@@ -8,7 +8,7 @@ type
         mounts: seq[tuple[path: string, ab: AssetBundle, cache: AssetCache]]
         mDefaultAssetBundle: AssetBundle
         defaultCache: AssetCache
-        
+
 
 template newAssetCache(): AssetCache = newTable[string, Variant]()
 
@@ -64,6 +64,11 @@ proc mountIndex(am: AssetManager, ab: AssetBundle): int =
             return i
     return -1
 
+when defined(windows):
+    template normalizeSlashes(s: string): string = s.replace('\\', '/')
+else:
+    template normalizeSlashes(s: string): string = s
+
 proc mountForPath(am: AssetManager, path: string): tuple[ab: AssetBundle, cache: AssetCache, path: string] =
     let i = am.mountIndex(path)
     if i == -1:
@@ -86,23 +91,23 @@ proc unmount*(am: AssetManager, ab: AssetBundle) =
             break
 
 proc urlForResource*(am: AssetManager, path: string): string =
-    var (a, _, p) = am.mountForPath(path)
+    var (a, _, p) = am.mountForPath(path.normalizeSlashes)
     result = a.urlForPath(p)
 
 proc resolveUrl*(am: AssetManager, url: string): string =
     const prefix = "res://"
     if url.startsWith(prefix):
         let path = url.substr(prefix.len)
-        result = sharedAssetManager().urlForResource(path)
+        result = am.urlForResource(path)
     else:
         result = url
 
 proc cachedAssetAux(am: AssetManager, path: string): Variant =
-    let (_, c, p) = am.mountForPath(path)
+    let (_, c, p) = am.mountForPath(path.normalizeSlashes)
     result = c.getOrDefault(p)
 
 proc cacheAssetAux(am: AssetManager, path: string, v: Variant) =
-    let (_, c, p) = am.mountForPath(path)
+    let (_, c, p) = am.mountForPath(path.normalizeSlashes)
     c[p] = v
 
 proc cachedAsset*(am: AssetManager, T: typedesc, path: string): T {.inline.} =
@@ -121,7 +126,7 @@ proc cacheAsset*[T](am: AssetManager, path: string, v: T) {.inline.} =
 proc getAssetAtPathAux(am: AssetManager, path: string, putToCache: bool, handler: proc(res: Variant, err: string)) =
     let v = am.cachedAssetAux(path)
     if v.isEmpty:
-        var (a, c, p) = am.mountForPath(path)
+        var (a, c, p) = am.mountForPath(path.normalizeSlashes)
         let url = a.urlForPath(p)
         if not putToCache:
             # Create dummy cache that will be disposed by GC
