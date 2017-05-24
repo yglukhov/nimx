@@ -132,7 +132,7 @@ proc isHiddenFile(path: string): bool =
 
 proc getEnvCt(k: string): string {.compileTime.} =
     when defined(buildOnWindows): # This should be defined by the naketools.nim
-        result = staticExec("cmd /c \"echo %NIMX_RES_PATH%\"")
+        result = staticExec("cmd /c \"echo %" & k & "%\"")
     else:
         result = staticExec("echo $" & k)
     result.removeSuffix()
@@ -155,8 +155,10 @@ proc getResourceNames*(path: string = ""): seq[string] {.compileTime.} =
         prefix &= "/"
 
     for f in oswalkdir.walkDirRec(prefix & path):
-        if not isHiddenFile(f):
-            var str = f.substr(prefix.len)
-            when defined(buildOnWindows):
-                str = str.replace('\\', '/')
+        var str = f
+        when defined(buildOnWindows):
+            str = str.replace('\\', '/')
+
+        if not isHiddenFile(str):
+            str = str.substr(prefix.len)
             result.add(str)

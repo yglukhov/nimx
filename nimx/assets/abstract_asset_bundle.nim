@@ -12,4 +12,4 @@ method urlForPath*(ab: AssetBundle, path: string): string {.base, gcsafe.} = abs
 proc allAssetsWithBasePath*(ab: AssetBundle, path: string): seq[string] =
     result = ab.allAssets()
     for i in 0 ..< result.len:
-        result[i] = path / result[i]
+        result[i] = path & '/' & result[i]
