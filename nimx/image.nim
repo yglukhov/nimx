@@ -1,11 +1,15 @@
 import types
 import opengl
-import math, strutils, tables, json, streams
+import math, strutils, tables, json, streams, logging
 import portable_gl
 import resource
 import resource_cache
 import system_logger
 import mini_profiler
+
+import nimx.assets.asset_loading
+import nimx.assets.url_stream
+import nimx.assets.asset_manager # Required to register "res" url handler
 
 when not defined(js):
     import load_image_impl
@@ -137,8 +141,22 @@ when not defined js:
         result = newSelfContainedImage()
         result.initWithContentsOfFile(path)
 
+when not defined(js):
+    proc initWithStream(i: SelfContainedImage, s: Stream) =
+        var data = s.readAll()
+        s.close()
+        if isPVRData(data):
+            i.initWithPVR(cast[ptr uint8](addr data[0]))
+        else:
+            var x, y, comp: cint
+
+            var bitmap = stbi_load_from_memory(cast[ptr uint8](addr data[0]),
+                data.len.cint, addr x, addr y, addr comp, 0)
+            i.initWithBitmap(bitmap, x, y, comp)
+            stbi_image_free(bitmap)
+
 proc initWithResource*(i: SelfContainedImage, name: string) =
-    when defined js:
+    when defined(js):
         let p = pathForResource(name)
         i.setFilePath(p)
         let nativeName : cstring = urlForResourcePath(p)
@@ -150,26 +168,11 @@ proc initWithResource*(i: SelfContainedImage, name: string) =
     else:
         let path = pathForResource(name)
         loadResourceAsync(name) do(s: Stream):
-            var data = s.readAll()
-            s.close()
-            if name.endsWith(".pvr"):
-                i.initWithPVR(cast[ptr uint8](data))
-            else:
-                var x, y, comp: cint
-
-                var bitmap = stbi_load_from_memory(cast[ptr uint8](addr data[0]),
-                    data.len.cint, addr x, addr y, addr comp, 0)
-                i.initWithBitmap(bitmap, x, y, comp)
-                stbi_image_free(bitmap)
-
+            i.initWithStream(s)
             i.setFilePath(path)
 
-proc imageWithResource*(name: string): SelfContainedImage =
-    result = findCachedResource[SelfContainedImage](name)
-    if result.isNil:
-        resourceNotCached(name)
-        result = newSelfContainedImage()
-        result.initWithResource(name)
+proc imageWithResource*(name: string): Image =
+    result = sharedAssetManager().cachedAsset(Image, name)
 
 proc initSpriteImages(s: SpriteSheet, data: JsonNode) =
     let images = newTable[string, SpriteImage]()
@@ -187,7 +190,7 @@ proc initSpriteImages(s: SpriteSheet, data: JsonNode) =
             if not images.hasKey(k): v.spriteSheet = nil
     s.images = images
 
-proc newSpriteSheetWithResourceAndJson*(name: string, spriteDesc: JsonNode): SpriteSheet =
+proc newSpriteSheetWithResourceAndJson*(name: string, spriteDesc: JsonNode): SpriteSheet {.deprecated.} =
     result.new()
     result.initWithResource(name)
     result.initSpriteImages(spriteDesc)
@@ -203,7 +206,7 @@ when defined(js):
             if r.len != chunkSize: break
         result = parseJson(fullJson)
 
-proc newSpriteSheetWithResourceAndJson*(imageFileName, jsonDescFileName: string): SpriteSheet =
+proc newSpriteSheetWithResourceAndJson*(imageFileName, jsonDescFileName: string): SpriteSheet {.deprecated.} =
     result.new()
     result.initWithResource(imageFileName)
     let res = result
@@ -416,15 +419,15 @@ const asyncResourceLoad = not defined(js) and not defined(emscripten) and not de
 when asyncResourceLoad:
     const loadAsyncTextureInMainThread = defined(android) or defined(ios)
 
-    import threadpool, sdl_perform_on_main_thread, sdl2
+    import threadpool, perform_on_main_thread, sdl2
     import private.worker_queue
 
     var threadCtx : GlContextPtr
     var loadingQueue: WorkerQueue
 
     type ImageLoadingCtx = ref object
-        path, name: string
-        completionCallback: proc(i: SelfContainedImage)
+        url: string
+        completionCallback: proc(i: Image)
         when loadAsyncTextureInMainThread:
             data: ptr uint8
             width: cint
@@ -453,54 +456,59 @@ when asyncResourceLoad:
             i.texture = c.texture
             i.texCoords = c.texCoords
             i.mSize = c.size
-        i.setFilePath(c.path)
+        i.setFilePath(c.url)
         c.completionCallback(i)
 
     var ctxIsCurrent = false
 
     proc loadResourceThreaded(ctx: pointer) {.cdecl.} =
-        let c = cast[ImageLoadingCtx](ctx)
-        let s = streamForResourceWithPath(c.path)
-        var data = s.readAll()
-        s.close()
+        var url = cast[ImageLoadingCtx](ctx).url
+        openStreamForUrl(url) do(s: Stream, err: string):
+            if not err.isNil:
+                logi "Could not load url: ", url
+                logi "Error: ", err
+            var data = s.readAll()
+            s.close()
 
-        when loadAsyncTextureInMainThread:
-            if c.name.endsWith(".pvr"):
-                c.data = cast[ptr uint8](allocShared(data.len))
-                copyMem(c.data, addr data[0], data.len)
-                c.compressed = true
+            let c = cast[ImageLoadingCtx](ctx)
+
+            when loadAsyncTextureInMainThread:
+                if url.endsWith(".pvr"):
+                    c.data = cast[ptr uint8](allocShared(data.len))
+                    copyMem(c.data, addr data[0], data.len)
+                    c.compressed = true
+                else:
+                    c.data = stbi_load_from_memory(cast[ptr uint8](addr data[0]),
+                        data.len.cint, addr c.width, addr c.height, addr c.comp, 0)
             else:
-                c.data = stbi_load_from_memory(cast[ptr uint8](addr data[0]),
-                    data.len.cint, addr c.width, addr c.height, addr c.comp, 0)
-        else:
-            if not ctxIsCurrent:
-                if glMakeCurrent(c.wnd, c.glCtx) != 0:
-                    logi "Error in glMakeCurrent: ", getError()
-                ctxIsCurrent = true
-            if c.name.endsWith(".pvr"):
-                loadPVRDataToTexture(cast[ptr uint8](addr data[0]), c.texture, c.size, c.texCoords)
-            else:
-                var x, y, comp: cint
-                var bitmap = stbi_load_from_memory(cast[ptr uint8](addr data[0]),
-                    data.len.cint, addr x, addr y, addr comp, 0)
-                loadBitmapToTexture(bitmap, x, y, comp, c.texture, c.size, c.texCoords)
-                stbi_image_free(bitmap)
+                if not ctxIsCurrent:
+                    if glMakeCurrent(c.wnd, c.glCtx) != 0:
+                        logi "Error in glMakeCurrent: ", getError()
+                    ctxIsCurrent = true
+                if url.endsWith(".pvr"):
+                    loadPVRDataToTexture(cast[ptr uint8](addr data[0]), c.texture, c.size, c.texCoords)
+                else:
+                    var x, y, comp: cint
+                    var bitmap = stbi_load_from_memory(cast[ptr uint8](addr data[0]),
+                        data.len.cint, addr x, addr y, addr comp, 0)
+                    loadBitmapToTexture(bitmap, x, y, comp, c.texture, c.size, c.texCoords)
+                    stbi_image_free(bitmap)
 
-            let fenceId = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, GLbitfield(0))
-            while true:
-                let res = glClientWaitSync(fenceId, GL_SYNC_FLUSH_COMMANDS_BIT, GLuint64(5000000000)); # 5 Second timeout
-                if res != GL_TIMEOUT_EXPIRED: break  # we ignore timeouts and wait until all OpenGL commands are processed!
+                let fenceId = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, GLbitfield(0))
+                while true:
+                    let res = glClientWaitSync(fenceId, GL_SYNC_FLUSH_COMMANDS_BIT, GLuint64(5000000000)); # 5 Second timeout
+                    if res != GL_TIMEOUT_EXPIRED: break  # we ignore timeouts and wait until all OpenGL commands are processed!
 
-        #discard glMakeCurrent(c.wnd, nil)
-        let p = cast[pointer](loadComplete)
-        performOnMainThread(cast[proc(data: pointer){.cdecl, gcsafe.}](p), ctx)
+            #discard glMakeCurrent(c.wnd, nil)
+            let p = cast[pointer](loadComplete)
+            performOnMainThread(cast[proc(data: pointer){.cdecl, gcsafe.}](p), ctx)
 
 when defined(emscripten):
     import jsbind.emscripten
 
     type ImageLoadingCtx = ref object
         path: string
-        callback: proc(i: SelfContainedImage)
+        callback: proc(i: Image)
         image: SelfContainedImage
 
     proc nimxImagePrepareTexture(c: pointer, x, y: cint) {.EMSCRIPTEN_KEEPALIVE.} =
@@ -540,7 +548,7 @@ when defined(emscripten):
             logi "Error loading image: ", ctx.path
             ctx.callback(nil)
 
-    proc loadImageFromURL*(url: string, callback: proc(i: SelfContainedImage)) =
+    proc loadImageFromURL*(url: string, callback: proc(i: Image)) =
         var ctx: ImageLoadingCtx
         ctx.new()
         ctx.path = url
@@ -591,10 +599,14 @@ when defined(emscripten):
         """, cast[pointer](ctx), cstring(ctx.path))
 
     proc nimxImageLoadFromURL*(url: string, name: string, callback: proc(i: SelfContainedImage)) {.deprecated.} =
-        loadImageFromURL(url, callback)
+        loadImageFromURL(url) do(i: Image):
+            if i.isNil:
+                callback(nil)
+            else:
+                callback(SelfContainedImage(i))
 
 elif defined(js):
-    proc loadImageFromURL*(url: string, callback: proc(i: SelfContainedImage)) =
+    proc loadImageFromURL*(url: string, callback: proc(i: Image)) =
         let nativeURL: cstring = url
         let onLoad = proc(jsImg: RootRef) =
             if jsImg.isNil:
@@ -617,7 +629,7 @@ elif defined(js):
 
 else:
     import nimx.http_request
-    proc loadImageFromURL*(url: string, callback: proc(i: SelfContainedImage)) =
+    proc loadImageFromURL*(url: string, callback: proc(i: Image)) =
         sendRequest("GET", url, nil, []) do(r: Response):
             if r.statusCode >= 200 and r.statusCode < 300:
                 let i = newSelfContainedImage()
@@ -631,48 +643,50 @@ else:
             else:
                 callback(nil)
 
+proc loadImageFromURL*(url: string, callback: proc(i: SelfContainedImage)) {.deprecated.} =
+    loadImageFromURL(url) do(i: Image):
+        if i.isNil:
+            callback(nil)
+        else:
+            callback(SelfContainedImage(i))
+
+when defined(js) or defined(emscripten):
+    registerAssetLoader(["file", "http", "https", "res"], ["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga"]) do(url: string, handler: proc(i: Image)):
+        loadImageFromURL(sharedAssetManager().resolveUrl(url), handler)
+
+else:
+    registerAssetLoader(["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga", "pvr"]) do(url: string, handler: proc(i: Image)):
+        when asyncResourceLoad:
+            var ctx: ImageLoadingCtx
+            ctx.new()
+            ctx.url = url
+            ctx.completionCallback = handler
+            when not loadAsyncTextureInMainThread:
+                let curWnd = glGetCurrentWindow()
+                if threadCtx.isNil:
+                    let curCtx = glGetCurrentContext()
+                    threadCtx = glCreateContext(curWnd)
+                    discard glMakeCurrent(curWnd, curCtx)
+
+                ctx.glCtx = threadCtx
+                doAssert(not ctx.glCtx.isNil)
+                ctx.wnd = curWnd
+            GC_ref(ctx)
+
+            if loadingQueue.isNil:
+                loadingQueue = newWorkerQueue(1)
+
+            loadingQueue.addTask(loadResourceThreaded, cast[pointer](ctx))
+        else:
+            openStreamForURL(url) do(s: Stream, err: string):
+                let i = newSelfContainedImage()
+                i.initWithStream(s)
+                i.setFilePath(url)
+                handler(i)
+
 registerResourcePreloader(["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga", "pvr"]) do(name: string, callback: proc(i: SelfContainedImage)):
-    when defined(js):
-        let path = pathForResource(name)
-        proc handler(r: JSObj) =
-            var onImLoad = proc (im: ref RootObj) =
-                handleJSExceptions:
-                    var w, h: Coord
-                    {.emit: "`w` = `im`.width; `h` = `im`.height;".}
-                    let image = imageWithSize(newSize(w, h))
-                    {.emit: "`image`.__image = `im`;".}
-                    image.setFilePath(path)
-                    callback(image)
-            {.emit:"""
-            var im = new Image();
-            im.onload = function(){`onImLoad`(im);};
-            im.src = window.URL.createObjectURL(`r`);
-            """.}
-
-        loadJSResourceAsync(name, "blob", nil, nil, handler)
-    elif defined(emscripten):
-        loadImageFromURL(urlForResourcePath(pathForResource(name)), callback)
-    elif asyncResourceLoad:
-        var ctx: ImageLoadingCtx
-        ctx.new()
-        ctx.name = name
-        ctx.path = pathForResource(name)
-        ctx.completionCallback = callback
-        when not loadAsyncTextureInMainThread:
-            let curWnd = glGetCurrentWindow()
-            if threadCtx.isNil:
-                let curCtx = glGetCurrentContext()
-                threadCtx = glCreateContext(curWnd)
-                discard glMakeCurrent(curWnd, curCtx)
-
-            ctx.glCtx = threadCtx
-            doAssert(not ctx.glCtx.isNil)
-            ctx.wnd = curWnd
-        GC_ref(ctx)
-
-        if loadingQueue.isNil:
-            loadingQueue = newWorkerQueue(1)
-
-        loadingQueue.addTask(loadResourceThreaded, cast[pointer](ctx))
-    else:
-        callback(imageWithResource(name))
+    sharedAssetManager().getAssetAtPath(name, false) do(i: Image, err: string):
+        if i.isNil:
+            callback(nil)
+        else:
+            callback(SelfContainedImage(i))

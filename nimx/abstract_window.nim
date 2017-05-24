@@ -116,6 +116,13 @@ proc runAnimations*(w: Window) =
         if totalAnims > 0:
             w.needsDisplay = true
 
+    # TODO: DIRTY HACK FOR iOS. Please refactor this shit.
+    when defined(ios):
+        if prevAnimsCount == 0:
+            w.enableAnimation(true)
+        totalAnims = 1
+        return
+
     if prevAnimsCount == 0 and totalAnims >= 1:
         w.enableAnimation(true)
     elif prevAnimsCount >= 1 and totalAnims == 0:

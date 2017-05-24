@@ -77,7 +77,6 @@ proc initCommon(w: SdlWindow, r: view.Rect) =
     discard glMakeCurrent(w.impl, w.sdlGlContext)
     w.renderingContext = newGraphicsContext()
 
-    #w.enableAnimation(true)
     mainApplication().addWindow(w)
     discard w.impl.setData("__nimx_wnd", cast[pointer](w))
     w.onResize(r.size)
