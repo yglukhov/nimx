@@ -25,7 +25,7 @@ proc relativePathToPath*(path, toPath: string): string =
             result &= "/"
         inc cp
 
-proc normalizePath*(path: var string) =
+proc normalizePath*(path: var string, normalizeSlashes: bool = true) =
     let ln = path.len
     var j = 0
     var i = 0
@@ -55,10 +55,11 @@ proc normalizePath*(path: var string) =
                             i += 2
         if copyChar:
             path[j] = path[i]
-            when defined(windows):
-                if path[j] == '/': path[j] = '\\'
-            else:
-                if path[j] == '\\': path[j] = '/'
+            if normalizeSlashes:
+                when defined(windows):
+                    if path[j] == '/': path[j] = '\\'
+                else:
+                    if path[j] == '\\': path[j] = '/'
 
             inc j
             inc i
