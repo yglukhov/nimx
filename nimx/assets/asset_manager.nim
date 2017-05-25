@@ -107,6 +107,7 @@ proc cachedAssetAux(am: AssetManager, path: string): Variant =
     result = c.getOrDefault(p)
 
 proc cacheAssetAux(am: AssetManager, path: string, v: Variant) =
+    assert(not v.isEmpty)
     let (_, c, p) = am.mountForPath(path.normalizeSlashes)
     c[p] = v
 
@@ -131,7 +132,7 @@ proc getAssetAtPathAux(am: AssetManager, path: string, putToCache: bool, handler
         if not putToCache:
             # Create dummy cache that will be disposed by GC
             c = newAssetCache()
-        loadAsset(url, path, c) do():
+        loadAsset(url, p, c) do():
             let v = c.getOrDefault(p)
             if v.isEmpty:
                 handler(v, "Could not load asset " & path)
@@ -172,9 +173,18 @@ proc loadAssetsInBundles*(am: AssetManager, bundles: openarray[AssetBundle], onP
         let i = am.mountIndex(b)
         if i == -1:
             raise newException(Exception, "AssetBundle not mounted")
+
         allAssets &= b.allAssetsWithBasePath(am.mounts[i].path)
 
     al.loadAssets(allAssets)
 
 registerUrlHandler("res") do(url: string, handler: Handler) {.gcsafe.}:
     openStreamForUrl(sharedAssetManager().resolveUrl(url), handler)
+
+hackyResUrlLoader = proc(url, path: string, cache: AssetCache, handler: proc(err: string)) =
+    const prefix = "res://"
+    assert(url.startsWith(prefix))
+    let p = url.substr(prefix.len)
+    sharedAssetManager().getAssetAtPathAux(p, false) do(res: Variant, err: string):
+        cache[path] = res
+        handler(err)
