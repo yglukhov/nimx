@@ -2,7 +2,7 @@
 import opengl
 # export opengl
 
-export GLuint, GLint, GLfloat, GLenum, GLsizei, GLushort, GLbitfield, opengl.`or`
+export GLuint, GLint, GLfloat, GLenum, GLsizei, GLushort, GLbitfield, opengl
 
 when defined js:
     type

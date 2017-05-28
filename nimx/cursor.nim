@@ -7,6 +7,7 @@ when defined(js) or defined(emscripten):
 elif appKit:
     import private.objc_appkit
     enableObjC()
+    import sdl2
 else:
     import sdl2
 
