@@ -109,9 +109,18 @@ extern char** gEnv;
 
 N_CDECL(void, NimMain)(void);
 
+#ifdef _WIN32
+#include <windows.h>
+
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine,
+                   int nCmdShow) {
+    cmdLine = __argv;
+    cmdCount = __argc;
+#else
 int main(int argc, char** args) {
     cmdLine = args;
     cmdCount = argc;
+#endif
     gEnv = NULL;
     `setupLogger`();
     NimMain();
