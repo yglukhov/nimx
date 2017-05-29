@@ -21,7 +21,6 @@ proc newWebAssetBundle*(): WebAssetBundle =
     result.mHref = getCurrentHref().parentDir()
     result.mBaseUrl = result.mHref / "res"
 
-method isEnumerable*(ab: WebAssetBundle): bool = false
 method urlForPath*(ab: WebAssetBundle, path: string): string =
     if resourceUrlMapper.isNil:
         result = ab.mBaseUrl / path
