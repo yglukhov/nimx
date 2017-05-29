@@ -11,28 +11,29 @@ import nimx.assets.asset_loading
 import nimx.assets.url_stream
 import nimx.assets.asset_manager # Required to register "res" url handler
 
-when not defined(js):
+const web = defined(js) or defined(emscripten)
+
+when web:
+    import jsbind
+else:
     import load_image_impl
     import write_image_impl
 
-when defined(js) or defined(emscripten):
-    import jsbind
-
-type Image* = ref object of RootObj
-
-type SelfContainedImage* = ref object of Image
-    texture*: TextureRef
-    mSize: Size
-    texCoords*: array[4, GLfloat]
-    framebuffer*: FramebufferRef
-    renderbuffer*: RenderbufferRef
-    mFilePath: string
-
 type
-    SpriteSheet* = ref object of SelfContainedImage
+    Image* = ref object of RootObj
+
+    SelfContainedImage* = ref object of Image
+        texture*: TextureRef
+        mSize: Size
+        texCoords*: array[4, GLfloat]
+        framebuffer*: FramebufferRef
+        renderbuffer*: RenderbufferRef
+        mFilePath: string
+
+    SpriteSheet* {.deprecated.} = ref object of SelfContainedImage
         images: TableRef[string, SpriteImage]
 
-    SpriteImage* = ref object of Image
+    SpriteImage* {.deprecated.} = ref object of Image
         spriteSheet*: Image
         mSubRect: Rect
 
@@ -50,7 +51,7 @@ template setupTexParams(gl: GL) =
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST)
 
-when not defined(js):
+when not web:
     include private.image_pvr
 
 method setFilePath*(i: Image, path: string) {.base.} = discard
@@ -78,7 +79,7 @@ proc newSelfContainedImage(): SelfContainedImage {.inline.} =
         inc totalImages
         result.new(finalizeImage)
 
-when not defined js:
+when not web:
     template offset(p: pointer, off: int): pointer =
         cast[pointer](cast[int](p) + off)
 
@@ -141,7 +142,7 @@ when not defined js:
         result = newSelfContainedImage()
         result.initWithContentsOfFile(path)
 
-when not defined(js):
+when not web:
     proc initWithStream(i: SelfContainedImage, s: Stream) =
         var data = s.readAll()
         s.close()
@@ -155,65 +156,8 @@ when not defined(js):
             i.initWithBitmap(bitmap, x, y, comp)
             stbi_image_free(bitmap)
 
-proc initWithResource*(i: SelfContainedImage, name: string) =
-    when defined(js):
-        let p = pathForResource(name)
-        i.setFilePath(p)
-        let nativeName : cstring = urlForResourcePath(p)
-        {.emit: """
-        `i`.__image = new Image();
-        `i`.__image.crossOrigin = '';
-        `i`.__image.src = `nativeName`;
-        """.}
-    else:
-        let path = pathForResource(name)
-        loadResourceAsync(name) do(s: Stream):
-            i.initWithStream(s)
-            i.setFilePath(path)
-
 proc imageWithResource*(name: string): Image =
     result = sharedAssetManager().cachedAsset(Image, name)
-
-proc initSpriteImages(s: SpriteSheet, data: JsonNode) =
-    let images = newTable[string, SpriteImage]()
-    for k, v in data["frames"]:
-        let fr = v["frame"]
-        let r = newRect(fr["x"].getFNum(), fr["y"].getFNum(), fr["w"].getFNum(), fr["h"].getFNum())
-        var si : SpriteImage
-        if not s.images.isNil: si = s.images[k]
-        if si.isNil: si.new()
-        si.spriteSheet = s
-        si.mSubRect = r
-        images[k] = si
-    if not s.images.isNil:
-        for k, v in s.images:
-            if not images.hasKey(k): v.spriteSheet = nil
-    s.images = images
-
-proc newSpriteSheetWithResourceAndJson*(name: string, spriteDesc: JsonNode): SpriteSheet {.deprecated.} =
-    result.new()
-    result.initWithResource(name)
-    result.initSpriteImages(spriteDesc)
-
-# TODO: This isn't a place for parseJson
-when defined(js):
-    proc parseJson(s: Stream, filename: string): JsonNode =
-        var fullJson = ""
-        while true:
-            const chunkSize = 1024
-            let r = s.readStr(chunkSize)
-            fullJson &= r
-            if r.len != chunkSize: break
-        result = parseJson(fullJson)
-
-proc newSpriteSheetWithResourceAndJson*(imageFileName, jsonDescFileName: string): SpriteSheet {.deprecated.} =
-    result.new()
-    result.initWithResource(imageFileName)
-    let res = result
-    loadResourceAsync jsonDescFileName, proc(s: Stream) =
-        let ssJson = parseJson(s, jsonDescFileName)
-        res.initSpriteImages(ssJson)
-        s.close()
 
 proc imageWithSize*(size: Size): SelfContainedImage =
     result = newSelfContainedImage()
@@ -226,7 +170,7 @@ proc imageWithSize*(size: Size): SelfContainedImage =
 method isLoaded*(i: Image): bool {.base.} = false
 
 method isLoaded*(i: SelfContainedImage): bool =
-    when defined js:
+    when defined(js):
         result = not i.texture.isEmpty
         if not result:
             asm "`result` = `i`.__image.complete;"
@@ -371,48 +315,49 @@ proc resetToSize*(i: SelfContainedImage, size: Size, gl: GL) =
             let depthStencilFormat = when defined(js) or defined(emscripten): gl.DEPTH_STENCIL else: gl.DEPTH24_STENCIL8
             gl.renderbufferStorage(gl.RENDERBUFFER, depthStencilFormat, texWidth.GLsizei, texHeight.GLsizei)
 
-type ImageFileFormat = enum tga, hdr, bmp, png
+when not web:
+    type ImageFileFormat = enum tga, hdr, bmp, png
 
-proc writeToFile(i: Image, path: string, format: ImageFileFormat) =
-    when not defined(js) and not defined(emscripten) and not defined(android):
-        var texCoords : array[4, GLfloat]
-        let texture = i.getTextureQuad(nil, texCoords)
-        glBindTexture(GL_TEXTURE_2D, texture)
-        var w, h: GLint
-        glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH, addr w)
-        glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT, addr h)
+    proc writeToFile(i: Image, path: string, format: ImageFileFormat) =
+        when not defined(js) and not defined(emscripten) and not defined(android):
+            var texCoords : array[4, GLfloat]
+            let texture = i.getTextureQuad(nil, texCoords)
+            glBindTexture(GL_TEXTURE_2D, texture)
+            var w, h: GLint
+            glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH, addr w)
+            glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT, addr h)
 
-        let comp = 3
+            let comp = 3
 
-        var data = alloc(comp * w * h)
-        glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_UNSIGNED_BYTE, data)
+            var data = alloc(comp * w * h)
+            glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_UNSIGNED_BYTE, data)
 
-        let actualWidth = i.size.width.GLint
-        let actualHeight = i.size.height.GLint
-        if w != actualWidth:
-            let actualRowWidth = actualWidth * comp
-            let dataRowWidth = w * comp
-            var newData = alloc(actualRowWidth * actualHeight)
+            let actualWidth = i.size.width.GLint
+            let actualHeight = i.size.height.GLint
+            if w != actualWidth:
+                let actualRowWidth = actualWidth * comp
+                let dataRowWidth = w * comp
+                var newData = alloc(actualRowWidth * actualHeight)
 
-            for row in 0 .. actualHeight:
-                copyMem(offset(newData, row * actualRowWidth), offset(data, row * dataRowWidth), actualRowWidth)
+                for row in 0 .. actualHeight:
+                    copyMem(offset(newData, row * actualRowWidth), offset(data, row * dataRowWidth), actualRowWidth)
+
+                dealloc(data)
+                data = newData
+
+            discard case format:
+                of tga: stbi_write_tga(path, actualWidth.cint, actualHeight.cint, comp.cint, data)
+                of hdr: stbi_write_hdr(path, actualWidth.cint, actualHeight.cint, comp.cint, data)
+                of bmp: stbi_write_bmp(path, actualWidth.cint, actualHeight.cint, comp.cint, data)
+                of png: stbi_write_png(path, actualWidth.cint, actualHeight.cint, comp.cint, data, 0)
 
             dealloc(data)
-            data = newData
-
-        discard case format:
-            of tga: stbi_write_tga(path, actualWidth.cint, actualHeight.cint, comp.cint, data)
-            of hdr: stbi_write_hdr(path, actualWidth.cint, actualHeight.cint, comp.cint, data)
-            of bmp: stbi_write_bmp(path, actualWidth.cint, actualHeight.cint, comp.cint, data)
-            of png: stbi_write_png(path, actualWidth.cint, actualHeight.cint, comp.cint, data, 0)
-
-        dealloc(data)
 
 
-proc writeToBMPFile*(i: Image, path: string) = i.writeToFile(path, bmp)
-proc writeToPNGFile*(i: Image, path: string) = i.writeToFile(path, png)
-proc writeToTGAFile*(i: Image, path: string) = i.writeToFile(path, tga)
-#proc writeToHDRFile*(i: Image, path: string) = i.writeToFile(path, hdr) # Crashes...
+    proc writeToBMPFile*(i: Image, path: string) = i.writeToFile(path, bmp)
+    proc writeToPNGFile*(i: Image, path: string) = i.writeToFile(path, png)
+    proc writeToTGAFile*(i: Image, path: string) = i.writeToFile(path, tga)
+    #proc writeToHDRFile*(i: Image, path: string) = i.writeToFile(path, hdr) # Crashes...
 
 const asyncResourceLoad = not defined(js) and not defined(emscripten) and not defined(nimxAvoidSDL)
 
@@ -651,9 +596,8 @@ proc loadImageFromURL*(url: string, callback: proc(i: SelfContainedImage)) {.dep
             callback(SelfContainedImage(i))
 
 when defined(js) or defined(emscripten):
-    registerAssetLoader(["file", "http", "https", "res"], ["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga"]) do(url: string, handler: proc(i: Image)):
-        loadImageFromURL(sharedAssetManager().resolveUrl(url), handler)
-
+    registerAssetLoader(["file", "http", "https"], ["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga"]) do(url: string, handler: proc(i: Image)):
+        loadImageFromURL(url, handler)
 else:
     registerAssetLoader(["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga", "pvr"]) do(url: string, handler: proc(i: Image)):
         when asyncResourceLoad:
