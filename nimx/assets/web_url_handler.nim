@@ -85,3 +85,13 @@ registerUrlHandler("https", getHttpStream)
 
 when web:
     registerUrlHandler("file", getHttpStream)
+
+    when defined(emscripten):
+        registerUrlHandler("emdata") do(url: string, handler: Handler):
+            const prefixLen = len("file://")
+            let p =  substr(url, prefixLen)
+            let s = newFileStream(p, fmRead)
+            if s.isNil:
+                handler(nil, "Could not open file: " & url)
+            else:
+                handler(s, nil)
