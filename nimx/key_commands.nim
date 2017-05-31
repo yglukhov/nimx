@@ -1,4 +1,5 @@
 import event, keyboard, window_event_handling
+import private.js_platform_detector
 
 type KeyCommand* = enum
     kcUnknown
@@ -21,36 +22,17 @@ type Modifier = enum
     Ctrl
     Alt
 
-const jsOrEmscripten = defined(emscripten) or defined(js)
-
-when defined(js):
-    proc isMacOsAux(): bool =
-        {.emit: """
-        try {
-            `result` = navigator.platform.indexOf("Mac") != -1;
-        } catch(e) {}
-        """.}
-    let isMacOs = isMacOsAux()
-elif defined(emscripten):
-    import jsbind.emscripten
-    proc isMacOsAux(): bool =
-        let r = EM_ASM_INT("""
-        try {
-            return navigator.platform.indexOf("Mac") != -1;
-        } catch(e) {}
-        """)
-        result = cast[bool](r)
-    let isMacOs = isMacOsAux()
+const web = defined(emscripten) or defined(js)
 
 template macOsCommands(body: untyped) =
     when defined(macosx):
         body
-    elif jsOrEmscripten:
+    elif web:
         if isMacOs:
             body
 
 template nonMacOsCommands(body: untyped) =
-    when jsOrEmscripten:
+    when web:
         if not isMacOs:
             body
     elif not defined(macosx):
