@@ -67,7 +67,6 @@ proc initCommon(w: AppkitWindow, r: view.Rect) =
         glView->w = `w`;
         [glView setWantsBestResolutionOpenGLSurface:YES];
         [win setContentView:glView];
-        [win makeKeyAndOrderFront:nil];
         [glView release];
     }
     `nativeWnd` = win;
@@ -76,7 +75,11 @@ proc initCommon(w: AppkitWindow, r: view.Rect) =
     w.nativeWindow = nativeWnd
     w.mNativeView = nativeView
 
+    # The context has to be inited before makeKeyAndOrderFront.
     w.renderingContext = newGraphicsContext()
+    {.emit: """
+    [win makeKeyAndOrderFront:nil];
+    """.}
     mainApplication().addWindow(w)
     w.onResize(r.size)
 
