@@ -11,6 +11,7 @@ type
         horizontalAlignment*: HorizontalTextAlignment
         verticalAlignment*: VerticalAlignment
         mBoundingSize: Size
+        mTruncationBehavior: TruncationBehavior
         cacheValid: bool
         canBreakOnAnyChar: bool
         overrideColor*: Color
@@ -27,6 +28,7 @@ type
         top: float32
         baseline: float32 # distance from top of the line to baseline
         firstAttr: int
+        hidden: bool
 
     Attributes = object
         startByte: int # Index of char where attributes start.
@@ -52,6 +54,11 @@ type
         vaTop
         vaCenter
         vaBottom
+
+    TruncationBehavior* = enum
+        tbNone
+        tbCut
+        tbEllipsis
 
     HorizontalTextAlignment* = enum
         haLeft
@@ -87,6 +94,7 @@ proc newFormattedText*(s: string = ""): FormattedText =
     result.strokeAttrs = @[]
     result.shadowMultiplier = newSize(1, 1)
     result.mLineSpacing = 2
+    result.mTruncationBehavior = tbNone
 
 proc updateCache(t: FormattedText) =
     t.cacheValid = true
@@ -116,6 +124,8 @@ proc updateCache(t: FormattedText) =
 
     var boundingWidth = t.mBoundingSize.width
     if boundingWidth == 0: boundingWidth = Inf
+    var boundingHeight = t.mBoundingSize.height
+    if boundingHeight == 0 or t.mTruncationBehavior == tbNone: boundingHeight = Inf
 
     var c: Rune
     let textLen = t.mText.len
@@ -129,6 +139,10 @@ proc updateCache(t: FormattedText) =
 
     template canBreakLine(): bool =
         t.canBreakOnAnyChar or c == Rune(' ') or c == Rune('-') or i == textLen or mustBreakLine()
+
+    template canAddWordWithHeight(): bool =
+        let curHeight = max(curLineInfo.height, curWordHeight)
+        t.mTotalHeight + curHeight <= boundingHeight
 
     while i < textLen:
         let font = t.mAttributes[curAttrIndex].font
@@ -144,10 +158,12 @@ proc updateCache(t: FormattedText) =
         if canBreakLine():
             # commit current word
             if (curLineInfo.width + curWordWidth < boundingWidth or curLineInfo.width == 0):
+
                 # Word fits in the line
                 curLineInfo.width += curWordWidth
                 curLineInfo.height = max(curLineInfo.height, curWordHeight)
                 curLineInfo.baseline = max(curLineInfo.baseline, curWordBaseline)
+
                 if mustBreakLine():
                     let tmp = curLineInfo # JS bug workaround. Copy to temp object.
                     t.lines.add(tmp)
@@ -159,6 +175,7 @@ proc updateCache(t: FormattedText) =
                     curLineInfo.height = 0
                     curLineInfo.baseline = 0
                     curLineInfo.firstAttr = curAttrIndex
+                    curLineInfo.hidden = not canAddWordWithHeight()
             else:
                 # Complete current line
                 let tmp = curLineInfo # JS bug workaround. Copy to temp object.
@@ -171,6 +188,7 @@ proc updateCache(t: FormattedText) =
                 curLineInfo.height = curWordHeight
                 curLineInfo.baseline = curWordBaseline
                 curLineInfo.firstAttr = curWordFirstAttr
+                curLineInfo.hidden = not canAddWordWithHeight()
 
             curWordWidth = 0
             curWordHeight = 0
@@ -188,13 +206,14 @@ proc updateCache(t: FormattedText) =
                 nextAttrStartIndex = t.mAttributes[curAttrIndex + 1].startByte
 
         inc curRune
-
+        
     if curLineInfo.width > 0 or t.lines.len == 0 or mustBreakLine():
         if curLineInfo.height == 0:
             curLineInfo.height = t.mAttributes[curAttrIndex].font.height
         let tmp = curLineInfo # JS bug workaround. Copy to temp object.
         t.lines.add(tmp)
         t.mTotalHeight += curLineInfo.height + t.mLineSpacing
+        curLineInfo.hidden = not canAddWordWithHeight()
 
     # echo "Cache updated for ", t.mText
     # echo "Attributes: ", t.mAttributes
@@ -210,6 +229,13 @@ proc `boundingSize=`*(t: FormattedText, s: Size) =
         t.cacheValid = false
 
 template boundingSize*(t: FormattedText): Size = t.mBoundingSize
+
+proc `truncationBehavior=`*(t: FormattedText, b: TruncationBehavior) =
+    if b != t.mTruncationBehavior:
+        t.mTruncationBehavior = b
+        t.cacheValid = false
+
+template truncationBehavior*(t: FormattedText): TruncationBehavior = t.mTruncationBehavior
 
 proc lineOfRuneAtPos*(t: FormattedText, pos: int): int =
     t.updateCacheIfNeeded()
@@ -606,8 +632,8 @@ void compose()
 }
 """, false, "mediump")
 
-proc drawShadow(c: GraphicsContext, origP: Point, t: FormattedText) =
-    # TODO: Optimize heavily
+type ForEachLineAttributeCallback = proc(c: GraphicsContext, t: FormattedText, p: var Point, curLine, endIndex: int, str: string) {.nimcall.}
+proc forEachLineAttribute(c: GraphicsContext, origP: Point, t: FormattedText, cb: ForEachLineAttributeCallback) =
     var p = origP
     let numLines = t.lines.len
     var curLine = 0
@@ -616,99 +642,140 @@ proc drawShadow(c: GraphicsContext, origP: Point, t: FormattedText) =
     while curLine < numLines:
         p.x = origP.x + t.lineLeft(curLine)
         p.y = t.lines[curLine].top + t.lines[curLine].baseline + top
+
+        var lastCurAttrIndex: int
+        var lastAttrStartIndex: int
+        var lastAttrEndIndex: int
+        var lastAttrFont: Font
+
         for curAttrIndex, attrStartIndex, attrEndIndex in t.attrsInLine(curLine):
-            c.fillColor = t.mAttributes[curAttrIndex].shadowColor
+            if not lastAttrFont.isNil:
+                cb(c, t, p, curLine, lastCurAttrIndex, t.mText.substr(lastAttrStartIndex, lastAttrEndIndex))
 
-            let font = t.mAttributes[curAttrIndex].font
-            let oldBaseline = font.baseline
-            font.baseline = bAlphabetic
+            lastCurAttrIndex = curAttrIndex
+            lastAttrStartIndex = attrStartIndex
+            lastAttrEndIndex = attrEndIndex
+            lastAttrFont = t.mAttributes[curAttrIndex].font
+        
+        if not lastAttrFont.isNil:
+            let nextLine = curLine + 1
+            if nextLine < numLines and t.lines[nextLine].hidden:
+                var symbols = ""
 
-            var pp = p
-            let ppp = pp
-            pp.x += t.mAttributes[curAttrIndex].shadowOffset.width * t.shadowMultiplier.width
-            pp.y += t.mAttributes[curAttrIndex].shadowOffset.height * t.shadowMultiplier.height
+                if t.mTruncationBehavior == tbEllipsis:
+                    var c: Rune
+                    var i = 0
+                    symbols = "..."
+                    fastRuneAt(symbols, i, c, true)
+                    let runeWidth = lastAttrFont.getAdvanceForRune(c)
+                    if t.horizontalAlignment == haCenter:
+                        let halfRuneWidth = runeWidth * (symbols.len / 2)
+                        if p.x < halfRuneWidth:
+                            if lastAttrEndIndex >= lastAttrStartIndex + symbols.len:
+                                lastAttrEndIndex -= symbols.len
+                            else:
+                                lastAttrEndIndex = lastAttrStartIndex
+                        else:
+                            p.x -= halfRuneWidth
+                    else:
+                        if t.mBoundingSize.width < t.lines[curLine].width + runeWidth * 3:
+                            if lastAttrEndIndex >= lastAttrStartIndex + symbols.len:
+                                lastAttrEndIndex -= symbols.len
+                            else:
+                                lastAttrEndIndex = lastAttrStartIndex
 
-
-            if t.mAttributes[curAttrIndex].shadowRadius > 0.0 or t.mAttributes[curAttrIndex].shadowSpread > 0.0:
-                var options = SOFT_SHADOW_ENABLED
-                gradientAndStrokeComposition.options = options
-                let gl = c.gl
-                var cc = gl.getCompiledComposition(gradientAndStrokeComposition)
-
-                gl.useProgram(cc.program)
-
-                compositionDrawingDefinitions(cc, c, gl)
-
-                setUniform("shadowRadius", t.mAttributes[curAttrIndex].shadowRadius / 15.0)
-                setUniform("shadowSpread", t.mAttributes[curAttrIndex].shadowSpread)
-                setUniform("fillColor", c.fillColor)
-
-                gl.uniformMatrix4fv(uniformLocation("uModelViewProjectionMatrix"), false, c.transform)
-                setupPosteffectUniforms(cc)
-
-                gl.activeTexture(GLenum(int(gl.TEXTURE0) + cc.iTexIndex))
-                gl.uniform1i(uniformLocation("texUnit"), cc.iTexIndex)
-
-                c.drawTextBase(t.mAttributes[curAttrIndex].font, pp, t.mText.substr(attrStartIndex, attrEndIndex))
+                cb(c, t, p, curLine, lastCurAttrIndex, t.mText.substr(lastAttrStartIndex, lastAttrEndIndex) & symbols)
+                break
             else:
-                c.drawText(t.mAttributes[curAttrIndex].font, pp, t.mText.substr(attrStartIndex, attrEndIndex))
+                cb(c, t, p, curLine, lastCurAttrIndex, t.mText.substr(lastAttrStartIndex, lastAttrEndIndex))
+        
+        curLine.inc
 
-            font.baseline = oldBaseline
-            p.x += pp.x - ppp.x
-        inc curLine
+
+proc drawShadow(c: GraphicsContext, origP: Point, t: FormattedText) =
+    # TODO: Optimize heavily
+    forEachLineAttribute(c, origP, t) do(c: GraphicsContext, t: FormattedText, p: var Point, curLine, curAttrIndex: int, str: string):
+        c.fillColor = t.mAttributes[curAttrIndex].shadowColor
+        let font = t.mAttributes[curAttrIndex].font
+        let oldBaseline = font.baseline
+        font.baseline = bAlphabetic
+
+        var pp = p
+        let ppp = pp
+        pp.x += t.mAttributes[curAttrIndex].shadowOffset.width * t.shadowMultiplier.width
+        pp.y += t.mAttributes[curAttrIndex].shadowOffset.height * t.shadowMultiplier.height
+
+
+        if t.mAttributes[curAttrIndex].shadowRadius > 0.0 or t.mAttributes[curAttrIndex].shadowSpread > 0.0:
+            var options = SOFT_SHADOW_ENABLED
+            gradientAndStrokeComposition.options = options
+            let gl = c.gl
+            var cc = gl.getCompiledComposition(gradientAndStrokeComposition)
+
+            gl.useProgram(cc.program)
+
+            compositionDrawingDefinitions(cc, c, gl)
+
+            setUniform("shadowRadius", t.mAttributes[curAttrIndex].shadowRadius / 15.0)
+            setUniform("shadowSpread", t.mAttributes[curAttrIndex].shadowSpread)
+            setUniform("fillColor", c.fillColor)
+
+            gl.uniformMatrix4fv(uniformLocation("uModelViewProjectionMatrix"), false, c.transform)
+            setupPosteffectUniforms(cc)
+
+            gl.activeTexture(GLenum(int(gl.TEXTURE0) + cc.iTexIndex))
+            gl.uniform1i(uniformLocation("texUnit"), cc.iTexIndex)
+
+            c.drawTextBase(font, pp, str)
+        else:
+            c.drawText(font, pp, str)
+
+        font.baseline = oldBaseline
+        p.x += pp.x - ppp.x
 
 proc drawStroke(c: GraphicsContext, origP: Point, t: FormattedText) =
     # TODO: Optimize heavily
-    var p = origP
-    let numLines = t.lines.len
-    var curLine = 0
-    let top = t.topOffset() + origP.y
-    const magicStrokeMaxSizeCoof = 0.46
+    forEachLineAttribute(c, origP, t) do(c: GraphicsContext, t: FormattedText, p: var Point, curLine, curAttrIndex: int, str: string):
+        const magicStrokeMaxSizeCoof = 0.46
+        let font = t.mAttributes[curAttrIndex].font
 
-    while curLine < numLines:
-        p.x = origP.x + t.lineLeft(curLine)
-        p.y = t.lines[curLine].top + t.lines[curLine].baseline + top
-        for curAttrIndex, attrStartIndex, attrEndIndex in t.attrsInLine(curLine):
-            let font = t.mAttributes[curAttrIndex].font
-            if t.mAttributes[curAttrIndex].strokeSize > 0:
-                var options = STROKE_ENABLED
-                if t.mAttributes[curAttrIndex].isStrokeGradient:
-                    options = options or GRADIENT_ENABLED
+        if t.mAttributes[curAttrIndex].strokeSize > 0:
+            var options = STROKE_ENABLED
+            if t.mAttributes[curAttrIndex].isStrokeGradient:
+                options = options or GRADIENT_ENABLED
 
-                gradientAndStrokeComposition.options = options
-                let gl = c.gl
-                var cc = gl.getCompiledComposition(gradientAndStrokeComposition)
+            gradientAndStrokeComposition.options = options
+            let gl = c.gl
+            var cc = gl.getCompiledComposition(gradientAndStrokeComposition)
 
-                gl.useProgram(cc.program)
+            gl.useProgram(cc.program)
 
-                compositionDrawingDefinitions(cc, c, gl)
+            compositionDrawingDefinitions(cc, c, gl)
 
-                setUniform("strokeSize", min(t.mAttributes[curAttrIndex].strokeSize / 15, magicStrokeMaxSizeCoof))
+            setUniform("strokeSize", min(t.mAttributes[curAttrIndex].strokeSize / 15, magicStrokeMaxSizeCoof))
 
-                if t.mAttributes[curAttrIndex].isStrokeGradient:
-                    setUniform("point_y", p.y)
-                    setUniform("size_y", t.lines[curLine].height)
-                    setUniform("colorFrom", t.mAttributes[curAttrIndex].strokeColor1)
-                    setUniform("colorTo", t.mAttributes[curAttrIndex].strokeColor2)
-                else:
-                    setUniform("fillColor", t.mAttributes[curAttrIndex].strokeColor1)
-
-                gl.uniformMatrix4fv(uniformLocation("uModelViewProjectionMatrix"), false, c.transform)
-                setupPosteffectUniforms(cc)
-
-                gl.activeTexture(GLenum(int(gl.TEXTURE0) + cc.iTexIndex))
-                gl.uniform1i(uniformLocation("texUnit"), cc.iTexIndex)
-
-                let oldBaseline = font.baseline
-                font.baseline = bAlphabetic
-                c.drawTextBase(font, p, t.mText.substr(attrStartIndex, attrEndIndex))
-                font.baseline = oldBaseline
+            if t.mAttributes[curAttrIndex].isStrokeGradient:
+                setUniform("point_y", p.y)
+                setUniform("size_y", t.lines[curLine].height)
+                setUniform("colorFrom", t.mAttributes[curAttrIndex].strokeColor1)
+                setUniform("colorTo", t.mAttributes[curAttrIndex].strokeColor2)
             else:
-                c.fillColor = newColor(0, 0, 0, 0)
-                # Dirty hack to advance x position. Should be optimized, of course.
-                c.drawText(font, p, t.mText.substr(attrStartIndex, attrEndIndex))
+                setUniform("fillColor", t.mAttributes[curAttrIndex].strokeColor1)
 
-        inc curLine
+            gl.uniformMatrix4fv(uniformLocation("uModelViewProjectionMatrix"), false, c.transform)
+            setupPosteffectUniforms(cc)
+
+            gl.activeTexture(GLenum(int(gl.TEXTURE0) + cc.iTexIndex))
+            gl.uniform1i(uniformLocation("texUnit"), cc.iTexIndex)
+
+            let oldBaseline = font.baseline
+            font.baseline = bAlphabetic
+            c.drawTextBase(font, p, str)
+            font.baseline = oldBaseline
+        else:
+            c.fillColor = newColor(0, 0, 0, 0)
+            # Dirty hack to advance x position. Should be optimized, of course.
+            c.drawText(font, p, str)
 
 proc drawText*(c: GraphicsContext, origP: Point, t: FormattedText) =
     t.updateCacheIfNeeded()
@@ -717,48 +784,39 @@ proc drawText*(c: GraphicsContext, origP: Point, t: FormattedText) =
         if t.shadowAttrs.len > 0: c.drawShadow(origP, t)
         if t.strokeAttrs.len > 0: c.drawStroke(origP, t)
 
-    var p = origP
-    let numLines = t.lines.len
-    var curLine = 0
-    let top = t.topOffset() + origP.y
+    forEachLineAttribute(c, origP, t) do(c: GraphicsContext, t: FormattedText, p: var Point, curLine, curAttrIndex: int, str: string):
+        let font = t.mAttributes[curAttrIndex].font
+        let oldBaseline = font.baseline
+        font.baseline = bAlphabetic
+        if t.mAttributes[curAttrIndex].isTextGradient:
+            gradientAndStrokeComposition.options = GRADIENT_ENABLED
+            let gl = c.gl
+            var cc = gl.getCompiledComposition(gradientAndStrokeComposition)
 
-    while curLine < numLines:
-        p.x = origP.x + t.lineLeft(curLine)
-        p.y = t.lines[curLine].top + t.lines[curLine].baseline + top
-        for curAttrIndex, attrStartIndex, attrEndIndex in t.attrsInLine(curLine):
-            let font = t.mAttributes[curAttrIndex].font
-            let oldBaseline = font.baseline
-            font.baseline = bAlphabetic
-            if t.mAttributes[curAttrIndex].isTextGradient:
-                gradientAndStrokeComposition.options = GRADIENT_ENABLED
-                let gl = c.gl
-                var cc = gl.getCompiledComposition(gradientAndStrokeComposition)
+            gl.useProgram(cc.program)
 
-                gl.useProgram(cc.program)
+            compositionDrawingDefinitions(cc, c, gl)
 
-                compositionDrawingDefinitions(cc, c, gl)
+            setUniform("point_y", p.y)
+            setUniform("size_y", t.lines[curLine].height)
+            setUniform("colorFrom", t.mAttributes[curAttrIndex].textColor)
+            setUniform("colorTo", t.mAttributes[curAttrIndex].textColor2)
 
-                setUniform("point_y", p.y)
-                setUniform("size_y", t.lines[curLine].height)
-                setUniform("colorFrom", t.mAttributes[curAttrIndex].textColor)
-                setUniform("colorTo", t.mAttributes[curAttrIndex].textColor2)
+            gl.uniformMatrix4fv(uniformLocation("uModelViewProjectionMatrix"), false, c.transform)
+            setupPosteffectUniforms(cc)
 
-                gl.uniformMatrix4fv(uniformLocation("uModelViewProjectionMatrix"), false, c.transform)
-                setupPosteffectUniforms(cc)
+            gl.activeTexture(GLenum(int(gl.TEXTURE0) + cc.iTexIndex))
+            gl.uniform1i(uniformLocation("texUnit"), cc.iTexIndex)
 
-                gl.activeTexture(GLenum(int(gl.TEXTURE0) + cc.iTexIndex))
-                gl.uniform1i(uniformLocation("texUnit"), cc.iTexIndex)
-
-                c.drawTextBase(font, p, t.mText.substr(attrStartIndex, attrEndIndex))
+            c.drawTextBase(font, p, str)
+        else:
+            if t.overrideColor.a != 0:
+                c.fillColor = t.overrideColor
             else:
-                if t.overrideColor.a != 0:
-                    c.fillColor = t.overrideColor
-                else:
-                    c.fillColor = t.mAttributes[curAttrIndex].textColor
-                c.drawText(t.mAttributes[curAttrIndex].font, p, t.mText.substr(attrStartIndex, attrEndIndex))
-            font.baseline = oldBaseline
+                c.fillColor = t.mAttributes[curAttrIndex].textColor
+            c.drawText(font, p, str)
 
-        inc curLine
+        font.baseline = oldBaseline
 
 when isMainModule:
     let arial16 = newFontWithFace("Arial", 16)
