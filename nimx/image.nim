@@ -315,6 +315,13 @@ proc resetToSize*(i: SelfContainedImage, size: Size, gl: GL) =
             let depthStencilFormat = when defined(js) or defined(emscripten): gl.DEPTH_STENCIL else: gl.DEPTH24_STENCIL8
             gl.renderbufferStorage(gl.RENDERBUFFER, depthStencilFormat, texWidth.GLsizei, texHeight.GLsizei)
 
+proc generateMipmap*(i: SelfContainedImage, gl: GL) =
+    if i.texture != invalidTexture:
+        gl.bindTexture(gl.TEXTURE_2D, i.texture)
+        gl.generateMipmap(gl.TEXTURE_2D)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST)
+
 when not web:
     type ImageFileFormat = enum tga, hdr, bmp, png
 
