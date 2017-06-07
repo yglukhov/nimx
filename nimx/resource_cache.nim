@@ -9,6 +9,10 @@ import sequtils
 import oswalkdir
 import variant
 
+import nimx.assets.asset_loading
+import nimx.assets.url_stream
+import nimx.assets.json_loading
+
 const debugResCache = false
 
 const jsEnv = defined(js) or defined(emscripten)
@@ -84,8 +88,14 @@ registerResourcePreloader(["json", "zsm"]) do(name: string, callback: proc(j: Js
     loadJsonResourceAsync(name) do(j: JsonNode):
         callback(j)
 
+registerAssetLoader(["json", "zsm"]) do(url: string, callback: proc(j: JsonNode)):
+    loadJsonFromURL(url, callback)
+
 when defined(js) or defined(emscripten):
     import jsbind
+
+registerAssetLoader(["obj", "txt"]) do(s: Stream, callback: proc(s: string)):
+    callback(s.readAll())
 
 registerResourcePreloader(["obj", "txt"]) do(name: string, callback: proc(s: string)):
     when defined(js) or defined(emscripten):
@@ -122,7 +132,7 @@ proc isHiddenFile(path: string): bool =
 
 proc getEnvCt(k: string): string {.compileTime.} =
     when defined(buildOnWindows): # This should be defined by the naketools.nim
-        result = staticExec("cmd /c \"echo %NIMX_RES_PATH%\"")
+        result = staticExec("cmd /c \"echo %" & k & "%\"")
     else:
         result = staticExec("echo $" & k)
     result.removeSuffix()
@@ -145,8 +155,10 @@ proc getResourceNames*(path: string = ""): seq[string] {.compileTime.} =
         prefix &= "/"
 
     for f in oswalkdir.walkDirRec(prefix & path):
-        if not isHiddenFile(f):
-            var str = f.substr(prefix.len)
-            when defined(buildOnWindows):
-                str = str.replace('\\', '/')
+        var str = f
+        when defined(buildOnWindows):
+            str = str.replace('\\', '/')
+
+        if not isHiddenFile(str):
+            str = str.substr(prefix.len)
             result.add(str)

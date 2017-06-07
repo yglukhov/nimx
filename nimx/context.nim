@@ -108,15 +108,15 @@ template withTransform*(c: GraphicsContext, t: Transform3D, body: typed) = c.wit
 
 template transform*(c: GraphicsContext): var Transform3D = c.pTransform[]
 
-proc createQuadIndexBuffer(c: GraphicsContext, numberOfQuads: static[int]): BufferRef =
+proc createQuadIndexBuffer*(c: GraphicsContext, numberOfQuads: int): BufferRef =
     result = c.gl.createBuffer()
     c.gl.bindBuffer(c.gl.ELEMENT_ARRAY_BUFFER, result)
 
-    var indexData : array[128 * 6, GLushort]
-    var i : GLushort
-    while i < 128:
+    var indexData = newSeq[GLushort](numberOfQuads * 6)
+    var i = 0
+    while i < numberOfQuads:
         let id = i * 6
-        let vd = i * 4
+        let vd = GLushort(i * 4)
         indexData[id + 0] = vd + 0
         indexData[id + 1] = vd + 1
         indexData[id + 2] = vd + 2

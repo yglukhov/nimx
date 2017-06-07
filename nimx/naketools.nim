@@ -527,6 +527,7 @@ proc nimbleOverrideFlags(b: Builder): seq[string] =
     while d.len > 1:
         let nimbleoverride = d / "nimbleoverride"
         if fileExists(nimbleoverride):
+            echo "WARNING: nimbleoverride feature is deprecated and will soon be removed!"
             for ln in lines(nimbleoverride):
                 let path = ln.strip()
                 if path.len > 0 and path[0] != '#':
@@ -660,7 +661,7 @@ proc build*(b: Builder) =
         b.resourcePath = b.buildRoot / b.bundleName / "Contents" / "Resources"
         addCAndLFlags(["-isysroot", macOSSDK, "-mmacosx-version-min=" & b.macOSMinVersion])
         b.linkerFlags.add(["-fobjc-link-runtime", "-L" & b.buildSDLForDesktop()])
-        b.nimFlags.add("-d:SDL_Static")
+        b.nimFlags.add("--dynlibOverride:SDL2")
 
     of "ios", "ios-sim":
         b.makeIosBundle()
@@ -693,7 +694,7 @@ proc build*(b: Builder) =
             b.resourcePath = buildDir / "src/main/assets"
         else:
             b.resourcePath = buildDir / "assets"
-        b.nimFlags.add(["--compileOnly", "--cpu:arm", "--os:linux", "-d:android", "-d:SDL_Static"])
+        b.nimFlags.add(["--compileOnly", "--cpu:arm", "--os:linux", "-d:android", "--dynlibOverride:SDL2"])
 
     of "js":
         b.executablePath = b.buildRoot / "main.js"

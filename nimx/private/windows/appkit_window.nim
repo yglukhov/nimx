@@ -9,7 +9,7 @@ enableObjC()
 {.emit: """
 #include <AppKit/AppKit.h>
 
-@interface __NimxView__ : NSOpenGLView {
+@interface __NimxView__ : NSOpenGLView <NSTextInputClient> {
     @public
     void* w;
 }
@@ -26,6 +26,132 @@ enableObjC()
     void* w;
 }
 @end
+
+static NSString * GetApplicationName(void) {
+    NSString *appName;
+
+    /* Determine the application name */
+    appName = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleDisplayName"];
+    if (!appName) {
+        appName = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleName"];
+    }
+
+    if (![appName length]) {
+        appName = [[NSProcessInfo processInfo] processName];
+    }
+
+    return appName;
+}
+
+static void CreateApplicationMenus(void) {
+    NSString *appName;
+    NSString *title;
+    NSMenu *appleMenu;
+    NSMenu *serviceMenu;
+    NSMenu *windowMenu;
+    NSMenu *viewMenu;
+    NSMenuItem *menuItem;
+    NSMenu *mainMenu;
+
+    if (NSApp == nil) {
+        return;
+    }
+
+    if ([NSApp mainMenu]) {
+        return;
+    }
+
+    mainMenu = [[NSMenu alloc] init];
+
+    /* Create the application menu */
+    appName = GetApplicationName();
+    appleMenu = [[NSMenu alloc] initWithTitle:@""];
+
+    /* Add menu items */
+    title = [@"About " stringByAppendingString:appName];
+    [appleMenu addItemWithTitle:title action:@selector(orderFrontStandardAboutPanel:) keyEquivalent:@""];
+
+    [appleMenu addItem:[NSMenuItem separatorItem]];
+
+    [appleMenu addItemWithTitle:@"Preferences…" action:nil keyEquivalent:@","];
+
+    [appleMenu addItem:[NSMenuItem separatorItem]];
+
+    serviceMenu = [[NSMenu alloc] initWithTitle:@""];
+    menuItem = (NSMenuItem *)[appleMenu addItemWithTitle:@"Services" action:nil keyEquivalent:@""];
+    [menuItem setSubmenu:serviceMenu];
+
+    [NSApp setServicesMenu:serviceMenu];
+    [serviceMenu release];
+
+    [appleMenu addItem:[NSMenuItem separatorItem]];
+
+    title = [@"Hide " stringByAppendingString:appName];
+    [appleMenu addItemWithTitle:title action:@selector(hide:) keyEquivalent:@"h"];
+
+    menuItem = (NSMenuItem *)[appleMenu addItemWithTitle:@"Hide Others" action:@selector(hideOtherApplications:) keyEquivalent:@"h"];
+    [menuItem setKeyEquivalentModifierMask:(NSAlternateKeyMask|NSCommandKeyMask)];
+
+    [appleMenu addItemWithTitle:@"Show All" action:@selector(unhideAllApplications:) keyEquivalent:@""];
+
+    [appleMenu addItem:[NSMenuItem separatorItem]];
+
+    title = [@"Quit " stringByAppendingString:appName];
+    [appleMenu addItemWithTitle:title action:@selector(terminate:) keyEquivalent:@"q"];
+
+    /* Put menu into the menubar */
+    menuItem = [[NSMenuItem alloc] initWithTitle:@"" action:nil keyEquivalent:@""];
+    [menuItem setSubmenu:appleMenu];
+    [mainMenu addItem:menuItem];
+    [menuItem release];
+
+    /* Tell the application object that this is now the application menu */
+    //[NSApp setAppleMenu:appleMenu];
+    [appleMenu release];
+
+
+    /* Create the window menu */
+    windowMenu = [[NSMenu alloc] initWithTitle:@"Window"];
+
+    /* Add menu items */
+    [windowMenu addItemWithTitle:@"Minimize" action:@selector(performMiniaturize:) keyEquivalent:@"m"];
+
+    [windowMenu addItemWithTitle:@"Zoom" action:@selector(performZoom:) keyEquivalent:@""];
+
+    /* Put menu into the menubar */
+    menuItem = [[NSMenuItem alloc] initWithTitle:@"Window" action:nil keyEquivalent:@""];
+    [menuItem setSubmenu:windowMenu];
+    [mainMenu addItem:menuItem];
+    [menuItem release];
+
+    /* Tell the application object that this is now the window menu */
+    [NSApp setWindowsMenu:windowMenu];
+    [windowMenu release];
+
+
+    /* Add the fullscreen view toggle menu option, if supported */
+    if (floor(NSAppKitVersionNumber) > NSAppKitVersionNumber10_6) {
+        /* Create the view menu */
+        viewMenu = [[NSMenu alloc] initWithTitle:@"View"];
+
+        /* Add menu items */
+        menuItem = [viewMenu addItemWithTitle:@"Toggle Full Screen" action:@selector(toggleFullScreen:) keyEquivalent:@"f"];
+        [menuItem setKeyEquivalentModifierMask:NSControlKeyMask | NSCommandKeyMask];
+
+        /* Put menu into the menubar */
+        menuItem = [[NSMenuItem alloc] initWithTitle:@"View" action:nil keyEquivalent:@""];
+        [menuItem setSubmenu:viewMenu];
+        [mainMenu addItem:menuItem];
+        [menuItem release];
+
+        [viewMenu release];
+    }
+
+    /* Create the main menu bar */
+    [NSApp setMainMenu:mainMenu];
+
+    [mainMenu release];  /* were done with it, let NSApp own it. */
+}
 
 """.}
 
@@ -67,7 +193,6 @@ proc initCommon(w: AppkitWindow, r: view.Rect) =
         glView->w = `w`;
         [glView setWantsBestResolutionOpenGLSurface:YES];
         [win setContentView:glView];
-        [win makeKeyAndOrderFront:nil];
         [glView release];
     }
     `nativeWnd` = win;
@@ -76,7 +201,11 @@ proc initCommon(w: AppkitWindow, r: view.Rect) =
     w.nativeWindow = nativeWnd
     w.mNativeView = nativeView
 
+    # The context has to be inited before makeKeyAndOrderFront.
     w.renderingContext = newGraphicsContext()
+    {.emit: """
+    [win makeKeyAndOrderFront:nil];
+    """.}
     mainApplication().addWindow(w)
     w.onResize(r.size)
 
@@ -360,9 +489,16 @@ template runApplication*(body: typed): stmt =
 
 
 proc appDidFinishLaunching(d: AppDelegate) =
+    {.emit: """
+    CreateApplicationMenus();
+    """.}
+
     if not d.init.isNil:
         d.init()
         d.init = nil
+        {.emit: """
+        [NSApp activateIgnoringOtherApps: YES];
+        """.}
 
 proc pointFromNSEvent(w: AppkitWindow, e: NSEvent): Point =
     let v = w.nativeView
@@ -457,10 +593,22 @@ NSOpenGLPixelFormat* createPixelFormat(NSRect frame, int colorBits, int depthBit
     return self;
 }
 
+- (BOOL)acceptsFirstResponder {
+    return YES;
+}
+
 - (void)drawRect:(NSRect)r { `drawWindow`(w); }
 
 - (void)viewWillStartLiveResize { `viewWillStartLiveResize`(w); }
 - (void)viewDidEndLiveResize { `viewDidEndLiveResize`(w); }
+
+- (void)keyDown: (NSEvent*) e {
+    [super keyDown: e];
+}
+
+- (void)keyUp: (NSEvent*) e {
+    [super keyUp: e];
+}
 
 @end
 
@@ -475,6 +623,7 @@ NSOpenGLPixelFormat* createPixelFormat(NSRect frame, int colorBits, int depthBit
 	[super sendEvent: theEvent];
     `sendEvent`(w, theEvent);
 }
+
 @end
 
 @implementation __NimxAppDelegate__

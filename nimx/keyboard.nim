@@ -5,6 +5,8 @@
 ## on those keys places (so that e.g. 'k' and 'K' share same scan code).
 
 import tables
+import private.js_platform_detector
+
 type VirtualKey* {.pure.} = enum
     Unknown = 0
 
@@ -218,5 +220,18 @@ proc anyGui*(s: ModifiersSet): bool =
 
 proc anyShift*(s: ModifiersSet): bool =
     result = VirtualKey.LeftShift in s or VirtualKey.RightShift in s
+
+proc anyOsModifier*(s: ModifiersSet): bool =
+    # Cmd for MacOS, else Ctrl
+
+    when defined(macosx):
+        s.anyGui()
+    elif defined(js) or defined(emscripten):
+        if isMacOs:
+            s.anyGui()
+        else:
+            s.anyCtrl()
+    else:
+        s.anyCtrl()
 
 {.pop.}

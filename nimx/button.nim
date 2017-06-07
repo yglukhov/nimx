@@ -216,9 +216,11 @@ proc drawImageStyle(b: Button, r: Rect) =
                 setUniform("uStrokeColor", newColor(0.18, 0.50, 0.98))
                 setUniform("uFillColorStart", newColor(0.31, 0.60, 0.98))
                 setUniform("uFillColorEnd", newColor(0.09, 0.42, 0.88))
-    let c = currentContext()
-    c.drawImage(b.image, newRect(r.x + b.imageMarginLeft, r.y + b.imageMarginTop,
-        r.width - b.imageMarginLeft - b.imageMarginRight, r.height - b.imageMarginTop - b.imageMarginBottom))
+
+    if not b.image.isNil:
+        let c = currentContext()
+        c.drawImage(b.image, newRect(r.x + b.imageMarginLeft, r.y + b.imageMarginTop,
+            r.width - b.imageMarginLeft - b.imageMarginRight, r.height - b.imageMarginTop - b.imageMarginBottom))
 
 proc drawNinePartImageStyle(b: Button, r: Rect) =
     let c = currentContext()

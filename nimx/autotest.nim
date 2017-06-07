@@ -27,14 +27,20 @@ proc registerTest*(ts: UITestSuite) =
     else:
         registeredTests.add(ts)
 
+proc collectAutotestSteps(result, body: NimNode) =
+    for n in body:
+        if n.kind == nnkStmtList:
+            collectAutotestSteps(result, n)
+        else:
+            let procDef = newProc(body = newStmtList().add(n), procType = nnkLambda)
+            procDef.pragma = newNimNode(nnkPragma).add(newIdentNode("closure"))
+
+            let step = newNimNode(nnkPar).add(procDef, toStrLit(n), newLit(n.lineinfo))
+            result.add(step)
+
 proc testSuiteDefinitionWithNameAndBody(name, body: NimNode): NimNode =
     result = newNimNode(nnkBracket)
-    for n in body:
-        let procDef = newProc(body = newStmtList().add(n), procType = nnkLambda)
-        procDef.pragma = newNimNode(nnkPragma).add(newIdentNode("closure"))
-
-        let step = newNimNode(nnkPar).add(procDef, toStrLit(n), newLit(n.lineinfo))
-        result.add(step)
+    collectAutotestSteps(result, body)
     return newNimNode(nnkLetSection).add(
         newNimNode(nnkIdentDefs).add(name, bindsym "UITestSuite", newCall("@", result)))
 

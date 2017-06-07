@@ -1,4 +1,4 @@
-import strutils
+import strutils, ospaths
 
 proc relativePathToPath*(path, toPath: string): string =
     # Returns a relative path to `toPath` which is equivalent of absolute `path`
@@ -25,7 +25,7 @@ proc relativePathToPath*(path, toPath: string): string =
             result &= "/"
         inc cp
 
-proc normalizePath*(path: var string) =
+proc normalizePath*(path: var string, normalizeSlashes: bool = true) =
     let ln = path.len
     var j = 0
     var i = 0
@@ -55,14 +55,48 @@ proc normalizePath*(path: var string) =
                             i += 2
         if copyChar:
             path[j] = path[i]
-            when defined(windows):
-                if path[j] == '/': path[j] = '\\'
-            else:
-                if path[j] == '\\': path[j] = '/'
+            if normalizeSlashes:
+                when defined(windows):
+                    if path[j] == '/': path[j] = '\\'
+                else:
+                    if path[j] == '\\': path[j] = '/'
 
             inc j
             inc i
     path.setLen(j)
 
+proc isSubpathOf*(child, parent: string): bool =
+    if child.len < parent.len: return false
+    let ln = parent.len
+    var i = 0
+    while i < ln:
+        if parent[i] != child[i]: return false
+        inc i
+    return i == child.len or child[i] == '/' or parent[i - 1] == '/'
+
+proc toAbsolutePath*(relativeOrAbsolutePath, basePath: string): string =
+    if isAbsolute(relativeOrAbsolutePath): return relativeOrAbsolutePath
+    result = basePath & '/' & relativeOrAbsolutePath
+    normalizePath(result)
+
+when defined(js):
+    proc getCurrentHref*(): string =
+        var s: cstring
+        {.emit: """
+        `s` = window.location.href;
+        """.}
+        result = $s
+elif defined(emscripten):
+    import jsbind.emscripten
+
+    proc getCurrentHref*(): string =
+        let r = EM_ASM_INT """
+        return _nimem_s(window.location.href);
+        """
+        result = cast[string](r)
+
 when isMainModule:
     doAssert(relativePathToPath("/a/b/c/d/e", "/a/b/c/f/g") == "../../f/g")
+    doAssert("a/b/c".isSubpathOf("a/b"))
+    doAssert(not "a/b/ca".isSubpathOf("a/b/c"))
+    doAssert("a/b/c/a".isSubpathOf("a/b/c/"))

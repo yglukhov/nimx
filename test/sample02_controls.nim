@@ -11,7 +11,7 @@ import nimx.types
 import nimx.slider
 import nimx.popup_button
 import nimx.progress_indicator
-import nimx.timer
+import nimx.assets.asset_manager
 
 type ControlsSampleView = ref object of View
 
@@ -74,8 +74,8 @@ method init(v: ControlsSampleView, r: Rect) =
     pb.items = @["Popup button", "Item 1", "Item 2"]
     v.addSubview(pb)
 
-    setTimeout 0.2, proc() =
-        discard newImageButton(v, newPoint(260, 90), newSize(32, 32), imageWithResource("cat.jpg"))
+    sharedAssetManager().getAssetAtPath("cat.jpg") do(i: Image, err: string):
+        discard newImageButton(v, newPoint(260, 90), newSize(32, 32), i)
 
     let tfLabel = newLabel(newRect(330, 150, 150, 20))
     tfLabel.text = "<-- Enter some text"
@@ -96,8 +96,8 @@ method init(v: ControlsSampleView, r: Rect) =
         discard
     v.addSubview(cp)
 
-    setTimeout 0.2, proc() =
-        let imageView = newImageView(newRect(0, 400, 300, 150), imageWithResource("tile.png"))
+    sharedAssetManager().getAssetAtPath("tile.png") do(i: Image, err: string):
+        let imageView = newImageView(newRect(0, 400, 300, 150), i)
         v.addSubview(imageView)
 
         let popupFillRule = newPopupButton(v, newPoint(420, 400), newSize(100, 20), ["NoFill", "Stretch", "Tile", "FitWidth", "FitHeight"])

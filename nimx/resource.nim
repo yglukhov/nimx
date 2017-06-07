@@ -10,6 +10,11 @@ import typetraits
 
 when defined(js) or defined(emscripten):
     import ospaths
+
+    # Deprecated stuff
+    import nimx.assets.web_asset_bundle
+    export web_asset_bundle.resourceUrlMapper
+    export web_asset_bundle.urlForResourcePath
 else:
     import os
     when defined(android):
@@ -106,15 +111,6 @@ proc pathForResourceAux(name: string): string =
         result = appDir / "resources" / name
         if fileExists(result): return
         result = nil
-
-var resourceUrlMapper*: proc(p: string): string
-
-when defined(js) or defined(emscripten):
-    proc urlForResourcePath*(path: string): string =
-        if resourceUrlMapper.isNil:
-            path
-        else:
-            resourceUrlMapper(path)
 
 proc pathForResource*(name: string): string =
     result = pathForResourceAux(name)
