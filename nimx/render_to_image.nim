@@ -24,7 +24,9 @@ proc bindFramebuffer*(gl: GL, i: SelfContainedImage, makeDepthAndStencil: bool =
         i.framebuffer = gl.createFramebuffer()
         gl.bindFramebuffer(gl.FRAMEBUFFER, i.framebuffer)
         gl.bindTexture(gl.TEXTURE_2D, texture)
+
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
 
         let texWidth = if isPowerOfTwo(i.size.width.int): i.size.width.int else: nextPowerOfTwo(i.size.width.int)
         let texHeight = if isPowerOfTwo(i.size.height.int): i.size.height.int else: nextPowerOfTwo(i.size.height.int)
@@ -43,6 +45,15 @@ proc bindFramebuffer*(gl: GL, i: SelfContainedImage, makeDepthAndStencil: bool =
             i.renderbuffer = depthBuffer
     else:
         gl.bindFramebuffer(gl.FRAMEBUFFER, i.framebuffer)
+
+proc generateMipMapTexture*(gl: GL, i: SelfContainedImage)=
+    var texCoords : array[4, GLfloat]
+    var texture = i.getTextureQuad(gl, texCoords)
+    if texture != invalidTexture:
+        gl.bindTexture(gl.TEXTURE_2D, texture)
+        gl.generateMipmap(gl.TEXTURE_2D)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST)
 
 proc getGlFrameState*(gfs: var GlFrameState) =
     let gl = sharedGL()
