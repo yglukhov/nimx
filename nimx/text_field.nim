@@ -96,7 +96,10 @@ method init*(t: TextField, r: Rect) =
     t.mText = newFormattedText()
     t.mText.verticalAlignment = vaCenter
 
-template `font=`*(t: TextField, f: Font) = t.mFont = f
+proc `font=`*(t: TextField, f: Font) =
+    t.mFont = f
+    t.mText.setFontInRange(0, -1, t.mFont)
+
 proc font*(t: TextField): Font =
     if t.mFont.isNil:
         result = systemFont()
