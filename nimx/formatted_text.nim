@@ -206,7 +206,7 @@ proc updateCache(t: FormattedText) =
                 nextAttrStartIndex = t.mAttributes[curAttrIndex + 1].startByte
 
         inc curRune
-        
+
     if curLineInfo.width > 0 or t.lines.len == 0 or mustBreakLine():
         if curLineInfo.height == 0:
             curLineInfo.height = t.mAttributes[curAttrIndex].font.height
@@ -619,6 +619,7 @@ void compose()
     float dist = texture2D(texUnit, vTexCoord).a;
 #ifdef OPTION_3
     float alpha = smoothstep(aMin, aMin + shadowSpread, dist)  / (aMin + shadowSpread);
+    alpha = min(alpha, 1.0);
 #else
     float alpha = smoothstep(aMin, aMax, dist);
 #endif
@@ -656,7 +657,7 @@ proc forEachLineAttribute(c: GraphicsContext, origP: Point, t: FormattedText, cb
             lastAttrStartIndex = attrStartIndex
             lastAttrEndIndex = attrEndIndex
             lastAttrFont = t.mAttributes[curAttrIndex].font
-        
+
         if not lastAttrFont.isNil:
             let nextLine = curLine + 1
             if nextLine < numLines and t.lines[nextLine].hidden:
@@ -688,7 +689,7 @@ proc forEachLineAttribute(c: GraphicsContext, origP: Point, t: FormattedText, cb
                 break
             else:
                 cb(c, t, p, curLine, lastCurAttrIndex, t.mText.substr(lastAttrStartIndex, lastAttrEndIndex))
-        
+
         curLine.inc
 
 

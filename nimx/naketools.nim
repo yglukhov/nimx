@@ -92,6 +92,8 @@ proc setBuilderSettingsFromCmdLine(b: Builder) =
                 b.runAfterBuild = false
             of "parallelBuild":
                 b.nimParallelBuild = parseInt(val)
+            of "compileOnly", "c":
+                b.additionalNimFlags.add("--compileOnly")
             else: discard
         else: discard
 
