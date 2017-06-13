@@ -21,6 +21,11 @@ type TestRunnerContext = ref object
 var testRunnerContext : TestRunnerContext
 var registeredTests : seq[UITestSuite]
 
+proc makeStep(code: proc(), astrepr, lineinfo: string): UITestSuiteStep {.inline.} =
+    result.code = code
+    result.astrepr = astrepr
+    result.lineinfo = lineinfo
+
 proc registerTest*(ts: UITestSuite) =
     if registeredTests.isNil:
         registeredTests = @[ts]
@@ -33,9 +38,8 @@ proc collectAutotestSteps(result, body: NimNode) =
             collectAutotestSteps(result, n)
         else:
             let procDef = newProc(body = newStmtList().add(n), procType = nnkLambda)
-            procDef.pragma = newNimNode(nnkPragma).add(newIdentNode("closure"))
 
-            let step = newNimNode(nnkPar).add(procDef, toStrLit(n), newLit(n.lineinfo))
+            let step = newCall(bindSym"makeStep", procDef, toStrLit(n), newLit(n.lineinfo))
             result.add(step)
 
 proc testSuiteDefinitionWithNameAndBody(name, body: NimNode): NimNode =
