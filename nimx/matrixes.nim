@@ -49,14 +49,14 @@ template `y=`*[I: static[int], T](v: var TVector[I, T], val: T) = v[1] = val
 template `z=`*[I: static[int], T](v: var TVector[I, T], val: T) = v[2] = val
 template `w=`*[I: static[int], T](v: var TVector[I, T], val: T) = v[3] = val
 
-proc `.`*[I: static[int], T](v: TVector[I, T], field: static[string]): TVector[field.len, T] =
-    for i, c in field:
-        case c
-            of 'x': result[i] = v.x
-            of 'y': result[i] = v.y
-            of 'z': result[i] = v.z
-            of 'w': result[i] = v.w
-            else: assert(false, "Unknown field: " & $c)
+# proc `.`*[I: static[int], T](v: TVector[I, T], field: static[string]): TVector[field.len, T] =
+#     for i, c in field:
+#         case c
+#             of 'x': result[i] = v.x
+#             of 'y': result[i] = v.y
+#             of 'z': result[i] = v.z
+#             of 'w': result[i] = v.w
+#             else: assert(false, "Unknown field: " & $c)
 
 # The following .= doesn't work yet because of Nim bug #3319
 discard """
