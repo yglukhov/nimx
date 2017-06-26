@@ -1,10 +1,5 @@
-import macros
-import nimx.timer
-import nimx.app
-import nimx.event
-import nimx.abstract_window
-import nimx.button
-import nimx.system_logger
+import macros, logging, strutils
+import nimx / [ timer, app, event, abstract_window, button ]
 
 type UITestSuiteStep* = tuple
     code : proc()
@@ -12,6 +7,41 @@ type UITestSuiteStep* = tuple
     lineinfo: string
 
 type UITestSuite* = seq[UITestSuiteStep]
+
+when defined(js) or defined(emscripten):
+    when defined(emscripten):
+        import jsbind.emscripten
+
+    # When testing on Firefox, we have to use window.dump instead of console.log
+    type FirefoxAutotestLogger = ref object of Logger
+
+    method log*(logger: FirefoxAutotestLogger, level: Level, args: varargs[string, `$`]) =
+        let s = args.join()
+        let a = cstring(s)
+        when defined(js):
+            {.emit: """
+            window['dump'](`a` + '\n');
+            """.}
+        else:
+            discard EM_ASM_INT("""
+            window['dump'](Pointer_stringify($0) + '\n');
+            """, a)
+
+    var loggerSetupDone = false
+
+    proc isWindowDumpAvailable(): bool {.inline.} =
+        when defined(js):
+            {.emit: "`result` = 'dump' in window;".}
+        else:
+            let res = EM_ASM_INT("return ('dump' in window)?1:0;")
+            result = bool(res)
+
+    proc setupLogger() =
+        if not loggerSetupDone:
+            loggerSetupDone = true
+            if isWindowDumpAvailable():
+                let logger = FirefoxAutotestLogger.new()
+                addHandler(logger)
 
 type TestRunnerContext = ref object
     curTest: int
@@ -78,7 +108,7 @@ when true:
     proc quitApplication*() =
         when defined(js) or defined(emscripten) or defined(android):
             # Hopefully we're using nimx automated testing in Firefox
-            logi "---AUTO-TEST-QUIT---"
+            info "---AUTO-TEST-QUIT---"
         else:
             quit()
 
@@ -95,7 +125,7 @@ when true:
                 if testRunnerContext.waitTries + 2 > maxTries:
                     testRunnerContext.waitTries = -1
                     when defined(js) or defined(emscripten) or defined(android):
-                        logi "---AUTO-TEST-FAIL---"
+                        info "---AUTO-TEST-FAIL---"
                     else:
                         raise newException(Exception, "Wait tries exceeded!")
                 else:
@@ -119,34 +149,28 @@ when false:
 
     registerTest(myTest)
 
-proc startTest*(t: UITestSuite) =
+proc startTest*(t: UITestSuite, onComplete: proc() = nil) =
+    when defined(js) or defined(emscripten): setupLogger()
     testRunnerContext.new()
     testRunnerContext.curTimeout = 0.5
     testRunnerContext.waitTries = -1
 
     var tim : Timer
     tim = setInterval(0.5) do():
-        logi t[testRunnerContext.curTest].lineinfo, ": RUNNING ", t[testRunnerContext.curTest].astrepr
+        info t[testRunnerContext.curTest].lineinfo, ": RUNNING ", t[testRunnerContext.curTest].astrepr
         t[testRunnerContext.curTest].code()
         inc testRunnerContext.curTest
         if testRunnerContext.curTest == t.len:
             tim.clear()
             testRunnerContext = nil
+            if not onComplete.isNil: onComplete()
 
-proc startRegisteredTests*() =
-    testRunnerContext.new()
-    testRunnerContext.curTimeout = 0.5
-    testRunnerContext.waitTries = -1
-
+proc startRegisteredTests*(onComplete: proc() = nil) =
     var curTestSuite = 0
-    var tim : Timer
-    tim = setInterval(0.5) do():
-        logi registeredTests[curTestSuite][testRunnerContext.curTest].lineinfo, ": RUNNING ", registeredTests[curTestSuite][testRunnerContext.curTest].astrepr
-        registeredTests[curTestSuite][testRunnerContext.curTest].code()
-        inc testRunnerContext.curTest
-        if testRunnerContext.curTest == registeredTests[curTestSuite].len:
+    proc startNextSuite() =
+        if curTestSuite < registeredTests.len:
+            startTest(registeredTests[curTestSuite], startNextSuite)
             inc curTestSuite
-            testRunnerContext.curTest = 0
-            if curTestSuite == registeredTests.len:
-                tim.clear()
-                testRunnerContext = nil
+        elif not onComplete.isNil:
+            onComplete()
+    startNextSuite()

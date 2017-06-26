@@ -1,32 +1,11 @@
 import strutils, logging
 
 when defined(js):
-    when defined(runAutoTests):
-        proc native_log(a: cstring) =
-            {.emit: """
-            if ('dump' in window)
-                window['dump'](`a` + '\n');
-            else
-                console.log(`a`);
-            """.}
-    else:
-        proc native_log(a: cstring) {.importc: "console.log".}
+    proc native_log(a: cstring) {.importc: "console.log".}
 elif defined(emscripten):
-    when defined(runAutoTests):
-        import jsbind.emscripten
-        proc native_log(a: cstring) =
-            discard EM_ASM_INT("""
-            var s = Pointer_stringify($0);
-            if ('dump' in window)
-                window['dump'](s + '\n');
-            else
-                console.log(s);
-            return 0;
-            """, a)
-    else:
-        proc emscripten_log(flags: cint) {.importc, varargs.}
-        template native_log(a: cstring) =
-            emscripten_log(0, cstring("%s"), cstring(a))
+    proc emscripten_log(flags: cint) {.importc, varargs.}
+    template native_log(a: cstring) =
+        emscripten_log(0, cstring("%s"), cstring(a))
 elif defined(macosx) or defined(ios):
     {.passL:"-framework Foundation".}
     {.emit: """
