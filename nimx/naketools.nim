@@ -867,7 +867,20 @@ proc processOutputFromAutotestStream(s: Stream): bool =
         else:
             echo line
 
-proc runAutotestsInFirefox*(pathToMainHTML: string) =
+proc queryStringWithArgs(args: StringTableRef): string =
+    if args.isNil:
+        result = ""
+    else:
+        result = "?"
+        var i = 0
+        for k, v in args:
+            if i != 0: result &= '&'
+            result &= k
+            result &= '='
+            result &= v
+            inc i
+
+proc runAutotestsInFirefox*(pathToMainHTML: string, args: StringTableRef = nil) =
     let ffbin = when defined(macosx):
             "/Applications/Firefox.app/Contents/MacOS/firefox"
         else:
@@ -892,8 +905,8 @@ proc runAutotestsInFirefox*(pathToMainHTML: string) =
     removeDir("tempprofile")
     doAssert(ok, "Firefox autotest failed")
 
-proc runAutotestsInFirefox*(b: Builder) =
-    runAutotestsInFirefox(b.buildRoot / "main.html")
+proc runAutotestsInFirefox*(b: Builder, args: StringTableRef = nil) =
+    runAutotestsInFirefox(b.buildRoot / "main.html", args)
 
 proc chromeBin(): string =
     when defined(macosx):
@@ -905,20 +918,21 @@ proc chromeBin(): string =
             let f = findExe(c)
             if f.len > 0: return f
 
-proc runAutotestsInChrome*(pathToMainHTML: string) =
+proc runAutotestsInChrome*(pathToMainHTML: string, args: StringTableRef = nil) =
     let cbin = chromeBin()
     doAssert(cbin.len > 0)
+
     let cp = startProcess(cbin, args = ["--enable-logging=stderr", "--v=1",
         "--allow-file-access", "--allow-file-access-from-files",
         "--no-sandbox", "--user-data-dir",
-        pathToMainHTML])
+        "file://" & expandFilename(pathToMainHTML) & queryStringWithArgs(args)])
     let ok = processOutputFromAutotestStream(cp.errorStream)
     cp.kill()
     discard cp.waitForExit()
     doAssert(ok, "Chrome autotest failed")
 
-proc runAutotestsInChrome*(b: Builder) =
-    runAutotestsInChrome(b.buildRoot / "main.html")
+proc runAutotestsInChrome*(b: Builder, args: StringTableRef = nil) =
+    runAutotestsInChrome(b.buildRoot / "main.html", args)
 
 proc adbExe(b: Builder): string =
     expandTilde(b.androidSdk/"platform-tools/adb")

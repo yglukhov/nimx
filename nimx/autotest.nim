@@ -6,7 +6,9 @@ type UITestSuiteStep* = tuple
     astrepr: string
     lineinfo: string
 
-type UITestSuite* = seq[UITestSuiteStep]
+type UITestSuite* = ref object
+    name: string
+    steps: seq[UITestSuiteStep]
 
 when defined(js) or defined(emscripten):
     when defined(emscripten):
@@ -44,12 +46,17 @@ when defined(js) or defined(emscripten):
                 addHandler(logger)
 
 type TestRunnerContext = ref object
-    curTest: int
+    curStep: int
     curTimeout: float
     waitTries: int
 
 var testRunnerContext : TestRunnerContext
 var registeredTests : seq[UITestSuite]
+
+proc newTestSuite(name: string, steps: openarray[UITestSuiteStep]): UITestSuite =
+    result.new()
+    result.name = name
+    result.steps = @steps
 
 proc makeStep(code: proc(), astrepr, lineinfo: string): UITestSuiteStep {.inline.} =
     result.code = code
@@ -61,6 +68,10 @@ proc registerTest*(ts: UITestSuite) =
         registeredTests = @[ts]
     else:
         registeredTests.add(ts)
+
+proc registeredTest*(name: string): UITestSuite =
+    for t in registeredTests:
+        if t.name == name: return t
 
 proc collectAutotestSteps(result, body: NimNode) =
     for n in body:
@@ -76,7 +87,7 @@ proc testSuiteDefinitionWithNameAndBody(name, body: NimNode): NimNode =
     result = newNimNode(nnkBracket)
     collectAutotestSteps(result, body)
     return newNimNode(nnkLetSection).add(
-        newNimNode(nnkIdentDefs).add(name, bindsym "UITestSuite", newCall("@", result)))
+        newNimNode(nnkIdentDefs).add(name, bindSym"UITestSuite", newCall(bindSym"newTestSuite", newLit($name), result)))
 
 macro uiTest*(name: untyped, body: typed): untyped =
     result = testSuiteDefinitionWithNameAndBody(name, body)
@@ -84,7 +95,7 @@ macro uiTest*(name: untyped, body: typed): untyped =
 macro registeredUiTest*(name: untyped, body: typed): typed =
     result = newStmtList()
     result.add(testSuiteDefinitionWithNameAndBody(name, body))
-    result.add(newCall(bindsym "registerTest", name))
+    result.add(newCall(bindSym"registerTest", name))
 
 when true:
     proc sendMouseEvent*(wnd: Window, p: Point, bs: ButtonState) =
@@ -114,13 +125,13 @@ when true:
 
     proc waitUntil*(e: bool) =
         if not e:
-            dec testRunnerContext.curTest
+            dec testRunnerContext.curStep
 
     proc waitUntil*(e: bool, maxTries: int) =
         if e:
             testRunnerContext.waitTries = -1
         else:
-            dec testRunnerContext.curTest
+            dec testRunnerContext.curStep
             if maxTries != -1:
                 if testRunnerContext.waitTries + 2 > maxTries:
                     testRunnerContext.waitTries = -1
@@ -157,10 +168,10 @@ proc startTest*(t: UITestSuite, onComplete: proc() = nil) =
 
     var tim : Timer
     tim = setInterval(0.5) do():
-        info t[testRunnerContext.curTest].lineinfo, ": RUNNING ", t[testRunnerContext.curTest].astrepr
-        t[testRunnerContext.curTest].code()
-        inc testRunnerContext.curTest
-        if testRunnerContext.curTest == t.len:
+        info t.steps[testRunnerContext.curStep].lineinfo, ": RUNNING ", t.steps[testRunnerContext.curStep].astrepr
+        t.steps[testRunnerContext.curStep].code()
+        inc testRunnerContext.curStep
+        if testRunnerContext.curStep == t.steps.len:
             tim.clear()
             testRunnerContext = nil
             if not onComplete.isNil: onComplete()
