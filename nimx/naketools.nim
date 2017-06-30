@@ -634,7 +634,7 @@ proc makeEmscriptenPreloadData(b: Builder): string =
         args.add(["--preload", p])
     direShell(args)
 
-proc preconfigure(b: Builder) =
+proc configure*(b: Builder) =
     b.buildRoot = b.buildRoot / b.platform
     b.nimcachePath = b.buildRoot / "nimcache"
     b.resourcePath = b.buildRoot / "res"
@@ -642,7 +642,7 @@ proc preconfigure(b: Builder) =
     if not beforeBuild.isNil: beforeBuild(b)
 
 proc build*(b: Builder) =
-    b.preconfigure()
+    b.configure()
 
     b.executablePath = b.buildRoot / b.appName
     b.bundleName = b.appName & ".app"
@@ -961,19 +961,24 @@ proc installAppOnConnectedDevice(b: Builder, devId: string) =
         apkPath = b.buildRoot / b.javaPackageId / "bin" / b.appName & "-" & conf & ".apk"
     direShell b.adbExe, "-H", b.adbServerName, "-s", devId, "install", "-r", apkPath
 
-proc runAutotestsOnConnectedDevices*(b: Builder) =
+proc runAutotestsOnConnectedDevices*(b: Builder, install: bool = true, extraArgs: StringTableRef = nil) =
     let adb = b.adbExe
     let host = b.adbServerName
 
     for devId in b.getConnectedAndroidDevices:
         echo "Running on device: ", devId
-        b.installAppOnConnectedDevice(devId)
+        if install: b.installAppOnConnectedDevice(devId)
 
         let logcat = startProcess(adb, args = ["-H", host, "-s", devId, "logcat", "-T", "1", "-s", "NIM_APP"])
 
         direShell adb, "-H", host, "-s", devId, "shell", "input", "keyevent", "KEYCODE_WAKEUP"
         let activityName = b.javaPackageId & "/" & b.javaPackageId & ".MainActivity"
-        direShell adb, "-H", host, "-s", devId, "shell", "am", "start", "-n", activityName
+
+        var args = @[adb, "-H", host, "-s", devId, "shell", "am", "start", "-S", "-n", activityName]
+        if not extraArgs.isNil:
+            for k, v in extraArgs: args.add(["-e", k, v])
+
+        direShell(args)
 
         let ok = processOutputFromAutotestStream(logcat.outputStream)
         logcat.kill()
@@ -1005,7 +1010,7 @@ task "droid", "Build for android and install on the connected device":
 
 task "droid-debug", "Start application on Android device and connect with debugger":
     let b = newBuilder("android")
-    b.preconfigure()
+    b.configure()
     withDir b.buildRoot / b.javaPackageId:
         if not fileExists("libs/gdb.setup"):
             for arch in ["armeabi", "armeabi-v7a", "x86"]:
