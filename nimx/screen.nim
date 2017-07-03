@@ -17,18 +17,10 @@ elif defined(macosx):
         """.}
 elif defined(android):
     import jnim, sdl2
-    jclass android.util.DisplayMetrics of JVMObject:
-        proc new
-        proc density: jfloat {.prop.}
-
-    jclass android.view.Display of JVMObject:
-        proc getMetrics(outMetrics: DisplayMetrics)
-
-    jclass android.view.WindowManager of JVMObject:
-        proc getDefaultDisplay: Display
-
-    jclass android.app.Activity of JVMObject:
-        proc getWindowManager: WindowManager
+    import android.util.display_metrics
+    import android.view.display
+    import android.view.window_manager
+    import android.app.activity
 
 elif defined(emscripten):
     import jsbind.emscripten

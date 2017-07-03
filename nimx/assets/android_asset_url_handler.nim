@@ -1,21 +1,14 @@
 import url_stream
-import android.ndk.aasset_manager
-
-import sdl2
 import jnim
-
-jclassDef android.content.res.AssetManager of JVMObject
-
-jclass android.app.Application of JVMObject:
-    proc getAssets: AssetManager
-
-jclass android.app.Activity of JVMObject:
-    proc getApplication: Application
+import android.ndk.aasset_manager
+import android.app.activity
+import android.content.res.asset_manager
+import android.content.context
+import sdl2
 
 proc getAssetManager(): AAssetManager =
     let act = Activity.fromJObject(cast[jobject](androidGetActivity()))
-    let am = act.getApplication().getAssets().get()
-    result = AAssetManager_fromJava(am)
+    result = act.getApplication().getAssets().getNative()
 
 let gAssetManager = getAssetManager()
 
