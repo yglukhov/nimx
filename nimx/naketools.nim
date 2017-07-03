@@ -961,29 +961,32 @@ proc installAppOnConnectedDevice(b: Builder, devId: string) =
         apkPath = b.buildRoot / b.javaPackageId / "bin" / b.appName & "-" & conf & ".apk"
     direShell b.adbExe, "-H", b.adbServerName, "-s", devId, "install", "-r", apkPath
 
-proc runAutotestsOnConnectedDevices*(b: Builder, install: bool = true, extraArgs: StringTableRef = nil) =
+proc runAutotestsOnAndroidDevice*(b: Builder, devId: string, install: bool = true, extraArgs: StringTableRef = nil) =
+    echo "Running on device: ", devId
+    if install: b.installAppOnConnectedDevice(devId)
+
     let adb = b.adbExe
     let host = b.adbServerName
 
+    let logcat = startProcess(adb, args = ["-H", host, "-s", devId, "logcat", "-T", "1", "-s", "NIM_APP"])
+
+    direShell adb, "-H", host, "-s", devId, "shell", "input", "keyevent", "KEYCODE_WAKEUP"
+    let activityName = b.javaPackageId & "/" & b.javaPackageId & ".MainActivity"
+
+    var args = @[adb, "-H", host, "-s", devId, "shell", "am", "start", "-S", "-n", activityName]
+    if not extraArgs.isNil:
+        for k, v in extraArgs: args.add(["-e", k, v])
+
+    direShell(args)
+
+    let ok = processOutputFromAutotestStream(logcat.outputStream)
+    logcat.kill()
+    direShell adb, "-H", host, "-s", devId, "shell", "input", "keyevent", "KEYCODE_HOME"
+    doAssert(ok, "Android autotest failed")
+
+proc runAutotestsOnConnectedDevices*(b: Builder, install: bool = true, extraArgs: StringTableRef = nil) =
     for devId in b.getConnectedAndroidDevices:
-        echo "Running on device: ", devId
-        if install: b.installAppOnConnectedDevice(devId)
-
-        let logcat = startProcess(adb, args = ["-H", host, "-s", devId, "logcat", "-T", "1", "-s", "NIM_APP"])
-
-        direShell adb, "-H", host, "-s", devId, "shell", "input", "keyevent", "KEYCODE_WAKEUP"
-        let activityName = b.javaPackageId & "/" & b.javaPackageId & ".MainActivity"
-
-        var args = @[adb, "-H", host, "-s", devId, "shell", "am", "start", "-S", "-n", activityName]
-        if not extraArgs.isNil:
-            for k, v in extraArgs: args.add(["-e", k, v])
-
-        direShell(args)
-
-        let ok = processOutputFromAutotestStream(logcat.outputStream)
-        logcat.kill()
-        direShell adb, "-H", host, "-s", devId, "shell", "input", "keyevent", "KEYCODE_HOME"
-        doAssert(ok, "Android autotest failed")
+        b.runAutotestsOnAndroidDevice(devId, install, extraArgs)
 
 task defaultTask, "Build and run":
     newBuilder().build()
