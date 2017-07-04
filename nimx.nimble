@@ -24,3 +24,4 @@ requires "jester" # required to run a web server from the nakefile to serve WebG
 requires "https://github.com/yglukhov/ttf >= 0.2.3 & < 0.3"
 requires "https://github.com/yglukhov/async_http_request"
 requires "jsbind"
+requires "oldwinapi"
