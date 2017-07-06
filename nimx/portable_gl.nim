@@ -61,6 +61,7 @@ when defined js:
             FRAMEBUFFER_BINDING : GLenum
             RENDERBUFFER_BINDING : GLenum
             STENCIL_TEST*, DEPTH_TEST*, SCISSOR_TEST* : GLenum
+            MAX_TEXTURE_SIZE*: GLenum
             NEVER*, LESS*, LEQUAL*, GREATER*, GEQUAL*, EQUAL*, NOTEQUAL*, ALWAYS*: GLenum
             KEEP*, ZERO*, REPLACE*, INCR*, INCR_WRAP*, DECR*, DECR_WRAP*, INVERT*: GLenum
 
@@ -240,6 +241,7 @@ else:
     template STENCIL_TEST*(gl: GL): GLenum = GL_STENCIL_TEST
     template DEPTH_TEST*(gl: GL): GLenum = GL_DEPTH_TEST
     template SCISSOR_TEST*(gl: GL): GLenum = GL_SCISSOR_TEST
+    template MAX_TEXTURE_SIZE*(gl: GL): GLenum = GL_MAX_TEXTURE_SIZE
 
     template NEVER*(gl: GL): GLenum = GL_NEVER
     template LESS*(gl: GL): GLenum = GL_LESS
