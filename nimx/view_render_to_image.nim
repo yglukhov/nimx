@@ -4,7 +4,6 @@ import nimx.image
 import nimx.types
 
 proc renderToImage*(v: View, image: SelfContainedImage)=
-    assert v.bounds.size == image.size
     image.draw do():
         v.draw(newRect(0, 0, v.bounds.width, v.bounds.height))
 
