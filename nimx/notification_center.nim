@@ -268,10 +268,6 @@ proc postNotification*(nc: NotificationCenter, ev: string, args: Variant) =
         for v in o.values:
             v(args)
 
-proc hasObserver*(nc: NotificationCenter, ev: string): bool =
-    let o = nc.observers.getOrDefault(ev)
-    result = not o.isNil
-
 proc postNotification*(nc: NotificationCenter, ev: string)=
     nc.postNotification(ev, newVariant())
 
