@@ -188,7 +188,7 @@ proc loopFinishCheck(a: Animation, lp, tp: var float)=
         lp = 1.0
         tp = 1.0
 
-method tick*(a: Animation, t: float) =
+method tick*(a: Animation, t: float) {.base.} =
     if a.pauseTime != 0: return
 
     let oldLoop = a.curLoop

@@ -6,7 +6,7 @@ when not defined(windows):
     when defined(android):
         import nimx.system_logger
     {.push stackTrace: off.}
-    proc setupLogger() {.cdecl.}=
+    proc setupLogger() {.cdecl.} =
         when defined(android):
             errorMessageWriter = proc(msg: string) =
                 logi msg
@@ -20,8 +20,8 @@ when not defined(windows):
         {.emit: "#define __IPHONEOS__".}
 
 
-
-    {.emit: """
+    when not defined(nimxAvoidSDL):
+        {.emit: """
 // The following piece of code is a copy-paste from SDL/SDL_main.h
 // It is required to avoid dependency on SDL headers
 ////////////////////////////////////////////////////////////////////////////////
