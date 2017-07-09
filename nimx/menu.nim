@@ -1,40 +1,74 @@
-import view
-import table_view_cell
-import text_field
-import context
-import app
-import view_event_handling
-
-import times
+import macros, times
+import view, table_view_cell, text_field, context, app, view_event_handling
 
 type MenuItem* = ref object of RootObj
     title*: string
-    subitems*: seq[MenuItem]
-    customView*: View
+    children*: seq[MenuItem]
+    # customView*: View
     action*: proc()
+
+type Menu* {.deprecated.}  = MenuItem
 
 proc newMenuItem*(title: string): MenuItem =
     result.new()
     result.title = title
 
-type Menu* = ref object of RootObj
-    items*: seq[MenuItem]
-
-proc newMenu*(): Menu =
+proc newMenu*(): MenuItem =
     result.new()
 
+template `items=`*(m: MenuItem, items: seq[MenuItem]) = m.children = items
+template `items`*(m: MenuItem): seq[MenuItem] = m.children
+
+template menuItemOnAction(m: MenuItem, body: untyped) =
+    m.action = proc() =
+        body
+
+proc menuItemAddSubmenu(m, s: MenuItem) =
+    if m.children.isNil: m.children = @[s]
+    else: m.children.add(s)
+
+proc makeMenuAux(parentSym, b, res: NimNode) =
+    for i in b:
+        let s = genSym()
+        i.expectKind(nnkPrefix)
+        let name = i[1]
+        let create = quote do:
+            let `s` = newMenuItem(`name`)
+        res.add(create)
+
+        let tok = $i[0]
+        assert(tok == "-" or tok == "+", "Unexpected token: " & tok)
+
+        if i.len == 3:
+            case tok
+            of "-":
+                res.add(newCall(bindSym"menuItemOnAction", s, i[2]))
+            of "+":
+                makeMenuAux(s, i[2], res)
+
+        res.add(newCall(bindSym"menuItemAddSubmenu", parentSym, s))
+
+macro makeMenu*(name: string, b: untyped): untyped =
+    result = newNimNode(nnkStmtList)
+    let i = genSym()
+    let s = quote do:
+        let `i` = newMenuItem(`name`)
+    result.add(s)
+    makeMenuAux(i, b, result)
+    result.add(i)
+
 type MenuView = ref object of View
-    menuItems: seq[MenuItem]
+    item: MenuItem
     highlightedRow: int
 
 const menuItemHeight = 20.Coord
 
-proc newViewWithMenuItems(items: seq[MenuItem], size: Size): MenuView =
-    result = MenuView.new(newRect(0, 0, size.width - 20.0, items.len.Coord * menuItemHeight))
-    result.menuItems = items
+proc newViewWithMenuItems(item: MenuItem, size: Size): MenuView =
+    result = MenuView.new(newRect(0, 0, size.width - 20.0, item.children.len.Coord * menuItemHeight))
+    result.item = item
     result.highlightedRow = -1
     var yOff = 0.Coord
-    for i, item in items:
+    for i, item in item.children:
         let label = newLabel(newRect(0, 0, size.width - 20.0, size.height))
         label.text = item.title
         let cell = newTableViewCell(label)
@@ -50,8 +84,8 @@ method draw(v: MenuView, r: Rect) =
     c.strokeWidth = 0
     c.drawRoundedRect(v.bounds, 5)
 
-proc popupAtPoint*(m: Menu, v: View, p: Point, size: Size = newSize(150.0, menuItemHeight)) =
-    let mv = newViewWithMenuItems(m.items, size)
+proc popupAtPoint*(m: MenuItem, v: View, p: Point, size: Size = newSize(150.0, menuItemHeight)) =
+    let mv = newViewWithMenuItems(m, size)
     var wp = v.convertPointToWindow(p)
     let win = v.window
 
@@ -91,7 +125,7 @@ proc popupAtPoint*(m: Menu, v: View, p: Point, size: Size = newSize(150.0, menuI
 
             if e.buttonState == bsUp and (epochTime() - popupTime) > 0.3:
                 if mv.highlightedRow != -1:
-                    let item = mv.menuItems[mv.highlightedRow]
+                    let item = mv.item.children[mv.highlightedRow]
                     if not item.action.isNil:
                         item.action()
                 control = efcBreak
