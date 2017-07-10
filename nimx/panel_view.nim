@@ -44,20 +44,6 @@ method init*(v: PanelView, r: Rect) =
                 v.collapsed = not v.collapsed
     ))
 
-var disclosureTriangleComposition = newComposition """
-uniform float uAngle;
-
-void compose() {
-    vec2 center = vec2(bounds.x + bounds.z / 2.0, bounds.y + bounds.w / 2.0 - 1.0);
-    float triangle = sdRegularPolygon(center, 5.0, 3, uAngle);
-    drawShape(triangle, vec4(0.7, 0.7, 0.7, 1));
-}
-"""
-
-proc drawDisclosureTriangle(disclosed: bool, r: Rect) =
-    disclosureTriangleComposition.draw r:
-        setUniform("uAngle", if disclosed: Coord(PI / 2.0) else: Coord(0))
-
 var gradientComposition = newComposition """
 void compose() {
     vec4 color = gradient(
@@ -80,16 +66,16 @@ method draw(v: PanelView, r: Rect) =
     c.drawRoundedRect(newRect(r.x, r.y, r.width, r.height), 6)
 
     if v.collapsible:
+        var disclosureTriangleAngle: Coord
         if not v.collapsed:
             # Main panel
             c.fillColor = newGrayColor(0.4, 0.6)
             c.strokeColor = newGrayColor(0.4, 0.6)
             c.drawRect(newRect(r.x, r.y + v.titleHeight, r.width, r.height - v.titleHeight))
-
-            # Collapse button open
-            drawDisclosureTriangle(true, newRect(r.x, r.y, v.titleHeight, v.titleHeight))
         else:
-            # Collapse button close
-            drawDisclosureTriangle(false, newRect(r.x, r.y, v.titleHeight, v.titleHeight))
+            disclosureTriangleAngle = Coord(PI / 2.0)
+
+        c.fillColor = newColor(0.7, 0.7, 0.7)
+        c.drawTriangle(newRect(r.x, r.y, v.titleHeight, v.titleHeight), disclosureTriangleAngle)
 
 method clipType*(v: PanelView): ClipType = ctDefaultClip

@@ -491,6 +491,24 @@ proc drawArc*(c: GraphicsContext, center: Point, radius: Coord, fromAngle, toAng
         setUniform("uStartAngle", fromAngle)
         setUniform("uEndAngle", toAngle)
 
+var triangleComposition = newComposition """
+uniform float uAngle;
+uniform vec4 uColor;
+void compose() {
+    vec2 center = vec2(bounds.x + bounds.z / 2.0, bounds.y + bounds.w / 2.0 - 1.0);
+    float triangle = sdRegularPolygon(center, 4.0, 3, uAngle);
+    drawShape(triangle, uColor);
+}
+"""
+
+proc drawTriangle*(c: GraphicsContext, rect: Rect, angleRad: Coord) =
+    ## Draws equilateral triangle with current `fillColor`, pointing at `angleRad`
+    var color = c.fillColor
+    color.a *= c.alpha
+    triangleComposition.draw rect:
+        setUniform("uAngle", angleRad)
+        setUniform("uColor", color)
+
 # TODO: This should probaly be a property of current context!
 var clippingDepth: GLint = 0
 

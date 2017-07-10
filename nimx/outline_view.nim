@@ -52,18 +52,8 @@ method init*(v: OutlineView, r: Rect) =
 
 const rowHeight = 20.Coord
 
-var disclosureTriangleComposition = newComposition """
-uniform float uAngle;
-void compose() {
-    vec2 center = vec2(bounds.x + bounds.z / 2.0, bounds.y + bounds.w / 2.0 - 1.0);
-    float triangle = sdRegularPolygon(center, 4.0, 3, uAngle);
-    drawShape(triangle, vec4(0.0, 0, 0, 1));
-}
-"""
-
 proc drawDisclosureTriangle(disclosed: bool, r: Rect) =
-    disclosureTriangleComposition.draw r:
-        setUniform("uAngle", if disclosed: Coord(PI / 2.0) else: Coord(0))
+    currentContext().drawTriangle(r, if disclosed: Coord(PI / 2.0) else: Coord(0))
 
 template xOffsetForIndexPath(ip: IndexPath): Coord =
     Coord(offsetOutline + ip.len * offsetOutline * 2)

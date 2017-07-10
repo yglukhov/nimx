@@ -122,8 +122,10 @@ proc `/`*(s: Size, v: float32): Size =
 proc distanceTo*(p : Point, to: Point) : float32 =
     result = sqrt(pow(p.x - to.x, 2) + pow(p.y - to.y, 2))
 
-proc inRect*(p: Point, r: Rect): bool =
+proc contains*(r: Rect, p: Point): bool =
     p.x >= r.x and p.x <= r.maxX and p.y >= r.y and p.y <= r.maxY
+
+template inRect*(p: Point, r: Rect): bool = p in r
 
 # return angle between 0 and 360 degrees
 proc vectorAngle*(p: Point, to: Point) : float32 =
