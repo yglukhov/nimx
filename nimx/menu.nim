@@ -1,5 +1,5 @@
 import macros, times
-import view, table_view_cell, text_field, context, app, view_event_handling
+import view, table_view_cell, text_field, context, app, view_event_handling, font
 
 type MenuItem* = ref object of RootObj
     title*: string
@@ -71,18 +71,25 @@ type
 
 const menuItemHeight = 20.Coord
 
+proc minMenuWidth(item: MenuItem): Coord =
+    let font = systemFont()
+    for c in item.children:
+        let sz = font.sizeOfString(c.title).width
+        if sz > result: result = sz
+
 proc newViewWithMenuItems(item: MenuItem, size: Size): MenuView =
-    result = MenuView.new(newRect(0, 0, size.width - 20.0, item.children.len.Coord * menuItemHeight))
+    let width = max(size.width, minMenuWidth(item) + 20)
+    result = MenuView.new(newRect(0, 0, width, item.children.len.Coord * menuItemHeight))
     result.item = item
     result.highlightedRow = -1
     var yOff = 0.Coord
     for i, item in item.children:
         var cell: TableViewCell
         if item.title == "-":
-            let sep = SeparatorView.new(newRect(0, 0, size.width - 20.0, size.height))
+            let sep = SeparatorView.new(newRect(0, 0, width, size.height))
             cell = newTableViewCell(sep)
         else:
-            let label = newLabel(newRect(0, 0, size.width - 20.0, size.height))
+            let label = newLabel(newRect(0, 0, width, size.height))
             label.text = item.title
             cell = newTableViewCell(label)
 
@@ -91,7 +98,7 @@ proc newViewWithMenuItems(item: MenuItem, size: Size): MenuView =
         cell.selected = false
 
         if item.children.len > 0:
-            let triangleView = TriangleView.new(newRect(cell.bounds.width - 20.0, 0, 20, menuItemHeight))
+            let triangleView = TriangleView.new(newRect(width - 20, 0, 20, menuItemHeight))
             cell.addSubview(triangleView)
 
         result.addSubview(cell)
