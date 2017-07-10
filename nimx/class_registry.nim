@@ -1,22 +1,23 @@
 import tables, typetraits, macros, variant
 
-macro superType(t: typed): untyped =
-    # let ty = getImpl(t.symbol)
-    # echo "n: ", treeRepr(t)
-    # echo "ty: ",                treeRepr(getType(t))
+proc skipPtrRef(n: NimNode): NimNode =
+    let ty = getImpl(n.symbol)
+    result = n
+    if ty[2].kind in {nnkRefTy, nnkPtrTy} and ty[2][0].kind == nnkSym:
+        result = ty[2][0].skipPtrRef()
 
-    let ty = getType(t)
-    let refSym = ty[1][0]
-    # echo "tysssss: ",                treeRepr(refSym)
-    # echo "ty ...: ",            treeRepr(getType(getType(t)[1][1]))
-    # echo "ty .......: ",        treeRepr(getType(getType(t)[1][1])[1])
+proc superTypeAux(t: NimNode): NimNode =
+    let ty = getImpl(t.getTypeInst()[1].symbol)
+    let r = ty[2]
+    if r.kind == nnkRefTy and r[0].kind == nnkObjectTy:
+        result = r[0][1][0].skipPtrRef()
+    else:
+        result = r
 
-    result = getType(ty[1][1])[1]
-    result = newNimNode(nnkBracketExpr).add(refSym, result)
-    #echo "impl: ", treeRepr(ty)
-    #result = ty[2][0][1][0]
+macro superType(t: typed): untyped = superTypeAux(t)
 
 method className*(o: RootRef): string {.base.} = discard
+method classTypeId*(o: RootRef): TypeId {.base.} = getTypeId(RootRef)
 
 type ClassInfo = tuple
     creatorProc: proc(): RootRef {.nimcall.}
@@ -30,7 +31,7 @@ var superTypeRelations = initTable[TypeId, TypeId]()
 proc registerTypeRelation(a: typedesc) =
     type ParentType = superType(a)
     if not superTypeRelations.hasKeyOrPut(getTypeId(a), getTypeId(ParentType)):
-        when RootRef isnot ParentType:
+        when RootObj isnot ParentType:
             registerTypeRelation(ParentType)
 
 proc isTypeOf(tself, tsuper: TypeId): bool =
@@ -45,11 +46,13 @@ proc isSubtypeOf(tself, tsuper: TypeId): bool = tself != tsuper and isTypeOf(tse
 
 template registerClass*(a: typedesc, creator: (proc(): RootRef)) =
     const TName = typetraits.name(a)
+    const tid = getTypeId(a)
     method className*(o: a): string = TName
+    method classTypeId*(o: a): TypeId = tid
     registerTypeRelation(a)
     var info: ClassInfo
     info.creatorProc = creator
-    info.typ = getTypeId(a)
+    info.typ = tid
     classFactory[TName] = info
 
 template registerClass*(a: typedesc) =
@@ -86,18 +89,25 @@ when isMainModule:
     type B = ref object of A
     type C = ref object of B
 
-    echo "typeId RootRef: ", getTypeId(RootRef)
+    echo "typeId RootObj: ", getTypeId(RootObj)
     echo "typeId A: ", getTypeId(A)
     echo "typeId B: ", getTypeId(B)
 
     echo "typeId superType(A): ", getTypeId(superType(A))
     echo "typeId superType(B): ", getTypeId(superType(B))
 
+    template sameType(t1, t2: typedesc): bool =
+        t1 is t2 and t2 is t1
+
+    assert sameType(superType(A), RootObj)
+    assert sameType(superType(B), A)
+    assert sameType(superType(C), B)
+
     registerClass(A)
     registerClass(B)
     registerClass(C)
 
-    doAssert(superTypeRelations[getTypeId(A)] == getTypeId(RootRef))
+    doAssert(superTypeRelations[getTypeId(A)] == getTypeId(RootObj))
     doAssert(superTypeRelations[getTypeId(B)] == getTypeId(A))
 
     proc isSubtypeOf(tself, tsuper: string): bool =
@@ -125,3 +135,7 @@ when isMainModule:
     doAssert(a.className() == "A")
     doAssert(b.className() == "B")
     doAssert(c.className() == "C")
+
+    doAssert(a.classTypeId() == getTypeId(A))
+    doAssert(b.classTypeId() == getTypeId(B))
+    doAssert(c.classTypeId() == getTypeId(C))
