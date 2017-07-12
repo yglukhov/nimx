@@ -1,8 +1,7 @@
-import strutils, streams
-import nimx.resource, nimx.private.font.font_data, nimx.rect_packer
-
+import strutils, streams, logging
+import nimx.resource, nimx.private.font.font_data
+import rect_packer
 import ttf
-import logging
 
 type StbTtfGlyphProvider* = ref object
     path: string

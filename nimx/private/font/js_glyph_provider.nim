@@ -1,7 +1,7 @@
 import dom
 
 import nimx.private.font.font_data
-import nimx.rect_packer
+import rect_packer
 
 type JsGlyphProvider* = ref object
     face: string
