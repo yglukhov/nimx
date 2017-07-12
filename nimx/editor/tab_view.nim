@@ -101,6 +101,12 @@ proc insertTab*(v: TabView, i: int, title: string, view: View) =
     if v.tabs.len == 1:
         v.selectTab(0)
 
+proc tabIndex*(v: TabView, title: string): int=
+    result = -1
+    for i, t in v.tabs:
+        if t.title == title:
+            return i
+
 proc addTab*(v: TabView, title: string, view: View) {.inline.} =
     v.insertTab(v.tabs.len, title, view)
 
