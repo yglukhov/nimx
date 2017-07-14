@@ -7,7 +7,7 @@ type StreamLoaderProc* = proc(s: Stream, path: string, cache: AssetCache, handle
 type SimpleStreamLoaderProc*[T] = proc(s: Stream, handler: proc(v: T))
 
 
-const anyUrlScheme = "_any"
+const anyUrlScheme = "_"
 
 var assetLoaders = newSeq[tuple[urlSchemes: seq[string], extensions: seq[string], loader: UrlLoaderProc]]()
 
@@ -69,10 +69,18 @@ proc loadAsset*(url, path: string, cache: AssetCache, handler: proc()) =
             handler()
         return
 
+    var genericLoader = -1
     for i in 0 ..< assetLoaders.len:
-        if (scheme in assetLoaders[i].urlSchemes or anyUrlScheme in assetLoaders[i].urlSchemes) and getExt(url) in assetLoaders[i].extensions:
-            assetLoaders[i].loader(url, path, cache, handler)
-            return
+        if getExt(url) in assetLoaders[i].extensions:
+            if scheme in assetLoaders[i].urlSchemes: # Perfect match:
+                assetLoaders[i].loader(url, path, cache, handler)
+                return
+            elif anyUrlScheme in assetLoaders[i].urlSchemes: # Generic match
+                genericLoader = i
+
+    if genericLoader != -1:
+        assetLoaders[genericLoader].loader(url, path, cache, handler)
+        return
 
     raise newException(Exception, "No asset loader found for url: " & url)
 
