@@ -330,14 +330,27 @@ when not web:
             var texCoords : array[4, GLfloat]
             let texture = i.getTextureQuad(nil, texCoords)
             glBindTexture(GL_TEXTURE_2D, texture)
-            var w, h: GLint
+            var w, h, fmti: GLint
             glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH, addr w)
             glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT, addr h)
+            glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_INTERNAL_FORMAT, addr fmti)
 
-            let comp = 3
+            var fmt = GLenum(fmti)
+            var comp = 0
+            case fmt
+            of GL_RGB, GL_RGB8:
+                comp = 3
+                fmt = GL_RGB
+            of GL_RGBA, GL_RGBA8:
+                comp = 4
+                fmt = GL_RGBA
+            else: discard
+
+            if comp == 0:
+                raise newException(Exception, "Unsupported format: " & $int(fmt))
 
             var data = alloc(comp * w * h)
-            glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_UNSIGNED_BYTE, data)
+            glGetTexImage(GL_TEXTURE_2D, 0, fmt, GL_UNSIGNED_BYTE, data)
 
             let actualWidth = i.size.width.GLint
             let actualHeight = i.size.height.GLint
