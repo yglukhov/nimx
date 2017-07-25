@@ -911,7 +911,8 @@ proc runAutotestsInFirefox*(b: Builder, args: StringTableRef = nil) =
 proc chromeBin(): string =
     when defined(macosx):
         for c in ["/Applications/Chrome.app/Contents/MacOS/Chrome",
-                    "/Applications/Chromium.app/Contents/MacOS/Chromium"]:
+                    "/Applications/Chromium.app/Contents/MacOS/Chromium",
+                    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"]:
             if fileExists(c): return c
     else:
         for c in ["chrome", "chromium"]:
