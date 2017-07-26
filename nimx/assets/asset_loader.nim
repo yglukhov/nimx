@@ -46,6 +46,7 @@ when jsEnv:
         const parallelLoaders = 10
         while ld.itemsLoading < parallelLoaders and ld.remainingItemsToLoad.len > 0:
             let next = ld.remainingItemsToLoad.pop()
+            inc ld.itemsLoading
             ld.startLoadingAsset(next)
 
 proc loadAssets*(ld: AssetLoader, resourceNames: openarray[string]) =
