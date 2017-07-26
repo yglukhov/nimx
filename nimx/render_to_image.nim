@@ -37,8 +37,24 @@ proc bindFramebuffer*(gl: GL, i: SelfContainedImage, makeDepthAndStencil: bool =
 
             let depthStencilFormat = when defined(js) or defined(emscripten): gl.DEPTH_STENCIL else: gl.DEPTH24_STENCIL8
 
-            gl.renderbufferStorage(gl.RENDERBUFFER, depthStencilFormat, texWidth.GLsizei, texHeight.GLsizei)
-            gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_STENCIL_ATTACHMENT, gl.RENDERBUFFER, depthBuffer)
+            # TODO: The following is a very dirty fix for ES 2.0 devices that don't support DEPTH_STENCIL_ATTACHMENT
+            # for such devices we provide only DEPTH attachment, which can result in artifacts when drawing relies
+            # on stencil buffer. This should be fixed with refactoring of render-to-texture system.
+            when NoAutoGLerrorCheck:
+                discard gl.getError()
+                gl.renderbufferStorage(gl.RENDERBUFFER, depthStencilFormat, texWidth.GLsizei, texHeight.GLsizei)
+                if gl.getError() == 0:
+                    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_STENCIL_ATTACHMENT, gl.RENDERBUFFER, depthBuffer)
+                else:
+                    gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, texWidth.GLsizei, texHeight.GLsizei)
+                    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, depthBuffer)
+            else:
+                try:
+                    gl.renderbufferStorage(gl.RENDERBUFFER, depthStencilFormat, texWidth.GLsizei, texHeight.GLsizei)
+                    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_STENCIL_ATTACHMENT, gl.RENDERBUFFER, depthBuffer)
+                except:
+                    gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, texWidth.GLsizei, texHeight.GLsizei)
+                    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, depthBuffer)
 
             i.renderbuffer = depthBuffer
     else:
