@@ -254,8 +254,6 @@ proc newBuilder*(platform: string): Builder =
 
 proc nimblePath(package: string): string =
     var nimblecmd = "nimble"
-    when defined(windows):
-        nimblecmd &= ".cmd"
     var (packageDir, err) = execCmdEx(nimblecmd & " path " & package)
     if err == 0:
         let lines = packageDir.splitLines()
