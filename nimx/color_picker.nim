@@ -11,8 +11,10 @@ import portable_gl
 import popup_button
 import strutils
 import text_field
-import view_event_handling
 import view_event_handling_new
+import view_dragging_listener
+import button
+import app
 
 const
     margin = 6
@@ -32,7 +34,6 @@ type
 
     ColorPickerCircle* = ref object of View
         radius: Coord
-        currentColor: tuple[h: float, s: float, v: float]
         palette: ColorPickerPalette
 
     ColorPickerH* = ref object of View
@@ -53,6 +54,7 @@ type
         colorHistory:    seq[ColorView]      ## History of chosen colors
         lastInHistory:   int                 ## Last item index added to history
 
+        currentColor: tuple[h: float, s: float, v: float]
         circle*:         ColorPickerCircle   ## Color picking circle
         paletteChooser:  PopupButton         ## Palette choser popup
         chosenColorView: View                ## Quad that shows current color
@@ -71,14 +73,13 @@ type
         # Callbacks
         onColorSelected*: proc(c: Color)
 
+template enclosingColorPickerView(v: View): ColorPickerView = v.enclosingViewOfType(ColorPickerView)
+
 proc newColorComponentTextField(r: Rect, comp: ColorComponent): ColorComponentTextField =
     result.new
     result.init(r)
     result.cComponent = comp
     result.textColor = newGrayColor(0.0)
-
-proc init(ccf: ColorComponentTextField, r: Rect) =
-    procCall ccf.TextField.init(r)
 
 proc hsvToRGB(h: float, s: float, v: float): Color =
     ## Helper proc for convertin color from HSV to RGV format
@@ -114,7 +115,7 @@ proc rgbToHSV*(r: float, g: float, b: float): tuple[h: float, s: float, v: float
     if (min > g): min = g
     if (min > b): min = b
 
-    result.h = 0.0
+    result.v = max
 
     if (max == min):
         return result
@@ -131,10 +132,6 @@ proc rgbToHSV*(r: float, g: float, b: float): tuple[h: float, s: float, v: float
 
     if (max == 0): result.s = 0.0
     else: result.s = 1.0 - (min / max)
-
-    result.v = max
-
-    return result
 
 proc hsvToRgb(color: tuple[h: float, s: float, v: float]): Color =
     hsvToRgb(color.h, color.s, color.v)
@@ -153,7 +150,7 @@ var cpHComposition = newComposition """
     uniform float uChosenH;
 
     vec4 cHQuad() {
-        if (abs(uChosenH - vPos.x / bounds.z) < 0.003)
+        if (distance(vPos.x, uChosenH * bounds.z) < 1.0)
             return vec4(0.0, 0.0, 0.0, 1.0);
         else
             return vec4(hsv2rgb(vec3(vPos.x / bounds.z, 1.0, 1.0)), 1.0);
@@ -167,18 +164,17 @@ var cpHComposition = newComposition """
 method draw(cph: ColorPickerH, r: Rect) =
     ## Drawing Hue picker
     let c = currentContext()
-    let cc = ColorPickerView(cph.superview).circle.currentColor
+    let h = cph.enclosingColorPickerView().currentColor.h
 
     cpHComposition.draw r:
-        setUniform("uChosenH", cc.h)
+        setUniform("uChosenH", h)
 
-proc colorHasChanged*(cpv: ColorPickerView, newColor: tuple[h: float, s: float, v: float]) =
+proc colorHasChanged(cpv: ColorPickerView) =
     ## Perform update of ColorPickerView components
-    cpv.tfH.text = formatFloat(newColor.h, precision = 3)
-    cpv.tfS.text = formatFloat(newColor.s, precision = 3)
-    cpv.tfV.text = formatFloat(newColor.v, precision = 3)
-    cpv.circle.currentColor = newColor
-    cpv.chosenColorView.backgroundColor = hsvToRGB(newColor)
+    cpv.tfH.text = formatFloat(cpv.currentColor.h, precision = 3)
+    cpv.tfS.text = formatFloat(cpv.currentColor.s, precision = 3)
+    cpv.tfV.text = formatFloat(cpv.currentColor.v, precision = 3)
+    cpv.chosenColorView.backgroundColor = hsvToRGB(cpv.currentColor)
     cpv.setNeedsDisplay()
 
 method onTextInput(ccf: ColorComponentTextField, s: string): bool =
@@ -188,31 +184,31 @@ method onTextInput(ccf: ColorComponentTextField, s: string): bool =
               except Exception: -100.0
     if val == -100.0: return true
 
-    let cpv = ColorPickerView(ccf.superview)
+    let cpv = ccf.enclosingColorPickerView()
 
     case ccf.cComponent
     of ColorComponent.H:
-        cpv.circle.currentColor.h = val
+        cpv.currentColor.h = val
     of ColorComponent.S:
-        cpv.circle.currentColor.s = val
+        cpv.currentColor.s = val
     of ColorComponent.V:
-        cpv.circle.currentColor.v = val
+        cpv.currentColor.v = val
 
-    cpv.colorHasChanged(cpv.circle.currentColor)
+    cpv.colorHasChanged()
 
     return true
 
 method onTouchEv(cph: ColorPickerH, e: var Event): bool =
-    let cpv = ColorPickerView(cph.superView)
+    let cpv = cph.enclosingColorPickerView()
 
     if e.buttonState == bsUp or true:
         var h = e.localPosition.x / cph.frame.width
         h = h.clamp(0.0, 1.0)
-        cpv.circle.currentColor.h = h
-        procCall cpv.colorHasChanged(cpv.circle.currentColor)
+        cpv.currentColor.h = h
+        cpv.colorHasChanged()
 
         if not isNil(cpv.onColorSelected):
-            cpv.onColorSelected(hsvToRGB(cpv.circle.currentColor.h, cpv.circle.currentColor.s, cpv.circle.currentColor.v))
+            cpv.onColorSelected(hsvToRGB(cpv.currentColor.h, cpv.currentColor.s, cpv.currentColor.v))
 
     return true
 
@@ -231,7 +227,7 @@ var cpSComposition = newComposition """
     uniform float uChosenS;
 
     vec4 cSQuad() {
-        if (abs(uChosenS - vPos.x / bounds.z) < 0.003)
+        if (distance(vPos.x, uChosenS * bounds.z) < 1.0)
             return vec4(0.0, 0.0, 0.0, 1.0);
         else
             return vec4(hsv2rgb(vec3(uHcps, vPos.x / bounds.z, 1.0)), 1.0);
@@ -245,23 +241,23 @@ var cpSComposition = newComposition """
 method draw(cps: ColorPickerS, r: Rect) =
     ## Drawing Hue picker
     let c = currentContext()
-    let cc = ColorPickerView(cps.superview).circle.currentColor
+    let cc = cps.enclosingColorPickerView().currentColor
 
     cpSComposition.draw r:
         setUniform("uHcps", cc.h)
         setUniform("uChosenS", cc.s)
 
 method onTouchEv(cps: ColorPickerS, e: var Event): bool =
-    let cpv = ColorPickerView(cps.superView)
+    let cpv = cps.enclosingColorPickerView()
 
     if e.buttonState == bsUp or true:
         var s = e.localPosition.x / cps.frame.width
         s = s.clamp(0.0, 1.0)
-        cpv.circle.currentColor.s = s
-        cpv.colorHasChanged(cpv.circle.currentColor)
+        cpv.currentColor.s = s
+        cpv.colorHasChanged()
 
         if not isNil(cpv.onColorSelected):
-            cpv.onColorSelected(hsvToRGB(cpv.circle.currentColor.h, cpv.circle.currentColor.s, cpv.circle.currentColor.v))
+            cpv.onColorSelected(hsvToRGB(cpv.currentColor.h, cpv.currentColor.s, cpv.currentColor.v))
 
     return true
 
@@ -280,7 +276,7 @@ var cpVComposition = newComposition """
     uniform float uChosenV;
 
     vec4 cVQuad() {
-        if (abs(uChosenV - vPos.x / bounds.z) < 0.003)
+        if (distance(vPos.x, uChosenV * bounds.z) < 1.0)
             return vec4(0.0, 0.0, 0.0, 1.0);
         else
             return vec4(hsv2rgb(vec3(uHcpv, 1.0, vPos.x / bounds.z)), 1.0);
@@ -294,23 +290,23 @@ var cpVComposition = newComposition """
 method draw(cpv: ColorPickerV, r: Rect) =
     ## Drawing Hue picker
     let c = currentContext()
-    let cc = ColorPickerView(cpv.superview).circle.currentColor
+    let cc = cpv.enclosingColorPickerView().currentColor
 
     cpVComposition.draw r:
         setUniform("uHcpv", cc.h)
         setUniform("uChosenV", cc.v)
 
 method onTouchEv(cpva: ColorPickerV, e: var Event): bool =
-    let cpv = ColorPickerView(cpva.superView)
+    let cpv = cpva.enclosingColorPickerView()
 
     if e.buttonState == bsUp or true:
         var v = (e.localPosition.x / cpva.frame.width).clamp(0.0, 1.0)
         v = v.clamp(0.0, 1.0)
-        cpv.circle.currentColor.v = v
-        cpv.colorHasChanged(cpv.circle.currentColor)
+        cpv.currentColor.v = v
+        cpv.colorHasChanged()
 
         if not isNil(cpv.onColorSelected):
-            cpv.onColorSelected(hsvToRGB(cpv.circle.currentColor.h, cpv.circle.currentColor.s, cpv.circle.currentColor.v))
+            cpv.onColorSelected(hsvToRGB(cpv.currentColor.h, cpv.currentColor.s, cpv.currentColor.v))
 
     return true
 
@@ -320,14 +316,9 @@ proc newColorPickerCircle(defaultPalette: ColorPickerPalette, radius: Coord): Co
     result.new
     result.radius = radius
     result.palette = defaultPalette
-    result.currentColor = (0.0, 0.0, 0.0)
 
 proc radius*(cpc: ColorPickerCircle): Coord = cpc.radius
     ## Get Color Picker Circle Radius
-
-proc currentColor*(cpc: ColorPickerCircle): Color =
-    ## Return current chosen color on circle
-    return hsvToRGB(cpc.currentColor.h, cpc.currentColor.s, cpc.currentColor.v)
 
 var hsvCircleComposition = newComposition """
     uniform float uHsvValue;
@@ -355,19 +346,18 @@ var hsvCircleComposition = newComposition """
     }
 """
 
-proc drawHSVCircleComposition(c: GraphicsContext, r: Rect, hsvValue: float, chosenH: float) =
-    hsvCircleComposition.draw r:
-        setUniform("uHsvValue", hsvValue)
-        setUniform("uChosenH", chosenH)
-
 method draw*(cpc: ColorPickerCircle, r: Rect) =
     ## Custom palette drawing
     let c = currentContext()
+    let cpv = cpc.enclosingColorPickerView()
 
     # Draw hsv circle
     c.fillColor = newGrayColor(0.0, 0.0)
     c.strokeColor = newGrayColor(0.0, 0.0)
-    c.drawHSVCircleComposition(newRect(0, 0, cpc.radius * 2.0, cpc.radius * 2.0), 1.0, cpc.currentColor.h)
+
+    hsvCircleComposition.draw cpc.bounds:
+        setUniform("uHsvValue", 1.0)
+        setUniform("uChosenH", cpv.currentColor.h)
 
 method onTouchEv*(cpc: ColorPickerCircle, e: var Event): bool =
     ## Choose color
@@ -375,32 +365,29 @@ method onTouchEv*(cpc: ColorPickerCircle, e: var Event): bool =
         let radius = cpc.frame.width / 2.0
         let center = newPoint(cpc.frame.width / 2.0, cpc.frame.height / 2.0)
 
-        let h = (arctan2(e.localPosition.y - center.y, center.x - e.localPosition.x) / 3.1415 + 1.0) / 2.0
-        let v = 1.0
-        let s = sqrt(pow(e.localPosition.x - center.x, 2) + pow(e.localPosition.y - center.y, 2)) / radius
+        let cpv = cpc.enclosingColorPickerView()
 
-        if s < 1.0 and s > 0.5:
-            cpc.currentColor = (h, s, v)
-            ColorPickerView(cpc.superview).colorHasChanged(cpc.currentColor)
+        cpv.currentColor.h = (arctan2(e.localPosition.y - center.y, center.x - e.localPosition.x) / 3.1415 + 1.0) / 2.0
+        cpv.colorHasChanged()
 
-        let cpv = ColorPickerView(cpc.superView)
         if not isNil(cpv.onColorSelected):
-            cpv.onColorSelected(hsvToRGB(cpv.circle.currentColor.h, cpv.circle.currentColor.s, cpv.circle.currentColor.v))
+            cpv.onColorSelected(hsvToRGB(cpv.currentColor.h, cpv.currentColor.s, cpv.currentColor.v))
 
     return true
 
 # ColorPickerView
 
-proc newColorPickerView*(r: Rect, defaultPalette = ColorPickerPalette.HSV, backgroundColor: Color = newGrayColor(0.35, 0.6)): ColorPickerView =
+proc newColorPickerView*(r: Rect, defaultPalette = ColorPickerPalette.HSV, backgroundColor: Color = newGrayColor(0.35, 0.8)): ColorPickerView =
     ## ColorPickerView constructor
     result.new
     result.init(r)
     result.palette = defaultPalette
     result.backgroundColor = backgroundColor
+    result.enableDraggingByBackground()
 
 proc currentColor*(cpv: ColorPickerView): Color =
     ## Return current chosen color
-    hsvToRGB(cpv.circle.currentColor.h, cpv.circle.currentColor.s, cpv.circle.currentColor.v)
+    hsvToRGB(cpv.currentColor.h, cpv.currentColor.s, cpv.currentColor.v)
 
 proc addToHistory*(cpv: ColorPickerView, color: Color) =
     ## Add new color to history
@@ -491,7 +478,7 @@ method init*(cpv: ColorPickerView, r: Rect) =
 
     # H Component View
     cpv.tfH = newColorComponentTextField(newRect(margin + 20 + margin, coff + margin, 40, 20), ColorComponent.H)
-    cpv.tfH.text = $cpv.circle.currentColor.h
+    cpv.tfH.text = $cpv.currentColor.h
     cpv.addSubview(cpv.tfH)
 
     cpv.cpH = newColorPickerH(newRect(margin + 20 + 40 + margin + margin, coff + margin, r.width - rightSize - 40 - margin * 4.0 - 20, 20))
@@ -499,7 +486,7 @@ method init*(cpv: ColorPickerView, r: Rect) =
 
     # S Component View
     cpv.tfS = newColorComponentTextField(newRect(margin + 20 + margin, coff + margin * 2 + 20, 40, 20), ColorComponent.S)
-    cpv.tfS.text = $cpv.circle.currentColor.s
+    cpv.tfS.text = $cpv.currentColor.s
     cpv.addSubview(cpv.tfS)
 
     cpv.cpS = newColorPickerS(newRect(margin + 20 + 40 + margin + margin, coff + margin * 2 + 20, r.width - rightSize - 40 - margin * 4.0 - 20, 20))
@@ -507,8 +494,26 @@ method init*(cpv: ColorPickerView, r: Rect) =
 
     # V Component View
     cpv.tfV = newColorComponentTextField(newRect(margin + 20 + margin, coff + margin * 3 + 40, 40, 20), ColorComponent.V)
-    cpv.tfV.text = $cpv.circle.currentColor.v
+    cpv.tfV.text = $cpv.currentColor.v
     cpv.addSubview(cpv.tfV)
 
     cpv.cpV = newColorPickerV(newRect(margin + 20 + 40 + margin + margin, coff + margin * 3 + 40, r.width - rightSize - 40 - margin * 4.0 - 20, 20))
     cpv.addSubview(cpv.cpV)
+
+proc `color=`*(v: ColorPickerView, c: Color) =
+    v.currentColor = rgbToHSV(c.r, c.g, c.b)
+    v.colorHasChanged()
+
+proc color*(v: ColorPickerView): Color = hsvToRGB(v.currentColor)
+
+var gColorPicker: ColorPickerView
+
+proc sharedColorPicker*(): ColorPickerView =
+    if gColorPicker.isNil:
+        gColorPicker = newColorPickerView(newRect(0, 0, 300, 200))
+    result = gColorPicker
+
+proc popupAtPoint*(c: ColorPickerView, v: View, p: Point) =
+    c.removeFromSuperview()
+    c.setFrameOrigin(v.convertPointToWindow(p))
+    v.window.addSubview(c)

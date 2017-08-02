@@ -10,6 +10,8 @@ import nimx.table_view
 import nimx.text_field
 import nimx.autotest
 import nimx.window
+import nimx.linear_layout
+
 
 import sequtils
 import intsets
@@ -20,6 +22,12 @@ import sample03_image
 import sample04_animation
 import sample05_fonts
 import sample06_timers
+import sample07_collections
+import sample08_events
+import sample09_docking_tabs
+import sample10_text
+import sample11_expanded_views
+import sample12_menus
 
 const isMobile = defined(ios) or defined(android)
 
@@ -33,26 +41,33 @@ proc startApplication() =
 
     mainWindow.title = "NimX Sample"
 
-    var currentView : View = nil
+    var currentView = View.new(newRect(0, 0, mainWindow.bounds.width - 100, mainWindow.bounds.height))
 
-    let tableView = newTableView(newRect(20, 20, 100, mainWindow.bounds.height - 40))
-    tableView.autoresizingMask = { afFlexibleMaxX, afFlexibleHeight }
-    mainWindow.addSubview(newScrollView(tableView))
+    let splitView = newHorizontalLayout(mainWindow.bounds)
+    splitView.resizingMask = "wh"
+    splitView.userResizeable = true
+    mainWindow.addSubview(splitView)
+
+    let tableView = newTableView(newRect(0, 0, 120, mainWindow.bounds.height))
+    tableView.resizingMask = "rh"
+    splitView.addSubview(newScrollView(tableView))
+    splitView.addSubview(currentView)
+    splitView.setDividerPosition(120, 0)
 
     tableView.numberOfRows = proc: int = allSamples.len
     tableView.createCell = proc (): TableViewCell =
-        result = newTableViewCell(newLabel(newRect(0, 0, 100, 20)))
+        result = newTableViewCell(newLabel(newRect(0, 0, 120, 20)))
     tableView.configureCell = proc (c: TableViewCell) =
         TextField(c.subviews[0]).text = allSamples[c.row].name
     tableView.onSelectionChange = proc() =
-        if not currentView.isNil: currentView.removeFromSuperview()
         let selectedRows = toSeq(items(tableView.selectedRows))
         if selectedRows.len > 0:
             let firstSelectedRow = selectedRows[0]
-            currentView = allSamples[firstSelectedRow].view
-            currentView.setFrame(newRect(140, 20, mainWindow.bounds.width - 160, mainWindow.bounds.height - 40))
-            currentView.autoresizingMask = { afFlexibleWidth, afFlexibleHeight }
-            mainWindow.addSubview(currentView)
+            let nv = View(newObjectOfClass(allSamples[firstSelectedRow].className))
+            nv.init(currentView.frame)
+            nv.resizingMask = "wh"
+            splitView.replaceSubview(currentView, nv)
+            currentView = nv
 
     tableView.reloadData()
     tableView.selectRow(0)
@@ -82,15 +97,5 @@ proc startApplication() =
     when defined(runAutoTests):
         startRegisteredTests()
 
-when defined js:
-    import dom
-    dom.window.onload = proc (e: dom.Event) =
-        startApplication()
-else:
-    try:
-        startApplication()
-        runUntilQuit()
-    except:
-        logi "Exception caught: ", getCurrentExceptionMsg()
-        logi getCurrentException().getStackTrace()
-        quit 1
+runApplication:
+    startApplication()

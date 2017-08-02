@@ -24,8 +24,6 @@ Installation
 
     nimble install nimx
 
-Please note that nimx is tested only against the latest devel version of Nim compiler.
-
 Usage
 ------------
 .. code-block:: nim
@@ -33,17 +31,20 @@ Usage
     # File: main.nim
     import nimx.window
     import nimx.text_field
+    import nimx.system_logger # Required because of Nim bug (#4433)
 
-    # First create a window. Window is the root of view hierarchy.
-    var wnd = newWindow(newRect(40, 40, 800, 600))
+    proc startApp() =
+        # First create a window. Window is the root of view hierarchy.
+        var wnd = newWindow(newRect(40, 40, 800, 600))
 
-    # Create a static text field and add it to view hierarchy
-    let label = newLabel(newRect(20, 20, 150, 20))
-    label.text = "Hello, world!"
-    wnd.addSubview(label)
+        # Create a static text field and add it to view hierarchy
+        let label = newLabel(newRect(20, 20, 150, 20))
+        label.text = "Hello, world!"
+        wnd.addSubview(label)
 
-    # Run the main loop
-    runUntilQuit()
+    # Run the app
+    runApplication:
+        startApp()
 
 Running
 ------------
@@ -59,12 +60,19 @@ Windows:
 
     nim c -r --threads:on main.nim
 
+Supported target platforms
+------------
+Nimx officially supports Linux, MacOS, Windows, Android, iOS, Javascript (with Nim JS backend) and Asm.js (with Nim C backend and `Emscripten <http://emscripten.org>`_).
+
+Troubleshooting
+------------
+Nimx is tested only against the latest devel version of Nim compiler. Before reporting any issues please verify that your Nim is as fresh as possible.
 
 Running nimx samples
 ====================
 .. code-block:: sh
 
-    cd $(nimble path nimx)/test
+    cd $(nimble path nimx | tail -n 1)/test
     nake # Build and run on the current platform
     # or
     nake js # Build and run in default web browser

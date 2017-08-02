@@ -5,36 +5,76 @@ import json
 import tables
 import async_http_request
 import pathutils
+import variant
+import typetraits
 
-when not defined(js):
-    import os
-    import sdl2
+when defined(js) or defined(emscripten):
+    import ospaths
+
+    # Deprecated stuff
+    import nimx.assets.web_asset_bundle
+    export web_asset_bundle.resourceUrlMapper
+    export web_asset_bundle.urlForResourcePath
 else:
-    # What a hacky way to import ospaths...
-    include "system/inclrtl"
-    include ospaths
+    import os
+    when defined(android):
+        import sdl2
 
-type ResourceCache*[T] = object
-    cache: Table[string, T]
+type ResourceCache* = ref object
+    cache: Table[string, Variant]
 
-proc initResourceCache*[T](): ResourceCache[T] =
-    result.cache = initTable[string, T]()
+var resourceCaches = newSeq[ResourceCache]()
+
+proc newResourceCache*(): ResourceCache =
+    result.new()
+    result.cache = initTable[string, Variant]()
+    resourceCaches.add(result)
+
+proc release*(rc: ResourceCache) =
+    for i, r in resourceCaches:
+        if r == rc:
+            resourceCaches.delete(i)
+            break
 
 proc pathForResource*(name: string): string
 
-template registerResource*[T](c: var ResourceCache[T], name: string, r: T) =
+proc currentResourceCache*(): ResourceCache =
+    if resourceCaches.len > 0:
+        result = resourceCaches[^1]
+    else:
+        result = newResourceCache()
+
+template registerResource*(c: ResourceCache, name: string, r: Variant) =
     c.cache[pathForResource(name)] = r
+
+template registerResource*[T](c: ResourceCache, name: string, r: T) =
+    c.registerResource(name, newVariant(r))
+
+template registerResource*(name: string, r: Variant) =
+    currentResourceCache().registerResource(name, r)
+
+template registerResource*[T](name: string, r: T) =
+    registerResource(name, newVariant(r))
 
 var warnWhenResourceNotCached* = false
 
-template get*[T](c: var ResourceCache[T], name: string): T =
+proc get*[T](c: ResourceCache, name: string): T =
     let p = pathForResource(name)
     let r = c.cache.getOrDefault(p)
-    if r.isNil and warnWhenResourceNotCached:
-        logi "WARNING: Resource not cached: ", name, "(", if p.isNil: "nil" else: p, ")"
-    r
+    if not r.isEmpty: return r.get(T)
 
-var gJsonResCache* = initResourceCache[JsonNode]()
+proc findCachedResource*[T](name: string): T =
+    let p = pathForResource(name)
+    for rc in resourceCaches:
+        let v = rc.cache.getOrDefault(p)
+        if not v.isEmpty: return v.get(T)
+
+proc findCachedResources*[T](): seq[T] =
+    result = newSeq[T]()
+    for rc in resourceCaches:
+        for v in rc.cache.values:
+            if not v.isEmpty and v.ofType(T):
+                result.add(v.get(T))
 
 proc resourceNotCached*(name: string) =
     if warnWhenResourceNotCached:
@@ -43,7 +83,7 @@ proc resourceNotCached*(name: string) =
 var parentResources = newSeq[string]()
 
 proc pushParentResource*(name: string) =
-    parentResources.add(pathForResource(name).parentDir)
+    parentResources.add(name.parentDir)
 
 proc popParentResource*() =
     parentResources.setLen(parentResources.len - 1)
@@ -53,12 +93,12 @@ proc pathForResourceAux(name: string): string =
         if name[0] == '/': return name # Absolute
     else:
         if name.isAbsolute: return name
-    if parentResources.len > 0:
+    if parentResources.len > 0 and parentResources[^1] != "":
         return parentResources[^1] / name
 
     when defined(android):
         result = name
-    elif defined(js):
+    elif defined(js) or defined(emscripten):
         result = "res/" & name
     else:
         let appDir = getAppDir()
@@ -77,47 +117,58 @@ proc pathForResource*(name: string): string =
     if not result.isNil:
         result.normalizePath()
 
-when not defined(js):
-    type
-        RWOpsStream = ref RWOpsStreamObj
-        RWOpsStreamObj = object of StreamObj
-            ops: RWopsPtr
+proc resourceNameForPathAux(path: string): string =
+    if parentResources.len > 0:
+        return relativePathToPath(parentResources[^1], path)
+    result = path
 
-    proc rwClose(s: Stream) {.nimcall.} =
-        let ops = RWOpsStream(s).ops
-        if ops != nil:
-            discard ops.close(ops)
-            RWOpsStream(s).ops = nil
-    proc rwAtEnd(s: Stream): bool {.nimcall.} =
-        let ops = s.RWOpsStream.ops
-        result = ops.size(ops) == ops.seek(ops, 0, 1)
-    proc rwSetPosition(s: Stream, pos: int) {.nimcall.} =
-        let ops = s.RWOpsStream.ops
-        discard ops.seek(ops, pos.int64, 0)
-    proc rwGetPosition(s: Stream): int {.nimcall.} =
-        let ops = s.RWOpsStream.ops
-        result = ops.seek(ops, 0, 1).int
+proc resourceNameForPath*(path: string): string =
+    result = resourceNameForPathAux(path)
 
-    proc rwReadData(s: Stream, buffer: pointer, bufLen: int): int {.nimcall.} =
-        let ops = s.RWOpsStream.ops
-        let res = ops.read(ops, buffer, 1, bufLen.csize)
-        result = res
+when defined(js):
+    import private.js_data_view_stream
+else:
+    when defined(android):
+        type
+            RWOpsStream = ref RWOpsStreamObj
+            RWOpsStreamObj = object of StreamObj
+                ops: RWopsPtr
 
-    proc rwWriteData(s: Stream, buffer: pointer, bufLen: int) {.nimcall.} =
-        let ops = s.RWOpsStream.ops
-        if ops.write(ops, buffer, 1, bufLen) != bufLen:
-            raise newException(IOError, "cannot write to stream")
+        proc rwClose(s: Stream) {.nimcall.} =
+            let ops = RWOpsStream(s).ops
+            if ops != nil:
+                discard ops.close(ops)
+                RWOpsStream(s).ops = nil
+        proc rwAtEnd(s: Stream): bool {.nimcall.} =
+            let ops = s.RWOpsStream.ops
+            result = ops.size(ops) == ops.seek(ops, 0, 1)
+        proc rwSetPosition(s: Stream, pos: int) {.nimcall.} =
+            let ops = s.RWOpsStream.ops
+            discard ops.seek(ops, pos.int64, 0)
+        proc rwGetPosition(s: Stream): int {.nimcall.} =
+            let ops = s.RWOpsStream.ops
+            result = ops.seek(ops, 0, 1).int
 
-    proc newStreamWithRWops*(ops: RWopsPtr): RWOpsStream =
-        if ops.isNil: return
-        result.new()
-        result.ops = ops
-        result.closeImpl = cast[type(result.closeImpl)](rwClose)
-        result.atEndImpl = cast[type(result.atEndImpl)](rwAtEnd)
-        result.setPositionImpl = cast[type(result.setPositionImpl)](rwSetPosition)
-        result.getPositionImpl = cast[type(result.getPositionImpl)](rwGetPosition)
-        result.readDataImpl = cast[type(result.readDataImpl)](rwReadData)
-        result.writeDataImpl = cast[type(result.writeDataImpl)](rwWriteData)
+        proc rwReadData(s: Stream, buffer: pointer, bufLen: int): int {.nimcall.} =
+            let ops = s.RWOpsStream.ops
+            let res = ops.read(ops, buffer, 1, bufLen.csize)
+            result = res
+
+        proc rwWriteData(s: Stream, buffer: pointer, bufLen: int) {.nimcall.} =
+            let ops = s.RWOpsStream.ops
+            if ops.write(ops, buffer, 1, bufLen) != bufLen:
+                raise newException(IOError, "cannot write to stream")
+
+        proc newStreamWithRWops*(ops: RWopsPtr): RWOpsStream =
+            if ops.isNil: return
+            result.new()
+            result.ops = ops
+            result.closeImpl = cast[type(result.closeImpl)](rwClose)
+            result.atEndImpl = cast[type(result.atEndImpl)](rwAtEnd)
+            result.setPositionImpl = cast[type(result.setPositionImpl)](rwSetPosition)
+            result.getPositionImpl = cast[type(result.getPositionImpl)](rwGetPosition)
+            result.readDataImpl = cast[type(result.readDataImpl)](rwReadData)
+            result.writeDataImpl = cast[type(result.writeDataImpl)](rwWriteData)
 
     proc streamForResourceWithPath*(path: string): Stream =
         when defined(android):
@@ -126,46 +177,91 @@ when not defined(js):
             result = newFileStream(path, fmRead)
         if result.isNil:
             logi "WARNING: Resource not found: ", path
+            raise newException(Exception, "Resource not found")
 
     proc streamForResourceWithName*(name: string): Stream =
-        streamForResourceWithPath(pathForResource(name))
-
-when defined(js):
-    import private.js_data_view_stream
+        let p = pathForResource(name)
+        if p.isNil:
+            raise newException(Exception, "Resource not found: " & name)
+        streamForResourceWithPath(p)
 
 type ResourceLoadingError* = object
     description*: string
 
-when defined js:
-    proc loadJSResourceAsync*(resourceName: string, resourceType: cstring, onProgress: proc(p: float), onError: proc(e: ResourceLoadingError), onComplete: proc(result: ref RootObj)) =
-        let reqListener = proc(ev: ref RootObj) =
-            var data : ref RootObj
-            {.emit: "`data` = `ev`.target.response;".}
-            onComplete(data)
-
+when defined(js) or defined(emscripten):
+    import jsbind
+    proc loadJSResourceAsync*(resourceName: string, resourceType: cstring, onProgress: proc(p: float), onError: proc(e: ResourceLoadingError), onComplete: proc(result: JSObj)) =
         let oReq = newXMLHTTPRequest()
-        oReq.responseType = resourceType
+        var reqListener: proc()
+        var errorListener: proc()
+        reqListener = proc() =
+            jsUnref(reqListener)
+            jsUnref(errorListener)
+            handleJSExceptions:
+                onComplete(oReq.response)
+        errorListener = proc() =
+            jsUnref(reqListener)
+            jsUnref(errorListener)
+            handleJSExceptions:
+                var err: ResourceLoadingError
+                var statusText = oReq.statusText
+                if statusText.isNil: statusText = "(nil)"
+                err.description = "XMLHTTPRequest error(" & resourceName & "): " & $oReq.status & ": " & $statusText
+                logi "XMLHTTPRequest failure: ", err.description
+                onError(err)
+        jsRef(reqListener)
+        jsRef(errorListener)
+
         oReq.addEventListener("load", reqListener)
-        oReq.open("GET", pathForResource(resourceName))
+        oReq.addEventListener("error", errorListener)
+        oReq.open("GET", urlForResourcePath(pathForResource(resourceName)))
+        oReq.responseType = resourceType
         oReq.send()
+
+when defined(emscripten):
+    import jsbind.emscripten
 
 proc loadResourceAsync*(resourceName: string, handler: proc(s: Stream)) =
     when defined(js):
-        let reqListener = proc(data: ref RootObj) =
+        let reqListener = proc(data: JSObj) =
             var dataView : ref RootObj
             {.emit: "`dataView` = new DataView(`data`);".}
             handler(newStreamWithDataView(dataView))
         loadJSResourceAsync(resourceName, "arraybuffer", nil, nil, reqListener)
+    elif defined(emscripten):
+        let path = pathForResource(resourceName)
+        emscripten_async_wget_data(urlForResourcePath(path)) do(data: pointer, sz: cint):
+            handleJSExceptions:
+                var str = newString(sz)
+                copyMem(addr str[0], data, sz)
+                let s = newStringStream(str)
+                handler(s)
+        do():
+            handleJSExceptions:
+                logi "WARNING: Resource not found: ", path
+                handler(nil)
     else:
         handler(streamForResourceWithName(resourceName))
 
+when defined(emscripten) or defined(js):
+    proc jsObjToString*(str: JSObj): string =
+        # Private. Do not use.
+        when defined(emscripten):
+            if str.p == 0: return
+            let s = EM_ASM_INT("""
+            return _nimem_s(_nimem_o[$0]);
+            """, str.p)
+            result = cast[string](s)
+        else:
+            if str.isNil: return
+            result = $(cast[cstring](str))
+
 proc loadJsonResourceAsync*(resourceName: string, handler: proc(j: JsonNode)) =
-    let j = gJsonResCache.get(resourceName)
+    let j = findCachedResource[JsonNode](resourceName)
     if j.isNil:
-        when defined js:
-            let reqListener = proc(data: ref RootObj) =
-                var jsonstring = cast[cstring](data)
-                handler(parseJson($jsonstring))
+        when defined(js) or defined(emscripten):
+            let reqListener = proc(str: JSObj) =
+                handler(parseJson(jsObjToString(str)))
             loadJSResourceAsync(resourceName, "text", nil, nil, reqListener)
         else:
             loadResourceAsync resourceName, proc(s: Stream) =
@@ -173,33 +269,3 @@ proc loadJsonResourceAsync*(resourceName: string, handler: proc(j: JsonNode)) =
                 s.close()
     else:
         handler(j)
-
-when isMainModule and defined(js):
-    var dv : ref RootObj
-    {.emit: """
-    var buffer = new ArrayBuffer(32);
-    var tmpdv = new DataView(buffer, 0);
-
-    tmpdv.setInt16(0, 42);
-    tmpdv.getInt16(0); //42
-
-    tmpdv.setInt8(2, "h".charCodeAt(0));
-    tmpdv.setInt8(3, "e".charCodeAt(0));
-    tmpdv.setInt8(4, "l".charCodeAt(0));
-    tmpdv.setInt8(5, "l".charCodeAt(0));
-    tmpdv.setInt8(6, "o".charCodeAt(0));
-
-    tmpdv.setFloat32(7, 3.14);
-    tmpdv.setFloat64(11, 3.14);
-
-    `dv`[0] = tmpdv;
-    """.}
-    let s = newStreamWithDataView(dv)
-    try:
-        echo s.readInt16()
-        echo s.readStr(4)
-        echo s.readChar()
-        echo s.readFloat32()
-        echo s.readFloat64()
-    except:
-        echo "Exception caught"

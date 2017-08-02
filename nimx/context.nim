@@ -4,13 +4,13 @@ import system_logger
 import matrixes
 import font
 import image
-import unicode
+import math
 import portable_gl
 import nimsl.nimsl
 
 export matrixes
 
-type ShaderAttribute = enum
+type ShaderAttribute* = enum
     saPosition
     saColor
 
@@ -71,8 +71,6 @@ proc newShaderProgram*(gl: GL, vs, fs: string,
 proc newShaderProgram(gl: GL, vs, fs: string): ProgramRef {.inline.} = # Deprecated. kinda.
     gl.newShaderProgram(vs, fs, [(saPosition.GLuint, "position")])
 
-include shaders
-
 when defined js:
     type Transform3DRef = ref Transform3D
 else:
@@ -84,11 +82,13 @@ type GraphicsContext* = ref object of RootObj
     fillColor*: Color
     strokeColor*: Color
     strokeWidth*: Coord
-    testPolyShaderProgram: ProgramRef
     debugClipColor: Color
     alpha*: Coord
-    quadIndexBuffer: BufferRef
-    vertexes: array[4 * 4 * 128, Coord]
+    quadIndexBuffer*: BufferRef
+    gridIndexBuffer4x4: BufferRef
+    singleQuadBuffer*: BufferRef
+    sharedBuffer*: BufferRef
+    vertexes*: array[4 * 4 * 128, Coord]
 
 var gCurrentContext: GraphicsContext
 
@@ -98,25 +98,25 @@ proc transformToRef(t: Transform3D): Transform3DRef =
     else:
         {.emit: "`result` = `t`;".}
 
-template withTransform*(c: GraphicsContext, t: Transform3DRef, body: stmt) =
+template withTransform*(c: GraphicsContext, t: Transform3DRef, body: typed) =
     let old = c.pTransform
     c.pTransform = t
     body
     c.pTransform = old
 
-template withTransform*(c: GraphicsContext, t: Transform3D, body: stmt) = c.withTransform(transformToRef(t), body)
+template withTransform*(c: GraphicsContext, t: Transform3D, body: typed) = c.withTransform(transformToRef(t), body)
 
 template transform*(c: GraphicsContext): var Transform3D = c.pTransform[]
 
-proc createQuadIndexBuffer(c: GraphicsContext) =
-    c.quadIndexBuffer = c.gl.createBuffer()
-    c.gl.bindBuffer(c.gl.ELEMENT_ARRAY_BUFFER, c.quadIndexBuffer)
+proc createQuadIndexBuffer*(c: GraphicsContext, numberOfQuads: int): BufferRef =
+    result = c.gl.createBuffer()
+    c.gl.bindBuffer(c.gl.ELEMENT_ARRAY_BUFFER, result)
 
-    var indexData : array[128 * 6, GLushort]
-    var i : GLushort
-    while i < 128:
+    var indexData = newSeq[GLushort](numberOfQuads * 6)
+    var i = 0
+    while i < numberOfQuads:
         let id = i * 6
-        let vd = i * 4
+        let vd = GLushort(i * 4)
         indexData[id + 0] = vd + 0
         indexData[id + 1] = vd + 1
         indexData[id + 2] = vd + 2
@@ -127,13 +127,49 @@ proc createQuadIndexBuffer(c: GraphicsContext) =
 
     c.gl.bufferData(c.gl.ELEMENT_ARRAY_BUFFER, indexData, c.gl.STATIC_DRAW)
 
+proc createGridIndexBuffer(c: GraphicsContext, width, height: static[int]): BufferRef =
+    result = c.gl.createBuffer()
+    c.gl.bindBuffer(c.gl.ELEMENT_ARRAY_BUFFER, result)
+
+    const numberOfQuadColumns = width - 1
+    const numberOIndices = numberOfQuadColumns * height * 2
+
+    var indexData : array[numberOIndices, GLushort]
+    var i = 0
+
+    var y, toRow: int
+    var dir = 1
+
+    for iCol in 0 ..< numberOfQuadColumns:
+        if dir == 1:
+            y = 0
+            toRow = height
+        else:
+            y = height - 1
+            toRow = -1
+
+        while y != toRow:
+            indexData[i] = GLushort(y * width + iCol)
+            inc i
+            indexData[i] = GLushort(y * width + iCol + 1)
+            inc i
+            y += dir
+        dir = -dir
+
+    c.gl.bufferData(c.gl.ELEMENT_ARRAY_BUFFER, indexData, c.gl.STATIC_DRAW)
+
+proc createQuadBuffer(c: GraphicsContext): BufferRef =
+    result = c.gl.createBuffer()
+    c.gl.bindBuffer(c.gl.ARRAY_BUFFER, result)
+    let vertexes = [0.GLfloat, 0, 0, 1, 1, 1, 1, 0]
+    c.gl.bufferData(c.gl.ARRAY_BUFFER, vertexes, c.gl.STATIC_DRAW)
+
 proc newGraphicsContext*(canvas: ref RootObj = nil): GraphicsContext =
     result.new()
     result.gl = newGL(canvas)
-    when not defined(ios) and not defined(android) and not defined(js):
+    when not defined(ios) and not defined(android) and not defined(js) and not defined(emscripten):
         loadExtensions()
 
-    #result.testPolyShaderProgram = result.gl.newShaderProgram(testPolygonVertexShader, testPolygonFragmentShader)
     result.gl.clearColor(0.93, 0.93, 0.93, 0.0)
     result.alpha = 1.0
 
@@ -143,7 +179,13 @@ proc newGraphicsContext*(canvas: ref RootObj = nil): GraphicsContext =
     #result.gl.enable(result.gl.CULL_FACE)
     #result.gl.cullFace(result.gl.BACK)
 
-    result.createQuadIndexBuffer()
+    result.quadIndexBuffer = result.createQuadIndexBuffer(128)
+    result.gridIndexBuffer4x4 = result.createGridIndexBuffer(4, 4)
+    result.singleQuadBuffer = result.createQuadBuffer()
+    result.sharedBuffer = result.gl.createBuffer()
+
+    if gCurrentContext.isNil:
+        gCurrentContext = result
 
 proc setCurrentContext*(c: GraphicsContext): GraphicsContext {.discardable.} =
     result = gCurrentContext
@@ -234,151 +276,6 @@ proc drawEllipseInRect*(c: GraphicsContext, r: Rect) =
         setUniform("uStrokeColor", if c.strokeWidth == 0: c.fillColor else: c.strokeColor)
         setUniform("uStrokeWidth", c.strokeWidth)
 
-let fontComposition = newComposition("""
-attribute vec4 aPosition;
-
-uniform mat4 uModelViewProjectionMatrix;
-
-varying vec2 vTexCoord;
-
-void main() {
-    vTexCoord = aPosition.zw;
-    gl_Position = uModelViewProjectionMatrix * vec4(aPosition.xy, 0, 1);
-}
-""",
-"""
-#ifdef GL_ES
-#extension GL_OES_standard_derivatives : enable
-precision mediump float;
-#endif
-
-uniform sampler2D texUnit;
-uniform vec4 fillColor;
-uniform float uGamma;
-uniform float uBase;
-
-varying vec2 vTexCoord;
-
-float contour(in float d, in float w) {
-    // smoothstep(lower edge0, upper edge1, x)
-    return smoothstep(0.5 - w, 0.5 + w, d);
-}
-
-float samp(in vec2 uv, float w) {
-    return contour(texture2D(texUnit, uv).a, w);
-}
-
-void composeWithSupersampling() {
-    // retrieve distance from texture
-    vec2 uv = vTexCoord;
-    float dist = texture2D(texUnit, uv).a;
-
-    // fwidth helps keep outlines a constant width irrespective of scaling
-    // GLSL's fwidth = abs(dFdx(uv)) + abs(dFdy(uv))
-    float width = fwidth(dist);
-    // Stefan Gustavson's fwidth
-    //float width = 0.7 * length(vec2(dFdx(dist), dFdy(dist)));
-
-// basic version
-    //float alpha = smoothstep(0.5 - width, 0.5 + width, dist);
-
-// supersampled version
-
-    float alpha = contour( dist, width );
-    //float alpha = aastep( 0.5, dist );
-
-    // ------- (comment this block out to get your original behavior)
-    // Supersample, 4 extra points
-    float dscale = 0.354; // half of 1/sqrt2; you can play with this
-
-
-    //dscale = uGamma;
-
-    vec2 duv = dscale * (dFdx(uv) + dFdy(uv));
-    vec4 box = vec4(uv-duv, uv+duv);
-
-    float asum = samp( box.xy, width )
-               + samp( box.zw, width )
-               + samp( box.xw, width )
-               + samp( box.zy, width );
-
-    // weighted average, with 4 extra points having 0.5 weight each,
-    // so 1 + 0.5*4 = 3 is the divisor
-    alpha = (alpha + 0.5 * asum) / 3.0;
-
-    // -------
-
-    gl_FragColor = vec4(fillColor.rgb, fillColor.a * alpha);
-}
-
-#define ENABLE_SUPERSAMPLING
-
-void compose() {
-#ifdef ENABLE_SUPERSAMPLING
-    composeWithSupersampling();
-#else
-    float dist = texture2D(texUnit, vTexCoord).a;
-    float alpha = smoothstep(uBase - uGamma, uBase + uGamma, dist);
-    gl_FragColor = vec4(fillColor.rgb, alpha * fillColor.a);
-#endif
-}
-""", false)
-
-proc drawText*(c: GraphicsContext, font: Font, pt: var Point, text: string) =
-    # assume orthographic projection with units = screen pixels, origin at top left
-    let gl = c.gl
-    let cc = gl.getCompiledComposition(fontComposition)
-    gl.useProgram(cc.program)
-
-    compositionDrawingDefinitions(cc, c, gl)
-    setUniform("fillColor", c.fillColor)
-    setUniform("uGamma", font.gamma.GLfloat)
-    setUniform("uBase", font.base.GLfloat)
-    gl.uniformMatrix4fv(uniformLocation("uModelViewProjectionMatrix"), false, c.transform)
-    setupPosteffectUniforms(cc)
-
-    gl.activeTexture(gl.TEXTURE0 + cc.iTexIndex.GLenum)
-    gl.uniform1i(uniformLocation("texUnit"), cc.iTexIndex)
-
-    gl.enableVertexAttribArray(saPosition.GLuint)
-#    gl.enable(gl.BLEND)
-#    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
-
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, c.quadIndexBuffer)
-
-    var texture: TextureRef
-    var newTexture: TextureRef
-
-    var n : GLint = 0
-
-    template flush() =
-        gl.vertexAttribPointer(saPosition.GLuint, 4, false, 0, c.vertexes)
-        gl.drawElements(gl.TRIANGLES, n * 6, gl.UNSIGNED_SHORT)
-
-    for ch in text.runes:
-        if n > 127:
-            flush()
-            n = 0
-
-        let off = n * 16
-        font.getQuadDataForRune(ch, c.vertexes, off, newTexture, pt)
-        if texture != newTexture:
-            if n > 0:
-                flush()
-                for i in 0 ..< 16: c.vertexes[i] = c.vertexes[i + off]
-                n = 0
-
-            texture = newTexture
-            gl.bindTexture(gl.TEXTURE_2D, texture)
-        inc n
-        pt.x += font.horizontalSpacing
-
-    if n > 0: flush()
-
-proc drawText*(c: GraphicsContext, font: Font, pt: Point, text: string) =
-    var p = pt
-    c.drawText(font, p, text)
-
 var imageComposition = newComposition """
 uniform Image uImage;
 uniform vec4 uFromRect;
@@ -395,6 +292,11 @@ void compose() {
 }
 """
 
+proc bindVertexData*(c: GraphicsContext, length: int) =
+    let gl = c.gl
+    gl.bindBuffer(gl.ARRAY_BUFFER, c.sharedBuffer)
+    gl.bufferData(gl.ARRAY_BUFFER, c.vertexes, length, gl.DYNAMIC_DRAW)
+
 proc drawImage*(c: GraphicsContext, i: Image, toRect: Rect, fromRect: Rect = zeroRect, alpha: ColorComponent = 1.0) =
     if i.isLoaded:
         var fr = newRect(0, 0, 1, 1)
@@ -406,21 +308,103 @@ proc drawImage*(c: GraphicsContext, i: Image, toRect: Rect, fromRect: Rect = zer
             setUniform("uAlpha", alpha * c.alpha)
             setUniform("uFromRect", fr)
 
-proc drawPoly*(c: GraphicsContext, points: openArray[Coord]) =
-    let shaderProg = c.testPolyShaderProgram
-    c.gl.useProgram(shaderProg)
-    c.gl.enable(c.gl.BLEND)
-    c.gl.blendFunc(c.gl.SRC_ALPHA, c.gl.ONE_MINUS_SRC_ALPHA)
-    c.gl.enableVertexAttribArray(saPosition.GLuint)
-    const componentCount = 2
-    let numberOfVertices = points.len / componentCount
-    c.gl.vertexAttribPointer(saPosition.GLuint, componentCount.GLint, false, 0, points)
-    #c.setFillColorUniform(c.shaderProg)
-    #glUniform1i(c.gl.getUniformLocation(shaderProg, "numberOfVertices"), GLint(numberOfVertices))
-    c.setTransformUniform(shaderProg)
-    #glUniform4fv(c.gl.getUniformLocation(shaderProg, "fillColor"), 1, cast[ptr GLfloat](addr c.fillColor))
-    #c.gl.drawArrays(cast[GLenum](c.gl.TRIANGLE_FAN), 0, GLsizei(numberOfVertices))
+let ninePartImageComposition = newComposition("""
+attribute vec4 aPosition;
 
+uniform mat4 uModelViewProjectionMatrix;
+varying vec2 vTexCoord;
+
+void main() {
+    vTexCoord = aPosition.zw;
+    gl_Position = uModelViewProjectionMatrix * vec4(aPosition.xy, 0, 1);
+}
+""",
+"""
+#ifdef GL_ES
+#extension GL_OES_standard_derivatives : enable
+precision mediump float;
+#endif
+
+varying vec2 vTexCoord;
+
+uniform sampler2D texUnit;
+uniform float uAlpha;
+
+void compose() {
+    gl_FragColor = texture2D(texUnit, vTexCoord);
+    gl_FragColor.a *= uAlpha;
+}
+""", false)
+
+proc drawNinePartImage*(c: GraphicsContext, i: Image, toRect: Rect, ml, mt, mr, mb: Coord, fromRect: Rect = zeroRect, alpha: ColorComponent = 1.0) =
+    if i.isLoaded:
+        let gl = c.gl
+        var cc = gl.getCompiledComposition(ninePartImageComposition)
+
+        var fuv : array[4, GLfloat]
+        let tex = getTextureQuad(i, gl, fuv)
+
+        let sz = i.size
+        if fromRect != zeroRect:
+            fuv[0] = fuv[0] + fromRect.x / sz.width
+            fuv[1] = fuv[1] + fromRect.y / sz.height
+            fuv[2] = fuv[2] - (sz.width - fromRect.maxX) / sz.width
+            fuv[3] = fuv[3] - (sz.height - fromRect.maxY) / sz.height
+
+        template setVertex(index: int, x, y, u, v: GLfloat) =
+            c.vertexes[index * 2 * 2 + 0] = x
+            c.vertexes[index * 2 * 2 + 1] = y
+            c.vertexes[index * 2 * 2 + 2] = u
+            c.vertexes[index * 2 * 2 + 3] = v
+
+        let duvx = fuv[2] - fuv[0]
+        let duvy = fuv[3] - fuv[1]
+
+        let tml = ml / sz.width * duvx
+        let tmr = mr / sz.width * duvx
+        let tmt = mt / sz.height * duvy
+        let tmb = mb / sz.height * duvy
+
+        0.setVertex(toRect.x, toRect.y, fuv[0], fuv[1])
+        1.setVertex(toRect.x + ml, toRect.y, fuv[0] + tml, fuv[1])
+        2.setVertex(toRect.maxX - mr, toRect.y, fuv[2] - tmr, fuv[1])
+        3.setVertex(toRect.maxX, toRect.y, fuv[2], fuv[1])
+
+        4.setVertex(toRect.x, toRect.y + mt, fuv[0], fuv[1] + tmt)
+        5.setVertex(toRect.x + ml, toRect.y + mt, fuv[0] + tml, fuv[1] + tmt)
+        6.setVertex(toRect.maxX - mr, toRect.y + mt, fuv[2] - tmr, fuv[1] + tmt)
+        7.setVertex(toRect.maxX, toRect.y + mt, fuv[2], fuv[1] + tmt)
+
+        8.setVertex(toRect.x, toRect.maxY - mb, fuv[0], fuv[3] - tmb)
+        9.setVertex(toRect.x + ml, toRect.maxY - mb, fuv[0] + tml, fuv[3] - tmb)
+        10.setVertex(toRect.maxX - mr, toRect.maxY - mb, fuv[2] - tmr, fuv[3] - tmb)
+        11.setVertex(toRect.maxX, toRect.maxY - mb, fuv[2], fuv[3] - tmb)
+
+        12.setVertex(toRect.x, toRect.maxY, fuv[0], fuv[3])
+        13.setVertex(toRect.x + ml, toRect.maxY, fuv[0] + tml, fuv[3])
+        14.setVertex(toRect.maxX - mr, toRect.maxY, fuv[2] - tmr, fuv[3])
+        15.setVertex(toRect.maxX, toRect.maxY, fuv[2], fuv[3])
+
+        gl.useProgram(cc.program)
+        compositionDrawingDefinitions(cc, c, gl)
+
+        setUniform("uAlpha", alpha)
+
+        gl.uniformMatrix4fv(uniformLocation("uModelViewProjectionMatrix"), false, c.transform)
+        setupPosteffectUniforms(cc)
+
+        gl.activeTexture(GLenum(int(gl.TEXTURE0) + cc.iTexIndex))
+        gl.uniform1i(uniformLocation("texUnit"), cc.iTexIndex)
+        gl.bindTexture(gl.TEXTURE_2D, tex)
+
+        gl.enableVertexAttribArray(saPosition.GLuint)
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, c.gridIndexBuffer4x4)
+
+        const componentsCount = 4
+        const vertexCount = (4 - 1) * 4 * 2
+        c.bindVertexData(componentsCount * vertexCount)
+        gl.vertexAttribPointer(saPosition.GLuint, componentsCount, gl.FLOAT, false, 0, 0)
+        gl.drawElements(gl.TRIANGLE_STRIP, vertexCount, gl.UNSIGNED_SHORT)
 
 var lineComposition = newComposition """
 uniform float uStrokeWidth;
@@ -463,17 +447,67 @@ proc drawLine*(c: GraphicsContext, pointFrom: Point, pointTo: Point) =
         setUniform("A", pointFrom)
         setUniform("B", pointTo)
 
-proc testPoly*(c: GraphicsContext) =
-    let points = [
-        Coord(500.0), 400,
-        #600, 400,
+var arcComposition = newComposition """
+uniform float uStrokeWidth;
+uniform vec4 uStrokeColor;
+uniform vec4 uFillColor;
+uniform float uStartAngle;
+uniform float uEndAngle;
 
-        #700, 450,
+void compose() {
+    vec2 center = bounds.xy + bounds.zw / 2.0;
+    float radius = min(bounds.z, bounds.w) / 2.0 - 1.0;
+    float centerDist = distance(vPos, center);
+    vec2 delta = vPos - center;
+    float angle = atan(delta.y, delta.x);
+    angle += step(angle, 0.0) * PI * 2.0;
 
-        600, 500,
-        500, 500
-        ]
-    c.drawPoly(points)
+    float angleDist1 = step(step(angle, uStartAngle) + step(uEndAngle, angle), 0.0);
+    angle += PI * 2.0;
+    float angleDist2 = step(step(angle, uStartAngle) + step(uEndAngle, angle), 0.0);
+
+    drawInitialShape((centerDist - radius) / radius, uStrokeColor);
+    drawShape((centerDist - radius + uStrokeWidth) / radius, uFillColor);
+    gl_FragColor.a *= max(angleDist1, angleDist2);
+}
+"""
+
+proc drawArc*(c: GraphicsContext, center: Point, radius: Coord, fromAngle, toAngle: Coord) =
+    var fromAngle = fromAngle
+    var toAngle = toAngle
+    fromAngle = fromAngle mod (2 * Pi)
+    toAngle = toAngle mod (2 * Pi)
+    if fromAngle < 0: fromAngle += Pi * 2
+    if toAngle < 0: toAngle += Pi * 2
+    if toAngle < fromAngle:
+         toAngle += Pi * 2
+
+    let rad = radius + 1
+    let r = newRect(center.x - rad, center.y - rad, rad * 2, rad * 2)
+    arcComposition.draw r:
+        setUniform("uStrokeWidth", c.strokeWidth)
+        setUniform("uFillColor", c.fillColor)
+        setUniform("uStrokeColor", if c.strokeWidth == 0: c.fillColor else: c.strokeColor)
+        setUniform("uStartAngle", fromAngle)
+        setUniform("uEndAngle", toAngle)
+
+var triangleComposition = newComposition """
+uniform float uAngle;
+uniform vec4 uColor;
+void compose() {
+    vec2 center = vec2(bounds.x + bounds.z / 2.0, bounds.y + bounds.w / 2.0 - 1.0);
+    float triangle = sdRegularPolygon(center, 4.0, 3, uAngle);
+    drawShape(triangle, uColor);
+}
+"""
+
+proc drawTriangle*(c: GraphicsContext, rect: Rect, angleRad: Coord) =
+    ## Draws equilateral triangle with current `fillColor`, pointing at `angleRad`
+    var color = c.fillColor
+    color.a *= c.alpha
+    triangleComposition.draw rect:
+        setUniform("uAngle", angleRad)
+        setUniform("uColor", color)
 
 # TODO: This should probaly be a property of current context!
 var clippingDepth: GLint = 0
@@ -503,7 +537,10 @@ proc applyClippingRect*(c: GraphicsContext, r: Rect, on: bool) =
     if clippingDepth == 0:
         c.gl.disable(c.gl.STENCIL_TEST)
 
-template withClippingRect*(c: GraphicsContext, r: Rect, body: stmt) =
+template withClippingRect*(c: GraphicsContext, r: Rect, body: typed) =
     c.applyClippingRect(r, true)
     body
     c.applyClippingRect(r, false)
+
+import private.text_drawing
+export text_drawing

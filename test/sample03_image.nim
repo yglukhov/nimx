@@ -3,11 +3,23 @@ import nimx.image
 import nimx.context
 import nimx.render_to_image
 import nimx.font
+import nimx.assets.asset_manager
 import sample_registry
 
 type ImageSampleView = ref object of View
     image: Image
     generatedImage: Image
+    httpImage: Image
+
+method init*(v: ImageSampleView, r: Rect) =
+    procCall v.View.init(r)
+    loadImageFromURL("http://gravatar.com/avatar/71b7b08fbc2f989a8246913ac608cca9") do(i: Image):
+        v.httpImage = i
+        v.setNeedsDisplay()
+
+    sharedAssetManager().getAssetAtPath("cat.jpg") do(i: Image, err: string):
+        v.image = i
+        v.setNeedsDisplay()
 
 proc renderToImage(): Image =
     result = imageWithSize(newSize(200, 80))
@@ -22,19 +34,20 @@ proc renderToImage(): Image =
         c.drawText(font, newPoint(10, 25), "Runtime image")
 
 method draw(v: ImageSampleView, r: Rect) =
-    if v.image.isNil:
-        v.image = imageWithResource("cat.jpg")
-
     if v.generatedImage.isNil:
         v.generatedImage = renderToImage()
 
     let c = currentContext()
 
     # Draw cat
-    let imageSize = v.image.size
+    var imageSize = zeroSize
+    if not v.image.isNil:
+        imageSize = v.image.size
     var imageRect = newRect(zeroPoint, imageSize)
     imageRect.origin = imageSize.centerInRect(v.bounds)
-    c.drawImage(v.image, imageRect)
+
+    if not v.image.isNil:
+        c.drawImage(v.image, imageRect)
 
     # Draw generatedImage
     imageRect.origin.x += imageSize.width - 60
@@ -42,4 +55,7 @@ method draw(v: ImageSampleView, r: Rect) =
     imageRect.size = v.generatedImage.size
     c.drawImage(v.generatedImage, imageRect)
 
-registerSample "Image", ImageSampleView.new(newRect(0, 0, 100, 100))
+    if not v.httpImage.isNil:
+        c.drawImage(v.httpImage, newRect(50, 50, 100, 100))
+
+registerSample(ImageSampleView, "Image")

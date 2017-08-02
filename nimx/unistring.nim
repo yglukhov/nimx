@@ -1,25 +1,17 @@
 
 import unicode
 
-proc insert*(dest: var string, position: int, src: string) =
-    # TODO: This can be optimized by allocating new string instead of reallocating dest.
-    let oldLen = dest.len
-    dest.setLen(dest.len + src.len)
+proc uniInsert*(dest: var string, src: string, position: int) =
     var r: Rune
     var charPos = 0
     var bytePos = 0
     while charPos < position:
         fastRuneAt(dest, bytePos, r, true)
         inc charPos
-    var i = dest.len - 1
-    var bytesToCopy = oldLen - bytePos
-    while bytesToCopy > 0:
-        dest[i] = dest[bytePos + bytesToCopy - 1]
-        dec bytesToCopy
-        dec i
-    for c in src:
-        dest[bytePos] = c
-        inc bytePos
+    dest.insert(src, bytePos)
+
+proc insert*(dest: var string, position: int, src: string) {.deprecated.} =
+    dest.uniInsert(src, position)
 
 proc uniDelete*(subj: var string, start, stop: int) =
     var charPos = 0
@@ -46,7 +38,7 @@ proc uniDelete*(subj: var string, start, stop: int) =
 when isMainModule:
     proc testInsert(dest, src: string, pos: int, result: string) =
         var d = dest
-        d.insert(pos, src)
+        d.uniInsert(src, pos)
         assert(d == result)
 
     testInsert("123", "56", 0, "56123")

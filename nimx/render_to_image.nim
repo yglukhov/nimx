@@ -4,6 +4,14 @@ import context
 import math
 import opengl
 
+type GlFrameState* = tuple[
+    clearColor: array[4, GLfloat],
+    viewportSize: array[4, GLint],
+    renderbuffer: RenderbufferRef,
+    framebuffer: FramebufferRef,
+    bStencil: bool
+]
+
 proc bindFramebuffer*(gl: GL, i: SelfContainedImage, makeDepthAndStencil: bool = true) =
     if i.framebuffer.isEmpty:
         var texCoords : array[4, GLfloat]
@@ -27,45 +35,80 @@ proc bindFramebuffer*(gl: GL, i: SelfContainedImage, makeDepthAndStencil: bool =
             let depthBuffer = gl.createRenderbuffer()
             gl.bindRenderbuffer(gl.RENDERBUFFER, depthBuffer)
 
-            let depthStencilFormat = when defined(js): gl.DEPTH_STENCIL else: gl.DEPTH24_STENCIL8
+            let depthStencilFormat = when defined(js) or defined(emscripten): gl.DEPTH_STENCIL else: gl.DEPTH24_STENCIL8
 
-            gl.renderbufferStorage(gl.RENDERBUFFER, depthStencilFormat, texWidth.GLsizei, texHeight.GLsizei)
-            gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_STENCIL_ATTACHMENT, gl.RENDERBUFFER, depthBuffer)
+            # TODO: The following is a very dirty fix for ES 2.0 devices that don't support DEPTH_STENCIL_ATTACHMENT
+            # for such devices we provide only DEPTH attachment, which can result in artifacts when drawing relies
+            # on stencil buffer. This should be fixed with refactoring of render-to-texture system.
+            when NoAutoGLerrorCheck:
+                discard gl.getError()
+                gl.renderbufferStorage(gl.RENDERBUFFER, depthStencilFormat, texWidth.GLsizei, texHeight.GLsizei)
+                if gl.getError() == 0.GLenum:
+                    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_STENCIL_ATTACHMENT, gl.RENDERBUFFER, depthBuffer)
+                else:
+                    gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, texWidth.GLsizei, texHeight.GLsizei)
+                    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, depthBuffer)
+            else:
+                try:
+                    gl.renderbufferStorage(gl.RENDERBUFFER, depthStencilFormat, texWidth.GLsizei, texHeight.GLsizei)
+                    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_STENCIL_ATTACHMENT, gl.RENDERBUFFER, depthBuffer)
+                except:
+                    gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, texWidth.GLsizei, texHeight.GLsizei)
+                    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, depthBuffer)
+
+            i.renderbuffer = depthBuffer
     else:
         gl.bindFramebuffer(gl.FRAMEBUFFER, i.framebuffer)
 
-proc draw*(i: Image, drawProc: proc()) =
+proc getGlFrameState*(gfs: var GlFrameState) =
     let gl = sharedGL()
+    gfs.framebuffer = gl.boundFramebuffer()
+    gfs.viewportSize = gl.getViewport()
+    gfs.renderbuffer = gl.boundRenderbuffer()
+    gfs.bStencil = gl.getParamb(gl.STENCIL_TEST)
+    gl.getClearColor(gfs.clearColor)
 
-    let oldFb = gl.boundFramebuffer()
-    let oldViewport = gl.getViewport()
-    let oldRb = gl.boundRenderbuffer()
-    var oldClearColor : array[4, GLfloat]
-    gl.getClearColor(oldClearColor)
-
-    let sci = SelfContainedImage(i)
-    if sci.isNil:
-        raise newException(Exception, "Not implemented: Can draw only to SelfContainedImage")
+proc setImageGlFrameState*(sci: SelfContainedImage) =
+    let gl = sharedGL()
     gl.bindFramebuffer(sci)
-
-    gl.viewport(0, 0, i.size.width.GLsizei, i.size.height.GLsizei)
+    gl.viewport(0, 0, sci.size.width.GLsizei, sci.size.height.GLsizei)
     gl.stencilMask(0xFF) # Android requires setting stencil mask to clear
     gl.clearColor(0, 0, 0, 0)
     gl.clear(gl.COLOR_BUFFER_BIT or gl.DEPTH_BUFFER_BIT or gl.STENCIL_BUFFER_BIT)
     gl.stencilMask(0x00) # Android requires setting stencil mask to clear
-
     gl.disable(gl.STENCIL_TEST)
 
-    currentContext().withTransform ortho(0, i.size.width, i.size.height, 0, -1, 1):
-        drawProc()
+proc restoreGlFrameState*(gfs: var GlFrameState) =
+    let gl = sharedGL()
+    if gfs.bStencil:
+        gl.enable(gl.STENCIL_TEST)
+    gl.clearColor(gfs.clearColor[0], gfs.clearColor[1], gfs.clearColor[2], gfs.clearColor[3])
+    gl.viewport(gfs.viewportSize)
+    gl.bindRenderbuffer(gl.RENDERBUFFER, gfs.renderbuffer)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, gfs.framebuffer)
 
+proc beginDraw*(sci: SelfContainedImage, gfs: var GlFrameState) =
+    getGlFrameState(gfs)
+    sci.setImageGlFrameState()
+
+proc endDraw*(sci: SelfContainedImage, gfs: var GlFrameState) =
+    restoreGlFrameState(gfs)
+
+proc draw*(sci: SelfContainedImage, drawProc: proc()) =
+    var gfs: GlFrameState
+    beginDraw(sci, gfs)
+    currentContext().withTransform ortho(0, sci.size.width, sci.size.height, 0, -1, 1):
+        drawProc()
+    endDraw(sci, gfs)
     # OpenGL framebuffer coordinate system is flipped comparing to how we load
     # and handle the rest of images. Compensate for that by flipping texture
     # coords here.
-    sci.flipVertically()
+    if not sci.flipped:
+        sci.flipVertically()
 
-    gl.clearColor(oldClearColor[0], oldClearColor[1], oldClearColor[2], oldClearColor[3])
+proc draw*(i: Image, drawProc: proc()) {.deprecated.} =
+    let sci = SelfContainedImage(i)
+    if sci.isNil:
+        raise newException(Exception, "Not implemented: Can draw only to SelfContainedImage")
+    sci.draw(drawProc)
 
-    viewport(gl, oldViewport)
-    gl.bindRenderbuffer(gl.RENDERBUFFER, oldRb)
-    gl.bindFramebuffer(gl.FRAMEBUFFER, oldFb)

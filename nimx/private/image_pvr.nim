@@ -44,8 +44,8 @@ type ePVR3Format* = enum
     PVR3_EAC_RG11_U = 27,
     PVR3_EAC_RG11_S = 28,
 
-proc loadPVRDataToTexture(data: string, texture: var TextureRef, size: var Size, texCoords: var array[4, GLfloat]) =
-    let header = cast[ptr PVRTextureHeaderV3](unsafeAddr data[0])
+proc loadPVRDataToTexture(data: ptr uint8, texture: var TextureRef, size: var Size, texCoords: var array[4, GLfloat]) =
+    let header = cast[ptr PVRTextureHeaderV3](data)
 
     texCoords[2] = 1.0
     texCoords[3] = 1.0
@@ -99,13 +99,16 @@ proc loadPVRDataToTexture(data: string, texture: var TextureRef, size: var Size,
         if compressed:
             pixelBytes = max(32, pixelBytes);
             glCompressedTexImage2D(GL_TEXTURE_2D, i.GLint, format, mipmapWidth, mipmapHeight, 0,
-                                   pixelBytes, unsafeAddr data[offset])
+                                   pixelBytes, cast[pointer](cast[csize](data) + csize(offset)))
         else:
             glTexImage2D(GL_TEXTURE_2D, i.GLint, format.GLint, mipmapWidth, mipmapHeight,
-                         0, format, typ, unsafeAddr data[offset])
+                         0, format, typ, cast[pointer](cast[csize](data) + csize(offset)))
         offset += pixelBytes
         inc i
 
 
-proc initWithPVR(i: SelfContainedImage, data: string) =
+proc initWithPVR(i: SelfContainedImage, data: ptr uint8) =
     loadPVRDataToTexture(data, i.texture, i.mSize, i.texCoords)
+
+proc isPVRData*(data: string): bool =
+    discard # TODO: implement this

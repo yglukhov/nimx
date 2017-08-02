@@ -1,51 +1,37 @@
-import math
 import types
 import system_logger
 import unicode
-import tables
-import rect_packer
+import streams
+import nimx.resource
+import nimx.timer
+import nimx.private.font.font_data
 
-when defined js:
-    import dom
-    import private.js_font_metrics
+when defined(js):
+    import private.font.js_glyph_provider
+    type GlyphProvider = JsGlyphProvider
 else:
-    import ttf
+    import private.font.stb_ttf_glyph_provider
+    type GlyphProvider = StbTtfGlyphProvider
+
     import os
     import write_image_impl
 
 import private.edtaa3func # From ttf library
 import private.simple_table
 
-# Quick and dirty interface for fonts.
-# TODO:
-#  - Remove dependency on OpenGL.
-#  - Distance field textures
-
 import opengl
 import portable_gl
 
-const charChunkLength = 200
-
-type BackedCharComponent = enum
-    compX = 0
-    compY
-    compAdvance
-    compTexX
-    compTexY
-    compWidth
-    compHeight
-
-const numberOfComponents = ord(high(BackedCharComponent)) + 1
-type BakedCharInfo = array[numberOfComponents * charChunkLength, int16]
-
-template charOff(i: int): int = i * numberOfComponents
-template charOffComp(bc: var BakedCharInfo, charOffset: int, comp: BackedCharComponent): var int16 =
-    bc[charOffset + ord(comp)]
+type Baseline* = enum
+    bTop
+    bAlphabetic
+    bBottom
 
 type CharInfo = ref object
-    bakedChars: BakedCharInfo
+    data: GlyphData
     texture: TextureRef
-    texWidth, texHeight: uint16
+
+template bakedChars(ci: CharInfo): GlyphMetrics = ci.data.glyphMetrics
 
 when defined(js):
     type FastString = cstring
@@ -53,268 +39,131 @@ else:
     type FastString = string
 
 
-template charHeightForSize(s: float): float = 64
+template charHeightForSize(s: float): float =
+    #if s > 128: 128
+    #else: 64
+    64 # TODO: Think some more about df generation because its still slow for
+       # 128 glyph size
+
 template scaleForSize(s: float): float = s / charHeightForSize(s)
 
-var fontCache : SimpleTable[FastString, SimpleTable[int32, CharInfo]]
+type FontImpl = ref object
+    chars: SimpleTable[int32, CharInfo]
+    glyphProvider: GlyphProvider
+    ascent: float32
+    descent: float32
 
-proc cachedCharsForFont(face: string, sz: float): SimpleTable[int32, CharInfo] =
+var fontCache : SimpleTable[FastString, FontImpl]
+
+proc cachedImplForFont(face: string, sz: float): FontImpl =
     if fontCache.isNil:
-        fontCache = newSimpleTable(FastString, SimpleTable[int32, CharInfo])
+        fontCache = newSimpleTable(FastString, FontImpl)
     var key : FastString = face & "_" & $charHeightForSize(sz).int
     if fontCache.hasKey(key):
         result = fontCache[key]
     else:
-        result = newSimpleTable(int32, CharInfo)
+        result.new()
+        result.chars = newSimpleTable(int32, CharInfo)
+        result.glyphProvider.new()
+        when defined(js):
+            result.glyphProvider.setFace(face)
+        else:
+            result.glyphProvider.setPath(face)
+        result.glyphProvider.setSize(charHeightForSize(sz))
+        result.glyphProvider.glyphMargin = 8
         fontCache[key] = result
 
 type Font* = ref object
-    chars: SimpleTable[int32, CharInfo]
+    impl: FontImpl
     mSize: float
     isHorizontal*: bool
-    scale: float
+    scale*: float
     filePath: string
+    face*: string
     horizontalSpacing*: Coord
-    gamma*, base*: float32
-    ascent, descent: float32
     shadowX*, shadowY*, shadowBlur*: float32
-
-    when defined js:
-        canvas: Element
-
-proc linearDependency(x, x1, y1, x2, y2: float): float =
-    result = y1 + (x - x1) * (y2 - y1) / (x2 - x1)
-
-proc gammaWithSize(x: float): float =
-    if x < 60:
-        result = linearDependency(x, 14, 0.23, 60, 0.1)
-    elif x < 160:
-        result = linearDependency(x, 60, 0.1, 160, 0.03)
-    else:
-        result = linearDependency(x, 160, 0.03, 200, 0.02)
-
+    glyphMargin: int32
+    baseline*: Baseline # Beware! Experinmetal!
 
 proc `size=`*(f: Font, s: float) =
     f.mSize = s
     f.scale = scaleForSize(s)
-    f.chars = cachedCharsForFont(f.filePath, s)
-    f.base = 0.5
-    f.gamma = gammaWithSize(s)
+    f.impl = cachedImplForFont(f.filePath, s)
 
 template size*(f: Font): float = f.mSize
 
-proc prepareTexture(i: var CharInfo): GL =
-    result = sharedGL()
-    i.texture = result.createTexture()
-    result.bindTexture(result.TEXTURE_2D, i.texture)
-    result.texParameteri(result.TEXTURE_2D, result.TEXTURE_MIN_FILTER, result.LINEAR)
-
 const dumpDebugBitmaps = false
 
-when dumpDebugBitmaps and defined(js):
-    proc logBitmap(title: cstring, bytes: openarray[byte], width, height: int) =
-        {.emit: """
-        var span = document.createElement("span");
-        span.innerHTML = `title`;
-        document.body.appendChild(span);
-        var canvas = document.createElement("canvas")
-        document.body.appendChild(canvas);
-        canvas.width = `width`;
-        canvas.height = `height`;
-        var ctx = `canvas`.getContext('2d');
-        var imgData2 = ctx.createImageData(`width`, `height`);
-        var imgData = imgData2.data;
-        var sz = `width` * `height`;
-        for (var i = 0; i < sz; ++i) {
-            var offs = i * 4;
-            imgData[offs] = 0;// `bytes`[i];
-            imgData[offs + 1] = 0; //`bytes`[i];
-            imgData[offs + 2] = 0; //`bytes`[i];
-            imgData[offs + 3] = `bytes`[i];
-        }
-        ctx.putImageData(imgData2, 0, 0);
-        """.}
-
-template isPrintableCodePoint(c: int): bool = not (i <= 0x1f or i == 0x7f or (i >= 0x80 and i <= 0x9F))
-
-proc bakeChars(f: Font, start: int32): CharInfo =
-    result.new()
-
-    let startChar = start * charChunkLength
-    let endChar = startChar + charChunkLength
-
-    let fSize = charHeightForSize(f.size)
-
-    var rectPacker = newPacker(32, 32)
-    when defined js:
-        let fName : cstring = f.filePath
-        let fontName : cstring = $fSize.int & "px " & f.filePath
-        let canvas = document.createElement("canvas")
-        var ascent, descent: int32
-        {.emit: """
-        var ctx = `canvas`.getContext('2d');
-        ctx.font = `fontName`;
-        `canvas`.style.font = `fontName`;
-        ctx.textBaseline = "top";
-        var metrics = `f`.__nimx_metrix;
-        if (metrics === undefined) {
-            var mt = nimx_calculateFontMetricsInCanvas(ctx, `fName`, `fSize`);
-            metrics = {ascent: mt.ascent, descent: mt.descent};
-            `f`.__nimx_metrix = metrics;
-        }
-        `ascent` = metrics.ascent;
-        `descent` = metrics.descent;
-        """.}
-        f.canvas = canvas
-
-        const glyphMargin = 2
-        let h = ascent + descent
-
-        for i in startChar .. < endChar:
-            if isPrintableCodePoint(i):
-                var w: int32
-                var isspace = false
-                var s : cstring
-                asm """
-                var mt = ctx.measureText(String.fromCharCode(`i`));
-                `s` = String.fromCharCode(`i`);
-                `isspace` = `s` == " ";
-                `w` = mt.width;
-                """
-
-                if w > 0:
-                    let (x, y) = rectPacker.packAndGrow(w + glyphMargin * 2, h + glyphMargin * 2)
-
-                    let c = charOff(i - startChar)
-                    #result.bakedChars.charOffComp(c, compX) = 0
-                    #result.bakedChars.charOffComp(c, compY) = 0
-                    result.bakedChars.charOffComp(c, compAdvance) = w.int16
-                    result.bakedChars.charOffComp(c, compTexX) = (x + glyphMargin).int16
-                    result.bakedChars.charOffComp(c, compTexY) = (y + glyphMargin).int16
-                    result.bakedChars.charOffComp(c, compWidth) = w.int16
-                    result.bakedChars.charOffComp(c, compHeight) = h.int16
-
-        let texWidth = rectPacker.width
-        let texHeight = rectPacker.height
-        result.texWidth = texWidth.uint16
-        result.texHeight = texHeight.uint16
-
-        asm """
-        `canvas`.width = `texWidth`;
-        `canvas`.height = `texHeight`;
-        ctx.font = `fontName`;
-        ctx.textBaseline = "top";
-        """
-
-        for i in startChar .. < endChar:
-            if isPrintableCodePoint(i):
-                let c = charOff(i - startChar)
-                let w = result.bakedChars.charOffComp(c, compAdvance)
-                if w > 0:
-                    let x = result.bakedChars.charOffComp(c, compTexX)
-                    let y = result.bakedChars.charOffComp(c, compTexY)
-                    {.emit: "ctx.fillText(String.fromCharCode(`i`), `x`, `y`);".}
-
-        var data : seq[cdouble]
-        var byteData : seq[byte]
-        {.emit: """
-        var sz = `texWidth` * `texHeight`;
-        var imgData = ctx.getImageData(0, 0, `texWidth`, `texHeight`).data;
-        `data` = new Float32Array(sz);
-        `byteData` = new Uint8Array(sz);
-        for (var i = 3, j = 0; j < sz; i += 4, ++j) {
-            `data`[j] = imgData[i];
-        }
-        """.}
-
-        make_distance_map(data, texWidth, texHeight)
-        {.emit: "for (var i = 0; i < sz; ++i) `byteData`[i] = (255 - (`data`[i]|0))|0;".}
-
-        when dumpDebugBitmaps:
-            logBitmap("alpha", byteData, texWidth, texHeight)
-
-        let gl = result.prepareTexture()
-        asm """
-        `gl`.texImage2D(`gl`.TEXTURE_2D, 0, `gl`.ALPHA, `texWidth`, `texHeight`, 0, `gl`.ALPHA, `gl`.UNSIGNED_BYTE, `byteData`);
-        """
+when dumpDebugBitmaps:
+    when defined(js):
+        proc logBitmap(title: cstring, bytes: openarray[byte], width, height: int) =
+            {.emit: """
+            var span = document.createElement("span");
+            span.innerHTML = `title`;
+            document.body.appendChild(span);
+            var canvas = document.createElement("canvas")
+            document.body.appendChild(canvas);
+            canvas.width = `width`;
+            canvas.height = `height`;
+            var ctx = `canvas`.getContext('2d');
+            var imgData2 = ctx.createImageData(`width`, `height`);
+            var imgData = imgData2.data;
+            var sz = `width` * `height`;
+            for (var i = 0; i < sz; ++i) {
+                var offs = i * 4;
+                imgData[offs] = 0;// `bytes`[i];
+                imgData[offs + 1] = 0; //`bytes`[i];
+                imgData[offs + 2] = 0; //`bytes`[i];
+                imgData[offs + 3] = `bytes`[i];
+            }
+            ctx.putImageData(imgData2, 0, 0);
+            """.}
     else:
-        var rawData = readFile(f.filePath)
+        template dumpBitmaps(name: string, bitmap: seq[byte], width, height, start: int, fSize: float) =
+            var bmp = newSeq[byte](width * height * 3)
+            for i in 0 .. < width * height:
+                bmp[3*i] = bitmap[i]
 
-        var fontinfo: stbtt_fontinfo
-        if stbtt_InitFont(fontinfo, cast[font_type](rawData.cstring), 0) == 0:
-            logi "Could not init font"
-            return nil
+            discard stbi_write_bmp("atlas_nimx_" & name & "_" & $fSize & "_" & $start & "_" & $width & "x" & $height & ".bmp", width.cint, height.cint, 3.cint, addr bmp[0])
 
-        let scale = stbtt_ScaleForPixelHeight(fontinfo, fSize)
-        var ascent, descent, lineGap : cint
-        stbtt_GetFontVMetrics(fontinfo, ascent, descent, lineGap)
+proc updateFontMetrics(f: Font) =
+    f.impl.glyphProvider.getFontMetrics(f.impl.ascent, f.impl.descent)
 
-        var glyphIndexes: array[charChunkLength, cint]
+template updateFontMetricsIfNeeded(f: Font) =
+    if f.impl.ascent == 0: f.updateFontMetrics()
 
-        const glyphMargin = 5
+proc ascent*(f: Font): float32 =
+    f.updateFontMetricsIfNeeded()
+    result = f.impl.ascent * f.scale
 
-        for i in startChar .. < endChar:
-            if isPrintableCodePoint(i):
-                let g = stbtt_FindGlyphIndex(fontinfo, i) # g > 0 when found
-                glyphIndexes[i - startChar] = g
-                var advance, lsb, x0, y0, x1, y1: cint
-                stbtt_GetGlyphHMetrics(fontinfo, g, advance, lsb)
-                stbtt_GetGlyphBitmapBox(fontinfo, g, scale, scale, x0, y0, x1, y1)
-                let gw = x1 - x0
-                let gh = y1 - y0
-                let (x, y) = rectPacker.packAndGrow(gw + glyphMargin * 2, gh + glyphMargin * 2)
+proc descent*(f: Font): float32 =
+    f.updateFontMetricsIfNeeded()
+    result = f.impl.descent * f.scale
 
-                let c = charOff(i - startChar)
-                result.bakedChars.charOffComp(c, compX) = (x0.cfloat + lsb.cfloat * scale - glyphMargin.float / 2).int16
-                result.bakedChars.charOffComp(c, compY) = (y0.cfloat + ascent.cfloat * scale - glyphMargin.float / 2).int16
-                result.bakedChars.charOffComp(c, compAdvance) = (scale * advance.cfloat).int16
-                result.bakedChars.charOffComp(c, compTexX) = (x + glyphMargin).int16
-                result.bakedChars.charOffComp(c, compTexY) = (y + glyphMargin).int16
-                result.bakedChars.charOffComp(c, compWidth) = (gw + glyphMargin).int16
-                result.bakedChars.charOffComp(c, compHeight) = (gh + glyphMargin).int16
+proc bakeChars(f: Font, start: int32, res: CharInfo) =
+    f.impl.glyphProvider.bakeChars(start, res.data)
+    when dumpDebugBitmaps:
+        dumpBitmaps("df", res.data.bitmap, res.data.bitmapWidth, res.data.bitmapHeight, start, fSize)
 
-        let width = rectPacker.width
-        let height = rectPacker.height
-        result.texWidth = width.uint16
-        result.texHeight = height.uint16
-        var temp_bitmap = newSeq[byte](width * height)
-
-        for i in startChar .. < endChar:
-            if isPrintableCodePoint(i):
-                let c = charOff(i - startChar)
-                if result.bakedChars.charOffComp(c, compAdvance) > 0:
-                    let x = result.bakedChars.charOffComp(c, compTexX).int + (glyphMargin.float / 2).int
-                    let y = result.bakedChars.charOffComp(c, compTexY).int + (glyphMargin.float / 2).int
-                    let w = result.bakedChars.charOffComp(c, compWidth).cint
-                    let h = result.bakedChars.charOffComp(c, compHeight).cint
-                    stbtt_MakeGlyphBitmap(fontinfo, addr temp_bitmap[x + y * width.int], w, h, width.cint, scale, scale, glyphIndexes[i - startChar])
-
-        when dumpDebugBitmaps:
-            discard stbi_write_bmp("atlas_nimx_alpha_" & $fSize & "_" & $start & "_" & $width & "x" & $height & ".bmp", width, height, 1, addr temp_bitmap[0])
-
-        make_distance_map(temp_bitmap, width, height)
-
-        when dumpDebugBitmaps:
-            discard stbi_write_bmp("atlas_nimx_df_" & $fSize & "_" & $start & "_" & $width & "x" & $height & ".bmp", width, height, 1, addr temp_bitmap[0])
-        let gl = result.prepareTexture()
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.ALPHA, width, height, 0, gl.ALPHA, gl.UNSIGNED_BYTE, addr temp_bitmap[0])
-
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST)
-    gl.generateMipmap(gl.TEXTURE_2D)
-
-when not defined js:
+when not defined(js):
     proc newFontWithFile*(pathToTTFile: string, size: float): Font =
         result.new()
         result.isHorizontal = true # TODO: Support vertical fonts
         result.filePath = pathToTTFile
+        result.face = splitFile(pathToTTFile).name
         result.size = size
+        result.glyphMargin = 8
 
 var sysFont : Font
 
-const preferredFonts = when defined(js) or defined(windows):
+const preferredFonts = when defined(js) or defined(windows) or defined(emscripten):
         [
-            "Arial"
+            "Arial",
+            "OpenSans-Regular"
+        ]
+    elif defined(ios):
+        [
+            "OpenSans-Regular"
         ]
     elif defined(macosx):
         [
@@ -344,6 +193,10 @@ when not defined(js):
             [
                 r"c:\Windows\Fonts" #todo: system will not always in the c disk
             ]
+        elif defined(emscripten):
+            [
+                "res"
+            ]
         else:
             [
                 "/usr/share/fonts/truetype",
@@ -352,29 +205,59 @@ when not defined(js):
                 "/usr/share/fonts/truetype/dejavu"
             ]
 
-when not defined js:
+when not defined(js):
     iterator potentialFontFilesForFace(face: string): string =
         for sp in fontSearchPaths:
             yield sp / face & ".ttf"
-        yield getAppDir() / face & ".ttf"
+        when not defined(emscripten):
+            yield getAppDir() / "res" / face & ".ttf"
+            yield getAppDir() /../ "Resources" / face & ".ttf"
+            yield getAppDir() / face & ".ttf"
 
     proc findFontFileForFace(face: string): string =
         for f in potentialFontFilesForFace(face):
             if fileExists(f):
                 return f
 
+proc getAvailableFonts*(isSystem: bool = false): seq[string] =
+    result = newSeq[string]()
+    when not defined(js) and not defined(android) and not defined(ios):
+        for f in walkFiles(getAppDir() /../ "Resources/*.ttf"):
+            result.add(splitFile(f).name)
+        for f in walkFiles(getAppDir() / "res/*.ttf"):
+            result.add(splitFile(f).name)
+        for f in walkFiles(getAppDir() / "*.ttf"):
+            result.add(splitFile(f).name)
+
 proc newFontWithFace*(face: string, size: float): Font =
-    when defined js:
+    when defined(js):
         result.new()
         result.filePath = face
+        result.face = face
         result.isHorizontal = true # TODO: Support vertical fonts
         result.size = size
+        result.glyphMargin = 8
     else:
         let path = findFontFileForFace(face)
         if path != nil:
             result = newFontWithFile(path, size)
 
+        else:
+            when defined(android):
+                let path = face & ".ttf"
+                let ff = streamForResourceWithPath(path)
+                if not ff.isNil:
+                    ff.close()
+                    result = newFontWithFile("res://" & path, size)
+
 proc systemFontSize*(): float = 16
+
+proc setGlyphMargin*(f: Font, margin: int32) {.deprecated.} =
+    if margin == f.glyphMargin:
+        return
+
+    f.glyphMargin = margin
+    f.impl = cachedImplForFont(f.filePath, f.size)
 
 proc systemFontOfSize*(size: float): Font =
     for f in preferredFonts:
@@ -394,61 +277,160 @@ proc systemFont*(): Font =
     if result == nil:
         logi "WARNING: Could not create system font"
 
-import math
+var dfCtx : DistanceFieldContext[float32]
+
+proc generateDistanceFieldForGlyph(ch: CharInfo, index: int, uploadToTexture: bool) =
+    if dfCtx.isNil:
+        dfCtx = newDistanceFieldContext()
+    let c = charOff(index)
+
+    let glyphMargin = 8
+
+    let x = ch.bakedChars.charOffComp(c, compTexX).int - glyphMargin
+    let y = ch.bakedChars.charOffComp(c, compTexY).int - glyphMargin
+    let w = ch.bakedChars.charOffComp(c, compWidth).cint + glyphMargin * 2
+    let h = ch.bakedChars.charOffComp(c, compHeight).cint + glyphMargin * 2
+
+    dfCtx.make_distance_map(ch.data.bitmap, x, y, w, h, ch.data.bitmapWidth.int, not uploadToTexture)
+    if uploadToTexture:
+        let gl = sharedGL()
+        gl.bindTexture(gl.TEXTURE_2D, ch.texture)
+        if w mod 4 == 0:
+            gl.texSubImage2D(gl.TEXTURE_2D, 0, GLint(x), GLint(y), GLsizei(w), GLsizei(h), gl.ALPHA, gl.UNSIGNED_BYTE, dfCtx.output)
+        else:
+            gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
+            gl.texSubImage2D(gl.TEXTURE_2D, 0, GLint(x), GLint(y), GLsizei(w), GLsizei(h), gl.ALPHA, gl.UNSIGNED_BYTE, dfCtx.output)
+            gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4)
+    ch.data.dfDoneForGlyph[index] = true
+
+    when dumpDebugBitmaps:
+        if not dfCtx.output.isNil:
+            dumpBitmaps("df" & $index, dfCtx.output, w, h, 0, 555.0)
+
+var glyphGenerationTimer: Timer
+var chunksToGen = newSeq[CharInfo]()
+
+proc generateDistanceFields() =
+    let ch = chunksToGen[^1]
+    if not ch.data.dfDoneForGlyph.isNil:
+        for i in 0 ..< charChunkLength:
+            if not ch.data.dfDoneForGlyph[i]:
+                generateDistanceFieldForGlyph(ch, i, true)
+                return
+    chunksToGen.setLen(chunksToGen.len - 1)
+    ch.data.bitmap = nil
+    ch.data.dfDoneForGlyph = nil
+    if chunksToGen.len == 0:
+        glyphGenerationTimer.clear()
+        glyphGenerationTimer = nil
+        dfCtx = nil
 
 proc chunkAndCharIndexForRune(f: Font, r: Rune): tuple[ch: CharInfo, index: int] =
-    let chunkStart = floor(r.int / charChunkLength.int).int32
+    let chunkStart = r.int32 div charChunkLength
     result.index = r.int mod charChunkLength
-    if not f.chars.hasKey(chunkStart):
-        f.chars[chunkStart] = f.bakeChars(chunkStart)
-    result.ch = f.chars[chunkStart]
+    var ch: CharInfo
+    if f.impl.chars.hasKey(chunkStart):
+        ch = f.impl.chars[chunkStart]
+    else:
+        ch.new()
+        ch.data.dfDoneForGlyph = newSeq[bool](charChunkLength)
+        f.bakeChars(chunkStart, ch)
+        f.impl.chars[chunkStart] = ch
+
+    result.ch = ch
+
+    let gl = sharedGL()
+    if not gl.isNil:
+        if ch.texture.isEmpty:
+            if not ch.data.dfDoneForGlyph[result.index]:
+                generateDistanceFieldForGlyph(ch, result.index, false)
+
+            chunksToGen.add(ch)
+            if glyphGenerationTimer.isNil:
+                glyphGenerationTimer = setInterval(0.1, generateDistanceFields)
+
+            ch.texture = gl.createTexture()
+            gl.bindTexture(gl.TEXTURE_2D, ch.texture)
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+
+            let texWidth = ch.data.bitmapWidth.GLsizei
+            let texHeight = ch.data.bitmapHeight.GLsizei
+            gl.texImage2D(gl.TEXTURE_2D, 0, GLint(gl.ALPHA), texWidth, texHeight, 0, gl.ALPHA, gl.UNSIGNED_BYTE, ch.data.bitmap)
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+            #gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST)
+            #gl.generateMipmap(gl.TEXTURE_2D)
+        elif not ch.data.dfDoneForGlyph.isNil and not ch.data.dfDoneForGlyph[result.index]:
+            generateDistanceFieldForGlyph(ch, result.index, true)
 
 proc getQuadDataForRune*(f: Font, r: Rune, quad: var openarray[Coord], offset: int, texture: var TextureRef, pt: var Point) =
     let (chunk, charIndexInChunk) = f.chunkAndCharIndexForRune(r)
     let c = charOff(charIndexInChunk)
 
-    template charComp(e: BackedCharComponent): auto =
-        chunk.bakedChars.charOffComp(c, e).Coord
+    template charComp(e: GlyphMetricsComponent): auto =
+        chunk.data.glyphMetrics.charOffComp(c, e).Coord
 
-    let w = charComp(compWidth).Coord
-    let h = charComp(compHeight).Coord
+    let w = charComp(compWidth)
+    let h = charComp(compHeight)
 
-    let x0 = pt.x + charComp(compX).Coord * f.scale
-    let x1 = x0 + w * f.scale
-    let y0 = pt.y + charComp(compY).Coord * f.scale
-    let y1 = y0 + h * f.scale
+    f.updateFontMetricsIfNeeded()
 
-    var s0 = charComp(compTexX).Coord
-    var t0 = charComp(compTexY).Coord
-    let s1 = (s0 + w) / chunk.texWidth.Coord
-    let t1 = (t0 + h) / chunk.texHeight.Coord
-    s0 /= chunk.texWidth.Coord
-    t0 /= chunk.texHeight.Coord
+    let baselineOffset = case f.baseline
+        of bTop: 0.0
+        of bBottom: -f.impl.ascent + f.impl.descent
+        of bAlphabetic: -f.impl.ascent
+
+    let m = f.glyphMargin.float * f.scale
+    let x0 = pt.x + charComp(compX) * f.scale - m
+    let x1 = x0 + w * f.scale + m * 2.0
+    let y0 = pt.y + charComp(compY) * f.scale - m + baselineOffset * f.scale
+    let y1 = y0 + h * f.scale + m * 2.0
+
+    var s0 = charComp(compTexX) - f.glyphMargin.float
+    var t0 = charComp(compTexY) - f.glyphMargin.float
+    let s1 = (s0 + w + f.glyphMargin.float * 2.0) / chunk.data.bitmapWidth.Coord
+    let t1 = (t0 + h + f.glyphMargin.float * 2.0) / chunk.data.bitmapHeight.Coord
+    s0 /= chunk.data.bitmapWidth.Coord
+    t0 /= chunk.data.bitmapHeight.Coord
 
     quad[offset + 0] = x0; quad[offset + 1] = y0; quad[offset + 2] = s0; quad[offset + 3] = t0
     quad[offset + 4] = x0; quad[offset + 5] = y1; quad[offset + 6] = s0; quad[offset + 7] = t1
     quad[offset + 8] = x1; quad[offset + 9] = y1; quad[offset + 10] = s1; quad[offset + 11] = t1
     quad[offset + 12] = x1; quad[offset + 13] = y0; quad[offset + 14] = s1; quad[offset + 15] = t0
-    pt.x += charComp(compAdvance).Coord * f.scale
+    pt.x += charComp(compAdvance) * f.scale
     texture = chunk.texture
+
+proc getCharComponent*(f: Font, text: string, comp: GlyphMetricsComponent): Coord =
+    let (chunk, charIndexInChunk) = f.chunkAndCharIndexForRune(text.runeAtPos(0))
+    let c = charOff(charIndexInChunk)
+
+    f.updateFontMetricsIfNeeded()
+    result = chunk.data.glyphMetrics.charOffComp(c, comp).Coord
 
 template getQuadDataForRune*(f: Font, r: Rune, quad: var array[16, Coord], texture: var TextureRef, pt: var Point) =
     f.getQuadDataForRune(r, quad, 0, texture, pt)
 
+proc getAdvanceForRune*(f: Font, r: Rune): Coord =
+    let (chunk, charIndexInChunk) = f.chunkAndCharIndexForRune(r)
+    let c = charOff(charIndexInChunk)
+    result = chunk.bakedChars.charOffComp(c, compAdvance).Coord * f.scale
+
+proc height*(f: Font): float32 =
+    f.updateFontMetricsIfNeeded()
+    result = (f.impl.ascent - f.impl.descent) * f.scale
+
 proc sizeOfString*(f: Font, s: string): Size =
     var pt : Point
-    var quad: array[16, Coord]
-    var tex: TextureRef
     var first = true
     for ch in s.runes:
         if first:
             first = false
         else:
             pt.x += f.horizontalSpacing
-        f.getQuadDataForRune(ch, quad, tex, pt)
-    result = newSize(pt.x, f.size)
+        pt.x += f.getAdvanceForRune(ch)
+    result = newSize(pt.x, f.height)
 
-proc getClosestCursorPositionToPointInString*(f: Font, s: string, p: Point, position: var int, offset: var Coord) =
+proc getClosestCursorPositionToPointInString*(f: Font, s: string, p: Point, position: var int, offset: var Coord) {.deprecated.} =
     var pt = zeroPoint
     var closestPoint = zeroPoint
     var quad: array[16, Coord]
@@ -465,7 +447,7 @@ proc getClosestCursorPositionToPointInString*(f: Font, s: string, p: Point, posi
     offset = if f.isHorizontal: closestPoint.x else: closestPoint.y
     if offset == 0: position = 0
 
-proc cursorOffsetForPositionInString*(f: Font, s: string, position: int): Coord =
+proc cursorOffsetForPositionInString*(f: Font, s: string, position: int): Coord {.deprecated.} =
     var pt = zeroPoint
     var quad: array[16, Coord]
     var i = 0

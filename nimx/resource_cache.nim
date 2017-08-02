@@ -7,14 +7,27 @@ import system_logger
 import types
 import sequtils
 import oswalkdir
+import variant
+
+import nimx.assets.asset_loading
+import nimx.assets.url_stream
+import nimx.assets.json_loading
 
 const debugResCache = false
 
+const jsEnv = defined(js) or defined(emscripten)
+
 type ResourceLoader* = ref object
+    when jsEnv:
+        remainingItemsToLoad: seq[string]
+        itemsLoading: int
     totalSize : int
     loadedSize: int
     itemsToLoad: int
+    itemsLoaded: int
     onComplete*: proc()
+    onProgress*: proc(p: float)
+    resourceCache*: ResourceCache # Cache to put the loaded resources to. If nil, default cache is used.
     when debugResCache:
         resourcesToLoad: seq[string]
 
@@ -23,26 +36,34 @@ proc getFileExtension(name: string): string =
     if p != -1:
         result = name.substr(p + 1)
 
+when jsEnv:
+    proc loadNextResources(ld: ResourceLoader)
+
 proc onResourceLoaded(ld: ResourceLoader, name: string) =
-    dec ld.itemsToLoad
+    when jsEnv: dec ld.itemsLoading
+    inc ld.itemsLoaded
     when debugResCache:
         ld.resourcesToLoad.keepIf(proc(a: string):bool = a != name)
         echo "REMAINING ITEMS: ", ld.resourcesToLoad
-    if ld.itemsToLoad == 0:
+    if ld.itemsToLoad == ld.itemsLoaded:
         ld.onComplete()
+    if not ld.onProgress.isNil:
+        ld.onProgress( ld.itemsLoaded.float / ld.itemsToLoad.float)
 
-type ResourceLoaderProc* = proc(name: string, completionCallback: proc())
+    when jsEnv: ld.loadNextResources()
+
+type ResourceLoaderProc = proc(name: string, completionCallback: proc(r: Variant))
 
 var resourcePreloaders = newSeq[tuple[fileExtensions: seq[string], loader: ResourceLoaderProc]]()
 
-var gTextResCache = initResourceCache[string]()
-
 proc startPreloadingResource(ld: ResourceLoader, name: string) =
     let extension = name.getFileExtension()
+    when jsEnv: inc ld.itemsLoading
 
     for rp in resourcePreloaders:
         if extension in rp.fileExtensions:
-            rp.loader name, proc() =
+            rp.loader name, proc(r: Variant) =
+                ld.resourceCache.registerResource(name, r)
                 ld.onResourceLoaded(name)
             return
 
@@ -50,39 +71,56 @@ proc startPreloadingResource(ld: ResourceLoader, name: string) =
     logi "WARNING: Unknown resource type: ", name
     #raise newException(Exception, "Unknown resource type: " & name)
 
-proc registerResourcePreloader*(fileExtensions: openarray[string], loader: ResourceLoaderProc) =
-    resourcePreloaders.add((@fileExtensions, loader))
+when jsEnv:
+    proc loadNextResources(ld: ResourceLoader) =
+        const parallelLoaders = 10
+        while ld.itemsLoading < parallelLoaders and ld.remainingItemsToLoad.len > 0:
+            let next = ld.remainingItemsToLoad.pop()
+            ld.startPreloadingResource(next)
 
-registerResourcePreloader(["json", "zsm"], proc(name: string, callback: proc()) =
-    loadJsonResourceAsync(name, proc(j: JsonNode) =
-        gJsonResCache.registerResource(name, j)
-        callback()
-    )
-)
+proc registerResourcePreloader*[T](fileExtensions: openarray[string], loader: proc(name: string, callback: proc(r: T))) =
+    proc wrapCb(name: string, callback: proc(r: Variant)) =
+        loader(name) do(r: T):
+            callback(newVariant(r))
+    resourcePreloaders.add((@fileExtensions, wrapCb))
 
-registerResourcePreloader(["obj", "txt"], proc(name: string, callback: proc()) =
-    when defined(js):
-        proc handler(r: ref RootObj) =
-            var text = cast[cstring](r)
-            gTextResCache.registerResource(name, $text)
-            callback()
+registerResourcePreloader(["json", "zsm"]) do(name: string, callback: proc(j: JsonNode)):
+    loadJsonResourceAsync(name) do(j: JsonNode):
+        callback(j)
 
+registerAssetLoader(["json", "zsm"]) do(url: string, callback: proc(j: JsonNode)):
+    loadJsonFromURL(url, callback)
+
+when defined(js) or defined(emscripten):
+    import jsbind
+
+registerAssetLoader(["obj", "txt"]) do(s: Stream, callback: proc(s: string)):
+    callback(s.readAll())
+
+registerResourcePreloader(["obj", "txt"]) do(name: string, callback: proc(s: string)):
+    when defined(js) or defined(emscripten):
+        proc handler(str: JSObj) =
+            callback(jsObjToString(str))
         loadJSResourceAsync(name, "text", nil, nil, handler)
     else:
         loadResourceAsync name, proc(s: Stream) =
-            gTextResCache.registerResource(name, s.readAll())
+            callback(s.readAll())
             s.close()
-            callback()
-)
 
 proc preloadResources*(ld: ResourceLoader, resourceNames: openarray[string]) =
     ld.itemsToLoad += resourceNames.len
+    if ld.resourceCache.isNil:
+        ld.resourceCache = currentResourceCache()
     when debugResCache:
         ld.resourcesToLoad = @resourceNames
     let oldWarn = warnWhenResourceNotCached
     warnWhenResourceNotCached = false
-    for i in resourceNames:
-        ld.startPreloadingResource(i)
+    when jsEnv:
+        ld.remainingItemsToLoad = @resourceNames
+        ld.loadNextResources()
+    else:
+        for i in resourceNames:
+            ld.startPreloadingResource(i)
     warnWhenResourceNotCached = oldWarn
 
 proc isHiddenFile(path: string): bool =
@@ -94,10 +132,10 @@ proc isHiddenFile(path: string): bool =
 
 proc getEnvCt(k: string): string {.compileTime.} =
     when defined(buildOnWindows): # This should be defined by the naketools.nim
-        result = staticExec("cmd /c \"echo %NIMX_RES_PATH%\"")
-        result.removeSuffix()
+        result = staticExec("cmd /c \"echo %" & k & "%\"")
     else:
         result = staticExec("echo $" & k)
+    result.removeSuffix()
     if result == "": result = nil
 
 proc getResourceNames*(path: string = ""): seq[string] {.compileTime.} =
@@ -117,8 +155,10 @@ proc getResourceNames*(path: string = ""): seq[string] {.compileTime.} =
         prefix &= "/"
 
     for f in oswalkdir.walkDirRec(prefix & path):
-        if not isHiddenFile(f):
-            var str = f.substr(prefix.len)
-            when defined(buildOnWindows):
-                str = str.replace('\\', '/')
+        var str = f
+        when defined(buildOnWindows):
+            str = str.replace('\\', '/')
+
+        if not isHiddenFile(str):
+            str = str.substr(prefix.len)
             result.add(str)

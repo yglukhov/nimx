@@ -3,7 +3,7 @@ import unicode
 import abstract_window
 
 import keyboard
-export VirtualKey
+export keyboard
 
 type EventType* = enum
     etUnknown
@@ -39,6 +39,7 @@ type Event* = object
     repeat*: bool
     window*: Window
     text*: string
+    modifiers*: ModifiersSet
 
 proc newEvent*(kind: EventType, position: Point = zeroPoint, keyCode: VirtualKey = VirtualKey.Unknown,
                buttonState: ButtonState = bsUnknown, pointerId : int = 0, timestamp : uint32 = 0): Event =
@@ -83,3 +84,19 @@ proc isButtonDownEvent*(e: Event): bool = e.buttonState == bsDown
 proc isButtonUpEvent*(e: Event): bool = e.buttonState == bsUp
 
 proc isMouseMoveEvent*(e: Event): bool = e.buttonState == bsUnknown and e.kind == etMouse
+
+var activeTouches = 0
+
+template numberOfActiveTouches*(): int = activeTouches
+
+proc incrementActiveTouchesIfNeeded*(e: Event) =
+    # Private proc. Should be called from application.handleEvent()
+    if (e.kind == etTouch or e.kind == etMouse) and e.buttonState == bsDown:
+        inc activeTouches
+        assert(activeTouches > 0)
+
+proc decrementActiveTouchesIfNeeded*(e: Event) =
+    # Private proc. Should be called from application.handleEvent()
+    if (e.kind == etTouch or e.kind == etMouse) and e.buttonState == bsUp:
+        assert(activeTouches > 0)
+        dec activeTouches

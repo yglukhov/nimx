@@ -35,6 +35,10 @@ proc normalize*(v: var Vector3) =
         v[1] /= leng
         v[2] /= leng
 
+proc normalized*(v: Vector3): Vector3 =
+    result = v
+    result.normalize()
+
 template x*[I: static[int], T](v: TVector[I, T]): T = v[0]
 template y*[I: static[int], T](v: TVector[I, T]): T = v[1]
 template z*[I: static[int], T](v: TVector[I, T]): T = v[2]
@@ -45,14 +49,14 @@ template `y=`*[I: static[int], T](v: var TVector[I, T], val: T) = v[1] = val
 template `z=`*[I: static[int], T](v: var TVector[I, T], val: T) = v[2] = val
 template `w=`*[I: static[int], T](v: var TVector[I, T], val: T) = v[3] = val
 
-proc `.`*[I: static[int], T](v: TVector[I, T], field: static[string]): TVector[field.len, T] =
-    for i, c in field:
-        case c
-            of 'x': result[i] = v.x
-            of 'y': result[i] = v.y
-            of 'z': result[i] = v.z
-            of 'w': result[i] = v.w
-            else: assert(false, "Unknown field: " & $c)
+# proc `.`*[I: static[int], T](v: TVector[I, T], field: static[string]): TVector[field.len, T] =
+#     for i, c in field:
+#         case c
+#             of 'x': result[i] = v.x
+#             of 'y': result[i] = v.y
+#             of 'z': result[i] = v.z
+#             of 'w': result[i] = v.w
+#             else: assert(false, "Unknown field: " & $c)
 
 # The following .= doesn't work yet because of Nim bug #3319
 discard """
@@ -716,40 +720,43 @@ proc rotateZ*(mat: var Matrix4, angle: Coord) =
     mat[6] = a02 * -s + a12 * c;
     mat[7] = a03 * -s + a13 * c;
 
-
-proc frustum*(dest: var Matrix4, left, right, bottom, top, near, far: Coord) =
+proc frustum*(dest: var Matrix4, left, right, bottom, top, nearr, farr: Coord) =
     let
         rl = right - left
         tb = top - bottom
-        fn = far - near
-    dest[0] = (near * 2) / rl;
+        fn = farr - nearr
+    dest[0] = (nearr * 2) / rl;
     dest[1] = 0;
     dest[2] = 0;
     dest[3] = 0;
     dest[4] = 0;
-    dest[5] = (near * 2) / tb;
+    dest[5] = (nearr * 2) / tb;
     dest[6] = 0;
     dest[7] = 0;
     dest[8] = (right + left) / rl;
     dest[9] = (top + bottom) / tb;
-    dest[10] = -(far + near) / fn;
+    dest[10] = -(farr + nearr) / fn;
     dest[11] = -1;
     dest[12] = 0;
     dest[13] = 0;
-    dest[14] = -(far * near * 2) / fn;
+    dest[14] = -(farr * nearr * 2) / fn;
     dest[15] = 0;
 
-proc perspective*(dest: var Matrix4, fovy, aspect, near, far: Coord) =
-    let
-        top = near * tan(fovy * PI / 360.0)
-        right = top * aspect
-    dest.frustum(-right, right, -top, top, near, far)
+proc perspective*(dest: var Matrix4, fovy, aspect, nearr, farr: Coord) =
+    # column major version, compatible with maya cameras
+    let size = nearr * tan(degToRad(fovy) / 2.0)
+    let left = -size
+    let right = size
+    let bottom = -size / aspect
+    let top = size / aspect
 
-proc ortho*(dest: var Matrix4, left, right, bottom, top, near, far: Coord) =
+    dest.frustum(left, right, bottom, top, nearr, farr)
+
+proc ortho*(dest: var Matrix4, left, right, bottom, top, nearr, farr: Coord) =
     let
         rl = right - left
         tb = top - bottom
-        fn = far - near
+        fn = farr - nearr
     dest[0] = 2 / rl;
     dest[1] = 0;
     dest[2] = 0;
@@ -764,11 +771,11 @@ proc ortho*(dest: var Matrix4, left, right, bottom, top, near, far: Coord) =
     dest[11] = 0;
     dest[12] = -(left + right) / rl;
     dest[13] = -(top + bottom) / tb;
-    dest[14] = -(far + near) / fn;
+    dest[14] = -(farr + nearr) / fn;
     dest[15] = 1;
 
-proc ortho*(left, right, bottom, top, near, far: Coord): Matrix4 {.noInit.} =
-    result.ortho(left, right, bottom, top, near, far)
+proc ortho*(left, right, bottom, top, nearr, farr: Coord): Matrix4 {.noInit.} =
+    result.ortho(left, right, bottom, top, nearr, farr)
 
 proc lookAt*(dest: var Matrix4, eye, center, up: Vector3) =
     let
@@ -830,15 +837,15 @@ proc lookAt*(dest: var Matrix4, eye, center, up: Vector3) =
         y2 *= len
 
     dest[0] = x0;
-    dest[1] = y0;
-    dest[2] = z0;
+    dest[1] = x1;
+    dest[2] = x2;
     dest[3] = 0;
-    dest[4] = x1;
+    dest[4] = y0;
     dest[5] = y1;
-    dest[6] = z1;
+    dest[6] = y2;
     dest[7] = 0;
-    dest[8] = x2;
-    dest[9] = y2;
+    dest[8] = z0;
+    dest[9] = z1;
     dest[10] = z2;
     dest[11] = 0;
     dest[12] = -(x0 * eyex + x1 * eyey + x2 * eyez);
@@ -848,16 +855,16 @@ proc lookAt*(dest: var Matrix4, eye, center, up: Vector3) =
 
 proc tryGetTranslationFromModel*(mat: Matrix4, translation: var Vector3): bool =
     if mat[15] == 0: return false
-    translation = newVector3(mat[3], mat[7], mat[11]) / mat[15]
+    translation = newVector3(mat[12], mat[13], mat[14]) / mat[15]
     return true
 
 proc tryGetScaleRotationFromModel*(mat: Matrix4, scale: var Vector3, rotation: var Vector4): bool =
     if mat[15] == 0: return false
 
     var
-        row0 = newVector3(mat[0], mat[4], mat[8]) / mat[15]
-        row1 = newVector3(mat[1], mat[5], mat[9]) / mat[15]
-        row2 = newVector3(mat[2], mat[6], mat[10]) / mat[15]
+        row0 = newVector3(mat[0], mat[1], mat[2]) / mat[15]
+        row1 = newVector3(mat[4], mat[5], mat[6]) / mat[15]
+        row2 = newVector3(mat[8], mat[9], mat[10]) / mat[15]
 
     # scale skew
     scale[0] = row0.length()
@@ -905,7 +912,7 @@ proc tryGetScaleRotationFromModel*(mat: Matrix4, scale: var Vector3, rotation: v
         z = (row0[2] + row2[0]) / s
         w = (row2[1] - row1[2]) / s
     elif row1[1] > row2[2]:
-        s = sqrt (1.0 + row1[1] - row0[0] - row2[2]) * 2.0
+        s = sqrt(1.0 + row1[1] - row0[0] - row2[2]) * 2.0
         x = (row0[1] + row1[0]) / s
         y = 0.25 * s
         z = (row1[2] + row2[1]) / s
@@ -920,6 +927,11 @@ proc tryGetScaleRotationFromModel*(mat: Matrix4, scale: var Vector3, rotation: v
     rotation = newVector4(x, y, z, w)
 
     return true
+
+proc transformDirection*(mat: Matrix4, dir: Vector3): Vector3 =
+    result.x = dir.x * mat[0] + dir.y * mat[4] + dir.z * mat[8]
+    result.y = dir.x * mat[1] + dir.y * mat[5] + dir.z * mat[9]
+    result.z = dir.x * mat[2] + dir.y * mat[6] + dir.z * mat[10]
 
 discard """
 mat4_t mat4_fromRotationTranslation(quat_t quat, vec3_t vec, mat4_t dest) {

@@ -1,7 +1,8 @@
+import os
 import nake
 export nake
 
-import tables, osproc, strutils, times, parseopt2, streams
+import tables, osproc, strutils, times, parseopt2, streams, os, pegs
 import jester, asyncdispatch, browsers, closure_compiler # Stuff needed for JS target
 import plists
 
@@ -9,6 +10,8 @@ type Builder* = ref object
     platform*: string
 
     appName* : string
+    appVersion*: string
+    buildNumber*: int
     bundleId* : string
     javaPackageId* : string
     disableClosureCompiler* : bool
@@ -16,6 +19,7 @@ type Builder* = ref object
 
     androidSdk* : string
     androidNdk* : string
+    androidApi* : int
     sdlRoot* : string
 
     nimIncludeDir* : string
@@ -40,11 +44,16 @@ type Builder* = ref object
     additionalNimFlags*: seq[string]
     additionalLinkerFlags*: seq[string]
     additionalCompilerFlags*: seq[string]
+    additionalLibsToCopy*: seq[string]
+    additionalPlistAttrs*: JsonNode
 
     runAfterBuild* : bool
     targetArchitectures* : seq[string]
     androidPermissions*: seq[string]
     screenOrientation*: string
+    androidStaticLibraries*: seq[string]
+    additionalAndroidResources*: seq[string]
+    activityClassName*: string
 
     mainFile*: string
 
@@ -52,6 +61,8 @@ type Builder* = ref object
 
     codesignIdentity*: string
     teamId*: string
+    emscriptenPreloadFiles*: seq[string]
+    emscriptenPreJS*: seq[string]
 
     buildRoot : string
     executablePath : string
@@ -62,50 +73,141 @@ type Builder* = ref object
     compilerFlags: seq[string]
     linkerFlags: seq[string]
 
-proc setBuilderSettings(b: Builder) =
+    avoidSDL*: bool # Experimental feature.
+    useGradle*: bool # Experimental
+
+proc setBuilderSettingsFromCmdLine(b: Builder) =
     for kind, key, val in getopt():
         case kind
         of cmdLongOption, cmdShortOption:
             case key
             of "define", "d":
-                if val in ["js", "android", "ios", "ios-sim"]:
+                if val in ["js", "android", "ios", "ios-sim", "emscripten", "windows", "wasm"]:
                     b.platform = val
-                if val == "release":
+                elif val == "release":
                     b.debugMode = false
+                else:
+                    b.additionalNimFlags.add("-d:" & val)
             of "norun":
                 b.runAfterBuild = false
             of "parallelBuild":
                 b.nimParallelBuild = parseInt(val)
+            of "compileOnly", "c":
+                b.additionalNimFlags.add("--compileOnly")
             else: discard
         else: discard
 
-proc newBuilder(platform: string): Builder =
+proc replaceInStr(in_str, wh_str : string, by_str: string = ""): string =
+    result = in_str
+    if in_str.len > 0:
+        var pos = in_str.rfind(wh_str)
+        result.delete(pos, result.len)
+        if by_str.len > 0:
+            result &= by_str
+
+proc getEnvErrorMsg(env: string): string =
+    result = "\n Environment variable [ " & env & " ] is not set."
+
+const xCodeApp = "/Applications/Xcode.app"
+
+proc macOSSDKPath*(version: string): string =
+    result = xCodeApp/"Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX" & version & ".sdk"
+proc iOSSDKPath*(version: string): string =
+    result = xCodeApp/"Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS" & version & ".sdk"
+proc iOSSimulatorSDKPath*(version: string): string =
+    result = xCodeApp/"Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator" & version & ".sdk"
+
+proc getiOSSDKVersion(): string =
+    for f in walkDir(xCodeApp/"Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/"):
+        var dirName = splitFile(f.path).name
+        var matches = dirName.findAll(peg"\d+\.\d+")
+        if matches.len() > 0:
+            return matches[matches.len() - 1]
+
+proc findEnvPaths(b: Builder) =
+    if b.platform in ["android", "ios", "ios-sim"]:
+        var error_msg = ""
+        ## try find binary for android sdk, ndk, and nim
+        if b.platform == "android":
+            var ndk_path = findExe("ndk-stack")
+            var sdk_path = findExe("adb")
+            var nim_path = findExe("nim")
+
+            if ndk_path.len > 0:
+                ndk_path = replaceInStr(ndk_path, "ndk-stack")
+            elif existsEnv("ANDROID_NDK_HOME"):
+                ndk_path = getEnv("ANDROID_NDK_HOME")
+
+            if sdk_path.len > 0:
+                sdk_path = replaceInStr(sdk_path, "platform")
+            elif existsEnv("ANDROID_HOME") or existsEnv("ANDROID_SDK_HOME"):
+                if existsEnv("ANDROID_HOME"):
+                    sdk_path = getEnv("ANDROID_HOME")
+                else:
+                    sdk_path = getEnv("ANDROID_SDK_HOME")
+
+            if nim_path.len > 0:
+                if symlinkExists(nim_path):
+                    nim_path = expandSymlink(nim_path)
+                nim_path = replaceInStr(nim_path, "bin", "/lib")
+            elif existsEnv("NIM_HOME"):
+                nim_path = getEnv("NIM_HOME")
+
+            when not defined(windows):
+                if ndk_path.len == 0:
+                    ndk_path = "~/Library/Android/sdk/ndk-bundle"
+                    if not fileExists(expandTilde(ndk_path / "ndk-stack")):
+                        echo "NDK DOESNT EXIST"
+                        ndk_path = nil
+                if sdk_path.len == 0:
+                    sdk_path = "~/Library/Android/sdk"
+                    if not fileExists(expandTilde(sdk_path / "platform-tools/adb")):
+                        sdk_path = nil
+
+            if sdk_path.len == 0: error_msg &= getEnvErrorMsg("ANDROID_SDK_HOME")
+            if ndk_path.len == 0: error_msg &= getEnvErrorMsg("ANDROID_NDK_HOME")
+            if nim_path.len == 0: error_msg &= getEnvErrorMsg("NIM_HOME")
+
+            b.androidSdk = sdk_path
+            b.androidNdk = ndk_path
+            b.nimIncludeDir = nim_path
+
+        var sdlHome : string
+        if existsEnv("SDL_HOME"):
+            sdlHome = getEnv("SDL_HOME")
+        if sdlHome.len == 0: error_msg &= getEnvErrorMsg("SDL_HOME")
+
+        if error_msg.len > 0:
+            raiseOSError(error_msg)
+
+        b.sdlRoot = sdlHome
+
+proc versionCodeWithTime*(t: TimeInfo): int =
+    let month = (t.year - 2016) * 12 + (t.month.int + 1)
+    result = t.minute + t.hour * 100 + t.monthday * 10000 + month * 1000000
+
+proc versionCodeWithTime*(t: Time): int =
+    versionCodeWithTime(getLocalTime(t))
+
+proc versionCodeWithTime*(): int =
+    versionCodeWithTime(getTime())
+
+proc newBuilder*(platform: string): Builder =
     result.new()
     let b = result
 
     b.platform = platform
-    b.appName = "MyGame"
-    b.bundleId = "com.kromtech.testgame1"
-    b.javaPackageId = "com.mycompany.MyGame"
+    b.appName = "NimxApp"
+    b.appVersion = "1.0"
+    b.buildNumber = versionCodeWithTime()
+    b.bundleId = "com.mycompany.NimxApp"
+    b.javaPackageId = "com.mycompany.NimxApp"
+    b.activityClassName = "io.github.yglukhov.nimx.NimxActivity"
     b.disableClosureCompiler = false
+    b.enableClosureCompilerSourceMap = false
 
     when defined(windows):
-        b.androidSdk = "D:\\Android\\android-sdk"
-        b.androidNdk = "D:\\Android\\android-ndk-r10e"
-        b.sdlRoot = "D:\\Android\\SDL2-2.0.3"
-        b.nimIncludeDir = "C:\\Nim\\lib"
         b.appIconName = "MyGame.ico"
-    else:
-        b.androidSdk = "~/Library/Android/sdk"
-        b.androidNdk = "~/Library/Android/sdk/ndk-bundle"
-        b.sdlRoot = "~/Projects/SDL"
-        b.nimIncludeDir = "~/Projects/nim/lib"
-
-    b.macOSSDKVersion = "10.11"
-    b.macOSMinVersion = "10.6"
-
-    b.iOSSDKVersion = "9.2"
-    b.iOSMinVersion = b.iOSSDKVersion
 
     # Simulator device identifier should be set to run the simulator.
     # Available simulators can be listed with the command:
@@ -119,28 +221,68 @@ proc newBuilder(platform: string): Builder =
     b.additionalNimFlags = @[]
     b.additionalLinkerFlags = @[]
     b.additionalCompilerFlags = @[]
+    b.additionalLibsToCopy = @[]
+    b.additionalPlistAttrs = newJObject()
 
     b.mainFile = "main"
 
     b.runAfterBuild = true
     b.targetArchitectures = @["armeabi", "armeabi-v7a", "x86"]
     b.androidPermissions = @[]
+    b.androidStaticLibraries = @[]
+    b.additionalAndroidResources = @[]
 
     b.buildRoot = "build"
     b.originalResourcePath = "res"
-    b.setBuilderSettings()
+
+    b.emscriptenPreloadFiles = @[]
+    b.emscriptenPreJs = @[]
+
+    b.setBuilderSettingsFromCmdLine()
+    b.findEnvPaths()
+
+    if b.platform in ["ios", "ios-sim"]:
+        b.iOSSDKVersion = getiOSSDKVersion()
+        b.iOSMinVersion = b.iOSSDKVersion
+    elif b.platform == "macosx":
+        b.macOSSDKVersion = "10.12"
+        for v in ["10.7", "10.8", "10.9", "10.10", "10.11", "10.12", "10.13"]:
+            if dirExists(macOSSDKPath(v)):
+                b.macOSSDKVersion = v
+                break
+        b.macOSMinVersion = "10.7"
 
 proc nimblePath(package: string): string =
     var nimblecmd = "nimble"
-    when defined(windows):
-        nimblecmd &= ".cmd"
-    var (nimbleNimxDir, err) = execCmdEx(nimblecmd & " path " & package)
+    var (packageDir, err) = execCmdEx(nimblecmd & " path " & package)
     if err == 0:
-        let lines = nimbleNimxDir.splitLines()
+        let lines = packageDir.splitLines()
         if lines.len > 1:
             result = lines[^2]
 
-proc newBuilderForCurrentPlatform(): Builder =
+proc nimbleNimxPath(): string =
+    result = nimblePath("nimx")
+    doAssert(not result.isNil, "Error: nimx does not seem to be installed with nimble!")
+
+proc emccWrapperPath(): string =
+    when defined(windows):
+        let jsbindPath = nimblePath("jsbind")
+        result = jsbindPath / "jsbind/emcc_wrapper_win32.exe"
+    else:
+        result = findExe("emcc")
+
+proc findEmcc(): string {.tags: [ReadDirEffect, ReadEnvEffect, ReadIOEffect].} =
+    result = addFileExt("emcc", ScriptExt)
+    if existsFile(result): return
+    var path = string(getEnv("PATH"))
+    for candidate in split(path, PathSep):
+        var x = (if candidate[0] == '"' and candidate[^1] == '"':
+                  substr(candidate, 1, candidate.len-2) else: candidate) /
+               result
+        if existsFile(x):
+            return x
+
+proc newBuilder*(): Builder =
     when defined(macosx):
         newBuilder("macosx")
     elif defined(windows):
@@ -148,22 +290,10 @@ proc newBuilderForCurrentPlatform(): Builder =
     else:
         newBuilder("linux")
 
-proc newBuilder*(): Builder =
-    result = newBuilderForCurrentPlatform()
-
 var
     preprocessResources* : proc(b: Builder)
     beforeBuild*: proc(b: Builder)
     afterBuild*: proc(b: Builder)
-
-when defined(Windows):
-    const silenceStdout = "2>nul"
-else:
-    const silenceStdout = ">/dev/null"
-
-if dirExists("../.git"): # Install nimx
-    withDir "..":
-        direShell "nimble", "-y", "install", silenceStdout
 
 proc copyResourceAsIs*(b: Builder, path: string) =
     let destPath = b.resourcePath / path
@@ -182,9 +312,12 @@ proc convertResource*(b: Builder, origPath, destExtension: string, conv : proc(f
         createDir(parentDir(dp))
         conv(op, dp)
 
-proc forEachResource*(b: Builder, p: proc(path: string)) =
+iterator allResources*(b: Builder): string =
     for i in walkDirRec(b.originalResourcePath):
-        p(i.substr(b.originalResourcePath.len + 1))
+        yield i.substr(b.originalResourcePath.len + 1)
+
+proc forEachResource*(b: Builder, p: proc(path: string)) =
+    for i in b.allResources: p(i)
 
 proc copyResources*(b: Builder) =
     copyDir(b.originalResourcePath, b.resourcePath)
@@ -196,28 +329,35 @@ proc preprocessResourcesAux(b: Builder) =
         createDir(b.resourcePath)
         preprocessResources(b)
 
-proc infoPlistSetValueForKey(path, value, key: string) =
-    direShell "defaults", "write", path, key, value
-
 proc absPath(path: string): string =
     if path.isAbsolute(): path else: getCurrentDir() / path
 
+proc fillInfoPlist(b: Builder, plist: JsonNode) =
+    plist["CFBundleName"] = %b.appName
+    plist["CFBundleIdentifier"] = %b.bundleId
+    plist["CFBundleExecutable"] = %b.appName
+    plist["CFBundleShortVersionString"] = %b.appVersion
+    plist["CFBundleVersion"] = % $b.buildNumber
+    for key, value in b.additionalPlistAttrs:
+        plist[key] = value
+
 proc makeIosBundle(b: Builder) =
-    let bundlePath = b.buildRoot / b.bundleName
-    createDir bundlePath
-    let infoPlistPath = absPath(bundlePath / "Info")
-    infoPlistSetValueForKey(infoPlistPath, b.appName, "CFBundleName")
-    infoPlistSetValueForKey(infoPlistPath, b.bundleId, "CFBundleIdentifier")
-    infoPlistSetValueForKey(infoPlistPath, b.appName, "CFBundleExecutable")
+    let loadPath = b.originalResourcePath / "Info.plist"
+    var plist = loadPlist(loadPath)
+    if plist.isNil:
+        plist = newJObject()
+    b.fillInfoPlist(plist)
+
+    let savePath = b.buildRoot / b.bundleName
+    createDir savePath
+    plist.writePlist(savePath / "Info.plist")
 
 proc makeMacOsBundle(b: Builder) =
     let bundlePath = b.buildRoot / b.bundleName
     createDir(bundlePath / "Contents")
 
     let plist = newJObject()
-    plist["CFBundleName"] = %b.appName
-    plist["CFBundleIdentifier"] = %b.bundleId
-    plist["CFBundleExecutable"] = %b.appName
+    b.fillInfoPlist(plist)
     plist["NSHighResolutionCapable"] = %true
     plist.writePlist(bundlePath / "Contents" / "Info.plist")
 
@@ -225,15 +365,13 @@ proc makeWindowsResource(b: Builder) =
     let
         rcPath = b.buildRoot / "res" / (b.appName & ".rc")
         rcO = b.nimcachePath / (b.appName & "_res.o")
-    var createResource: bool = false
-
-    shell "type", "nul", ">", rcPath
+    var createResource = false
 
     if not isNil(b.appIconName):
-        let appIconPath = b.resourcePath / (b.appIconName)
+        let appIconPath = b.resourcePath / b.appIconName
 
         if fileExists(absPath(appIconPath)):
-            shell "echo", "AppIcon ICON \"$#\"" % [b.appIconName], ">>", rcPath
+            writeFile(rcPath, "AppIcon ICON \"$#\"" % [b.appIconName])
             shell "windres", "-i", rcPath, "-o", rcO
             createResource = true
         else:
@@ -295,33 +433,42 @@ proc buildSDLForIOS(b: Builder, forSimulator: bool = false): string =
 proc makeAndroidBuildDir(b: Builder): string =
     let buildDir = b.buildRoot / b.javaPackageId
     if not dirExists buildDir:
-        let nimbleNimxDir = nimblePath("nimx")
-        doAssert(not nimbleNimxDir.isNil, "Error: nimx does not seem to be installed with nimble!")
+        let templ = if b.useGradle: "template" else: "template_ant"
+        let nimxTemplateDir = nimbleNimxPath() / "test" / "android" / templ
+        let sdlDefaultAndroidProjectTemplate =  b.sdlRoot/"android-project"
         createDir(buildDir)
-        let templateDir = nimbleNimxDir / "test" / "android" / "template"
-        echo "Using Android app template: ", templateDir
-        copyDir templateDir, buildDir
+        echo "Using Android project sdl template: ", sdlDefaultAndroidProjectTemplate
+        if not b.useGradle:
+            copyDir sdlDefaultAndroidProjectTemplate, buildDir
+
+        copyDirWithPermissions(nimxTemplateDir, buildDir)
+
+        if b.useGradle:
+            copyDir(sdlDefaultAndroidProjectTemplate / "src", buildDir / "src"/"main"/"java")
+
+        let sdlJni = buildDir/"jni"/"SDL"
+        createDir(sdlJni)
 
         when defined(windows):
-            copyDir b.sdlRoot/"src", buildDir/"jni"/"SDL"/"src"
-            copyDir b.sdlRoot/"include", buildDir/"jni"/"SDL"/"include"
+            copyDir b.sdlRoot/"src", sdlJni/"src"
+            copyDir b.sdlRoot/"include", sdlJni/"include"
         else:
-            trySymLink(b.sdlRoot/"src", buildDir/"jni"/"SDL"/"src")
-            trySymLink(b.sdlRoot/"include", buildDir/"jni"/"SDL"/"include")
+            trySymLink(b.sdlRoot/"src", sdlJni/"src")
+            trySymLink(b.sdlRoot/"include", sdlJni/"include")
 
-        let mainActivityPath = b.javaPackageId.replace(".", "/")
-        createDir(buildDir/"src"/mainActivityPath)
-        let mainActivityJava = """
-        package """ & b.javaPackageId & """;
-        import org.libsdl.app.SDLActivity;
-        public class MainActivity extends SDLActivity {}
-        """
-        writeFile(buildDir/"src"/mainActivityPath/"MainActivity.java", mainActivityJava)
+        let sdlmk = sdlJni/"Android.mk"
+        copyFile(b.sdlRoot/"Android.mk", sdlmk)
 
-        var linkerFlags = ""
-        for f in b.additionalLinkerFlags: linkerFlags &= " " & f
-        var compilerFlags = ""
-        for f in b.additionalCompilerFlags: compilerFlags &= " " & f
+        # Patch SDL's Android.mk so that it doesn't build dynamic lib.
+        writeFile(sdlmk, readFile(sdlmk).replace("include $(BUILD_SHARED_LIBRARY)", "#include $(BUILD_SHARED_LIBRARY)"))
+
+        for libName in b.additionalLibsToCopy:
+            let libPath = "lib"/libName
+            copyDir libPath, buildDir/"jni"/libName
+
+        for resourcePath in b.additionalAndroidResources:
+            copyDir resourcePath, buildDir
+
         var permissions = ""
         for p in b.androidPermissions: permissions &= "<uses-permission android:name=\"android.permission." & p & "\"/>\L"
         var debuggable = ""
@@ -335,26 +482,85 @@ proc makeAndroidBuildDir(b: Builder): string =
         let vars = {
             "PACKAGE_ID" : b.javaPackageId,
             "APP_NAME" : b.appName,
-            "ADDITIONAL_LINKER_FLAGS": linkerFlags,
-            "ADDITIONAL_COMPILER_FLAGS": compilerFlags,
+            "APP_VERSION": b.appVersion,
+            "BUILD_NUMBER": $b.buildNumber,
+            "ADDITIONAL_LINKER_FLAGS": b.additionalLinkerFlags.join(" "),
+            "ADDITIONAL_COMPILER_FLAGS": b.additionalCompilerFlags.join(" "),
             "TARGET_ARCHITECTURES": b.targetArchitectures.join(" "),
             "ANDROID_PERMISSIONS": permissions,
             "ANDROID_DEBUGGABLE": debuggable,
-            "SCREEN_ORIENTATION": screenOrientation
+            "SCREEN_ORIENTATION": screenOrientation,
+            "TARGET_API": $b.androidApi,
+            "STATIC_LIBRARIES": b.androidStaticLibraries.join(" "),
+            "ACTIVITY_CLASS_NAME": b.activityClassName
             }.toTable()
 
-        replaceVarsInFile buildDir/"AndroidManifest.xml", vars
-        replaceVarsInFile buildDir/"res/values/strings.xml", vars
         replaceVarsInFile buildDir/"jni/src/Android.mk", vars
         replaceVarsInFile buildDir/"jni/Application.mk", vars
+
+        if b.useGradle:
+            replaceVarsInFile buildDir/"src/main/AndroidManifest.xml", vars
+            replaceVarsInFile buildDir/"src/main/res/values/strings.xml", vars
+        else:
+            replaceVarsInFile buildDir/"AndroidManifest.xml", vars
+            replaceVarsInFile buildDir/"res/values/strings.xml", vars
+            replaceVarsInFile buildDir/"project.properties", vars
+            replaceVarsInFile buildDir/"build.xml", vars
     buildDir
 
+proc packageNameAtPath(d: string): string =
+    for file in walkFiles(d / "*.nimble"):
+        return file.splitFile.name
+
+proc curPackageNameAndPath(): tuple[name, path: string] =
+    var d = getCurrentDir()
+    while d.len > 1:
+        result.name = packageNameAtPath(d)
+        if not result.name.isNil:
+            result.path = d
+            return
+        d = d.parentDir()
+
+proc nimbleOverrideFlags(b: Builder): seq[string] =
+    result = @[]
+    var d = getCurrentDir()
+    while d.len > 1:
+        let nimbleoverride = d / "nimbleoverride"
+        if fileExists(nimbleoverride):
+            echo "WARNING: nimbleoverride feature is deprecated and will soon be removed!"
+            for ln in lines(nimbleoverride):
+                let path = ln.strip()
+                if path.len > 0 and path[0] != '#':
+                    var absPath = path
+                    if not isAbsolute(absPath): absPath = d / absPath
+                    let pkgName = packageNameAtPath(absPath)
+                    var origNimblePath: string
+                    if not pkgName.isNil:
+                        origNimblePath = nimblePath(pkgName)
+                    if not origNimblePath.isNil: result.add("--excludePath:" & origNimblePath)
+                    result.add("--NimblePath:" & absPath)
+        d = d.parentDir()
+
+    let cp = curPackageNameAndPath()
+    if not cp.name.isNil:
+        let origNimblePath = nimblePath(cp.name)
+        if not origNimblePath.isNil: result.add("--excludePath:" & origNimblePath)
+        result.add("--NimblePath:" & cp.path)
+
 proc jsPostBuild(b: Builder) =
-    if not b.disableClosureCompiler:
-        closure_compiler.compileFileAndRewrite(b.buildRoot / "main.js", ADVANCED_OPTIMIZATIONS, b.enableClosureCompilerSourceMap)
+    if not b.disableClosureCompiler and fileExists(b.executablePath):
+        if b.platform == "js":
+            closure_compiler.compileFileAndRewrite(b.executablePath, ADVANCED_OPTIMIZATIONS, b.enableClosureCompilerSourceMap)
+        # If source map is disabled, emscripten has already run build-in closure compiler
+        elif b.platform == "emscripten" and b.enableClosureCompilerSourceMap:
+            # Closure compiler ADVANCED_OPTIMIZATIONS has no compatibility with emscripten
+            closure_compiler.compileFileAndRewrite(b.executablePath, SIMPLE_OPTIMIZATIONS, b.enableClosureCompilerSourceMap)
 
     let sf = splitFile(b.mainFile)
-    copyFile(sf.dir / sf.name & ".html", b.buildRoot / "main.html")
+    var mainHTML = sf.dir / sf.name & ".html"
+    if not fileExists(mainHTML):
+        mainHTML = nimbleNimxPath() / "test" / "main.html"
+    copyFile(mainHTML, b.buildRoot / "main.html")
     if b.runAfterBuild:
         let settings = newSettings(staticDir = b.buildRoot)
         routes:
@@ -376,7 +582,57 @@ proc signIosBundle(b: Builder) =
     e.writePlist(entPath)
     direShell(["codesign", "-s", "\"" & b.codesignIdentity & "\"", "--force", "--entitlements", entPath, b.buildRoot / b.bundleName])
 
-proc preconfigure(b: Builder) =
+proc ndkBuild(b: Builder) =
+    withDir(b.buildRoot / b.javaPackageId):
+        putEnv "NIM_INCLUDE_DIR", expandTilde(b.nimIncludeDir)
+        if b.useGradle:
+            putEnv "ANDROID_SDK_HOME", expandTilde(b.androidSdk)
+            putEnv "ANDROID_HOME", expandTilde(b.androidSdk)
+            putEnv "ANDROID_NDK_HOME", expandTilde(b.androidNdk)
+            var args = @[getCurrentDir() / "gradlew"]
+            if b.debugMode:
+                args.add("assembleDebug")
+            else:
+                args.add("assembleRelease")
+            direShell args
+        else:
+            putEnv "ANDROID_HOME", expandTilde(b.androidSdk)
+
+            if b.androidApi == 0:
+                b.androidApi = 14 #default android-api level
+            # this update phase is doesnt look necessary
+            #direShell b.androidSdk/"tools/android", "update", "project", "-p", ".", "-t", "android-" & $b.androidApi # try with android-16
+
+            let verbose = false
+            var args = @[b.androidNdk/"ndk-build"]
+            if verbose: args.add("V=1")
+            if b.nimParallelBuild > 0:
+                args.add("-j " & $b.nimParallelBuild)
+            if b.debugMode:
+                args.add(["NDK_DEBUG=1", "APP_OPTIM=debug"])
+            else:
+                args.add("APP_OPTIM=release")
+            direShell args
+
+            if b.debugMode:
+                direShell "ant", "debug"
+            else:
+                direShell "ant", "release"
+
+proc makeEmscriptenPreloadData(b: Builder): string =
+    let emcc_path = findExe("emcc")
+    let emcc = if emcc_path.len > 0: emcc_path else: findEmcc()
+
+    doAssert(emcc.len > 0)
+    result = b.nimcachePath / "preload.js"
+    let packagerPy = emcc.parentDir() / "tools" / "file_packager.py"
+    createDir(b.nimcachePath)
+    var args = @["python", packagerPy.quoteShell(), b.buildRoot / "main.data", "--js-output=" & result]
+    for p in b.emscriptenPreloadFiles:
+        args.add(["--preload", p])
+    direShell(args)
+
+proc configure*(b: Builder) =
     b.buildRoot = b.buildRoot / b.platform
     b.nimcachePath = b.buildRoot / "nimcache"
     b.resourcePath = b.buildRoot / "res"
@@ -384,7 +640,7 @@ proc preconfigure(b: Builder) =
     if not beforeBuild.isNil: beforeBuild(b)
 
 proc build*(b: Builder) =
-    b.preconfigure()
+    b.configure()
 
     b.executablePath = b.buildRoot / b.appName
     b.bundleName = b.appName & ".app"
@@ -397,20 +653,15 @@ proc build*(b: Builder) =
         b.linkerFlags.add(f)
         b.compilerFlags.add(f)
 
-    let xCodeApp = "/Applications/Xcode.app"
-
-    let macOSSDK = xCodeApp/"Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX" & b.macOSSDKVersion & ".sdk"
-    let iOSSDK = xCodeApp/"Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS" & b.iOSSDKVersion & ".sdk"
-    let iOSSimulatorSDK = xCodeApp/"Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator" & b.iOSSDKVersion & ".sdk"
-
     case b.platform
     of "macosx":
+        let macOSSDK = macOSSDKPath(b.macOSSDKVersion)
         b.makeMacOsBundle()
         b.executablePath = b.buildRoot / b.bundleName / "Contents" / "MacOS" / b.appName
         b.resourcePath = b.buildRoot / b.bundleName / "Contents" / "Resources"
         addCAndLFlags(["-isysroot", macOSSDK, "-mmacosx-version-min=" & b.macOSMinVersion])
         b.linkerFlags.add(["-fobjc-link-runtime", "-L" & b.buildSDLForDesktop()])
-        b.nimFlags.add("-d:SDL_Static")
+        b.nimFlags.add("--dynlibOverride:SDL2")
 
     of "ios", "ios-sim":
         b.makeIosBundle()
@@ -422,12 +673,12 @@ proc build*(b: Builder) =
         var sdkPath : string
         var sdlLibDir : string
         if b.platform == "ios":
-            sdkPath = iOSSDK
+            sdkPath = iOSSDKPath(b.iOSSDKVersion)
             sdlLibDir = b.buildSDLForIOS(false)
             b.nimFlags.add("--cpu:arm")
             addCAndLFlags(["-mios-version-min=" & b.iOSMinVersion])
         else:
-            sdkPath = iOSSimulatorSDK
+            sdkPath = iOSSimulatorSDKPath(b.iOSSDKVersion)
             sdlLibDir = b.buildSDLForIOS(true)
             b.nimFlags.add("--cpu:amd64")
             b.nimFlags.add("-d:simulator")
@@ -439,8 +690,11 @@ proc build*(b: Builder) =
     of "android":
         let buildDir = b.makeAndroidBuildDir()
         b.nimcachePath = buildDir / "jni/src"
-        b.resourcePath = buildDir / "assets"
-        b.nimFlags.add(["--compileOnly", "--cpu:arm", "--os:linux", "-d:android", "-d:SDL_Static"])
+        if b.useGradle:
+            b.resourcePath = buildDir / "src/main/assets"
+        else:
+            b.resourcePath = buildDir / "assets"
+        b.nimFlags.add(["--compileOnly", "--cpu:arm", "--os:linux", "-d:android", "--dynlibOverride:SDL2"])
 
     of "js":
         b.executablePath = b.buildRoot / "main.js"
@@ -448,31 +702,105 @@ proc build*(b: Builder) =
         b.linkerFlags.add(["-L/usr/local/lib", "-Wl,-rpath,/usr/local/lib", "-lpthread"])
     of "windows":
         b.executablePath &= ".exe"
+        when defined(macosx) or defined(linux):
+            # We are trying to build for windows, but we're not on windows.
+            # Use mxe cross-compiler
+            var mxeBin = findExe("i686-w64-mingw32.static-gcc")
+            if mxeBin.len == 0:
+                mxeBin = getEnv("MXE_BIN")
+                if mxeBin.len == 0:
+                    echo "Trying to cross-compile for windows, but mxe cross-compiler not found. Set MXE_BIN environment var to mxe gcc path."
+                    quit 1
+            b.nimFlags.add(["--cpu:i386", "--os:windows", "--cc:gcc", "--gcc.exe:" & mxeBin, "--gcc.linkerexe:" & mxeBin])
         b.makeWindowsResource()
+    of "emscripten":
+        let emcc = emccWrapperPath()
+        b.emscriptenPreloadFiles.add(b.originalResourcePath & "/OpenSans-Regular.ttf@/res/OpenSans-Regular.ttf")
+        b.executablePath = b.buildRoot / "main.js"
+        b.nimFlags.add(["--cpu:i386", "-d:emscripten", "--os:linux", "--cc:clang",
+            "--clang.exe=" & emcc.quoteShell(), "--clang.linkerexe=" & emcc.quoteShell(), "-d:SDL_Static"])
+
+        b.emscriptenPreJS.add(b.makeEmscriptenPreloadData())
+
+        var preJsContent = ""
+        for js in b.emscriptenPreJS:
+            preJsContent &= readFile(js)
+        let preJS = b.nimcachePath / "pre.js"
+        writeFile(preJS, preJsContent)
+        b.additionalLinkerFlags.add(["--pre-js", preJS])
+
+        b.additionalNimFlags.add(["-d:useRealtimeGC"])
+        b.additionalLinkerFlags.add(["-s", "ALLOW_MEMORY_GROWTH=1"])
+
+        if not b.debugMode:
+            b.additionalCompilerFlags.add("-Oz")
+
+        if not b.disableClosureCompiler:
+            b.additionalLinkerFlags.add("-Oz")
+
+            # Emscripten creates step-by-step optimization if env EMCC_DEBUG=2. One of the steps will be used later in closure compiler.
+            # In this case we can receive source map and size of the output file will be the smallest.
+            if b.enableClosureCompilerSourceMap:
+              putEnv("EMCC_DEBUG", "2")
+    of "wasm":
+        let emcc = emccWrapperPath()
+        b.emscriptenPreloadFiles.add(b.originalResourcePath & "/OpenSans-Regular.ttf@/res/OpenSans-Regular.ttf")
+        b.executablePath = b.buildRoot / "main.js"
+        b.nimFlags.add(["--cpu:i386", "-d:wasm", "-d:emscripten", "--os:linux", "--cc:clang",
+            "--clang.cpp.exe=" & emcc.quoteShell(), "--clang.cpp.linkerexe=" & emcc.quoteShell(), "-d:SDL_Static"])
+
+        b.emscriptenPreJS.add(b.makeEmscriptenPreloadData())
+
+        var preJsContent = ""
+        for js in b.emscriptenPreJS:
+            preJsContent &= readFile(js)
+        let preJS = b.nimcachePath / "pre.js"
+        writeFile(preJS, preJsContent)
+        b.additionalLinkerFlags.add(["--pre-js", preJS])
+
+        b.additionalNimFlags.add(["-d:useRealtimeGC"])
+        b.additionalLinkerFlags.add(["-s", "WASM=1"])
+
+        if not b.debugMode:
+            b.additionalCompilerFlags.add("-Oz")
+
+        # if not b.disableClosureCompiler:
+        #     b.additionalLinkerFlags.add("-Oz")
+
+        #     # Emscripten creates step-by-step optimization if env EMCC_DEBUG=2. One of the steps will be used later in closure compiler.
+        #     # In this case we can receive source map and size of the output file will be the smallest.
+        #     if b.enableClosureCompilerSourceMap:
+        #       putEnv("EMCC_DEBUG", "2")
+
+
     else: discard
 
-    if b.platform != "js":
+    if b.platform != "js" and b.platform != "emscripten":
         b.nimFlags.add("--threads:on")
-        if b.platform != "windows":
+        if b.platform != "windows" and not b.avoidSDL:
             b.linkerFlags.add("-lSDL2")
 
     if b.runAfterBuild and b.platform != "android" and b.platform != "ios" and
-            b.platform != "ios-sim" and b.platform != "js":
+            b.platform != "ios-sim" and b.platform != "js" and
+            b.platform != "emscripten":
         b.nimFlags.add("--run")
 
     b.nimFlags.add(["--warning[LockLevel]:off", "--verbosity:" & $b.nimVerbosity,
+                "--hint[Pattern]:off",
                 "--parallelBuild:" & $b.nimParallelBuild, "--out:" & b.executablePath,
                 "--nimcache:" & b.nimcachePath])
 
-    if b.platform != "windows":
+    if b.platform != "windows" and not b.avoidSDL:
         b.nimFlags.add("--noMain")
+
+    if b.avoidSDL: b.nimFlags.add("-d:nimxAvoidSDL")
 
     if b.debugMode:
         b.nimFlags.add(["-d:debug"])
         if b.platform != "js":
             b.nimFlags.add(["--stackTrace:on", "--lineTrace:on"])
     else:
-        b.nimFlags.add(["-d:release", "--opt:speed"])
+        b.nimFlags.add(["-d:release", "--opt:speed", "-d:noAutoGLerrorCheck"])
 
     when defined(windows):
         b.nimFlags.add("-d:buildOnWindows") # Workaround for JS getEnv in nimx
@@ -489,55 +817,181 @@ proc build*(b: Builder) =
 
     createDir(parentDir(b.executablePath))
 
-    let command = if b.platform == "js": "js" else: "c"
+    let command = case b.platform
+        of "js": "js"
+        of "wasm": "cpp"
+        else: "c"
 
     b.nimFlags.add("--putEnv:NIMX_RES_PATH=" & b.resourcePath)
     # Run Nim
     var args = @[nimExe, command]
     args.add(b.nimFlags)
+    args.add(b.nimbleOverrideFlags())
     args.add b.mainFile
+
     direShell args
 
-    if b.platform == "js":
+    if b.platform == "emscripten":
+        # Copy one of the optimization steps for using in closure compiler
+        if not b.disableClosureCompiler and b.enableClosureCompilerSourceMap:
+            let f = getTempDir() / "emscripten_temp" / "emcc-10-eval-ctors.js"
+            if fileExists(f):
+                copyFile(f, b.executablePath)
+            else:
+                echo "File for closure compiler doesn't exist: ", f
+
+        b.jsPostBuild()
+    elif b.platform == "js":
         b.jsPostBuild()
     elif b.platform == "ios":
         if not b.codesignIdentity.isNil:
             b.signIosBundle()
+            direShell "ios-deploy", "--debug", "--bundle", b.buildRoot / b.bundleName, "--no-wifi"
 
-    if not afterBuild.isNil: afterBuild(b)
+    elif b.platform == "android":
+        b.ndkBuild()
 
-proc runAutotestsInFirefox*(pathToMainHTML: string) =
+    if not afterBuild.isNil:
+        afterBuild(b)
+
+proc processOutputFromAutotestStream(s: Stream): bool =
+    var line = ""
+    while s.readLine(line):
+        if line.find("---AUTO-TEST-QUIT---") != -1:
+            result = true
+            break
+        elif line.find("---AUTO-TEST-FAIL---") != -1:
+            break
+        else:
+            echo line
+
+proc queryStringWithArgs(args: StringTableRef): string =
+    if args.isNil:
+        result = ""
+    else:
+        result = "?"
+        var i = 0
+        for k, v in args:
+            if i != 0: result &= '&'
+            result &= k
+            result &= '='
+            result &= v
+            inc i
+
+proc runAutotestsInFirefox*(pathToMainHTML: string, args: StringTableRef = nil) =
     let ffbin = when defined(macosx):
             "/Applications/Firefox.app/Contents/MacOS/firefox"
         else:
             findExe("firefox")
     createDir("tempprofile")
     writeFile("tempprofile/user.js", """
-    pref("browser.shell.checkDefaultBrowser", false);
-    pref("browser.dom.window.dump.enabled", true);""")
+    user_pref("browser.shell.checkDefaultBrowser", false);
+    user_pref("browser.dom.window.dump.enabled", true);
+    user_pref("app.update.auto", false);
+    user_pref("app.update.enabled", false);
+    user_pref("dom.max_script_run_time", 0);
+    user_pref("dom.max_chrome_script_run_time", 0);
+    user_pref("extensions.update.enabled", false);
+    user_pref("extensions.update.autoUpdateDefault", false);
+    user_pref("webgl.disable-fail-if-major-performance-caveat", true);
+    """)
     let ffp = startProcess(ffbin, args = ["-profile", "./tempprofile", pathToMainHTML])
-    let so = ffp.outputStream
-    var line = ""
-    var ok = true
-    while so.readLine(line):
-        if line == "---AUTO-TEST-QUIT---":
-            break
-        elif line == "---AUTO-TEST-FAIL---":
-            ok = false
-        else:
-            echo line
+    let ok = processOutputFromAutotestStream(ffp.outputStream)
     ffp.kill()
+    discard ffp.waitForExit()
+
     removeDir("tempprofile")
     doAssert(ok, "Firefox autotest failed")
 
-proc runAutotestsInFirefox*(b: Builder) =
-    runAutotestsInFirefox(b.buildRoot / "main.html")
+proc runAutotestsInFirefox*(b: Builder, args: StringTableRef = nil) =
+    runAutotestsInFirefox(b.buildRoot / "main.html", args)
+
+proc chromeBin(): string =
+    when defined(macosx):
+        for c in ["/Applications/Chrome.app/Contents/MacOS/Chrome",
+                    "/Applications/Chromium.app/Contents/MacOS/Chromium",
+                    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"]:
+            if fileExists(c): return c
+    else:
+        for c in ["chrome", "chromium"]:
+            let f = findExe(c)
+            if f.len > 0: return f
+
+proc runAutotestsInChrome*(pathToMainHTML: string, args: StringTableRef = nil) =
+    let cbin = chromeBin()
+    doAssert(cbin.len > 0)
+
+    let cp = startProcess(cbin, args = ["--enable-logging=stderr", "--v=1",
+        "--allow-file-access", "--allow-file-access-from-files",
+        "--no-sandbox", "--user-data-dir",
+        "file://" & expandFilename(pathToMainHTML) & queryStringWithArgs(args)])
+    let ok = processOutputFromAutotestStream(cp.errorStream)
+    cp.kill()
+    discard cp.waitForExit()
+    doAssert(ok, "Chrome autotest failed")
+
+proc runAutotestsInChrome*(b: Builder, args: StringTableRef = nil) =
+    runAutotestsInChrome(b.buildRoot / "main.html", args)
+
+proc adbExe(b: Builder): string =
+    expandTilde(b.androidSdk/"platform-tools/adb")
+
+proc adbServerName(b: Builder): string =
+    result = getEnv("ADB_SERVER_NAME")
+    if result.len == 0: result = "localhost"
+
+proc getConnectedAndroidDevices*(b: Builder): seq[string] =
+    let logcat = startProcess(b.adbExe, args = ["-H", b.adbServerName, "devices"])
+    let so = logcat.outputStream
+    var line = ""
+    var i = 0
+    result = @[]
+    while so.readLine(line):
+        if i > 0:
+            let ln = line.split('\t')
+            if ln.len == 2:
+                result.add(ln[0])
+        inc i
+
+proc installAppOnConnectedDevice(b: Builder, devId: string) =
+    let conf = if b.debugMode: "debug" else: "release"
+    var apkPath = b.buildRoot / b.javaPackageId / "build" / "outputs" / "apk" / b.javaPackageId & "-" & conf & ".apk"
+    if not b.useGradle:
+        apkPath = b.buildRoot / b.javaPackageId / "bin" / b.appName & "-" & conf & ".apk"
+    direShell b.adbExe, "-H", b.adbServerName, "-s", devId, "install", "-r", apkPath
+
+proc runAutotestsOnAndroidDevice*(b: Builder, devId: string, install: bool = true, extraArgs: StringTableRef = nil) =
+    echo "Running on device: ", devId
+    if install: b.installAppOnConnectedDevice(devId)
+
+    let adb = b.adbExe
+    let host = b.adbServerName
+
+    let logcat = startProcess(adb, args = ["-H", host, "-s", devId, "logcat", "-T", "1", "-s", "NIM_APP"])
+
+    direShell adb, "-H", host, "-s", devId, "shell", "input", "keyevent", "KEYCODE_WAKEUP"
+    let activityName = b.javaPackageId & "/" & b.javaPackageId & ".MainActivity"
+
+    var args = @[adb, "-H", host, "-s", devId, "shell", "am", "start", "-S", "-n", activityName]
+    if not extraArgs.isNil:
+        for k, v in extraArgs: args.add(["-e", k, v])
+
+    direShell(args)
+
+    let ok = processOutputFromAutotestStream(logcat.outputStream)
+    logcat.kill()
+    direShell adb, "-H", host, "-s", devId, "shell", "input", "keyevent", "KEYCODE_HOME"
+    doAssert(ok, "Android autotest failed")
+
+proc runAutotestsOnConnectedDevices*(b: Builder, install: bool = true, extraArgs: StringTableRef = nil) =
+    for devId in b.getConnectedAndroidDevices:
+        b.runAutotestsOnAndroidDevice(devId, install, extraArgs)
 
 task defaultTask, "Build and run":
     newBuilder().build()
 
 task "build", "Build and don't run":
-    let b = newBuilderForCurrentPlatform()
+    let b = newBuilder()
     b.runAfterBuild = false
     b.build()
 
@@ -552,27 +1006,24 @@ task "ios", "Build for iOS":
 task "droid", "Build for android and install on the connected device":
     let b = newBuilder("android")
     b.build()
-
-    withDir(b.buildRoot / b.javaPackageId):
-        putEnv "NIM_INCLUDE_DIR", expandTilde(b.nimIncludeDir)
-        direShell b.androidSdk/"tools/android", "update", "project", "-p", ".", "-t", "android-22" # try with android-16
-
-        var args = @[b.androidNdk/"ndk-build", "V=1"]
-        if b.debugMode:
-            args.add(["NDK_DEBUG=1", "APP_OPTIM=debug"])
-        else:
-            args.add("APP_OPTIM=release")
-        direShell args
-        #putEnv "ANDROID_SERIAL", "12345" # Target specific device
-        direShell "ant", "debug", "install"
+    let devs = b.getConnectedAndroidDevices()
+    if devs.len > 0:
+        b.installAppOnConnectedDevice(devs[0])
 
 task "droid-debug", "Start application on Android device and connect with debugger":
     let b = newBuilder("android")
-    b.preconfigure()
+    b.configure()
     withDir b.buildRoot / b.javaPackageId:
         if not fileExists("libs/gdb.setup"):
-            copyFile("libs/armeabi/gdb.setup", "libs/gdb.setup")
-        direShell([b.androidNdk / "ndk-gdb", "--adb=" & expandTilde(b.androidSdk) / "platform-tools" / "adb", "--force", "--start"])
+            for arch in ["armeabi", "armeabi-v7a", "x86"]:
+                let p = "libs" / arch / "gdb.setup"
+                if fileExists(p):
+                    copyFile(p, "libs/gdb.setup")
+                    break
+        direShell(b.androidNdk / "ndk-gdb", "--adb=" & expandTilde(b.androidSdk) / "platform-tools" / "adb", "--force", "--launch")
 
 task "js", "Create Javascript version and run in browser.":
     newBuilder("js").build()
+
+task "emscripten", "Create emscripten version and run in browser.":
+    newBuilder("emscripten").build()

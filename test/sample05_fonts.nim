@@ -8,15 +8,14 @@ import nimx.context
 import nimx.button
 import nimx.text_field
 import nimx.slider
+import nimx.popup_button
 
 type FontsView = ref object of View
     curFont: Font
     caption: string
     showBaseline: bool
     curFontSize: float
-    curFontGamma: float
-    curFontBase: float
-
+    baseline: Baseline
 
 template createSlider(fv: FontsView, title: string, y: var Coord, fr, to: Coord, val: typed) =
     let lb = newLabel(newRect(20, y, 120, 20))
@@ -54,32 +53,25 @@ method init(v: FontsView, r: Rect) =
 
     var y = 44.Coord
     v.createSlider("size", y, 8.0, 80.0, v.curFontSize)
-    v.createSlider("gamma", y, 0.0, 4.0, v.curFontGamma)
-    v.createSlider("base", y, 0.0, 4.0, v.curFontBase)
 
-    discard """
-    let sizeTf = newTextField(newRect(20, 44, 120, 20))
-    sizeTf.text = "64"
-    sizeTf.onAction do():
-        try:
-            v.curFontSize = parseFloat(sizeTf.text)
-            v.curFont = nil
-        except:
-            discard
-
-    v.addSubview(sizeTf)
-
-    let showBaselineBtn = newCheckbox(newRect(20, 66, 120, 16))
+    let showBaselineBtn = newCheckbox(newRect(20, y, 120, 16))
     showBaselineBtn.title = "Show baseline"
     showBaselineBtn.onAction do():
         v.showBaseline = showBaselineBtn.boolValue
         v.setNeedsDisplay()
 
     v.addSubview(showBaselineBtn)
+    y += 16 + 5
 
-    sizeTf.sendAction()
-    """
-
+    let baselineSelector = PopupButton.new(newRect(20, y, 120, 20))
+    var items = newSeq[string]()
+    for i in Baseline.low .. Baseline.high:
+        items.add($i)
+    baselineSelector.items = items
+    baselineSelector.onAction do():
+        v.baseline = Baseline(baselineSelector.selectedIndex)
+        v.setNeedsDisplay()
+    v.addSubview(baselineSelector)
 
 method draw(v: FontsView, r: Rect) =
     let c = currentContext()
@@ -87,19 +79,18 @@ method draw(v: FontsView, r: Rect) =
     if v.curFont.isNil:
         v.curFont = systemFontOfSize(v.curFontSize)
     v.curFont.size = v.curFontSize
-    if v.curFontGamma > 0.00001:
-        v.curFont.gamma = v.curFontGamma
-    if v.curFontBase > 0.00001:
-        v.curFont.base = v.curFontBase
 
     let s = v.curFont.sizeOfString(v.caption)
-    let origin = s.centerInRect(v.bounds)
+    var origin = s.centerInRect(v.bounds)
 
     if v.showBaseline:
         c.fillColor = newGrayColor(0.5)
-        c.drawRect(newRect(origin, newSize(300, 1)))
+        c.drawRect(newRect(origin, newSize(s.width, 1)))
 
     c.fillColor = blackColor()
+    let oldBaseline = v.curFont.baseline
+    v.curFont.baseline = v.baseline
     c.drawText(v.curFont, origin, v.caption)
+    v.curFont.baseline = oldBaseline
 
-registerSample "Fonts", FontsView.new(newRect(0, 0, 100, 100))
+registerSample(FontsView, "Fonts")

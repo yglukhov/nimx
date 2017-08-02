@@ -1,8 +1,10 @@
+import typetraits
 import nimx.view
 
-type SampleInfo = tuple[name: string, view: View]
+type SampleInfo = tuple[name: string, className: string]
 
 var allSamples* = newSeq[SampleInfo]()
 
-proc registerSample*(name: string, view: View) =
-    allSamples.add((name, view))
+template registerSample*(T: typedesc, sampleName: string) =
+    allSamples.add((sampleName, name(T)))
+    registerClass(T)

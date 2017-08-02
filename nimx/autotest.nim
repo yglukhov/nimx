@@ -1,22 +1,67 @@
-import macros
-import nimx.timer
-import nimx.app
-import nimx.event
-import nimx.abstract_window
-import nimx.system_logger
+import macros, logging, strutils
+import nimx / [ timer, app, event, abstract_window, button ]
 
 type UITestSuiteStep* = tuple
     code : proc()
     astrepr: string
+    lineinfo: string
 
-type UITestSuite* = seq[UITestSuiteStep]
+type UITestSuite* = ref object
+    name: string
+    steps: seq[UITestSuiteStep]
+
+when defined(js) or defined(emscripten):
+    when defined(emscripten):
+        import jsbind.emscripten
+
+    # When testing on Firefox, we have to use window.dump instead of console.log
+    type FirefoxAutotestLogger = ref object of Logger
+
+    method log*(logger: FirefoxAutotestLogger, level: Level, args: varargs[string, `$`]) =
+        let s = args.join()
+        let a = cstring(s)
+        when defined(js):
+            {.emit: """
+            window['dump'](`a` + '\n');
+            """.}
+        else:
+            discard EM_ASM_INT("""
+            window['dump'](Pointer_stringify($0) + '\n');
+            """, a)
+
+    var loggerSetupDone = false
+
+    proc isWindowDumpAvailable(): bool {.inline.} =
+        when defined(js):
+            {.emit: "`result` = 'dump' in window;".}
+        else:
+            let res = EM_ASM_INT("return ('dump' in window)?1:0;")
+            result = bool(res)
+
+    proc setupLogger() =
+        if not loggerSetupDone:
+            loggerSetupDone = true
+            if isWindowDumpAvailable():
+                let logger = FirefoxAutotestLogger.new()
+                addHandler(logger)
 
 type TestRunnerContext = ref object
-    curTest: int
+    curStep: int
     curTimeout: float
+    waitTries: int
 
 var testRunnerContext : TestRunnerContext
 var registeredTests : seq[UITestSuite]
+
+proc newTestSuite(name: string, steps: openarray[UITestSuiteStep]): UITestSuite =
+    result.new()
+    result.name = name
+    result.steps = @steps
+
+proc makeStep(code: proc(), astrepr, lineinfo: string): UITestSuiteStep {.inline.} =
+    result.code = code
+    result.astrepr = astrepr
+    result.lineinfo = lineinfo
 
 proc registerTest*(ts: UITestSuite) =
     if registeredTests.isNil:
@@ -24,33 +69,33 @@ proc registerTest*(ts: UITestSuite) =
     else:
         registeredTests.add(ts)
 
+proc registeredTest*(name: string): UITestSuite =
+    for t in registeredTests:
+        if t.name == name: return t
+
+proc collectAutotestSteps(result, body: NimNode) =
+    for n in body:
+        if n.kind == nnkStmtList:
+            collectAutotestSteps(result, n)
+        else:
+            let procDef = newProc(body = newStmtList().add(n), procType = nnkLambda)
+
+            let step = newCall(bindSym"makeStep", procDef, toStrLit(n), newLit(n.lineinfo))
+            result.add(step)
+
 proc testSuiteDefinitionWithNameAndBody(name, body: NimNode): NimNode =
     result = newNimNode(nnkBracket)
-    for n in body:
-        let procDef = newProc(body = newStmtList().add(n), procType = nnkLambda)
-        procDef.pragma = newNimNode(nnkPragma).add(newIdentNode("closure"))
-
-        let step = newNimNode(nnkPar).add(procDef, toStrLit(n))
-        result.add(step)
+    collectAutotestSteps(result, body)
     return newNimNode(nnkLetSection).add(
-        newNimNode(nnkIdentDefs).add(name, bindsym "UITestSuite", newCall("@", result)))
+        newNimNode(nnkIdentDefs).add(name, bindSym"UITestSuite", newCall(bindSym"newTestSuite", newLit($name), result)))
 
 macro uiTest*(name: untyped, body: typed): untyped =
     result = testSuiteDefinitionWithNameAndBody(name, body)
 
-macro registeredUiTest*(name: untyped, body: typed): stmt =
+macro registeredUiTest*(name: untyped, body: typed): typed =
     result = newStmtList()
     result.add(testSuiteDefinitionWithNameAndBody(name, body))
-    result.add(newCall(bindsym "registerTest", name))
-
-proc dump(s: string) =
-    when defined(js):
-        let cs : cstring = s
-        # The following ['dump'] is required this way because otherwise
-        # it will be stripped away by closure compiler as not a standard function.
-        {.emit: "if ('dump' in window) window['dump'](`cs` + '\\n');".}
-    else:
-        logi s
+    result.add(newCall(bindSym"registerTest", name))
 
 when true:
     proc sendMouseEvent*(wnd: Window, p: Point, bs: ButtonState) =
@@ -61,18 +106,44 @@ when true:
     proc sendMouseDownEvent*(wnd: Window, p: Point) = sendMouseEvent(wnd, p, bsDown)
     proc sendMouseUpEvent*(wnd: Window, p: Point) = sendMouseEvent(wnd, p, bsUp)
 
+    proc findButtonWithTitle*(v: View, t: string): Button =
+        if v of Button:
+            let btn = Button(v)
+            if btn.title == t:
+                result = btn
+        else:
+            for s in v.subviews:
+                result = findButtonWithTitle(s, t)
+                if not result.isNil: break
+
     proc quitApplication*() =
-        when defined(js):
+        when defined(js) or defined(emscripten) or defined(android):
             # Hopefully we're using nimx automated testing in Firefox
-            dump("---AUTO-TEST-QUIT---")
+            info "---AUTO-TEST-QUIT---"
         else:
             quit()
 
-    template waitUntil*(e: bool): stmt =
-        if not e: dec testRunnerContext.curTest
+    proc waitUntil*(e: bool) =
+        if not e:
+            dec testRunnerContext.curStep
+
+    proc waitUntil*(e: bool, maxTries: int) =
+        if e:
+            testRunnerContext.waitTries = -1
+        else:
+            dec testRunnerContext.curStep
+            if maxTries != -1:
+                if testRunnerContext.waitTries + 2 > maxTries:
+                    testRunnerContext.waitTries = -1
+                    when defined(js) or defined(emscripten) or defined(android):
+                        info "---AUTO-TEST-FAIL---"
+                    else:
+                        raise newException(Exception, "Wait tries exceeded!")
+                else:
+                    inc testRunnerContext.waitTries
 
 when false:
-    macro tdump(b: typed): stmt =
+    macro tdump(b: typed): typed =
         echo treeRepr(b)
 
     tdump:
@@ -89,36 +160,28 @@ when false:
 
     registerTest(myTest)
 
-proc startTest*(t: UITestSuite) =
+proc startTest*(t: UITestSuite, onComplete: proc() = nil) =
+    when defined(js) or defined(emscripten): setupLogger()
     testRunnerContext.new()
     testRunnerContext.curTimeout = 0.5
+    testRunnerContext.waitTries = -1
 
     var tim : Timer
-    tim = setInterval(0.5, proc() =
-        dump "RUNNING"
-        dump t[testRunnerContext.curTest].astrepr
-        t[testRunnerContext.curTest].code()
-        inc testRunnerContext.curTest
-        if testRunnerContext.curTest == t.len:
+    tim = setInterval(0.5) do():
+        info t.steps[testRunnerContext.curStep].lineinfo, ": RUNNING ", t.steps[testRunnerContext.curStep].astrepr
+        t.steps[testRunnerContext.curStep].code()
+        inc testRunnerContext.curStep
+        if testRunnerContext.curStep == t.steps.len:
             tim.clear()
             testRunnerContext = nil
-        )
+            if not onComplete.isNil: onComplete()
 
-proc startRegisteredTests*() =
-    testRunnerContext.new()
-    testRunnerContext.curTimeout = 0.5
-
+proc startRegisteredTests*(onComplete: proc() = nil) =
     var curTestSuite = 0
-    var tim : Timer
-    tim = setInterval(0.5, proc() =
-        dump "RUNNING"
-        dump registeredTests[curTestSuite][testRunnerContext.curTest].astrepr
-        registeredTests[curTestSuite][testRunnerContext.curTest].code()
-        inc testRunnerContext.curTest
-        if testRunnerContext.curTest == registeredTests[curTestSuite].len:
+    proc startNextSuite() =
+        if curTestSuite < registeredTests.len:
+            startTest(registeredTests[curTestSuite], startNextSuite)
             inc curTestSuite
-            testRunnerContext.curTest = 0
-            if curTestSuite == registeredTests.len:
-                tim.clear()
-                testRunnerContext = nil
-    )
+        elif not onComplete.isNil:
+            onComplete()
+    startNextSuite()

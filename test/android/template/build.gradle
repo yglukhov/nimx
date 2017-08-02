@@ -1,0 +1,43 @@
+buildscript {
+    repositories {
+        jcenter()
+    }
+
+    dependencies {
+        classpath 'com.android.tools.build:gradle:2.2.3'
+    }
+}
+
+apply plugin: 'com.android.application'
+
+android {
+    compileSdkVersion 23
+    buildToolsVersion "25.0.2"
+
+    defaultConfig {
+        ndk {
+            abiFilter 'armeabi-v7a'
+        }
+
+        externalNativeBuild {
+            ndkBuild {
+                arguments "-j8"
+                if (org.gradle.internal.os.OperatingSystem.current().isWindows()) {
+                    arguments "LOCAL_SHORT_COMMANDS=true"
+                }
+            }
+        }
+    }
+
+    externalNativeBuild {
+        ndkBuild {
+            path "jni/Android.mk"
+        }
+    }
+
+    buildTypes {
+        debug {
+            jniDebuggable true
+        }
+    }
+}

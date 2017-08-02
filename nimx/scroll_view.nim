@@ -7,52 +7,69 @@ import scroll_bar
 
 import event
 import system_logger
+import math
 
 type ScrollView* = ref object of View
     clipView: ClipView
     mHorizontalScrollBar, mVerticalScrollBar: ScrollBar
+    mOnScrollCallback: proc()
+
+const scrollBarWidth = 12.Coord
 
 proc onScrollBar(v: ScrollView, sb: ScrollBar)
-template setScrollBar(v: ScrollView, vs: var ScrollBar, s: ScrollBar) =
+
+proc onScroll*(v: ScrollView, cb:proc())=
+    v.mOnScrollCallback = cb
+
+proc relayout(v: ScrollView) =
+    var cvs = v.bounds.size
+
+    if not v.mVerticalScrollBar.isNil:
+        cvs.width -= scrollBarWidth
+    if not v.mHorizontalScrollBar.isNil:
+        cvs.height -= scrollBarWidth
+    if not v.clipView.isNil:
+        v.clipView.setFrameSize(cvs)
+    if not v.mVerticalScrollBar.isNil:
+        v.mVerticalScrollBar.setFrameSize(newSize(v.mVerticalScrollBar.frame.width, cvs.height))
+    if not v.mHorizontalScrollBar.isNil:
+        v.mHorizontalScrollBar.setFrameSize(newSize(cvs.width, v.mHorizontalScrollBar.frame.height))
+
+proc setScrollBar(v: ScrollView, vs: var ScrollBar, s: ScrollBar) =
     if not vs.isNil:
         vs.removeFromSuperview()
+    let layoutChanged = (vs.isNil xor s.isNil)
     vs = s
-    v.addSubview(s)
-    s.onAction do(): v.onScrollBar(s)
+    if not s.isNil:
+        v.addSubview(s)
+        s.onAction do(): v.onScrollBar(s)
 
-proc `horizontalScrollBar=`*(v: ScrollView, s: ScrollBar) = v.setScrollBar(v.mHorizontalScrollBar, s)
-proc `verticalScrollBar=`*(v: ScrollView, s: ScrollBar) = v.setScrollBar(v.mVerticalScrollBar, s)
+    if layoutChanged:
+        v.relayout()
+
+proc `horizontalScrollBar=`*(v: ScrollView, s: ScrollBar) {.inline.} = v.setScrollBar(v.mHorizontalScrollBar, s)
+proc `verticalScrollBar=`*(v: ScrollView, s: ScrollBar) {.inline.} = v.setScrollBar(v.mVerticalScrollBar, s)
 template horizontalScrollBar*(v: ScrollView): ScrollBar = v.mHorizontalScrollBar
 template verticalScrollBar*(v: ScrollView): ScrollBar = v.mVerticalScrollBar
 
+proc recalcScrollKnobSizes(v: ScrollView)
+
 proc newScrollView*(r: Rect): ScrollView =
     result.new()
+    result.name = "scrollView"
     result.init(r)
 
-    const scrollBarWidth = 16.Coord
-
-    var sb = ScrollBar.new(newRect(0, r.height - scrollBarWidth, r.width - scrollBarWidth, scrollBarWidth))
+    var sb = ScrollBar.new(newRect(0, r.height - scrollBarWidth, 0, scrollBarWidth))
     sb.autoresizingMask = {afFlexibleWidth, afFlexibleMinY}
     result.horizontalScrollBar = sb
 
-    sb = ScrollBar.new(newRect(r.width - scrollBarWidth, 0, scrollBarWidth, r.height - scrollBarWidth))
+    sb = ScrollBar.new(newRect(r.width - scrollBarWidth, 0, scrollBarWidth, 0))
     sb.autoresizingMask = {afFlexibleMinX, afFlexibleHeight}
     result.verticalScrollBar = sb
 
-    var cvFrame = result.bounds
-    cvFrame.size.width -= scrollBarWidth
-    cvFrame.size.height -= scrollBarWidth
-
-    result.clipView = newClipView(cvFrame)
+    result.clipView = newClipView(zeroRect)
     result.addSubview(result.clipView)
-
-proc newScrollView*(v: View): ScrollView =
-    # Create a scrollview by wrapping v into it
-    result = newScrollView(v.frame)
-    v.setFrameOrigin(zeroPoint)
-    result.clipView.addSubview(v)
-    result.autoresizingMask = v.autoresizingMask
-    v.autoresizingMask = { afFlexibleMaxX, afFlexibleMaxY }
+    result.relayout()
 
 proc contentView*(v: ScrollView): View =
     if v.clipView.subviews.len > 0:
@@ -61,17 +78,58 @@ proc contentView*(v: ScrollView): View =
 proc `contentView=`*(v: ScrollView, c: View) =
     if v.clipView.subviews.len > 0:
         v.clipView.subviews[0].removeFromSuperview()
+    c.setFrameOrigin(zeroPoint)
+    var sz = c.frame.size
+    var changeFrame = false
+    if afFlexibleWidth in c.autoresizingMask:
+        sz.width = v.clipView.bounds.width
+        changeFrame = true
+    if afFlexibleHeight in c.autoresizingMask:
+        sz.height = v.clipView.bounds.height
+        changeFrame = true
+    if changeFrame:
+        c.removeFromSuperview()
+        c.setFrameSize(sz)
     v.clipView.addSubview(c)
+    v.recalcScrollKnobSizes()
+
+proc newScrollView*(v: View): ScrollView =
+    # Create a scrollview by wrapping v into it
+    result = newScrollView(v.frame)
+    result.autoresizingMask = v.autoresizingMask
+    result.contentView = v
+    #v.autoresizingMask = { afFlexibleMaxX, afFlexibleMaxY }
+    result.recalcScrollKnobSizes()
+
+proc contentSize(v: ScrollView): Size =
+    let cv = v.contentView
+    if not cv.isNil:
+        result = cv.frame.size
+
+proc scrollPosition*(v: ScrollView): Point=
+    #[
+        Result: Point where x and y between 0.0 .. 1.0
+     ]#
+    var cs = v.contentSize
+    result = newPoint(0.0, 0.0)
+    let csx = cs.width - v.clipView.bounds.width
+    let csy = cs.height - v.clipView.bounds.height
+    result.x = if csx > 0.0: v.clipView.bounds.x / csx else: 0
+    result.y = if csy > 0.0: v.clipView.bounds.y / csy else: 0
+
+proc recalcScrollbarKnobPositions(v: ScrollView) =
+    let sp = v.scrollPosition()
+    if not v.mHorizontalScrollBar.isNil:
+        v.mHorizontalScrollBar.value = sp.x
+    if not v.mVerticalScrollBar.isNil:
+        v.mVerticalScrollBar.value = sp.y
 
 method onScroll*(v: ScrollView, e: var Event): bool =
     let cvBounds = v.clipView.bounds
     var o = cvBounds.origin
     o += e.offset
 
-    var contentSize = zeroSize
-    let cv = v.contentView()
-    if cv != nil:
-        contentSize = cv.frame.size
+    let contentSize = v.contentSize
 
     # Trim x
     if contentSize.width - o.x < cvBounds.width:
@@ -86,13 +144,14 @@ method onScroll*(v: ScrollView, e: var Event): bool =
         o.y = 0
 
     v.clipView.setBoundsOrigin(o)
+    v.recalcScrollbarKnobPositions()
+    if not v.mOnScrollCallback.isNil:
+        v.mOnScrollCallback()
+
     result = true
 
 proc onScrollBar(v: ScrollView, sb: ScrollBar) =
-    var contentSize = zeroSize
-    let cv = v.contentView()
-    if cv != nil:
-        contentSize = cv.frame.size
+    let contentSize = v.contentSize
 
     let cvBounds = v.clipView.bounds
     var o = cvBounds.origin
@@ -117,3 +176,57 @@ method subviewDidChangeDesiredSize*(v: ScrollView, sub: View, desiredSize: Size)
 
     v.clipView.setBoundsOrigin(boundsOrigin)
     v.contentView().setFrameSize(size)
+    v.recalcScrollKnobSizes()
+    v.recalcScrollbarKnobPositions()
+
+proc recalcScrollKnobSizes(v: ScrollView) =
+    var cs = v.contentSize
+    if not v.mHorizontalScrollBar.isNil:
+        v.mHorizontalScrollBar.knobSize = v.bounds.width / cs.width
+    if not v.mVerticalScrollBar.isNil:
+        v.mVerticalScrollBar.knobSize = v.bounds.height / cs.height
+
+method resizeSubviews*(v: ScrollView, oldSize: Size) =
+    procCall v.View.resizeSubviews(oldSize)
+    v.recalcScrollKnobSizes()
+    v.recalcScrollbarKnobPositions()
+
+proc scrollToRect*(v: ScrollView, r: Rect) =
+    ## If necessary scrolls to reveal the rect `r` which is in content bounds
+    ## coordinates.
+    let cvBounds = v.clipView.bounds
+    var o = cvBounds.origin
+    if o.x > r.x:
+        o.x = r.x
+    elif cvBounds.maxX < r.maxX:
+        o.x = r.maxX - cvBounds.width
+    if o.y > r.y:
+        o.y = r.y
+    elif cvBounds.maxY < r.maxY:
+        o.y = r.maxY - cvBounds.height
+
+    v.clipView.setBoundsOrigin(o)
+    v.recalcScrollbarKnobPositions()
+
+proc scrollToBottom*(v: ScrollView)=
+    let rect = newRect(0, v.contentSize.height - v.clipView.bounds.height, v.clipView.bounds.width, v.clipView.bounds.height)
+    v.scrollToRect(rect)
+
+proc scrollToTop*(v: ScrollView)=
+    v.scrollToRect(newRect(0, 0, v.clipView.bounds.width, v.clipView.bounds.height))
+
+proc scrollPageUp*(v: ScrollView)=
+    let cvBounds = v.clipView.bounds
+    var o = cvBounds.origin
+    if o.y > 0:
+        o.y = max(0, o.y - cvBounds.height)
+    let rect = newRect(o.x, o.y, cvBounds.width, cvBounds.height)
+    v.scrollToRect(rect)
+
+proc scrollPageDown*(v: ScrollView)=
+    let cvBounds = v.clipView.bounds
+    var o = cvBounds.origin
+    if o.y < cvBounds.maxY:
+        o.y = min(v.contentSize.height - cvBounds.height, o.y + cvBounds.height)
+    let rect = newRect(o.x, o.y, cvBounds.width, cvBounds.height)
+    v.scrollToRect(rect)

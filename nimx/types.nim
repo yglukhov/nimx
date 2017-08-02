@@ -18,21 +18,15 @@ proc maxX*(r: Rect): Coord = r.x + r.width
 proc minY*(r: Rect): Coord = r.y
 proc maxY*(r: Rect): Coord = r.y + r.height
 
-proc newPoint*(x, y: Coord): Point =
-    result.x = x
-    result.y = y
+proc newPoint*(x, y: Coord): Point = (x: x, y: y)
 
 const zeroPoint* = newPoint(0, 0)
 
-proc newSize*(w, h: Coord): Size =
-    result.width = w
-    result.height = h
+proc newSize*(w, h: Coord): Size = (width: w, height: h)
 
 const zeroSize* = newSize(0, 0)
 
-proc newRect*(o: Point, s: Size = zeroSize): Rect =
-    result.origin = o
-    result.size = s
+proc newRect*(o: Point, s: Size = zeroSize): Rect = (origin: o, size: s)
 
 proc newRect*(x, y, w, h: Coord): Rect =
     newRect(newPoint(x, y), newSize(w, h))
@@ -67,41 +61,40 @@ const zeroRect* = newRect(zeroPoint, zeroSize)
 proc inset*(r: Rect, dx, dy: Coord): Rect = newRect(r.x + dx, r.y + dy, r.width - dx * 2, r.height - dy * 2)
 
 proc newColor*(r, g, b: ColorComponent, a: ColorComponent = 1.0): Color =
-    result.r = r
-    result.g = g
-    result.b = b
-    result.a = a
+    (r: r, g: g, b: b, a: a)
 
-proc newGrayColor*(g: ColorComponent, a: ColorComponent = 1.0): Color =
-    newColor(g, g, g, a)
+template newColorB*(r, g, b: int, a: int = 255): Color = newColor(r / 255, g / 255, b / 255, a / 255)
+
+proc newGrayColor*(g: ColorComponent, a: ColorComponent = 1.0): Color = newColor(g, g, g, a)
 
 proc whiteColor*(): Color = newGrayColor(1)
 proc blackColor*(): Color = newGrayColor(0)
 proc grayColor*(): Color = newGrayColor(0.75)
 proc clearColor*(): Color = newGrayColor(0, 0)
 
+proc `*`*(c: Color, v: float32): Color =
+    (r: c.r * v, g: c.g * v, b: c.b * v, a: c.a * v)
+
+proc `+`*(c: Color, v: float32): Color =
+    (r: c.r + v, g: c.g + v, b: c.b + v, a: c.a + v)
+
+proc `+`*(c1, c2: Color): Color =
+    (r: c1.r + c2.r, g: c1.g + c2.g, b: c1.b + c2.b, a: c1.a + c2.a)
+
+proc `-`*(c1, c2: Color): Color =
+    (r: c1.r - c2.r, g: c1.g - c2.g, b: c1.b - c2.b, a: c1.a - c2.a)
+
 proc minCorner*(r: Rect): Point = r.origin
 proc maxCorner*(r: Rect): Point = newPoint(r.maxX, r.maxY)
 
-proc `>`*(p1, p2: Point): bool =
-    # Component-wise comparison
-    p1.x > p2.x and p1.y > p2.y
-
-proc `>=`*(p1, p2: Point): bool =
-    # Component-wise comparison
-    p1.x >= p2.x and p1.y >= p2.y
-
-proc `<`*(p1, p2: Point): bool =
-    # Component-wise comparison
-    p1.x < p2.x and p1.y < p2.y
-
-proc `<=`*(p1, p2: Point): bool =
-    # Component-wise comparison
-    p1.x <= p2.x and p1.y <= p2.y
-
-
 proc `+`*(p1, p2: Point): Point =
     newPoint(p1.x + p2.x, p1.y + p2.y)
+
+proc `*`*(p1: Point, s: float32): Point =
+    newPoint(p1.x * s, p1.y * s)
+
+proc `/`*(p1: Point, s: float32): Point =
+    newPoint(p1.x / s, p1.y / s)
 
 proc `-`*(p1, p2: Point): Point =
     newPoint(p1.x - p2.x, p1.y - p2.y)
@@ -120,11 +113,19 @@ proc `+`*(s1, s2: Size): Size =
 proc `-`*(s1, s2: Size): Size =
     newSize(s1.width - s2.width, s1.height - s2.height)
 
+proc `*`*(s: Size, v: float32): Size =
+    (width: s.width * v, height: s.height * v)
+
+proc `/`*(s: Size, v: float32): Size =
+    (width: s.width / v, height: s.height / v)
+
 proc distanceTo*(p : Point, to: Point) : float32 =
     result = sqrt(pow(p.x - to.x, 2) + pow(p.y - to.y, 2))
 
-proc inRect*(p: Point, r: Rect): bool =
-    p >= r.origin and p <= r.maxCorner
+proc contains*(r: Rect, p: Point): bool =
+    p.x >= r.x and p.x <= r.maxX and p.y >= r.y and p.y <= r.maxY
+
+template inRect*(p: Point, r: Rect): bool = p in r
 
 # return angle between 0 and 360 degrees
 proc vectorAngle*(p: Point, to: Point) : float32 =

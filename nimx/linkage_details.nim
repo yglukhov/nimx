@@ -1,13 +1,27 @@
 import macros
 
+
 when not defined(windows):
-    when not compileOption("noMain"):
+
+    when defined(android):
+        import nimx.system_logger
+    {.push stackTrace: off.}
+    proc setupLogger() {.cdecl.} =
+        when defined(android):
+            errorMessageWriter = proc(msg: string) =
+                logi msg
+        else:
+            discard
+    {.pop.}
+    when not compileOption("noMain") and not defined(nimxAvoidSDL):
         {.error: "Please run Nim with --noMain flag.".}
 
     when defined(ios):
         {.emit: "#define __IPHONEOS__".}
 
-    {.emit: """
+
+    when not defined(nimxAvoidSDL):
+        {.emit: """
 // The following piece of code is a copy-paste from SDL/SDL_main.h
 // It is required to avoid dependency on SDL headers
 ////////////////////////////////////////////////////////////////////////////////
@@ -99,30 +113,32 @@ int main(int argc, char** args) {
     cmdLine = args;
     cmdCount = argc;
     gEnv = NULL;
+    `setupLogger`();
     NimMain();
     return nim_program_result;
 }
 
 """.}
 
-when defined(macosx) or defined (ios):
-    macro passToCAndL(s: string): stmt =
-        result = newNimNode(nnkStmtList)
-        result.add parseStmt("{.passL: \"" & s.strVal & "\".}\n")
-        result.add parseStmt("{.passC: \"" & s.strVal & "\".}\n")
+when not defined(emscripten):
+    when defined(macosx) or defined(ios):
+        macro passToCAndL(s: string): typed =
+            result = newNimNode(nnkStmtList)
+            result.add parseStmt("{.passL: \"" & s.strVal & "\".}\n")
+            result.add parseStmt("{.passC: \"" & s.strVal & "\".}\n")
 
-    macro useFrameworks(n: varargs[string]): stmt =
-        result = newNimNode(nnkStmtList, n)
-        for i in 0..n.len-1:
-            result.add parseStmt("passToCAndL(\"-framework " & n[i].strVal & "\")")
+        macro useFrameworks(n: varargs[string]): typed =
+            result = newNimNode(nnkStmtList, n)
+            for i in 0..n.len-1:
+                result.add parseStmt("passToCAndL(\"-framework " & n[i].strVal & "\")")
 
-when defined(ios):
-    useFrameworks("OpenGLES", "UIKit")
-    when not defined(simulator):
-        {.passC:"-arch armv7".}
-        {.passL:"-arch armv7".}
-elif defined(macosx):
-    useFrameworks("OpenGL", "AppKit", "AudioUnit", "ForceFeedback", "IOKit", "Carbon", "CoreServices", "ApplicationServices")
+    when defined(ios):
+        useFrameworks("OpenGLES", "UIKit", "GameController", "CoreMotion")
+        when not defined(simulator):
+            {.passC:"-arch armv7".}
+            {.passL:"-arch armv7".}
+    elif defined(macosx):
+        useFrameworks("OpenGL", "AppKit", "AudioUnit", "ForceFeedback", "IOKit", "Carbon", "CoreServices", "ApplicationServices")
 
-when defined(macosx) or defined(ios):
-    useFrameworks("AudioToolbox", "CoreAudio", "CoreGraphics", "QuartzCore")
+    when defined(macosx) or defined(ios):
+        useFrameworks("AudioToolbox", "CoreAudio", "CoreGraphics", "QuartzCore")

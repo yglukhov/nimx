@@ -8,7 +8,7 @@ import nimx.composition
 import nimx.button
 import nimx.autotest
 
-import nimx.gesture_detector_newtouch
+import nimx.gesture_detector
 import nimx.view_event_handling_new
 import nimx.event
 
@@ -85,4 +85,4 @@ method draw(v: WelcomeView, r: Rect) =
     c.fillColor = whiteColor()
     c.drawText(v.welcomeFont, s.centerInRect(v.bounds), welcomeMessage)
 
-registerSample "Welcome", WelcomeView.new(newRect(0, 0, 100, 100))
+registerSample(WelcomeView, "Welcome")

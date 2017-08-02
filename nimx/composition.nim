@@ -1,14 +1,10 @@
-import context
-import types
-import portable_gl
-import image
+import context, types, portable_gl, image
+import private.helper_macros
 import strutils, tables, hashes
 import nimsl.nimsl
 
 export portable_gl
 export context
-
-const enableGraphicsProfiling* = not defined(release)
 
 const commonDefinitions = """
 #define PI 3.14159265359
@@ -248,9 +244,9 @@ proc sdEllipseInRect*(pos: vec2, rect: vec4): float32 =
 
 proc insetRect*(r: vec4, by: float32): vec4 = newVec4(r.xy + by, r.zw - by * 2.0)
 
-proc vertexShader(aPosition: vec2, uModelViewProjectionMatrix: mat4, vPos: var vec2): vec4 =
-    vPos = aPosition
-    result = uModelViewProjectionMatrix * newVec4(aPosition, 0.0, 1.0);
+proc vertexShader(aPosition: vec2, uModelViewProjectionMatrix: mat4, uBounds: vec4, vPos: var vec2): vec4 =
+    vPos = uBounds.xy + aPosition * uBounds.zw
+    result = uModelViewProjectionMatrix * newVec4(vPos, 0.0, 1.0);
 
 const vertexShaderCode = getGLSLVertexShader(vertexShader)
 
@@ -261,20 +257,24 @@ type
         mainProcName*: string
         seenFlag: bool # Used on compilation phase, should not be used elsewhere.
         id*: int
+        argTypes*: seq[string]
 
-    CompiledComposition = ref object
+    CompiledComposition* = ref object
         program*: ProgramRef
         uniformLocations*: seq[UniformLocation]
         iTexIndex*: GLint
         iUniform*: int
 
+    Composition* = object
+        definition: string
+        vsDefinition: string # Vertex shader source code
+        precision: string
+        requiresPrequel: bool
+        options*: int
+        id*: int
+
 var programCache = initTable[Hash, CompiledComposition]()
 
-type Composition* = object
-    definition: string
-    vsDefinition: string # Vertex shader source code
-    requiresPrequel: bool
-    id*: int
 
 const posAttr : GLuint = 0
 
@@ -314,18 +314,23 @@ proc preprocessDefinition(definition: string): string {.compileTime.} =
         else:
             result &= "\L" & replaceSymbolsInLine(symbolsToReplace, ln)
 
-proc newPostEffect*(definition: static[string], mainProcName: string): PostEffect =
+proc newPostEffect*(definition: static[string], mainProcName: string, argTypes: openarray[string]): PostEffect =
     const preprocessedDefinition = preprocessDefinition(definition)
     result.new()
     result.source = preprocessedDefinition
     result.mainProcName = mainProcName
+    result.argTypes = @argTypes
     result.id = hash(preprocessedDefinition)
 
-proc newComposition*(vsDef, fsDef: static[string], requiresPrequel: bool = true): Composition =
+template newPostEffect*(definition: static[string], mainProcName: string): PostEffect =
+    newPostEffect(definition, mainProcName, [])
+
+proc newComposition*(vsDef, fsDef: static[string], requiresPrequel: bool = true, precision: string = "highp"): Composition =
     const preprocessedDefinition = preprocessDefinition(fsDef)
     result.definition = preprocessedDefinition
     result.vsDefinition = vsDef
     result.requiresPrequel = requiresPrequel
+    result.precision = precision
     result.id = hash(preprocessedDefinition)
 
 template newComposition*(definition: static[string], requiresPrequel: bool = true): Composition =
@@ -341,22 +346,44 @@ type PostEffectStackElem = object
 var postEffectStack = newSeq[PostEffectStackElem]()
 var postEffectIdStack = newSeq[Hash]()
 
+proc getPostEffectUniformName(postEffectIndex, argIndex: int, output: var string) =
+    output &= "uPE_"
+    output &= $postEffectIndex
+    output &= "_"
+    output &= $argIndex
+
+proc postEffectUniformName(postEffectIndex, argIndex: int): string =
+    result = ""
+    getPostEffectUniformName(postEffectIndex, argIndex, result)
+
 proc compileComposition*(gl: GL, comp: Composition, cchash: Hash): CompiledComposition =
     var fragmentShaderCode = ""
+
+    if (not comp.definition.isNil and comp.definition.find("GL_OES_standard_derivatives") < 0) or comp.requiresPrequel:
+        fragmentShaderCode &= """
+            #ifdef GL_ES
+            #extension GL_OES_standard_derivatives : enable
+            precision """ & comp.precision & """ float;
+            #endif
+            """
+
     if comp.requiresPrequel:
-        fragmentShaderCode = """
-#ifdef GL_ES
-#extension GL_OES_standard_derivatives : enable
-precision highp float;
-#endif
-varying vec2 vPos;
-uniform vec4 bounds;
-"""
+        fragmentShaderCode &= """
+            varying vec2 vPos;
+            uniform vec4 bounds;
+            """
         fragmentShaderCode &= commonDefinitions &
             distanceSetOperations &
             distanceFunctions &
             compositionFragmentFunctions &
             colorOperations
+
+    var options = ""
+    if comp.options != 0:
+        for i in 0 ..< 32:
+            if ((1 shl i) and comp.options) != 0:
+                options &= "#define OPTION_" & $(i + 1) & "\n"
+        fragmentShaderCode &= options
 
     fragmentShaderCode &= comp.definition
 
@@ -367,6 +394,10 @@ uniform vec4 bounds;
         if not pe.seenFlag:
             fragmentShaderCode &= pe.source
             pe.seenFlag = true
+        for j, argType in pe.argTypes:
+            fragmentShaderCode &= "uniform " & argType & " "
+            getPostEffectUniformName(i, j, fragmentShaderCode)
+            fragmentShaderCode &= ";";
         inc i
 
     i = 0
@@ -377,12 +408,21 @@ uniform vec4 bounds;
     fragmentShaderCode &= """void main() { gl_FragColor = vec4(0.0); compose(); """
     i = postEffectStack.len - 1
     while i >= 0:
-        fragmentShaderCode &= postEffectStack[i].postEffect.mainProcName & "();"
+        fragmentShaderCode &= postEffectStack[i].postEffect.mainProcName & "("
+        for j in 0 ..< postEffectStack[i].postEffect.argTypes.len:
+            if j != 0:
+                fragmentShaderCode &= ","
+            getPostEffectUniformName(i, j, fragmentShaderCode)
+        fragmentShaderCode &= ");"
         dec i
     fragmentShaderCode &= "}"
 
     result.new()
-    result.program = gl.newShaderProgram(if comp.vsDefinition.isNil: vertexShaderCode else: comp.vsDefinition, fragmentShaderCode, [(posAttr, "aPosition")])
+    let vsCode = if comp.vsDefinition.isNil:
+            options & vertexShaderCode
+        else:
+            options & comp.vsDefinition
+    result.program = gl.newShaderProgram(vsCode, fragmentShaderCode, [(posAttr, "aPosition")])
     result.uniformLocations = newSeq[UniformLocation]()
     programCache[cchash] = result
 
@@ -428,14 +468,31 @@ template compositionDrawingDefinitions*(cc: CompiledComposition, ctx: GraphicsCo
     template setUniform(name: string, v: GLint) {.hint[XDeclaredButNotUsed]: off.}  =
         gl.uniform1i(uniformLocation(name), v)
 
+    template setUniform(name: string, v: Vector3) {.hint[XDeclaredButNotUsed]: off.}  =
+        gl.uniform3fv(uniformLocation(name), v)
+
+    template setUniform(name: string, v: Vector2) {.hint[XDeclaredButNotUsed]: off.}  =
+        gl.uniform2fv(uniformLocation(name), v)
+
+    template setUniform(name: string, v: Matrix4) {.hint[XDeclaredButNotUsed]: off.}  =
+        gl.uniformMatrix4fv(uniformLocation(name), false, v)
+
+    template setUniform(name: string, tex: TextureRef) {.hint[XDeclaredButNotUsed]: off.} =
+        gl.activeTexture(GLenum(int(gl.TEXTURE0) + cc.iTexIndex))
+        gl.bindTexture(gl.TEXTURE_2D, tex)
+        gl.uniform1i(uniformLocation(name), cc.iTexIndex)
+        inc cc.iTexIndex
+
     template setUniform(name: string, i: Image) {.hint[XDeclaredButNotUsed]: off.} =
-        gl.activeTexture(gl.TEXTURE0 + cc.iTexIndex.GLenum)
+        gl.activeTexture(GLenum(int(gl.TEXTURE0) + cc.iTexIndex))
         gl.bindTexture(gl.TEXTURE_2D, getTextureQuad(i, gl, texQuad))
         gl.uniform4fv(uniformLocation(name & "_texCoords"), texQuad)
         gl.uniform1i(uniformLocation(name & "_tex"), cc.iTexIndex)
         inc cc.iTexIndex
 
-template pushPostEffect*(pe: PostEffect, body: untyped) =
+template pushPostEffect*(pe: PostEffect, body: untyped) {.deprecated.} =
+    # Usage of this template implies explicit uniforms, which doesn't work in
+    # general case. This template will be deleted soon.
     postEffectStack.add(PostEffectStackElem(postEffect: pe, setupProc: proc(cc: CompiledComposition) =
         let ctx = currentContext()
         let gl = ctx.gl
@@ -446,13 +503,31 @@ template pushPostEffect*(pe: PostEffect, body: untyped) =
     let oh = if postEffectIdStack.len > 0: postEffectIdStack[^1] else: 0
     postEffectIdStack.add(oh !& pe.id)
 
+template pushPostEffect*(pe: PostEffect, args: varargs[untyped]) =
+    let stackLen = postEffectIdStack.len
+    postEffectStack.add(PostEffectStackElem(postEffect: pe, setupProc: proc(cc: CompiledComposition) =
+        let ctx = currentContext()
+        let gl = ctx.gl
+        compositionDrawingDefinitions(cc, ctx, gl)
+        var j = 0
+        staticFor uni in args:
+            setUniform(postEffectUniformName(stackLen, j), uni)
+            inc j
+    ))
+
+    let oh = if stackLen > 0: postEffectIdStack[^1] else: 0
+    postEffectIdStack.add(oh !& pe.id)
+
 template popPostEffect*() =
     postEffectStack.setLen(postEffectStack.len - 1)
     postEffectIdStack.setLen(postEffectIdStack.len - 1)
 
+template hasPostEffect*(): bool =
+    postEffectStack.len > 0
+
 template getCompiledComposition*(gl: GL, comp: Composition): CompiledComposition =
     let pehash = if postEffectIdStack.len > 0: postEffectIdStack[^1] else: 0
-    let cchash = !$(pehash !& comp.id)
+    let cchash = !$(pehash !& comp.id !& comp.options)
     var cc = programCache.getOrDefault(cchash)
     if cc.isNil:
         cc = gl.compileComposition(comp, cchash)
@@ -464,53 +539,49 @@ template setupPosteffectUniforms*(cc: CompiledComposition) =
     for pe in postEffectStack:
         pe.setupProc(cc)
 
+var overdrawValue = 0
+template GetOverdrawValue*() : int =
+    int(overdrawValue.float32 / 1000.float32)
 
-when enableGraphicsProfiling:
-    var overdrawValue = 0
-    proc GetOverdrawValue*() : int =
-        return int(overdrawValue.float32 / 1000.float32)
+template ResetOverdrawValue*() =
+    overdrawValue = 0
 
-    proc ResetOverdrawValue*() =
-         overdrawValue = 0
+var DIPValue = 0
+template GetDIPValue*() : int =
+    DIPValue
 
-    var DIPValue = 0
-    proc GetDIPValue*() : int =
-        return DIPValue
+template ResetDIPValue*() =
+    DIPValue = 0
 
-    proc ResetDIPValue*() =
-         DIPValue = 0
-
-template draw*(comp: var Composition, r: Rect, code: untyped): stmt =
+template draw*(comp: var Composition, r: Rect, code: untyped): typed =
     let ctx = currentContext()
     let gl = ctx.gl
     let cc = gl.getCompiledComposition(comp)
     gl.useProgram(cc.program)
-    var points : array[8, GLfloat]
-    points[0] = r.minX; points[1] = r.minY
-    points[2] = r.minX; points[3] = r.maxY
-    points[4] = r.maxX; points[5] = r.maxY
-    points[6] = r.maxX; points[7] = r.minY
 
-    when enableGraphicsProfiling:
-        overdrawValue += int(r.size.width * r.size.height)
-        DIPValue += 1
+    overdrawValue += int(r.size.width * r.size.height)
+    DIPValue += 1
 
-    const componentCount : GLint = 2
+    const componentCount = 2
+    const vertexCount = 4
+    gl.bindBuffer(gl.ARRAY_BUFFER, ctx.singleQuadBuffer)
     gl.enableVertexAttribArray(posAttr)
-    gl.vertexAttribPointer(posAttr, componentCount, false, 0, points)
+    gl.vertexAttribPointer(posAttr, componentCount, gl.FLOAT, false, 0, 0)
 
     compositionDrawingDefinitions(cc, ctx, gl)
 
     gl.uniformMatrix4fv(uniformLocation("uModelViewProjectionMatrix"), false, ctx.transform)
 
-    setUniform("bounds", r)
+    setUniform("bounds", r) # This is for fragment shader
+    setUniform("uBounds", r) # This is for vertex shader
 
     setupPosteffectUniforms(cc)
 
     block:
         code
-    gl.drawArrays(gl.TRIANGLE_FAN, 0, GLsizei(points.len / componentCount))
+    gl.drawArrays(gl.TRIANGLE_FAN, 0, vertexCount)
+    gl.bindBuffer(gl.ARRAY_BUFFER, invalidBuffer)
 
-template draw*(comp: var Composition, r: Rect): stmt =
+template draw*(comp: var Composition, r: Rect): typed =
     comp.draw r:
         discard

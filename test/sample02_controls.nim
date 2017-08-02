@@ -5,12 +5,13 @@ import nimx.segmented_control
 import nimx.color_picker
 import nimx.button
 import nimx.image
+import nimx.image_view
 import nimx.text_field
 import nimx.types
 import nimx.slider
 import nimx.popup_button
 import nimx.progress_indicator
-import nimx.timer
+import nimx.assets.asset_manager
 
 type ControlsSampleView = ref object of View
 
@@ -28,8 +29,7 @@ method init(v: ControlsSampleView, r: Rect) =
     button.title = "Button"
     button.onAction do():
         if textField.text.isNil: textField.text = ""
-        textField.text &= "Click! "
-        textField.setNeedsDisplay()
+        textField.text = "Click! "
     v.addSubview(button)
 
     let sc = SegmentedControl.new(newRect(120, 40, v.bounds.width - 130, 22))
@@ -37,8 +37,7 @@ method init(v: ControlsSampleView, r: Rect) =
     sc.autoresizingMask = { afFlexibleWidth, afFlexibleMaxY }
     sc.onAction do():
         if textField.text.isNil: textField.text = ""
-        textField.text &= "Seg " & $sc.selectedSegment & "! "
-        textField.setNeedsDisplay()
+        textField.text = "Seg " & $sc.selectedSegment & "! "
 
     v.addSubview(sc)
 
@@ -55,7 +54,6 @@ method init(v: ControlsSampleView, r: Rect) =
     slider.onAction do():
         textField.text = "Slider value: " & $slider.value & " "
         progress.value = slider.value
-        textField.setNeedsDisplay()
     v.addSubview(slider)
 
     let vertSlider = Slider.new(newRect(v.bounds.width - 26, 150, 16, v.bounds.height - 160))
@@ -76,8 +74,8 @@ method init(v: ControlsSampleView, r: Rect) =
     pb.items = @["Popup button", "Item 1", "Item 2"]
     v.addSubview(pb)
 
-    setTimeout 0.2, proc() =
-        discard newImageButton(v, newPoint(260, 90), newSize(32, 32), imageWithResource("cat.jpg"))
+    sharedAssetManager().getAssetAtPath("cat.jpg") do(i: Image, err: string):
+        discard newImageButton(v, newPoint(260, 90), newSize(32, 32), i)
 
     let tfLabel = newLabel(newRect(330, 150, 150, 20))
     tfLabel.text = "<-- Enter some text"
@@ -98,4 +96,12 @@ method init(v: ControlsSampleView, r: Rect) =
         discard
     v.addSubview(cp)
 
-registerSample "Controls", ControlsSampleView.new(newRect(0, 0, 100, 100))
+    sharedAssetManager().getAssetAtPath("tile.png") do(i: Image, err: string):
+        let imageView = newImageView(newRect(0, 400, 300, 150), i)
+        v.addSubview(imageView)
+
+        let popupFillRule = newPopupButton(v, newPoint(420, 400), newSize(100, 20), ["NoFill", "Stretch", "Tile", "FitWidth", "FitHeight"])
+        popupFillRule.onAction do():
+            imageView.fillRule = popupFillRule.selectedIndex().ImageFillRule
+
+registerSample(ControlsSampleView, "Controls")

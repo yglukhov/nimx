@@ -15,7 +15,7 @@ import app
 
 import intsets
 
-type SelectionMode = enum
+type SelectionMode* = enum
     smNone
     smSingleSelection
     smMultipleSelection
@@ -83,8 +83,8 @@ proc requiredHeightForRow(v: TableView, row: int): Coord {.inline.} =
 proc getRowsAtHeights(v: TableView, heights: openarray[Coord], rows: var openarray[int], startRow : int = 0, startCoord : Coord = 0) =
     let rowsCount = v.numberOfRows()
     if v.heightOfRow.isNil:
-        for i in 0 .. < rows.len:
-            rows[i] = int(heights[i] / v.defaultRowHeight)
+        for i in 0 ..< rows.len:
+            rows[i] = int((startCoord + heights[i]) / v.defaultRowHeight)
             if rows[i] >= rowsCount:
                 rows[i] = -1
                 break
@@ -93,14 +93,15 @@ proc getRowsAtHeights(v: TableView, heights: openarray[Coord], rows: var openarr
         var height = startCoord
         var j = 0
         rows[j] = -1
-        for i in startRow .. < rowsCount:
+        for i in startRow ..< rowsCount:
             if j > heights.len:
                 break
             height += v.heightOfRowUsingDelegate(i)
             if heights[j] < height:
                 rows[j] = i
                 inc j
-                rows[j] = -1
+                if j < rows.len:
+                    rows[j] = -1
 
 proc reloadData*(v: TableView) =
     let rowCount = v.numberOfRows()
@@ -147,9 +148,6 @@ proc dequeueReusableCell(v: TableView, cells: var seq[TableRow], row: int, top: 
             c.setFrame(newRect(width * i.Coord, 0, width, h))
             result.addSubview(c)
 
-#    result.setFrame(newRect(0, top, v.bounds.width, v.requiredHeightForRow(row)))
-#    result.row = row
-#    result.col = col
     for i, s in result.subviews:
         TableViewCell(s).selected = v.selectedRows.contains(row)
         TableViewCell(s).col = i
@@ -183,30 +181,31 @@ proc updateCellsInVisibleRect(v: TableView) =
             let cell = TableRow(sv)
             if not cell.isNil:
                 let cr = TableViewCell(cell.subviews[0]).row
-                if (cr < minVisibleRow or cr > maxVisibleRow):
+                if (cr < minVisibleRow or cr > maxVisibleRow) or minVisibleRow == -1:
                     # If cell contains first responder it should remain intact
                     if not cell.containsFirstResponder():
                         reusableCells.add(cell)
                 else:
                     visibleCells[cr - minVisibleRow] = cell
 
-        var y : Coord = 0
-        var cell = visibleCells[0]
-        if cell.isNil:
-            y = v.topCoordOfRow(minVisibleRow)
-        else:
-            y = cell.frame.minY
-
-        # 2. Go through visible rows and create or reuse cells for rows with missing cells
-        for i in minVisibleRow .. maxVisibleRow:
-            var cell = visibleCells[i - minVisibleRow]
+        if minVisibleRow != -1:
+            var y : Coord = 0
+            var cell = visibleCells[0]
             if cell.isNil:
-                cell = v.dequeueReusableCell(reusableCells, i, y)
-                assert(not cell.isNil)
+                y = v.topCoordOfRow(minVisibleRow)
             else:
-                for c in cell.subviews:
-                    v.configureCell(TableViewCell(c))
-            y = cell.frame.maxY
+                y = cell.frame.minY
+
+            # 2. Go through visible rows and create or reuse cells for rows with missing cells
+            for i in minVisibleRow .. maxVisibleRow:
+                var cell = visibleCells[i - minVisibleRow]
+                if cell.isNil:
+                    cell = v.dequeueReusableCell(reusableCells, i, y)
+                    assert(not cell.isNil)
+                else:
+                    for c in cell.subviews:
+                        v.configureCell(TableViewCell(c))
+                y = cell.frame.maxY
 
         # 3. Remove the cells that were not reused
         for c in reusableCells:

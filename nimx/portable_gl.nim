@@ -2,7 +2,7 @@
 import opengl
 # export opengl
 
-export GLuint, GLint, GLfloat, GLenum, GLsizei, GLushort
+export GLuint, GLint, GLfloat, GLenum, GLsizei, GLushort, GLbitfield, opengl.`or`
 
 when defined js:
     type
@@ -32,20 +32,25 @@ when defined js:
             VERTEX_SHADER* : GLenum
             FRAGMENT_SHADER* : GLenum
             TEXTURE_2D* : GLenum
-            ONE_MINUS_SRC_ALPHA*, ONE_MINUS_DST_ALPHA*, SRC_ALPHA*, DST_ALPHA*, ONE* : GLenum
+            ONE_MINUS_SRC_ALPHA*, ONE_MINUS_DST_ALPHA*, SRC_ALPHA*, DST_ALPHA*, ONE*, DST_COLOR*, CONSTANT_COLOR*, ONE_MINUS_SRC_COLOR*: GLenum
             BLEND* : GLenum
-            TRIANGLES*, TRIANGLE_FAN*, TRIANGLE_STRIP, LINES* : GLenum
+            TRIANGLES*, TRIANGLE_FAN*, TRIANGLE_STRIP*, LINES*, LINE_LOOP* : GLenum
             COLOR_BUFFER_BIT*: int
             STENCIL_BUFFER_BIT*: int
             DEPTH_BUFFER_BIT*: int
             TEXTURE_MIN_FILTER*, TEXTURE_MAG_FILTER*, TEXTURE_WRAP_S*, TEXTURE_WRAP_T*: GLenum
             LINEAR*, NEAREST*, CLAMP_TO_EDGE*, LINEAR_MIPMAP_NEAREST* : GLint
+            PACK_ALIGNMENT*, UNPACK_ALIGNMENT*: GLenum
             FRAMEBUFFER* : GLenum
             RENDERBUFFER* : GLenum
             ARRAY_BUFFER* : GLenum
             ELEMENT_ARRAY_BUFFER* : GLenum
+            R16F* : GLenum
+            R32F* : GLenum
+            RED* : GLenum
             RGBA* : GLenum
-            ALPHA* : GLenum
+            RGBA16F*: GLenum
+            ALPHA*, LUMINANCE* : GLenum
             UNSIGNED_BYTE* : GLenum
             COLOR_ATTACHMENT0* : GLenum
             DEPTH_ATTACHMENT* : GLenum
@@ -56,6 +61,7 @@ when defined js:
             FRAMEBUFFER_BINDING : GLenum
             RENDERBUFFER_BINDING : GLenum
             STENCIL_TEST*, DEPTH_TEST*, SCISSOR_TEST* : GLenum
+            MAX_TEXTURE_SIZE*: GLenum
             NEVER*, LESS*, LEQUAL*, GREATER*, GEQUAL*, EQUAL*, NOTEQUAL*, ALWAYS*: GLenum
             KEEP*, ZERO*, REPLACE*, INCR*, INCR_WRAP*, DECR*, DECR_WRAP*, INVERT*: GLenum
 
@@ -67,10 +73,15 @@ when defined js:
 
             CULL_FACE*, FRONT*, BACK*, FRONT_AND_BACK* : GLenum
 
+            BUFFER_SIZE* : GLenum
+
     const invalidUniformLocation* : UniformLocation = nil
     const invalidProgram* : ProgramRef = nil
     const invalidShader* : ShaderRef = nil
     const invalidBuffer* : BufferRef = nil
+    const invalidFrameBuffer* : FramebufferRef = nil
+    const invalidRenderBuffer* : RenderbufferRef = nil
+    const invalidTexture* : TextureRef = nil
 
     {.push importcpp.}
 
@@ -82,21 +93,26 @@ when defined js:
 
     proc linkProgram*(gl: GL, prog: ProgramRef)
     proc drawArrays*(gl: GL, mode: GLenum, first: GLint, count: GLsizei)
-    proc drawElements*(gl: GL, mode: GLenum, count: GLsizei, typ: GLenum, alwaysZeroOffset: int = 0)
+    proc drawElements*(gl: GL, mode: GLenum, count: GLsizei, typ: GLenum, offset: int = 0)
     proc createShader*(gl: GL, shaderType: GLenum): ShaderRef
     proc createProgram*(gl: GL): ProgramRef
     proc createTexture*(gl: GL): TextureRef
     proc createFramebuffer*(gl: GL): FramebufferRef
     proc createRenderbuffer*(gl: GL): RenderbufferRef
     proc createBuffer*(gl: GL): BufferRef
+    proc bufferData*(gl: GL, target: GLenum, size: int32, usage: GLenum)
 
     proc deleteFramebuffer*(gl: GL, name: FramebufferRef)
     proc deleteRenderbuffer*(gl: GL, name: RenderbufferRef)
     proc deleteBuffer*(gl: GL, name: BufferRef)
+    proc deleteTexture*(gl: GL, name: TextureRef)
 
     proc bindAttribLocation*(gl: GL, program: ProgramRef, index: GLuint, name: cstring)
     proc enableVertexAttribArray*(gl: GL, attrib: GLuint)
     proc disableVertexAttribArray*(gl: GL, attrib: GLuint)
+    proc vertexAttribPointer*(gl: GL, index: GLuint, size: GLint, typ: GLenum,
+        normalized: GLboolean, stride: GLsizei, offset: int)
+
     proc getUniformLocation*(gl: GL, prog: ProgramRef, name: cstring): UniformLocation
     proc useProgram*(gl: GL, prog: ProgramRef)
     proc enable*(gl: GL, flag: GLenum)
@@ -123,10 +139,15 @@ when defined js:
     proc clearColor*(gl: GL, r, g, b, a: GLfloat)
     proc clearStencil*(gl: GL, s: GLint)
     proc blendFunc*(gl: GL, sfactor, dfactor: GLenum)
+    proc blendColor*(gl: GL, r, g, b, a: Glfloat)
+    proc blendFuncSeparate*(gl: GL, sfactor, dfactor, sfactorA, dfactorA: GLenum)
     proc texParameteri*(gl: GL, target, pname: GLenum, param: GLint)
 
     proc texImage2D*(gl: GL, target: GLenum, level, internalformat: GLint, width, height: GLsizei, border: GLint, format, t: GLenum, pixels: ref RootObj)
+    proc texImage2D*(gl: GL, target: GLenum, level, internalformat: GLint, width, height: GLsizei, border: GLint, format, t: GLenum, pixels: openarray)
+    proc texSubImage2D*(gl: GL, target: GLenum, level: GLint, xoffset, yoffset: GLint, width, height: GLsizei, format, t: GLenum, pixels: openarray)
     proc generateMipmap*(gl: GL, target: GLenum)
+    proc pixelStorei*(gl: GL, pname: GLenum, param: GLint)
 
     proc framebufferTexture2D*(gl: GL, target, attachment, textarget: GLenum, texture: TextureRef, level: GLint)
     proc renderbufferStorage*(gl: GL, target, internalformat: GLenum, width, height: GLsizei)
@@ -163,20 +184,27 @@ else:
     const invalidProgram* : ProgramRef = 0
     const invalidShader* : ShaderRef = 0
     const invalidBuffer* : BufferRef = 0
+    const invalidFrameBuffer* : FramebufferRef = 0
+    const invalidRenderBuffer* : RenderbufferRef = 0
+    const invalidTexture* : TextureRef = 0
 
     template VERTEX_SHADER*(gl: GL): GLenum = GL_VERTEX_SHADER
     template FRAGMENT_SHADER*(gl: GL): GLenum = GL_FRAGMENT_SHADER
     template TEXTURE_2D*(gl: GL): GLenum = GL_TEXTURE_2D
+    template CONSTANT_COLOR*(gl: GL): GLenum = GL_CONSTANT_COLOR
+    template ONE_MINUS_SRC_COLOR*(gl: GL): GLenum = GL_ONE_MINUS_SRC_COLOR
     template ONE_MINUS_SRC_ALPHA*(gl: GL): GLenum = GL_ONE_MINUS_SRC_ALPHA
     template ONE_MINUS_DST_ALPHA*(gl: GL): GLenum = GL_ONE_MINUS_DST_ALPHA
     template SRC_ALPHA*(gl: GL): GLenum = GL_SRC_ALPHA
     template DST_ALPHA*(gl: GL): GLenum = GL_DST_ALPHA
+    template DST_COLOR*(gl: GL): GLenum = GL_DST_COLOR
     template ONE*(gl: GL): GLenum = GL_ONE
     template BLEND*(gl: GL): GLenum = GL_BLEND
     template TRIANGLES*(gl: GL): GLenum = GL_TRIANGLES
     template TRIANGLE_FAN*(gl: GL): GLenum = GL_TRIANGLE_FAN
     template TRIANGLE_STRIP*(gl: GL): GLenum = GL_TRIANGLE_STRIP
     template LINES*(gl: GL): GLenum = GL_LINES
+    template LINE_LOOP*(gl: GL): GLenum = GL_LINE_LOOP
     template COLOR_BUFFER_BIT*(gl: GL): GLbitfield = GL_COLOR_BUFFER_BIT
     template STENCIL_BUFFER_BIT*(gl: GL): GLbitfield = GL_STENCIL_BUFFER_BIT
     template DEPTH_BUFFER_BIT*(gl: GL): GLbitfield = GL_DEPTH_BUFFER_BIT
@@ -188,16 +216,23 @@ else:
     template NEAREST*(gl: GL): GLint = GL_NEAREST
     template CLAMP_TO_EDGE*(gl: GL): GLint = GL_CLAMP_TO_EDGE
     template LINEAR_MIPMAP_NEAREST*(gl: GL): GLint = GL_LINEAR_MIPMAP_NEAREST
+    template PACK_ALIGNMENT*(gl: GL): GLenum = GL_PACK_ALIGNMENT
+    template UNPACK_ALIGNMENT*(gl: GL): GLenum = GL_UNPACK_ALIGNMENT
     template FRAMEBUFFER*(gl: GL): GLenum = GL_FRAMEBUFFER
     template RENDERBUFFER*(gl: GL): GLenum = GL_RENDERBUFFER
     template ARRAY_BUFFER*(gl: GL): GLenum = GL_ARRAY_BUFFER
     template ELEMENT_ARRAY_BUFFER*(gl: GL): GLenum = GL_ELEMENT_ARRAY_BUFFER
-    template RGBA*(gl: GL): expr = GL_RGBA
-    template ALPHA*(gl: GL): expr = GL_ALPHA
+    template RED*(gl: GL): GLenum = GL_RED
+    template R16F*(gl: GL): GLenum = GL_R16F
+    template R32F*(gl: GL): GLenum = GL_R32F
+    template RGBA*(gl: GL): GLenum = GL_RGBA
+    template RGBA16F*(gl: GL): GLenum = GL_RGBA16F
+    template ALPHA*(gl: GL): GLenum = GL_ALPHA
+    template LUMINANCE*(gl: GL): GLenum = GL_LUMINANCE
     template UNSIGNED_BYTE*(gl: GL): GLenum = GL_UNSIGNED_BYTE
     template COLOR_ATTACHMENT0*(gl: GL): GLenum = GL_COLOR_ATTACHMENT0
     template DEPTH_ATTACHMENT*(gl: GL): GLenum = GL_DEPTH_ATTACHMENT
-    template DEPTH_STENCIL_ATTACHMENT*(gl: GL): GLenum = GL_DEPTH_ATTACHMENT
+    template DEPTH_STENCIL_ATTACHMENT*(gl: GL): GLenum = GL_DEPTH_STENCIL_ATTACHMENT
     template DEPTH_COMPONENT16*(gl: GL): GLenum = GL_DEPTH_COMPONENT16
     template DEPTH_STENCIL*(gl: GL): GLenum = GL_DEPTH_STENCIL
     template DEPTH24_STENCIL8*(gl: GL): GLenum = GL_DEPTH24_STENCIL8
@@ -206,6 +241,7 @@ else:
     template STENCIL_TEST*(gl: GL): GLenum = GL_STENCIL_TEST
     template DEPTH_TEST*(gl: GL): GLenum = GL_DEPTH_TEST
     template SCISSOR_TEST*(gl: GL): GLenum = GL_SCISSOR_TEST
+    template MAX_TEXTURE_SIZE*(gl: GL): GLenum = GL_MAX_TEXTURE_SIZE
 
     template NEVER*(gl: GL): GLenum = GL_NEVER
     template LESS*(gl: GL): GLenum = GL_LESS
@@ -245,6 +281,8 @@ else:
     template BACK*(gl: GL) : GLenum = GL_BACK
     template FRONT_AND_BACK*(gl: GL) : GLenum = GL_FRONT_AND_BACK
 
+    template BUFFER_SIZE*(gl: GL) : GLenum = GL_BUFFER_SIZE
+
     template compileShader*(gl: GL, shader: ShaderRef) = glCompileShader(shader)
     template deleteShader*(gl: GL, shader: ShaderRef) = glDeleteShader(shader)
     template deleteProgram*(gl: GL, prog: ProgramRef) = glDeleteProgram(prog)
@@ -255,13 +293,14 @@ else:
     template linkProgram*(gl: GL, prog: ProgramRef) = glLinkProgram(prog)
 
     template drawArrays*(gl: GL, mode: GLenum, first: GLint, count: GLsizei) = glDrawArrays(mode, first, count)
-    template drawElements*(gl: GL, mode: GLenum, count: GLsizei, typ: GLenum) = glDrawElements(mode, count, typ, nil)
+    template drawElements*(gl: GL, mode: GLenum, count: GLsizei, typ: GLenum, offset: int = 0) = glDrawElements(mode, count, typ, cast[pointer](offset))
     template createShader*(gl: GL, shaderType: GLenum): ShaderRef = glCreateShader(shaderType)
     template createProgram*(gl: GL): ProgramRef = glCreateProgram()
     proc createTexture*(gl: GL): GLuint = glGenTextures(1, addr result)
     proc createFramebuffer*(gl: GL): GLuint {.inline.} = glGenFramebuffers(1, addr result)
     proc createRenderbuffer*(gl: GL): GLuint {.inline.} = glGenRenderbuffers(1, addr result)
     proc createBuffer*(gl: GL): GLuint {.inline.} = glGenBuffers(1, addr result)
+    template bufferData*(gl: GL, target: GLenum, size: int32, usage: GLenum) = glBufferData(target, size, nil, usage)
 
     proc deleteFramebuffer*(gl: GL, name: FramebufferRef) {.inline.} =
         glDeleteFramebuffers(1, unsafeAddr name)
@@ -272,9 +311,16 @@ else:
     proc deleteBuffer*(gl: GL, name: BufferRef) {.inline.} =
         glDeleteBuffers(1, unsafeAddr name)
 
+    proc deleteTexture*(gl: GL, name: TextureRef) {.inline.} =
+        glDeleteTextures(1, unsafeAddr name)
+
     template bindAttribLocation*(gl: GL, program: ProgramRef, index: GLuint, name: cstring) = glBindAttribLocation(program, index, name)
     template enableVertexAttribArray*(gl: GL, attrib: GLuint) = glEnableVertexAttribArray(attrib)
     template disableVertexAttribArray*(gl: GL, attrib: GLuint) = glDisableVertexAttribArray(attrib)
+    template vertexAttribPointer*(gl: GL, index: GLuint, size: GLint, typ: GLenum,
+            normalized: GLboolean, stride: GLsizei, offset: int) =
+        glVertexAttribPointer(index, size, typ, normalized, stride, cast[pointer](offset))
+
     template getUniformLocation*(gl: GL, prog: ProgramRef, name: cstring): UniformLocation = glGetUniformLocation(prog, name)
     template useProgram*(gl: GL, prog: ProgramRef) = glUseProgram(prog)
     template enable*(gl: GL, flag: GLenum) = glEnable(flag)
@@ -306,12 +352,21 @@ else:
     template clearStencil*(gl: GL, s: GLint) = glClearStencil(s)
 
     template blendFunc*(gl: GL, sfactor, dfactor: GLenum) = glBlendFunc(sfactor, dfactor)
+    template blendColor*(gl: GL, r, g, b, a: Glfloat) = glBlendColor(r, g, b, a)
+    template blendFuncSeparate*(gl: GL, sfactor, dfactor, sfactorA, dfactorA: GLenum) = glBlendFuncSeparate(sfactor, dfactor, sfactorA, dfactorA)
     template texParameteri*(gl: GL, target, pname: GLenum, param: GLint) = glTexParameteri(target, pname, param)
 
     template texImage2D*(gl: GL, target: GLenum, level, internalformat: GLint, width, height: GLsizei, border: GLint, format, t: GLenum, pixels: pointer) =
         glTexImage2D(target, level, internalformat, width, height, border, format, t, pixels)
+    template texImage2D*(gl: GL, target: GLenum, level, internalformat: GLint, width, height: GLsizei, border: GLint, format, t: GLenum, pixels: openarray) =
+        glTexImage2D(target, level, internalformat, width, height, border, format, t, unsafeAddr pixels[0])
+    template texSubImage2D*(gl: GL, target: GLenum, level: GLint, xoffset, yoffset: GLint, width, height: GLsizei, format, t: GLenum, pixels: pointer) =
+        glTexSubImage2D(target, level, xoffset, yoffset, width, height, format, t, pixels)
+    template texSubImage2D*(gl: GL, target: GLenum, level: GLint, xoffset, yoffset: GLint, width, height: GLsizei, format, t: GLenum, pixels: openarray) =
+        glTexSubImage2D(target, level, xoffset, yoffset, width, height, format, t, unsafeAddr pixels[0])
 
     template generateMipmap*(gl: GL, target: GLenum) = glGenerateMipmap(target)
+    template pixelStorei*(gl: GL, pname: GLenum, param: GLint) = glPixelStorei(pname, param)
 
     template framebufferTexture2D*(gl: GL, target, attachment, textarget: GLenum, texture: TextureRef, level: GLint) =
         glFramebufferTexture2D(target, attachment, textarget, texture, level)
@@ -337,7 +392,7 @@ var globalGL: GL
 proc newGL*(canvas: ref RootObj): GL =
     when defined js:
         asm """
-            var options = {stencil: true, alpha: false, premultipliedAlpha: false};
+            var options = {stencil: true, alpha: false, premultipliedAlpha: false, antialias: false};
             try {
                 `result` = `canvas`.getContext("webgl", options);
             }
@@ -359,16 +414,22 @@ proc newGL*(canvas: ref RootObj): GL =
                 alert("Your browser does not support WebGL. Please, use a modern browser.");
             }
             """
-        globalGL = result
+    else:
+        result.new()
+    globalGL = result
 
 proc sharedGL*(): GL = globalGL
 
 proc shaderInfoLog*(gl: GL, s: ShaderRef): string =
     when defined js:
         var m: cstring
-        asm """
-            `m` = `gl`.getShaderInfoLog(`s`);
-            """
+        # Chrome bug: getShaderInfoLog and getProgramInfoLog return zero terminated strings
+        {.emit:"""
+        `m` = `gl`.getShaderInfoLog(`s`);
+        while (`m`.charCodeAt(`m`.length - 1) == 0) {
+             `m` = `m`.substring(0, `m`.length - 1);
+        }
+        """.}
         result = $m
     else:
         var infoLen: GLint
@@ -383,7 +444,13 @@ proc shaderInfoLog*(gl: GL, s: ShaderRef): string =
 proc programInfoLog*(gl: GL, s: ProgramRef): string =
     when defined js:
         var m: cstring
-        asm "`m` = `gl`.getProgramInfoLog(`s`);"
+        # Chrome bug: getShaderInfoLog and getProgramInfoLog return zero terminated strings
+        {.emit:"""
+        `m` = `gl`.getProgramInfoLog(`s`);
+        while (`m`.charCodeAt(`m`.length - 1) == 0) {
+             `m` = `m`.substring(0, `m`.length - 1);
+        }
+        """.}
         result = $m
     else:
         var infoLen: GLint
@@ -408,7 +475,7 @@ proc isShaderCompiled*(gl: GL, shader: ShaderRef): bool {.inline.} =
     else:
         var compiled: GLint
         glGetShaderiv(shader, GL_COMPILE_STATUS, addr compiled)
-        result = if compiled == GL_TRUE: true else: false
+        result = GLboolean(compiled) == GLboolean(GL_TRUE)
 
 proc isProgramLinked*(gl: GL, prog: ProgramRef): bool {.inline.} =
     when defined js:
@@ -416,71 +483,70 @@ proc isProgramLinked*(gl: GL, prog: ProgramRef): bool {.inline.} =
     else:
         var linked: GLint
         glGetProgramiv(prog, GL_LINK_STATUS, addr linked)
-        result = if linked == GL_TRUE: true else: false
+        result = GLboolean(linked) == GLboolean(GL_TRUE)
 
-proc bufferData*(gl: GL, target: GLenum, data: openarray[GLfloat], usage: GLenum) {.inline.} =
-    when defined(js):
-        asm "`gl`.bufferData(`target`, new Float32Array(`data`), `usage`);"
-    else:
-        glBufferData(target, GLsizei(data.len * sizeof(GLfloat)), cast[pointer](data), usage);
+when defined(js):
+    proc newTypedSeq(t: typedesc[float32], data: openarray[t]): seq[float32] {.importc: "new Float32Array".}
+    proc newTypedSeq(t: typedesc[float64], data: openarray[t]): seq[float64] {.importc: "new Float64Array".}
+    proc newTypedSeq(t: typedesc[int16], data: openarray[t]): seq[int16] {.importc: "new Int16Array".}
+    proc newTypedSeq(t: typedesc[int8], data: openarray[t]): seq[int8] {.importc: "new Int8Array".}
+    proc newTypedSeq(t: typedesc[byte], data: openarray[t]): seq[byte] {.importc: "new Uint8Array".}
+    proc newTypedSeq(t: typedesc[uint16], data: openarray[t]): seq[uint16] {.importc: "new Uint16Array".}
 
-proc bufferData*(gl: GL, target: GLenum, data: openarray[GLushort], usage: GLenum) {.inline.} =
-    when defined(js):
-        asm "`gl`.bufferData(`target`, new Uint16Array(`data`), `usage`);"
-    else:
-        glBufferData(target, GLsizei(data.len * sizeof(GLushort)), cast[pointer](data), usage);
+    proc newTypedSeq(t: typedesc[float32], buffer: RootRef, offset, len: int): seq[float32] {.importc: "new Float32Array".}
+    proc newTypedSeq(t: typedesc[float64], buffer: RootRef, offset, len: int): seq[float64] {.importc: "new Float64Array".}
+    proc newTypedSeq(t: typedesc[int16], buffer: RootRef, offset, len: int): seq[int16] {.importc: "new Int16Array".}
+    proc newTypedSeq(t: typedesc[int8], buffer: RootRef, offset, len: int): seq[int8] {.importc: "new Int8Array".}
+    proc newTypedSeq(t: typedesc[byte], buffer: RootRef, offset, len: int): seq[byte] {.importc: "new Uint8Array".}
+    proc newTypedSeq(t: typedesc[uint16], buffer: RootRef, offset, len: int): seq[uint16] {.importc: "new Uint16Array".}
 
-proc bufferData*(gl: GL, target: GLenum, data: openarray[GLubyte], usage: GLenum) {.inline.} =
-    when defined(js):
-        asm "`gl`.bufferData(`target`, new Uint8Array(`data`), `usage`);"
-    else:
-        glBufferData(target, GLsizei(data.len * sizeof(GLubyte)), cast[pointer](data), usage);
+    proc buffer[T](data: openarray[T]): RootRef {.importcpp: "#.buffer".}
+    proc isTypedSeq(v: openarray): bool {.importcpp: "(#.buffer !== undefined)".}
+    proc bufferDataImpl(gl: GL, target: GLenum, data: openarray, usage: GLenum) {.importcpp: "bufferData".}
+    proc bufferSubDataImpl(gl: GL, target: GLenum, offset: int32, data: openarray) {.importcpp: "bufferSubData".}
 
-proc bufferData*(gl: GL, target: GLenum, size: int32, usage: GLenum) {.inline.} =
+proc bufferData*[T](gl: GL, target: GLenum, data: openarray[T], size: int, usage: GLenum) {.inline.} =
+    assert(size <= data.len)
     when defined(js):
-        if target == gl.ARRAY_BUFFER:
-            asm "`gl`.bufferData(`target`, new Float32Array(`size`), `usage`);"
-        if target == gl.ELEMENT_ARRAY_BUFFER:
-            asm "`gl`.bufferData(`target`, new Uint16Array(`size`), `usage`);"
+        assert(data.isTypedSeq)
+        gl.bufferDataImpl(target, newTypedSeq(T, data.buffer, 0, size), usage)
     else:
-        glBufferData(target, size, nil, usage);
+        glBufferData(target, GLsizei(size * sizeof(T)), cast[pointer](data), usage);
 
-proc bufferSubData*(gl: GL, target: GLenum, offset: int32, data: openarray[GLfloat]) {.inline.} =
+proc bufferData*[T](gl: GL, target: GLenum, data: openarray[T], usage: GLenum) {.inline.} =
     when defined(js):
-        asm "`gl`.bufferSubData(`target`, `offset`, new Float32Array(`data`));"
+        gl.bufferDataImpl(target, if data.isTypedSeq: data else: newTypedSeq(T, data), usage)
     else:
-        glBufferSubData(target, offset, GLsizei(data.len * sizeof(GLfloat)), cast[pointer](data));
+        glBufferData(target, GLsizei(data.len * sizeof(T)), cast[pointer](data), usage);
 
-proc bufferSubData*(gl: GL, target: GLenum, offset: int32, data: openarray[GLushort]) {.inline.} =
+proc bufferSubData*[T](gl: GL, target: GLenum, offset: int32, data: openarray[T]) {.inline.} =
     when defined(js):
-        asm "`gl`.bufferSubData(`target`, `offset`, new Uint16Array(`data`));"
+        gl.bufferSubDataImpl(target, offset, if data.isTypedSeq: data else: newTypedSeq(T, data));
     else:
-        glBufferSubData(target, offset, GLsizei(data.len * sizeof(GLushort)), cast[pointer](data));
+        glBufferSubData(target, offset, GLsizei(data.len * sizeof(T)), cast[pointer](data));
 
-proc vertexAttribPointer*(gl: GL, index: GLuint, size: GLint, typ: GLenum, normalized: GLboolean,
-                        stride: GLsizei, offset: int) {.inline.} =
-    when defined(js):
-        asm "`gl`.vertexAttribPointer(`index`, `size`, `typ`, `normalized`, `stride`, `offset`);"
+proc getBufferParameteriv*(gl: GL, target, value: GLenum): GLint {.inline.} =
+    when defined js:
+        asm "`result` = `gl`.getBufferParameter(`target`, `value`);"
     else:
-        glVertexAttribPointer(index, size, typ, normalized, stride, cast[pointer](offset))
+        glGetBufferParameteriv(target, value, addr result)
 
 proc vertexAttribPointer*(gl: GL, index: GLuint, size: GLint, normalized: GLboolean,
-                        stride: GLsizei, data: openarray[GLfloat]) =
+                        stride: GLsizei, data: openarray[GLfloat]) {.deprecated.} =
+    # Better dont use this proc and work with buffers yourself, because look
+    # how ugly it is in js.
     when defined js:
         asm """
         var buf = null;
-        if (`vertexAttribPointer`.__nimxSharedBuffers === undefined)
-        {
-            `vertexAttribPointer`.__nimxSharedBuffers = {};
+        if (window.__nimxSharedBuffers === undefined) {
+            window.__nimxSharedBuffers = {};
         }
-        if (`vertexAttribPointer`.__nimxSharedBuffers[`index`] === undefined)
-        {
+        if (window.__nimxSharedBuffers[`index`] === undefined) {
             buf = `gl`.createBuffer();
-            `vertexAttribPointer`.__nimxSharedBuffers[`index`] = buf;
+            window.__nimxSharedBuffers[`index`] = buf;
         }
-        else
-        {
-            buf = `vertexAttribPointer`.__nimxSharedBuffers[`index`];
+        else {
+            buf = window.__nimxSharedBuffers[`index`];
         }
 
         `gl`.bindBuffer(`gl`.ARRAY_BUFFER, buf);
@@ -545,3 +611,6 @@ proc clearWithColor*(gl: GL, r, g, b, a: GLfloat) =
     gl.getClearColor(oldColor)
     gl.clear(gl.COLOR_BUFFER_BIT or gl.STENCIL_BUFFER_BIT or gl.DEPTH_BUFFER_BIT)
     gl.clearColor(oldColor[0], oldColor[1], oldColor[2], oldColor[3])
+
+proc clearDepthStencil*(gl: GL) =
+    gl.clear(gl.STENCIL_BUFFER_BIT or gl.DEPTH_BUFFER_BIT)

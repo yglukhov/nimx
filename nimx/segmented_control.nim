@@ -7,9 +7,11 @@ import font
 import view_event_handling
 import view_event_handling_new
 import app
+import property_visitor
+import serializers
 
 type SegmentedControl* = ref object of Control
-    segments: seq[string]
+    mSegments: seq[string]
     widths: seq[Coord]
     selectedSegmentOffset: Coord
     trackedSegmentOffset: Coord
@@ -40,26 +42,31 @@ void compose() {
 }
 """
 
-proc drawBecauseNimBug*(s: SegmentedControl, r: Rect) =
-    scComposition.draw s.bounds:
-        setUniform("uSelectedRect",
-            newRect(s.selectedSegmentOffset, 0, s.widths[s.mSelectedSegment] + s.padding, s.bounds.height))
-        setUniform("uTrackedRect",
-            newRect(s.trackedSegmentOffset, 0, s.widths[s.trackedSegment] + s.padding, s.bounds.height))
+proc `segments=`*(s: SegmentedControl, segs: seq[string]) =
+    s.mSegments = segs
+    s.widthsValid = false
+    if s.mSelectedSegment >= segs.len: s.mSelectedSegment = segs.len - 1
+    s.setNeedsDisplay()
+
+template segments*(s: SegmentedControl): seq[string] = s.mSegments
+
+method init*(s: SegmentedControl, r: Rect) =
+    procCall s.Control.init(r)
+    s.segments = @["hello", "world", "yo"]
 
 proc recalculateSegmentWidths(s: SegmentedControl) =
     if s.widths.isNil:
-        s.widths = newSeq[Coord](s.segments.len)
+        s.widths = newSeq[Coord](s.mSegments.len)
     else:
-        s.widths.setLen(s.segments.len)
+        s.widths.setLen(s.mSegments.len)
 
     let font = systemFont()
     var totalWidth = 0.Coord
-    for i, seg in s.segments:
+    for i, seg in s.mSegments:
         let w = font.sizeOfString(seg).width
         s.widths[i] = w
         totalWidth += w
-    s.padding = (s.bounds.width - totalWidth) / s.segments.len.Coord
+    s.padding = (s.bounds.width - totalWidth) / s.mSegments.len.Coord
     var xOff = 0.Coord
     for i, w in s.widths:
         let pw = w + s.padding
@@ -73,11 +80,22 @@ proc recalculateSegmentWidths(s: SegmentedControl) =
 method draw*(s: SegmentedControl, r: Rect) =
     if not s.widthsValid:
         s.recalculateSegmentWidths()
-    s.drawBecauseNimBug(r)
+
+    scComposition.draw s.bounds:
+        if s.mSelectedSegment < s.widths.len and s.mSelectedSegment >= 0:
+            setUniform("uSelectedRect",
+                newRect(s.selectedSegmentOffset, 0, s.widths[s.mSelectedSegment] + s.padding, s.bounds.height))
+            setUniform("uTrackedRect",
+                newRect(s.trackedSegmentOffset, 0, s.widths[s.trackedSegment] + s.padding, s.bounds.height))
+        else:
+            setUniform("uSelectedRect", zeroRect)
+            setUniform("uTrackedRect", zeroRect)
+
     let font = systemFont()
     let c = currentContext()
     var r = newRect(0, 0, 0, s.bounds.height)
-    var strSize = newSize(0, font.size)
+    var strSize = newSize(0, font.height)
+    c.strokeWidth = 0
     for i, w in s.widths:
         if i == s.mSelectedSegment:
             c.fillColor = whiteColor()
@@ -85,26 +103,19 @@ method draw*(s: SegmentedControl, r: Rect) =
             c.fillColor = blackColor()
         r.size.width = w + s.padding
         strSize.width = w
-        c.drawText(font, strSize.centerInRect(r), s.segments[i])
+        c.drawText(font, strSize.centerInRect(r), s.mSegments[i])
         if i != 0 and i != s.mSelectedSegment and i - 1 != s.mSelectedSegment and
                 i != s.trackedSegment and i - 1 != s.trackedSegment:
             c.fillColor = newGrayColor(0.78)
             c.drawRect(newRect(r.origin.x - 1, 1, 1, r.height - 2))
         r.origin.x += r.size.width
 
-    c.drawLine(newPoint(s.bounds.x + 4.0, r.height - 1.0), newPoint(s.bounds.width - 4.0, r.height - 1.0))
-
-proc `segments=`*(s: SegmentedControl, segs: seq[string]) =
-    s.segments = segs
-    s.widthsValid = false
-    if s.mSelectedSegment >= segs.len: s.mSelectedSegment = segs.len
-    s.setNeedsDisplay()
-
 template selectedSegment*(s: SegmentedControl): int = s.mSelectedSegment
 
 proc `selectedSegment=`*(s: SegmentedControl, i: int) =
     s.mSelectedSegment = i
-    if s.mSelectedSegment >= s.segments.len: s.mSelectedSegment = s.segments.len
+    if s.mSelectedSegment >= s.mSegments.len: s.mSelectedSegment = s.mSegments.len
+    s.trackedSegment = s.mSelectedSegment
     s.widthsValid = false
     s.setNeedsDisplay()
 
@@ -147,3 +158,10 @@ method onTouchEv(s: SegmentedControl, e: var Event): bool =
             s.setNeedsDisplay()
             s.sendAction(e)
         result = false
+
+method visitProperties*(v: SegmentedControl, pv: var PropertyVisitor) =
+    procCall v.Control.visitProperties(pv)
+    pv.visitProperty("segments", v.segments)
+    pv.visitProperty("selected", v.mSelectedSegment)
+
+registerClass(SegmentedControl)

@@ -3,47 +3,75 @@ import abstract_window
 import event
 import view_event_handling
 import view_event_handling_new
-import sets
-import system_logger
 
-proc canPassEventToFirstResponder(w: Window): bool =
-    w.firstResponder != nil and w.firstResponder != w
+proc propagateEventThroughResponderChain(w: Window, e: var Event): bool =
+    var r = w.firstResponder
+    while not result and not r.isNil and r != w:
+        result = r.processKeyboardEvent(e)
+        r = r.superview
+    if not result:
+        result = w.processKeyboardEvent(e)
+
+proc getOtherResponders(v: View, exceptV: View, responders: var seq[View]) =
+    for sv in v.subviews:
+        if sv != exceptV:
+            if sv.acceptsFirstResponder():
+                responders.add sv
+            sv.getOtherResponders(exceptV, responders)
+
+proc findNearestNextResponder(fromX: float, fromY: float, responders: seq[View], forward: bool): View =
+    let sign: float = if forward: 1 else: -1
+    var bestDH: float = Inf
+    var bestDV: float = Inf
+    var bestResponder: View
+    for responder in responders:
+        let responderRect = responder.convertRectToWindow(responder.bounds)
+        var dH = (responderRect.minX - fromX) * sign
+        var dV = (responderRect.minY - fromY) * sign
+        if dV > 0  or  (dV == 0 and dH > 0):
+            if dV < bestDV  or  (dV == bestDV and dH < bestDH):
+                bestResponder = responder
+                bestDH = dH
+                bestDV = dV
+    return bestResponder
 
 method onKeyDown*(w: Window, e: var Event): bool =
-    if w.canPassEventToFirstResponder:
-        result = w.firstResponder.onKeyDown(e)
+    if e.keyCode == VirtualKey.Tab:
+        let forward = not e.modifiers.anyShift()
+        var curResp = w.firstResponder
+        let firstRespRect = w.firstResponder.convertRectToWindow(w.firstResponder.bounds)
+        var nextResponder: View
 
-method onKeyUp*(w: Window, e: var Event): bool =
-    if w.canPassEventToFirstResponder:
-        result = w.firstResponder.onKeyUp(e)
+        while nextResponder.isNil and curResp != w:
+            var responders: seq[View] = @[]
+            getOtherResponders(curResp.superview, curResp, responders)
+            if responders.len > 0:
+                nextResponder = findNearestNextResponder(firstRespRect.minX, firstRespRect.minY, responders, forward)
+            curResp = curResp.superview
 
-method onTextInput*(w: Window, s: string): bool =
-    if w.canPassEventToFirstResponder:
-        result = w.firstResponder.onTextInput(s)
+        if nextResponder.isNil:
+            var responders: seq[View] = @[]
+            getOtherResponders(w, w.firstResponder, responders)
+            if forward:
+                nextResponder = findNearestNextResponder(w.bounds.minX, w.bounds.minY, responders, forward)
+            else:
+                nextResponder = findNearestNextResponder(w.bounds.maxX, w.bounds.maxY, responders, forward)
 
-let newTouch : bool = true
+        if not nextResponder.isNil():
+            discard w.makeFirstResponder(nextResponder)
 
-var keyboardState: set[VirtualKey] = {}
-
-proc alsoPressed*(vk: VirtualKey): bool =
-    return vk in keyboardState
+        return true
 
 method handleEvent*(w: Window, e: var Event): bool {.base.} =
     case e.kind:
-        of etMouse, etScroll, etTouch:
-            if newTouch:
-                result = w.processTouchEvent(e)
-            else:
-                result = w.recursiveHandleMouseEvent(e)
+        of etScroll:
+            result = w.processMouseWheelEvent(e)
+        of etMouse, etTouch:
+            result = w.processTouchEvent(e)
         of etKeyboard:
-            if e.buttonState == bsDown:
-                keyboardState.incl(e.keyCode)
-                result = w.onKeyDown(e)
-            else:
-                result = w.onKeyUp(e)
-                keyboardState.excl(e.keyCode)
+            result = w.propagateEventThroughResponderChain(e)
         of etTextInput:
-            result = w.onTextInput(e.text)
+            result = w.propagateEventThroughResponderChain(e)
         of etWindowResized:
             result = true
             w.onResize(newSize(e.position.x, e.position.y))

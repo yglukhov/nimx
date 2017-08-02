@@ -1,4 +1,4 @@
-
+{.deprecated.} # This has moved to a separate nimble package "rect_packer"
 type Rect = tuple[x, y, width, height: int32]
 
 type RectPacker* = ref object

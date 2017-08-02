@@ -6,7 +6,7 @@ when defined(ios):
         {.emit: """
         `result` = [`s` respondsToSelector: @selector(nativeScale)] ? [`s` nativeScale] : 1.0f;
         """.}
-        result = 1.0 # TODO: Fix this
+        # result = 1.0 # TODO: Fix this
 elif defined(macosx):
     {.emit: "#import <AppKit/AppKit.h>".}
     type NSScreen {.importc, header: "<AppKit/AppKit.h>", final.} = distinct int
@@ -17,18 +17,13 @@ elif defined(macosx):
         """.}
 elif defined(android):
     import jnim, sdl2
-    jnimport:
-        import android.util.DisplayMetrics
-        import android.app.Activity
-        import android.view.WindowManager
-        import android.view.Display
+    import android.util.display_metrics
+    import android.view.display
+    import android.view.window_manager
+    import android.app.activity
 
-        proc new(t: typedesc[DisplayMetrics])
-        proc getWindowManager(a: Activity): WindowManager
-        proc getDefaultDisplay(w: WindowManager): Display
-        proc getMetrics(d: Display, outMetrics: DisplayMetrics)
-
-        proc density(d: DisplayMetrics): jfloat {.property.}
+elif defined(emscripten):
+    import jsbind.emscripten
 
 proc screenScaleFactor*(): float =
     when defined(macosx) or defined(ios):
@@ -36,10 +31,12 @@ proc screenScaleFactor*(): float =
     elif defined(js):
         asm "`result` = window.devicePixelRatio;"
     elif defined(android):
-        let act = Activity(sdl2.androidGetActivity())
+        let act = Activity.fromJObject(cast[jobject](sdl2.androidGetActivity()))
         let dm = DisplayMetrics.new()
         act.getWindowManager().getDefaultDisplay().getMetrics(dm)
         result = dm.density
         result = 1.0 # TODO: Take care of this
+    elif defined(emscripten):
+        result = emscripten_get_device_pixel_ratio()
     else:
         result = 1.0
