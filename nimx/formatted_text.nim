@@ -717,8 +717,10 @@ proc drawShadow(c: GraphicsContext, origP: Point, t: FormattedText) =
 
             compositionDrawingDefinitions(cc, c, gl)
 
-            setUniform("shadowRadius", t.mAttributes[curAttrIndex].shadowRadius / 15.0)
-            setUniform("shadowSpread", t.mAttributes[curAttrIndex].shadowSpread)
+            const minShadowSpread = 0.17 # make shadow border smooth and great again
+
+            setUniform("shadowRadius", t.mAttributes[curAttrIndex].shadowRadius / 8.0)
+            setUniform("shadowSpread", t.mAttributes[curAttrIndex].shadowSpread + minShadowSpread)
             setUniform("fillColor", c.fillColor)
 
             gl.uniformMatrix4fv(uniformLocation("uModelViewProjectionMatrix"), false, c.transform)
