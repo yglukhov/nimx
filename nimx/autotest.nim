@@ -160,6 +160,51 @@ when false:
 
     registerTest(myTest)
 
+var gTestsToRun: seq[string] # Test names which user wants to run
+
+when defined(js) or defined(emscripten):
+    import nimx.pathutils
+elif defined(android):
+    import sdl2, jnim
+    import android.app.activity, android.content.intent, android.os.base_bundle
+else:
+    import os
+
+proc getAllTestNames(): seq[string] =
+    result = newSeq[string](registeredTests.len)
+    for i, t in registeredTests: result[i] = t.name
+
+proc initTestsToRunIfNeeded() =
+    if gTestsToRun.isNil:
+        when defined(js) or defined(emscripten):
+            gTestsToRun = getCurrentHref().uriParam("nimxAutoTest", "").split(',')
+        elif defined(android):
+            let act = Activity.fromJObject(cast[jobject](sdl2.androidGetActivity()))
+            assert(not act.isNil)
+            let extras = act.getIntent().getExtras()
+            if not extras.isNil:
+                let r = extras.getString("nimxAutoTest")
+                if not r.isNil:
+                    gTestsToRun = r.split(',')
+        else:
+            gTestsToRun = @[]
+            var i = 0
+            while i < paramCount():
+                if paramStr(i) == "--nimxAutoTest":
+                    inc i
+                    gTestsToRun.add(paramStr(i).split(','))
+                inc i
+        if "all" in gTestsToRun:
+            gTestsToRun = getAllTestNames()
+
+proc getTestsToRun*(): seq[string] =
+    initTestsToRunIfNeeded()
+    gTestsToRun
+
+proc haveTestsToRun*(): bool =
+    initTestsToRunIfNeeded()
+    gTestsToRun.len != 0
+
 proc startTest*(t: UITestSuite, onComplete: proc() = nil) =
     when defined(js) or defined(emscripten): setupLogger()
     testRunnerContext.new()
@@ -176,12 +221,30 @@ proc startTest*(t: UITestSuite, onComplete: proc() = nil) =
             testRunnerContext = nil
             if not onComplete.isNil: onComplete()
 
-proc startRegisteredTests*(onComplete: proc() = nil) =
+proc testWithName(name: string): UITestSuite =
+    for t in registeredTests:
+        if t.name == name: return t
+
+proc startTests(tests: seq[UITestSuite], onComplete: proc()) =
     var curTestSuite = 0
     proc startNextSuite() =
-        if curTestSuite < registeredTests.len:
-            startTest(registeredTests[curTestSuite], startNextSuite)
+        if curTestSuite < tests.len:
+            startTest(tests[curTestSuite], startNextSuite)
             inc curTestSuite
         elif not onComplete.isNil:
             onComplete()
     startNextSuite()
+
+proc startRequestedTests*(onComplete: proc() = nil) =
+    let testsToRun = getTestsToRun()
+    var tests = newSeq[UITestSuite](testsToRun.len)
+    for i, n in testsToRun:
+        let t = testWithName(n)
+        if t.isNil:
+            raise newException(Exception, "Test " & n & " not registered")
+        tests[i] = t
+
+    startTests(tests, onComplete)
+
+proc startRegisteredTests*(onComplete: proc() = nil) {.inline.} =
+    startTests(registeredTests, onComplete)
