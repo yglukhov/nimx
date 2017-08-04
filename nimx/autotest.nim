@@ -186,6 +186,7 @@ proc initTestsToRunIfNeeded() =
                 let r = extras.getString("nimxAutoTest")
                 if not r.isNil:
                     gTestsToRun = r.split(',')
+            if gTestsToRun.isNil: gTestsToRun = @[]
         else:
             gTestsToRun = @[]
             var i = 0
