@@ -53,9 +53,8 @@ when defined js:
             ALPHA*, LUMINANCE* : GLenum
             UNSIGNED_BYTE* : GLenum
             COLOR_ATTACHMENT0* : GLenum
-            DEPTH_ATTACHMENT* : GLenum
-            DEPTH_STENCIL_ATTACHMENT* : GLenum
-            DEPTH_COMPONENT16* : GLenum
+            DEPTH_ATTACHMENT*, STENCIL_ATTACHMENT*, DEPTH_STENCIL_ATTACHMENT* : GLenum
+            DEPTH_COMPONENT16*, STENCIL_INDEX8* : GLenum
             DEPTH_STENCIL* : GLenum
             DEPTH24_STENCIL8* : GLenum
             FRAMEBUFFER_BINDING : GLenum
@@ -232,8 +231,10 @@ else:
     template UNSIGNED_BYTE*(gl: GL): GLenum = GL_UNSIGNED_BYTE
     template COLOR_ATTACHMENT0*(gl: GL): GLenum = GL_COLOR_ATTACHMENT0
     template DEPTH_ATTACHMENT*(gl: GL): GLenum = GL_DEPTH_ATTACHMENT
+    template STENCIL_ATTACHMENT*(gl: GL): GLenum = GL_STENCIL_ATTACHMENT
     template DEPTH_STENCIL_ATTACHMENT*(gl: GL): GLenum = GL_DEPTH_STENCIL_ATTACHMENT
     template DEPTH_COMPONENT16*(gl: GL): GLenum = GL_DEPTH_COMPONENT16
+    template STENCIL_INDEX8*(gl: GL): GLenum = GL_STENCIL_INDEX8
     template DEPTH_STENCIL*(gl: GL): GLenum = GL_DEPTH_STENCIL
     template DEPTH24_STENCIL8*(gl: GL): GLenum = GL_DEPTH24_STENCIL8
     #template FRAMEBUFFER_BINDING(gl: GL): GLenum = GL_FRAMEBUFFER_BINDING

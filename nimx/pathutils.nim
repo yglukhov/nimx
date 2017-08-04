@@ -1,4 +1,4 @@
-import strutils, ospaths
+import strutils, ospaths, parseutils
 
 proc relativePathToPath*(path, toPath: string): string =
     # Returns a relative path to `toPath` which is equivalent of absolute `path`
@@ -94,6 +94,19 @@ elif defined(emscripten):
         return _nimem_s(window.location.href);
         """
         result = cast[string](r)
+
+iterator uriParamsPairs*(s: string): (string, string) =
+    var i = s.skipUntil('?') + 1
+    while i < s.len:
+        var k, v: string
+        i += s.parseUntil(k, '=', i) + 1
+        i += s.parseUntil(v, '&', i) + 1
+        yield (k, v)
+
+proc uriParam*(url, key: string, default: string = nil): string =
+    for k, v in url.uriParamsPairs:
+        if k == key: return v
+    return default
 
 when isMainModule:
     doAssert(relativePathToPath("/a/b/c/d/e", "/a/b/c/f/g") == "../../f/g")
