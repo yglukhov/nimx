@@ -90,6 +90,9 @@ proc unmount*(am: AssetManager, ab: AssetBundle) =
             am.mounts.del(i)
             break
 
+proc unmountAll*(am: AssetManager) =
+    am.mounts.setLen(0)
+
 proc assetBundleForPath*(am: AssetManager, path: string): AssetBundle =
     am.mountForPath(path.normalizeSlashes).ab
 
