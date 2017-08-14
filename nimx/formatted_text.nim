@@ -66,19 +66,15 @@ type
         haCenter
         haJustify
 
-proc defaultAttributes(): Attributes {.inline.} =
+proc defaultAttributes(): Attributes =
     result.font = systemFont()
     result.textColor = blackColor()
-
-proc resetAttributes(t: FormattedText) =
-    t.mAttributes = @[defaultAttributes()]
 
 proc `text=`*(t: FormattedText, s: string) =
     if s.isNil:
         t.mText = ""
     else:
         t.mText = s
-    t.resetAttributes()
     t.cacheValid = false
 
 template text*(t: FormattedText): string = t.mText
@@ -92,7 +88,7 @@ template lineSpacing*(t: FormattedText): float32 = t.mLineSpacing
 proc newFormattedText*(s: string = ""): FormattedText =
     result.new()
     result.mText = s
-    result.resetAttributes()
+    result.mAttributes = @[defaultAttributes()]
     result.lines = @[]
     result.shadowAttrs = @[]
     result.strokeAttrs = @[]
