@@ -37,7 +37,7 @@ when defined(macosx) and not defined(ios):
         discard w.impl.getWMInfo(wminfo)
         let nsWindow = cast[NSWindow](wminfo.padding)
 
-        {. emit: """
+        {.emit: """
         `result` = [`nsWindow` respondsToSelector: @selector(backingScaleFactor)] ? [`nsWindow` backingScaleFactor] : 1.0f;
         """.}
 
