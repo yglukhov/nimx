@@ -1,5 +1,6 @@
 import animation
 import times
+import logging
 
 type AnimationRunner* = ref object
     animations*: seq[Animation]
@@ -13,14 +14,17 @@ proc newAnimationRunner*(): AnimationRunner=
     result.paused = false
 
 proc pushAnimation*(ar: AnimationRunner, a: Animation) =
-    doAssert( not a.isNil(), "Animation is nil")
+    if a.isNil:
+        assert( not a.isNil(), "[AnimationRunner] Animation is nil")
+        warn "[AnimationRunner] Animation is nil! "
+        return
 
     a.prepare(epochTime())
 
     if ar.paused:
         a.pause()
 
-    if not (a in ar.animations):
+    if a notin ar.animations:
         ar.animations.add(a)
         if not ar.onAnimationAdded.isNil():
             ar.onAnimationAdded()
