@@ -200,6 +200,8 @@ proc initCommon(w: EmscriptenWindow, r: view.Rect) =
     attrs.antialias = 0
     attrs.stencil = 1
     w.ctx = emscripten_webgl_create_context(w.canvasId, addr attrs)
+    if w.ctx < 0:
+        raise newException(Exception, "Could not create WebGL context: " & $w.ctx)
     discard emscripten_webgl_make_context_current(w.ctx)
     w.renderingContext = newGraphicsContext()
 
