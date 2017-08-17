@@ -179,6 +179,11 @@ proc initCommon(w: EmscriptenWindow, r: view.Rect) =
         if (window.__nimx_textinput && window.__nimx_textinput.oninput)
             window.__nimx_textinput.focus();
     };
+    canvas.oncontextmenu = function(e) {
+        e.preventDefault();
+        return false;
+    };
+
     canvas.id = "nimx_canvas" + window.__nimx_canvas_id;
     canvas.width = $0;
     canvas.height = $1;
