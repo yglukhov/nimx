@@ -1,7 +1,7 @@
-import nimx/[ abstract_window, system_logger, view, context, event, app, screen,
+import nimx/[ abstract_window, view, context, event, app, screen,
             portable_gl, linkage_details ]
 import opengl
-import unicode, times
+import unicode, times, logging
 import jsbind, jsbind.emscripten
 import nimx.private.js_vk_map
 
@@ -161,8 +161,9 @@ proc onResize(eventType: cint, uiEvent: ptr EmscriptenUiEvent, userData: pointer
     result = 0
 
 proc onContextLost(eventType: cint, reserved: pointer, userData: pointer): EM_BOOL {.cdecl.} =
+    error "WebGL context lost"
     discard EM_ASM_INT("""
-    alert("Context lost!");
+    alert("WebGL context lost! Please try to restart or upgrade your browser.");
     """)
 
 proc initCommon(w: EmscriptenWindow, r: view.Rect) =
@@ -200,6 +201,8 @@ proc initCommon(w: EmscriptenWindow, r: view.Rect) =
     attrs.antialias = 0
     attrs.stencil = 1
     w.ctx = emscripten_webgl_create_context(w.canvasId, addr attrs)
+    if w.ctx < 0:
+        raise newException(Exception, "Could not create WebGL context: " & $w.ctx)
     discard emscripten_webgl_make_context_current(w.ctx)
     w.renderingContext = newGraphicsContext()
 
