@@ -184,6 +184,8 @@ proc eventWithSDLEvent(event: ptr sdl2.Event): Event =
                     wnd.onFocusChange(true)
                 of WindowEvent_FocusLost:
                     wnd.onFocusChange(false)
+                of WindowEvent_Exposed:
+                    wnd.setNeedsDisplay()
                 else:
                     discard
 
