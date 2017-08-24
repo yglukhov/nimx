@@ -42,6 +42,8 @@ when defined(macosx) and not defined(ios):
         """.}
 
 
+proc getSDLWindow*(wnd: SdlWindow): WindowPtr = wnd.impl
+
 var animationEnabled = 0
 
 method enableAnimation*(w: SdlWindow, flag: bool) =
