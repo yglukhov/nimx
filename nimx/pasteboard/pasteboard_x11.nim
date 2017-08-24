@@ -26,9 +26,6 @@ proc getWMInfo11*(window: WindowPtr; info: var WMInfoX11): Bool32 {.
     importc: "SDL_GetWindowWMInfo".}
 
 proc nimxCutBuffer(display: PDisplay): TAtom = 
-    # when defined(nimxAvoidSDL):
-    #     XInternAtom(display, "NIMX_CUTBUFFER", 0)
-    # else:
     result = XInternAtom(display, "SDL_CUTBUFFER", 0)
 
 template displayConnection(body: untyped)=
@@ -48,8 +45,6 @@ template displayConnection(body: untyped)=
     var rootWindow{.inject, used.} = DefaultRootWindow(display)
 
     body
-
-    # discard XCloseDisplay(display)
 
 proc pbWrite(p: Pasteboard, pi_ar: varargs[PasteboardItem])=
     displayConnection:
@@ -79,25 +74,23 @@ proc pbRead(p: Pasteboard, kind: string): PasteboardItem =
         elif owner == window:
             owner = rootWindow
             selection = cutBuffer
-            echo "self copy "
         else:
             owner = window
             selection = XInternAtom(display, "SDL_SELECTION", 0)
             discard XConvertSelection(display, clipboard, format, selection, owner, CurrentTime)
-
+            
         var selType: TAtom
         var selFormat: cint
         var bytes: culong = 0
         var overflow: culong = 0
         var src : cstring
 
-        # sleep(1000)
         if XGetWindowProperty(display, owner, selection, 0.clong, (XINT_MAX / 4).clong, 0.TBool, format, (addr selType).PAtom,
-            #[ok]# (addr selFormat).PCint, (addr bytes).Pculong, (addr overflow).Pculong, cast[PPcuchar](addr src)) == Success:
+            (addr selFormat).PCint, (addr bytes).Pculong, (addr overflow).Pculong, cast[PPcuchar](addr src)) == Success:
             if selType == format:
                 var data = $src
                 result = newPasteboardItem(PboardKindString, data)
-                echo "xfree ", XFree(src)
+                discard XFree(src)
 
 proc pasteboardWithName*(name: string): Pasteboard=
     var res = new(X11Pasteboard)
