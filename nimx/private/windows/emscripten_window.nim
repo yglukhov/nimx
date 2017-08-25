@@ -320,18 +320,7 @@ var initFunc : proc()
 var initDone = false
 proc mainLoopPreload() {.cdecl.} =
     if initDone:
-        when defined(release):
-            handleJSExceptions:
-                nimxMainLoopInner()
-        else:
-            discard EM_ASM_INT """
-            try {
-                _nimxMainLoopInner();
-            }
-            catch(e) {
-                _nimem_e(e);
-            }
-            """
+        nimxMainLoopInner()
     else:
         let r = EM_ASM_INT """
         return (document.readyState === 'complete') ? 1 : 0;
