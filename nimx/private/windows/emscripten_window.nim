@@ -296,7 +296,7 @@ method stopTextInput*(w: EmscriptenWindow) =
 var lastFullCollectTime = 0.0
 const fullCollectThreshold = 128 * 1024 * 1024 # 128 Megabytes
 
-proc nimxMainLoopInner() {.EMSCRIPTEN_KEEPALIVE.} =
+proc nimxMainLoopInner() =
     mainApplication().runAnimations()
     mainApplication().drawWindows()
 
