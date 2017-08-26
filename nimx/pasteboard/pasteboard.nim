@@ -6,7 +6,7 @@ elif defined(windows):
     import pasteboard_win
     export pasteboard_win
 
-elif defined(linux) and not defined(android):
+elif defined(linux) and not defined(android) and not defined(emscripten):
     import pasteboard_x11
     export pasteboard_x11
 
