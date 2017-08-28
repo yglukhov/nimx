@@ -26,7 +26,7 @@ proc getCanvasDimensions(id: cstring, cssRect: var Rect, virtualSize: var Size) 
         setValue($2 + 4, c.height, 'float');
         """, id, addr cssRect, addr virtualSize)
 
-proc eventLocationFromJSEvent(mouseEvent: ptr EmscriptenMouseEvent, w: EmscriptenWindow, eventTargetIsCanvas: bool): Point =
+proc eventLocationFromJSEvent(mouseEvent: ptr EmscriptenMouseEvent | EmscriptenTouchPoint, w: EmscriptenWindow, eventTargetIsCanvas: bool): Point =
     # `eventTargetIsCanvas` should be true if `mouseEvent.targetX` and `mouseEvent.targetY`
     # are relative to canvas.
     var cssRect: Rect
@@ -52,6 +52,19 @@ proc onMouseButton(eventType: cint, mouseEvent: ptr EmscriptenMouseEvent, userDa
     evt.window = w
     if mainApplication().handleEvent(evt): result = 1
 
+proc onTouchEvent(touchEvent: ptr EmscriptenTouchEvent, state: ButtonState, userData: pointer) =
+    let w = cast[EmscriptenWindow](userData)
+    let ts = uint32(epochTime() * 1000)
+    for i in 0 ..< touchEvent.numTouches:
+        if touchEvent.touches[i].isChanged == 0:
+            continue
+
+        let point = eventLocationFromJSEvent(touchEvent.touches[i], w, false)
+        var evt = newTouchEvent(point, state, touchEvent.touches[i].identifier, ts)
+        evt.window = w
+
+        discard mainApplication().handleEvent(evt)
+
 proc onMouseDown(eventType: cint, mouseEvent: ptr EmscriptenMouseEvent, userData: pointer): EM_BOOL {.cdecl.} =
     result = onMouseButton(eventType, mouseEvent, userData, bsDown)
     # Preventing default behavior for mousedown may prevent our iframe to become
@@ -59,8 +72,18 @@ proc onMouseDown(eventType: cint, mouseEvent: ptr EmscriptenMouseEvent, userData
     # inability to handle keyboard events.
     result = 0
 
+proc onTouchStart(eventType: cint, touchEvent: ptr EmscriptenTouchEvent, userData: pointer): EM_BOOL {.cdecl.} =
+    touchEvent.onTouchEvent(bsDown, userData)
+    # Treat Document Level Touch Event Listeners as Passive https://www.chromestatus.com/features/5093566007214080
+    result = 0
+
 proc onMouseUp(eventType: cint, mouseEvent: ptr EmscriptenMouseEvent, userData: pointer): EM_BOOL {.cdecl.} =
     onMouseButton(eventType, mouseEvent, userData, bsUp)
+    
+proc onTouchEnd(eventType: cint, touchEvent: ptr EmscriptenTouchEvent, userData: pointer): EM_BOOL {.cdecl.} =
+    touchEvent.onTouchEvent(bsUp, userData)
+    # Treat Document Level Touch Event Listeners as Passive https://www.chromestatus.com/features/5093566007214080
+    result = 0
 
 proc onMouseMove(eventType: cint, mouseEvent: ptr EmscriptenMouseEvent, userData: pointer): EM_BOOL {.cdecl.} =
     let w = cast[EmscriptenWindow](userData)
@@ -68,6 +91,11 @@ proc onMouseMove(eventType: cint, mouseEvent: ptr EmscriptenMouseEvent, userData
     var evt = newMouseMoveEvent(point, uint32(mouseEvent.timestamp))
     evt.window = w
     if mainApplication().handleEvent(evt): result = 1
+
+proc onTouchMove(eventType: cint, touchEvent: ptr EmscriptenTouchEvent, userData: pointer): EM_BOOL {.cdecl.} =
+    touchEvent.onTouchEvent(bsUnknown, userData)
+    # Treat Document Level Touch Event Listeners as Passive https://www.chromestatus.com/features/5093566007214080
+    result = 0
 
 proc onMouseWheel(eventType: cint, wheelEvent: ptr EmscriptenWheelEvent, userData: pointer): EM_BOOL {.cdecl.} =
     let w = cast[EmscriptenWindow](userData)
@@ -180,11 +208,11 @@ proc initCommon(w: EmscriptenWindow, r: view.Rect) =
         if (window.__nimx_textinput && window.__nimx_textinput.oninput)
             window.__nimx_textinput.focus();
     };
+    canvas.ontouchstart =
     canvas.oncontextmenu = function(e) {
-        e.preventDefault();
+        e.preventDefault;
         return false;
     };
-
     canvas.id = "nimx_canvas" + window.__nimx_canvas_id;
     canvas.width = $0;
     canvas.height = $1;
@@ -211,6 +239,11 @@ proc initCommon(w: EmscriptenWindow, r: view.Rect) =
     discard emscripten_set_mouseup_callback(docID, cast[pointer](w), 0, onMouseUp)
     discard emscripten_set_mousemove_callback(docID, cast[pointer](w), 0, onMouseMove)
     discard emscripten_set_wheel_callback(w.canvasId, cast[pointer](w), 0, onMouseWheel)
+    
+    discard emscripten_set_touchstart_callback(docID, cast[pointer](w), 0, onTouchStart)
+    discard emscripten_set_touchmove_callback(docID, cast[pointer](w), 0, onTouchMove)
+    discard emscripten_set_touchend_callback(docID, cast[pointer](w), 0, onTouchEnd)
+    discard emscripten_set_touchcancel_callback(docID, cast[pointer](w), 0, onTouchEnd)
 
     discard emscripten_set_keydown_callback(docID, cast[pointer](w), 1, onKeyDown)
     discard emscripten_set_keyup_callback(docID, cast[pointer](w), 1, onKeyUp)
