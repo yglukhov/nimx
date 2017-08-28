@@ -360,6 +360,8 @@ proc runUntilQuit*() =
     discard quit(evt)
 
 template runApplication*(body: typed): typed =
+    sdlMain()
+
     try:
         body
         runUntilQuit()
