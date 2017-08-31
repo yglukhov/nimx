@@ -26,17 +26,19 @@ proc getCanvasDimensions(id: cstring, cssRect: var Rect, virtualSize: var Size) 
         setValue($2 + 4, c.height, 'float');
         """, id, addr cssRect, addr virtualSize)
 
-proc eventLocationFromJSEvent(mouseEvent: ptr EmscriptenMouseEvent | EmscriptenTouchPoint, w: EmscriptenWindow, eventTargetIsCanvas: bool): Point =
-    # `eventTargetIsCanvas` should be true if `mouseEvent.targetX` and `mouseEvent.targetY`
-    # are relative to canvas.
+proc eventLocationFromJSEventCoords(x, y: Coord, w: EmscriptenWindow, eventTargetIsCanvas: bool): Point =
+    result = newPoint(x, y)
     var cssRect: Rect
     var virtualSize: Size
     getCanvasDimensions(w.canvasId, cssRect, virtualSize)
-    result.x = Coord(mouseEvent.targetX)
-    result.y = Coord(mouseEvent.targetY)
     if not eventTargetIsCanvas: result -= cssRect.origin
     result.x = result.x / cssRect.width * virtualSize.width / w.pixelRatio
     result.y = result.y / cssRect.height * virtualSize.height / w.pixelRatio
+
+proc eventLocationFromJSEvent(evt: ptr EmscriptenMouseEvent | EmscriptenTouchPoint, w: EmscriptenWindow, eventTargetIsCanvas: bool): Point =
+    # `eventTargetIsCanvas` should be true if `mouseEvent.targetX` and `mouseEvent.targetY`
+    # are relative to canvas.
+    eventLocationFromJSEventCoords(evt.targetX.Coord, evt.targetY.Coord, w, eventTargetIsCanvas)
 
 proc onMouseButton(eventType: cint, mouseEvent: ptr EmscriptenMouseEvent, userData: pointer, bs: ButtonState): EM_BOOL =
     let w = cast[EmscriptenWindow](userData)
