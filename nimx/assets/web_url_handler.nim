@@ -15,6 +15,12 @@ when web:
     when defined(js):
         import nimx.private.js_data_view_stream
 
+    proc errorDesc(r: XMLHTTPRequest, url: string): URLLoadingError =
+        var statusText = r.statusText
+        if statusText.isNil: statusText = "(nil)"
+        result.description = "XMLHTTPRequest error(" & url & "): " & $r.status & ": " & $statusText
+        warn "XMLHTTPRequest failure: ", result.description
+
     proc loadJSURL*(url: string, resourceType: cstring, onProgress: proc(p: float), onError: proc(e: URLLoadingError), onComplete: proc(result: JSObj)) =
         assert(not onComplete.isNil)
 
@@ -24,19 +30,19 @@ when web:
         reqListener = proc() =
             jsUnref(reqListener)
             jsUnref(errorListener)
-            handleJSExceptions:
+            let s = oReq.status
+            if s > 300:
+                let err = oReq.errorDesc(url)
+                if not onError.isNil:
+                    onError(err)
+            else:
                 onComplete(oReq.response)
         errorListener = proc() =
             jsUnref(reqListener)
             jsUnref(errorListener)
-            handleJSExceptions:
-                var err: URLLoadingError
-                var statusText = oReq.statusText
-                if statusText.isNil: statusText = "(nil)"
-                err.description = "XMLHTTPRequest error(" & url & "): " & $oReq.status & ": " & $statusText
-                info "XMLHTTPRequest failure: ", err.description
-                if not onError.isNil:
-                    onError(err)
+            let err = oReq.errorDesc(url)
+            if not onError.isNil:
+                onError(err)
         jsRef(reqListener)
         jsRef(errorListener)
 

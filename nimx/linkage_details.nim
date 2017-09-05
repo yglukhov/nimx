@@ -1,26 +1,23 @@
-import macros
 
+template sdlMain*() =
+    when not defined(windows):
+        when not compileOption("noMain"):
+            {.error: "Please run Nim with --noMain flag.".}
 
-when not defined(windows):
-
-    when defined(android):
-        import nimx.system_logger
-    {.push stackTrace: off.}
-    proc setupLogger() {.cdecl.} =
         when defined(android):
-            errorMessageWriter = proc(msg: string) =
-                logi msg
-        else:
-            discard
-    {.pop.}
-    when not compileOption("noMain") and not defined(nimxAvoidSDL):
-        {.error: "Please run Nim with --noMain flag.".}
+            import nimx.system_logger
+        {.push stackTrace: off.}
+        proc setupLogger() {.cdecl.} =
+            when defined(android):
+                errorMessageWriter = proc(msg: string) =
+                    logi msg
+            else:
+                discard
+        {.pop.}
 
-    when defined(ios):
-        {.emit: "#define __IPHONEOS__".}
+        when defined(ios):
+            {.emit: "#define __IPHONEOS__".}
 
-
-    when not defined(nimxAvoidSDL):
         {.emit: """
 // The following piece of code is a copy-paste from SDL/SDL_main.h
 // It is required to avoid dependency on SDL headers
@@ -121,6 +118,8 @@ int main(int argc, char** args) {
 """.}
 
 when not defined(emscripten):
+    import macros
+
     when defined(macosx) or defined(ios):
         macro passToCAndL(s: string): typed =
             result = newNimNode(nnkStmtList)

@@ -421,7 +421,7 @@ method onKeyDown*(t: TextField, e: var Event): bool =
         if cmd == kcSelectAll: t.selectAll()
         t.focusOnCursor()
 
-        when defined(macosx) or defined(windows):
+        when defined(macosx) or defined(windows) or defined(linux):
             case cmd
             of kcPaste:
                 if t.editable:
