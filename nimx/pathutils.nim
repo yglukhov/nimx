@@ -56,10 +56,7 @@ proc normalizePath*(path: var string, normalizeSlashes: bool = true) =
         if copyChar:
             path[j] = path[i]
             if normalizeSlashes:
-                when defined(windows):
-                    if path[j] == '/': path[j] = '\\'
-                else:
-                    if path[j] == '\\': path[j] = '/'
+                if path[j] == '\\': path[j] = '/'
 
             inc j
             inc i
