@@ -25,10 +25,13 @@ proc relativePathToPath*(path, toPath: string): string =
             result &= "/"
         inc cp
 
-proc normalizePath*(path: var string, normalizeSlashes: bool = true) =
+proc normalizePath*(path: var string, usePlatformSeparator: bool = true) =
     let ln = path.len
     var j = 0
     var i = 0
+
+    let targetSeparator = if usePlatformSeparator:(when defined(windows):'\\'else:'/')else:'/'
+    let replaceSeparator = if usePlatformSeparator:(when defined(windows):'/'else:'\\')else:'\\'
 
     template isSep(c: char): bool = c == '/' or c == '\\'
     template rollback() =
@@ -55,8 +58,7 @@ proc normalizePath*(path: var string, normalizeSlashes: bool = true) =
                             i += 2
         if copyChar:
             path[j] = path[i]
-            if normalizeSlashes:
-                if path[j] == '\\': path[j] = '/'
+            if path[j] == replaceSeparator: path[j] = targetSeparator
 
             inc j
             inc i
