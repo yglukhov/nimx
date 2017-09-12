@@ -790,7 +790,7 @@ proc build*(b: Builder) =
                 "--parallelBuild:" & $b.nimParallelBuild, "--out:" & b.executablePath,
                 "--nimcache:" & b.nimcachePath])
 
-    if b.platform != "windows" and not b.avoidSDL:
+    if b.platform != "windows" and b.platform != "emscripten" and b.platform != "wasm" and not b.avoidSDL:
         b.nimFlags.add("--noMain")
 
     if b.avoidSDL: b.nimFlags.add("-d:nimxAvoidSDL")

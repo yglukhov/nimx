@@ -388,7 +388,7 @@ proc drawNinePartImage*(c: GraphicsContext, i: Image, toRect: Rect, ml, mt, mr, 
         gl.useProgram(cc.program)
         compositionDrawingDefinitions(cc, c, gl)
 
-        setUniform("uAlpha", alpha)
+        setUniform("uAlpha", alpha * c.alpha)
 
         gl.uniformMatrix4fv(uniformLocation("uModelViewProjectionMatrix"), false, c.transform)
         setupPosteffectUniforms(cc)

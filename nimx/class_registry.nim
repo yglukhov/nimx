@@ -1,4 +1,4 @@
-import tables, typetraits, macros, variant
+import tables, typetraits, macros, variant, strutils
 
 proc skipPtrRef(n: NimNode): NimNode =
     let ty = getImpl(n.symbol)
@@ -6,15 +6,48 @@ proc skipPtrRef(n: NimNode): NimNode =
     if ty[2].kind in {nnkRefTy, nnkPtrTy} and ty[2][0].kind == nnkSym:
         result = ty[2][0].skipPtrRef()
 
-proc superTypeAux(t: NimNode): NimNode =
-    let ty = getImpl(t.getTypeInst()[1].symbol)
-    let r = ty[2]
-    if r.kind == nnkRefTy and r[0].kind == nnkObjectTy:
-        result = r[0][1][0].skipPtrRef()
-    else:
-        result = r
+proc nodeTypedefInheritsFrom(n: NimNode): NimNode =
+    n.expectKind(nnkTypeDef)
+    if n[2].kind == nnkRefTy and n[2][0].kind == nnkObjectTy and n[2][0][1].kind == nnkOfInherit:
+        result = n[2][0][1][0]
 
-macro superType(t: typed): untyped = superTypeAux(t)
+proc `*`(s: string, i: int): string {.compileTime.} =
+    result = ""
+    for ii in 0 ..< i: result &= s
+
+proc superTypeAux(t: NimNode, indent: int): NimNode =
+    doAssert(indent < 10, "Recursion too deep")
+
+    template superTypeAux(t: NimNode): NimNode = superTypeAux(t, indent + 1)
+    proc log(args: varargs[string, `$`]) =
+        discard
+        # echo "- ", "  " * indent, args.join(" ")
+
+    log "superTypeAux: ", treeRepr(t)
+    case t.kind
+    of nnkSym:
+        if $t == "RootRef": return t
+        let ty = getTypeImpl(t)
+        log "TypeKind: ", ty.typeKind
+        result = superTypeAux(ty)
+    of nnkBracketExpr:
+        result = superTypeAux(getImpl(t[1].symbol))
+    of nnkTypeDef:
+        result = nodeTypedefInheritsFrom(t)
+        if result.isNil:
+            result = superTypeAux(getTypeInst(t[2]))
+    of nnkRefTy:
+        result = superTypeAux(getTypeImpl(t[^1]))
+    of nnkObjectTy:
+        t[1].expectKind(nnkOfInherit)
+        result = t[1][0]
+    else:
+        log "unknown node : ", treeRepr(t)
+        doAssert(false, "Unknown node")
+
+    log "result ", repr(result)
+
+macro superType(t: typed): untyped = superTypeAux(t, 0)
 
 method className*(o: RootRef): string {.base.} = discard
 method classTypeId*(o: RootRef): TypeId {.base.} = getTypeId(RootRef)
@@ -31,7 +64,7 @@ var superTypeRelations = initTable[TypeId, TypeId]()
 proc registerTypeRelation(a: typedesc) =
     type ParentType = superType(a)
     if not superTypeRelations.hasKeyOrPut(getTypeId(a), getTypeId(ParentType)):
-        when RootObj isnot ParentType:
+        when (RootRef isnot ParentType) and (RootObj isnot ParentType):
             registerTypeRelation(ParentType)
 
 proc isTypeOf(tself, tsuper: TypeId): bool =

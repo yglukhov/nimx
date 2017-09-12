@@ -312,13 +312,16 @@ method onTouchEv*(v: OutlineView, e: var Event): bool =
 
 method acceptsFirstResponder*(v: OutlineView): bool = true
 
+proc hasChildren(n: ItemNode): bool =
+    n.expandable and n.expanded and n.children.len != 0
+
 proc moveSelectionUp(v: OutlineView, path: var IndexPath) =
     if path[^1] > 0:
         path[^1].dec
 
         proc getLowestVisibleChildPath(v: OutlineView, path: var IndexPath) =
             let nodeAtPath = v.nodeAtIndexPath(path)
-            if nodeAtPath.expandable and nodeAtPath.expanded:
+            if nodeAtPath.hasChildren:
                 path.add(nodeAtPath.children.len - 1)
                 getLowestVisibleChildPath(v, path)
 
@@ -329,7 +332,7 @@ proc moveSelectionUp(v: OutlineView, path: var IndexPath) =
 
 proc moveSelectionDown(v: OutlineView, path: var IndexPath) =
     var nodeAtPath = v.nodeAtIndexPath(path)
-    if nodeAtPath.expandable and nodeAtPath.expanded and nodeAtPath.children.len > 0:
+    if nodeAtPath.hasChildren:
         path.add(0)
         v.selectItemAtIndexPath(path)
         return
@@ -348,14 +351,14 @@ proc moveSelectionDown(v: OutlineView, path: var IndexPath) =
 
 proc moveSelectionLeft(v: OutlineView) =
     let curNode = v.selectedNode
-    if curNode.expandable and curNode.children.len > 0 and curNode.expanded:
+    if curNode.hasChildren:
         v.collapseBranch(v.selectedIndexPath)
     elif v.selectedIndexPath.len >= 2:
         v.selectItemAtIndexPath(v.selectedIndexPath[0..^2])
 
 proc moveSelectionRight(v: OutlineView) =
     let curNode = v.selectedNode
-    if curNode.expandable and curNode.children.len > 0 and not curNode.expanded:
+    if curNode.hasChildren:
         v.expandBranch(v.selectedIndexPath)
     else:
         v.moveSelectionDown(v.selectedIndexPath)
