@@ -31,7 +31,7 @@ template toStr(v: SomeReal, precision: uint): string = formatFloat(v, ffDecimal,
 template toStr(v: SomeInteger): string = $v
 
 template fromStr(v: string, t: var SomeReal) = t = v.parseFloat()
-template fromStr(v: string, t: var SomeInteger) = t = v.parseInt()
+template fromStr(v: string, t: var SomeInteger) = t = type(t)(v.parseInt())
 
 proc newScalarPropertyView[T](setter: proc(s: T), getter: proc(): T): PropertyEditorView =
     result = PropertyEditorView.new(newRect(0, 0, 208, editorRowHeight))
@@ -418,6 +418,7 @@ registerPropertyEditor(newTextPropertyView)
 registerPropertyEditor(newScalarPropertyView[Coord])
 registerPropertyEditor(newScalarPropertyView[float])
 registerPropertyEditor(newScalarPropertyView[int])
+registerPropertyEditor(newScalarPropertyView[int16])
 registerPropertyEditor(newVecPropertyView[Vector2])
 registerPropertyEditor(newVecPropertyView[Vector3])
 registerPropertyEditor(newVecPropertyView[Vector4])
