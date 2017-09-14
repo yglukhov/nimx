@@ -10,6 +10,48 @@ type EmscriptenWindow* = ref object of Window
     renderingContext: GraphicsContext
     canvasId: string
     textInputActive: bool
+    isFullscreen: bool
+
+method fullscreen*(w: EmscriptenWindow): bool = w.isFullscreen
+method `fullscreen=`*(w: EmscriptenWindow, v: bool) =
+    var res: int
+
+    if not w.isFullscreen and v:
+        res = EM_ASM_INT("""
+            var result = 1;
+            var c = document.getElementById(Pointer_stringify($0));
+            if (c.RequestFullScreen) {
+                c.RequestFullScreen();
+            } else if (c.webkitRequestFullScreen) {
+                c.webkitRequestFullScreen();
+            } else if (c.mozRequestFullScreen) {
+                c.mozRequestFullScreen();
+            } else if (c.msRequestFullscreen) {
+                c.msRequestFullscreen();
+            } else {
+                result = 0;
+            }
+            return result;
+        """, w.canvasId.cstring)
+    elif w.isFullscreen and not v:
+        res = EM_ASM_INT("""
+            var result = 1;
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            } else if (document.webkitExitFullscreen) {
+                document.webkitExitFullscreen();
+            } else if (document.mozCancelFullScreen) {
+                document.mozCancelFullScreen();
+            } else if (document.msExitFullscreen) {
+                document.msExitFullscreen();
+            } else {
+                result = 0;
+            }
+            return result;
+        """)
+
+    if res != 0:
+        w.isFullscreen = v
 
 method enableAnimation*(w: EmscriptenWindow, flag: bool) =
     discard

@@ -18,6 +18,9 @@ type WinAPiWindow* = ref object of Window
     hDC: HDC
     renderingContext: GraphicsContext
 
+method `fullscreen=`*(w: WinAPiWindow, v: bool) =
+    raise newException(OSError, "Not implements yet")
+
 var defaultWindow: WinAPiWindow
 
 proc winEventProc(hwnd: HWND, msg: WINUINT, wparam: WPARAM, lparam: LPARAM): LRESULT {.stdcall, gcsafe.}
