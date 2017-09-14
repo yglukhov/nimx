@@ -9,7 +9,44 @@ import nimx.private.js_vk_map
 type JSCanvasWindow* = ref object of Window
     renderingContext: GraphicsContext
     canvas: Element
+    isFullscreen: bool
 
+method fullscreen*(w: JSCanvasWindow): bool = w.isFullscreen
+method `fullscreen=`*(w: JSCanvasWindow, v: bool) =
+    var res: int
+    let c = w.canvas
+
+    if not w.isFullscreen and v:
+        {.emit: """
+            if (`c`.RequestFullScreen) {
+                c.RequestFullScreen();
+            } else if (`c`.webkitRequestFullScreen) {
+                c.webkitRequestFullScreen();
+            } else if (`c`.mozRequestFullScreen) {
+                c.mozRequestFullScreen();
+            } else if (`c`.msRequestFullscreen) {
+                c.msRequestFullscreen();
+            } else {
+                `res` = 0;
+            }
+        """.}
+    elif w.isFullscreen and not v:
+        {.emit: """
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            } else if (document.webkitExitFullscreen) {
+                document.webkitExitFullscreen();
+            } else if (document.mozCancelFullScreen) {
+                document.mozCancelFullScreen();
+            } else if (document.msExitFullscreen) {
+                document.msExitFullscreen();
+            } else {
+                `res` = 0;
+            }
+        """.}
+
+    if res != 0:
+        w.isFullscreen = v
 
 export abstract_window
 

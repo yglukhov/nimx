@@ -164,6 +164,13 @@ type AppkitWindow* = ref object of Window
 type AppDelegate = ref object
     init: proc()
 
+method fullscreen*(w: AppkitWindow): bool = 
+    when defined(ios): 
+        result = true
+method `fullscreen=`*(w: AppkitWindow, v: bool) =
+    when not defined(ios):
+        raise newException(OSError, "Not implements yet")
+
 var animationEnabled = 0
 
 method enableAnimation*(w: AppkitWindow, flag: bool) =
