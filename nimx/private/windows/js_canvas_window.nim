@@ -13,21 +13,21 @@ type JSCanvasWindow* = ref object of Window
 
 method fullscreen*(w: JSCanvasWindow): bool = w.isFullscreen
 method `fullscreen=`*(w: JSCanvasWindow, v: bool) =
-    var res: int
+    var res = true
     let c = w.canvas
 
     if not w.isFullscreen and v:
         {.emit: """
             if (`c`.RequestFullScreen) {
-                c.RequestFullScreen();
+                `c`.RequestFullScreen();
             } else if (`c`.webkitRequestFullScreen) {
-                c.webkitRequestFullScreen();
+                `c`.webkitRequestFullScreen();
             } else if (`c`.mozRequestFullScreen) {
-                c.mozRequestFullScreen();
+                `c`.mozRequestFullScreen();
             } else if (`c`.msRequestFullscreen) {
-                c.msRequestFullscreen();
+                `c`.msRequestFullscreen();
             } else {
-                `res` = 0;
+                `res` = false;
             }
         """.}
     elif w.isFullscreen and not v:
@@ -41,11 +41,11 @@ method `fullscreen=`*(w: JSCanvasWindow, v: bool) =
             } else if (document.msExitFullscreen) {
                 document.msExitFullscreen();
             } else {
-                `res` = 0;
+                `res` = false;
             }
         """.}
 
-    if res != 0:
+    if res:
         w.isFullscreen = v
 
 export abstract_window
