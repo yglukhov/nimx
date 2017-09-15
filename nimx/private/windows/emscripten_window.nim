@@ -10,32 +10,55 @@ type EmscriptenWindow* = ref object of Window
     renderingContext: GraphicsContext
     canvasId: string
     textInputActive: bool
-    isFullscreen: bool
 
-method fullscreen*(w: EmscriptenWindow): bool = w.isFullscreen
+method fullscreenAvailable*(w: EmscriptenWindow): bool =
+    return EM_ASM_INT("""
+        var result = false;
+        if (document.fullscreenEnabled !== undefined) {
+            result = document.fullscreenEnabled;
+        } else if (document.webkitFullscreenEnabled !== undefined) {
+            result = document.webkitFullscreenEnabled;
+        } else if (document.mozFullScreenEnabled !== undefined) {
+            result = document.mozFullScreenEnabled;
+        } else if (document.msFullscreenEnabled !== undefined) {
+            result = document.msFullscreenEnabled;
+        }
+        return result ? 1 : 0;
+    """, w.canvasId.cstring) != 0
+
+method fullscreen*(w: EmscriptenWindow): bool =
+    return EM_ASM_INT("""
+        var result = false;
+        if (document.fullscreenElement !== undefined) {
+            result = document.fullscreenElement !== null;
+        } else if (document.webkitFullscreenElement !== undefined) {
+            result = document.webkitFullscreenElement !== null;
+        } else if (document.mozFullScreenElement !== undefined) {
+            result = document.mozFullScreenElement !== null;
+        } else if (document.msFullscreenElement !== undefined) {
+            result = document.msFullscreenElement !== null;
+        }
+        return result ? 1 : 0;
+    """, w.canvasId.cstring) != 0
+
 method `fullscreen=`*(w: EmscriptenWindow, v: bool) =
-    var res: int
+    let isFullscreen = w.fullscreen
 
-    if not w.isFullscreen and v:
-        res = EM_ASM_INT("""
-            var result = 1;
+    if not isFullscreen and v:
+        discard EM_ASM_INT("""
             var c = document.getElementById(Pointer_stringify($0));
-            if (c.RequestFullScreen) {
-                c.RequestFullScreen();
-            } else if (c.webkitRequestFullScreen) {
-                c.webkitRequestFullScreen();
+            if (c.requestFullscreen) {
+                c.requestFullscreen();
+            } else if (c.webkitRequestFullscreen) {
+                c.webkitRequestFullscreen();
             } else if (c.mozRequestFullScreen) {
                 c.mozRequestFullScreen();
             } else if (c.msRequestFullscreen) {
                 c.msRequestFullscreen();
-            } else {
-                result = 0;
             }
-            return result;
         """, w.canvasId.cstring)
-    elif w.isFullscreen and not v:
-        res = EM_ASM_INT("""
-            var result = 1;
+    elif isFullscreen and not v:
+        discard EM_ASM_INT("""
             if (document.exitFullscreen) {
                 document.exitFullscreen();
             } else if (document.webkitExitFullscreen) {
@@ -44,14 +67,8 @@ method `fullscreen=`*(w: EmscriptenWindow, v: bool) =
                 document.mozCancelFullScreen();
             } else if (document.msExitFullscreen) {
                 document.msExitFullscreen();
-            } else {
-                result = 0;
             }
-            return result;
         """)
-
-    if res != 0:
-        w.isFullscreen = v
 
 method enableAnimation*(w: EmscriptenWindow, flag: bool) =
     discard

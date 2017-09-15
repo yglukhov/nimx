@@ -19,7 +19,7 @@ type WinAPiWindow* = ref object of Window
     renderingContext: GraphicsContext
 
 method `fullscreen=`*(w: WinAPiWindow, v: bool) =
-    raise newException(OSError, "Not implements yet")
+    raise newException(OSError, "Not implemented yet")
 
 var defaultWindow: WinAPiWindow
 
