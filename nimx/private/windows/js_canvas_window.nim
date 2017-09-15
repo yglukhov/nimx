@@ -10,18 +10,52 @@ type JSCanvasWindow* = ref object of Window
     renderingContext: GraphicsContext
     canvas: Element
     isFullscreen: bool
+    
+method fullscreenEnabled*(w: JSCanvasWindow): bool =
+    var res = false
 
-method fullscreen*(w: JSCanvasWindow): bool = w.isFullscreen
+    {.emit: """
+        if (document.fullscreenEnabled !== undefined) {
+            `res` = document.fullscreenEnabled;
+        } else if (document.webkitFullscreenEnabled !== undefined) {
+            `res` = document.webkitFullscreenEnabled;
+        } else if (document.mozFullScreenEnabled !== undefined) {
+            `res` = document.mozFullScreenEnabled;
+        } else if (document.msFullscreenEnabled !== undefined) {
+            `res` = document.msFullscreenEnabled;
+        }
+    """.}
+
+    result = res
+
+method fullscreen*(w: JSCanvasWindow): bool =
+    var res = false
+
+    {.emit: """
+        if (document.fullscreenElement !== undefined) {
+            `res` = document.fullscreenElement !== null;
+        } else if (document.fullscreenElement !== undefined) {
+            `res` = document.webkitFullscreenElement !== null;
+        } else if (document.mozFullScreenElement !== undefined) {
+            `res` = document.mozFullScreenElement !== null;
+        } else if (document.msFullscreenElement !== undefined) {
+            `res` = document.msFullscreenElement !== null;
+        }
+    """.}
+
+    result = res
+
+
 method `fullscreen=`*(w: JSCanvasWindow, v: bool) =
     var res = true
     let c = w.canvas
 
     if not w.isFullscreen and v:
         {.emit: """
-            if (`c`.RequestFullScreen) {
-                `c`.RequestFullScreen();
-            } else if (`c`.webkitRequestFullScreen) {
-                `c`.webkitRequestFullScreen();
+            if (`c`.requestFullscreen) {
+                `c`.requestFullscreen();
+            } else if (`c`.webkitRequestFullscreen) {
+                `c`.webkitRequestFullscreen();
             } else if (`c`.mozRequestFullScreen) {
                 `c`.mozRequestFullScreen();
             } else if (`c`.msRequestFullscreen) {

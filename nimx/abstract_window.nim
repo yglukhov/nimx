@@ -23,6 +23,7 @@ const AW_FOCUS_LEAVE* = "AW_FOCUS_LEAVE"
 method `title=`*(w: Window, t: string) {.base.} = discard
 method title*(w: Window): string {.base.} = ""
 
+method fullscreenEnabled*(w: Window): bool {.base.} = false
 method fullscreen*(w: Window): bool {.base.} = false
 method `fullscreen=`*(w: Window, v: bool) {.base.} = discard
 
