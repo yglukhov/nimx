@@ -9,7 +9,6 @@ import nimx.private.js_vk_map
 type JSCanvasWindow* = ref object of Window
     renderingContext: GraphicsContext
     canvas: Element
-    isFullscreen: bool
     
 method fullscreenEnabled*(w: JSCanvasWindow): bool =
     var res = false
