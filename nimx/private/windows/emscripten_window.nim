@@ -42,7 +42,7 @@ method fullscreen*(w: EmscriptenWindow): bool =
     """, w.canvasId.cstring) != 0
 
 method `fullscreen=`*(w: EmscriptenWindow, v: bool) =
-    var isFullscreen = w.fullscreen
+    let isFullscreen = w.fullscreen
 
     if not isFullscreen and v:
         discard EM_ASM_INT("""

@@ -46,10 +46,10 @@ method fullscreen*(w: JSCanvasWindow): bool =
 
 
 method `fullscreen=`*(w: JSCanvasWindow, v: bool) =
-    var res = true
+    let isFullscreen = w.fullscreen
     let c = w.canvas
 
-    if not w.isFullscreen and v:
+    if not isFullscreen and v:
         {.emit: """
             if (`c`.requestFullscreen) {
                 `c`.requestFullscreen();
@@ -59,11 +59,9 @@ method `fullscreen=`*(w: JSCanvasWindow, v: bool) =
                 `c`.mozRequestFullScreen();
             } else if (`c`.msRequestFullscreen) {
                 `c`.msRequestFullscreen();
-            } else {
-                `res` = false;
             }
         """.}
-    elif w.isFullscreen and not v:
+    elif isFullscreen and not v:
         {.emit: """
             if (document.exitFullscreen) {
                 document.exitFullscreen();
@@ -73,13 +71,8 @@ method `fullscreen=`*(w: JSCanvasWindow, v: bool) =
                 document.mozCancelFullScreen();
             } else if (document.msExitFullscreen) {
                 document.msExitFullscreen();
-            } else {
-                `res` = false;
             }
         """.}
-
-    if res:
-        w.isFullscreen = v
 
 export abstract_window
 
