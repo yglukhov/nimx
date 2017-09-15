@@ -93,8 +93,8 @@ when not web:
             of 4: GL_RGBA
             else: GLenum(0)
         size = newSize(x.Coord, y.Coord)
-        let texWidth = if isPowerOfTwo(x): x.int else: nextPowerOfTwo(x)
-        let texHeight = if isPowerOfTwo(y): y.int else: nextPowerOfTwo(y)
+        let texWidth = nextPowerOfTwo(x)
+        let texHeight = nextPowerOfTwo(y)
 
         var pixelData = data
 
@@ -105,8 +105,19 @@ when not web:
             let texRowWidth = texWidth * comp
             let newData = alloc(texRowWidth * texHeight)
             let rowWidth = x * comp
+            let xExtrusion = min(2, texWidth - x)
+            let yExtrusion = min(2, texHeight - y)
+
             for row in 0 .. <y:
                 copyMem(offset(newData, row * texRowWidth), offset(data, row * rowWidth), rowWidth)
+                let lastRowPixel = offset(data, row * rowWidth - comp)
+                for i in 0 ..< xExtrusion:
+                    copyMem(offset(newData, row * texRowWidth + rowWidth + i * comp), lastRowPixel, comp)
+
+            let lastRow = offset(data, (y - 1) * rowWidth)
+            for i in 0 ..< yExtrusion:
+                copyMem(offset(newData, (y + i) * texRowWidth), lastRow, rowWidth)
+
             pixelData = cast[ptr uint8](newData)
             texCoords[2] = x.Coord / texWidth.Coord
             texCoords[3] = y.Coord / texHeight.Coord
@@ -162,8 +173,8 @@ proc imageWithResource*(name: string): Image =
 proc imageWithSize*(size: Size): SelfContainedImage =
     result = newSelfContainedImage()
     result.mSize = size
-    let texWidth = if isPowerOfTwo(size.width.int): size.width.int else: nextPowerOfTwo(size.width.int)
-    let texHeight = if isPowerOfTwo(size.height.int): size.height.int else: nextPowerOfTwo(size.height.int)
+    let texWidth = nextPowerOfTwo(size.width.int)
+    let texHeight = nextPowerOfTwo(size.height.int)
     result.texCoords[2] = size.width / texWidth.Coord
     result.texCoords[3] = size.height / texHeight.Coord
 
@@ -196,8 +207,8 @@ when defined(js):
         {.emit: """
         `gl`.pixelStorei(`gl`.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
         """.}
-        let texWidth = if isPowerOfTwo(width.int): width.int else: nextPowerOfTwo(width.int)
-        let texHeight = if isPowerOfTwo(height.int): height.int else: nextPowerOfTwo(height.int)
+        let texWidth = nextPowerOfTwo(width.int)
+        let texHeight = nextPowerOfTwo(height.int)
         i.mSize.width = width
         i.mSize.height = height
         i.texCoords[2] = width / texWidth.Coord
@@ -295,8 +306,8 @@ proc resetToSize*(i: SelfContainedImage, size: Size, gl: GL) =
 
     let flipped = i.flipped
 
-    let texWidth = if isPowerOfTwo(size.width.int): size.width.int else: nextPowerOfTwo(size.width.int)
-    let texHeight = if isPowerOfTwo(size.height.int): size.height.int else: nextPowerOfTwo(size.height.int)
+    let texWidth = nextPowerOfTwo(size.width.int)
+    let texHeight = nextPowerOfTwo(size.height.int)
 
     i.texCoords[0] = 0
     i.texCoords[1] = 0
@@ -483,8 +494,8 @@ when defined(emscripten):
             glGenTextures(1, addr ctx.image.texture)
             glBindTexture(GL_TEXTURE_2D, ctx.image.texture)
             ctx.image.mSize = newSize(x.Coord, y.Coord)
-            let texWidth = if isPowerOfTwo(x): x.int else: nextPowerOfTwo(x)
-            let texHeight = if isPowerOfTwo(y): y.int else: nextPowerOfTwo(y)
+            let texWidth = nextPowerOfTwo(x)
+            let texHeight = nextPowerOfTwo(y)
 
             ctx.image.texCoords[2] = 1.0
             ctx.image.texCoords[3] = 1.0
@@ -513,6 +524,9 @@ when defined(emscripten):
             logi "Error loading image: ", ctx.path
             ctx.callback(nil)
 
+    proc nimxNextPowerOf2(x: cint): cint {.EMSCRIPTEN_KEEPALIVE,} =
+        nextPowerOfTwo(x).cint
+
     proc loadImageFromURL*(url: string, callback: proc(i: Image)) =
         var ctx: ImageLoadingCtx
         ctx.new()
@@ -526,17 +540,8 @@ when defined(emscripten):
             try {
                 _nimxImagePrepareTexture($0, i.width, i.height);
                 GLctx.pixelStorei(GLctx.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
-                function nextPowerOfTwo(v) {
-                    v--;
-                    v|=v>>1;
-                    v|=v>>2;
-                    v|=v>>4;
-                    v|=v>>8;
-                    v|=v>>16;
-                    return ++v;
-                }
-                var texWidth = nextPowerOfTwo(i.width);
-                var texHeight = nextPowerOfTwo(i.height);
+                var texWidth = _nimxNextPowerOf2(i.width);
+                var texHeight = _nimxNextPowerOf2(i.height);
                 if (texWidth != i.width || texHeight != i.height) {
                     var canvas = document.createElement('canvas');
                     canvas.width = texWidth;
