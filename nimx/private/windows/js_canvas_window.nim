@@ -10,7 +10,7 @@ type JSCanvasWindow* = ref object of Window
     renderingContext: GraphicsContext
     canvas: Element
     
-method fullscreenEnabled*(w: JSCanvasWindow): bool =
+method fullscreenAvailable*(w: JSCanvasWindow): bool =
     var res = false
 
     {.emit: """

@@ -30,7 +30,7 @@ type SdlWindow* = ref object of Window
 when defined(ios) or defined(android):
     method fullscreen*(w: SdlWindow): bool = true
 else:
-    method fullscreenEnabled*(w: SdlWindow): bool = true
+    method fullscreenAvailable*(w: SdlWindow): bool = true
     method fullscreen*(w: SdlWindow): bool = w.isFullscreen
     method `fullscreen=`*(w: SdlWindow, v: bool) =
         var res: SDL_Return = SdlError

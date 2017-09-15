@@ -11,7 +11,7 @@ type EmscriptenWindow* = ref object of Window
     canvasId: string
     textInputActive: bool
 
-method fullscreenEnabled*(w: EmscriptenWindow): bool =
+method fullscreenAvailable*(w: EmscriptenWindow): bool =
     return EM_ASM_INT("""
         var result = false;
         if (document.fullscreenEnabled !== undefined) {
