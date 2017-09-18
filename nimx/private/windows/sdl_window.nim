@@ -25,6 +25,23 @@ type SdlWindow* = ref object of Window
     impl: WindowPtr
     sdlGlContext: GlContextPtr
     renderingContext: GraphicsContext
+    isFullscreen: bool
+
+when defined(ios) or defined(android):
+    method fullscreen*(w: SdlWindow): bool = true
+else:
+    method fullscreenAvailable*(w: SdlWindow): bool = true
+    method fullscreen*(w: SdlWindow): bool = w.isFullscreen
+    method `fullscreen=`*(w: SdlWindow, v: bool) =
+        var res: SDL_Return = SdlError
+
+        if v and not w.isFullscreen:
+            res = w.impl.setFullscreen(SDL_WINDOW_FULLSCREEN_DESKTOP)
+        elif not v and w.isFullscreen:
+            res = w.impl.setFullscreen(0)
+
+        if res == SdlSuccess:
+            w.isFullscreen = v
 
 when defined(macosx) and not defined(ios):
     import nimx.private.objc_appkit

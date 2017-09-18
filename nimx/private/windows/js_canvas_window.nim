@@ -9,7 +9,70 @@ import nimx.private.js_vk_map
 type JSCanvasWindow* = ref object of Window
     renderingContext: GraphicsContext
     canvas: Element
+    
+method fullscreenAvailable*(w: JSCanvasWindow): bool =
+    var res = false
 
+    {.emit: """
+        if (document.fullscreenEnabled !== undefined) {
+            `res` = document.fullscreenEnabled;
+        } else if (document.webkitFullscreenEnabled !== undefined) {
+            `res` = document.webkitFullscreenEnabled;
+        } else if (document.mozFullScreenEnabled !== undefined) {
+            `res` = document.mozFullScreenEnabled;
+        } else if (document.msFullscreenEnabled !== undefined) {
+            `res` = document.msFullscreenEnabled;
+        }
+    """.}
+
+    result = res
+
+method fullscreen*(w: JSCanvasWindow): bool =
+    var res = false
+
+    {.emit: """
+        if (document.fullscreenElement !== undefined) {
+            `res` = document.fullscreenElement !== null;
+        } else if (document.fullscreenElement !== undefined) {
+            `res` = document.webkitFullscreenElement !== null;
+        } else if (document.mozFullScreenElement !== undefined) {
+            `res` = document.mozFullScreenElement !== null;
+        } else if (document.msFullscreenElement !== undefined) {
+            `res` = document.msFullscreenElement !== null;
+        }
+    """.}
+
+    result = res
+
+
+method `fullscreen=`*(w: JSCanvasWindow, v: bool) =
+    let isFullscreen = w.fullscreen
+    let c = w.canvas
+
+    if not isFullscreen and v:
+        {.emit: """
+            if (`c`.requestFullscreen) {
+                `c`.requestFullscreen();
+            } else if (`c`.webkitRequestFullscreen) {
+                `c`.webkitRequestFullscreen();
+            } else if (`c`.mozRequestFullScreen) {
+                `c`.mozRequestFullScreen();
+            } else if (`c`.msRequestFullscreen) {
+                `c`.msRequestFullscreen();
+            }
+        """.}
+    elif isFullscreen and not v:
+        {.emit: """
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            } else if (document.webkitExitFullscreen) {
+                document.webkitExitFullscreen();
+            } else if (document.mozCancelFullScreen) {
+                document.mozCancelFullScreen();
+            } else if (document.msExitFullscreen) {
+                document.msExitFullscreen();
+            }
+        """.}
 
 export abstract_window
 

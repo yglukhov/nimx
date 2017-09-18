@@ -103,10 +103,15 @@ method draw*(v: OutlineView, r: Rect) =
             v.tempIndexPath[0] = i
             v.drawNode(c, y, v.tempIndexPath)
 
-proc nodeAtIndexPath(v: OutlineView, indexPath: openarray[int]): ItemNode =
-    result = v.rootItem
+iterator nodesOnPath(v: OutlineView, indexPath: openarray[int]): ItemNode =
+    var n = v.rootItem
     for i in indexPath:
-        result = result.children[i]
+        n = n.children[i]
+        yield n
+
+proc nodeAtIndexPath(v: OutlineView, indexPath: openarray[int]): ItemNode =
+    for n in v.nodesOnPath(indexPath):
+        result = n
 
 proc selectedNode(v: OutlineView): ItemNode =
     v.nodeAtIndexPath(v.selectedIndexPath)
@@ -149,10 +154,9 @@ proc itemAtIndexPath*(v: OutlineView, indexPath: openarray[int]): Variant =
 
 proc setBranchExpanded*(v: OutlineView, expanded: bool, indexPath: openarray[int]) =
     if expanded:
-        var path = newSeqOfCap[int](indexPath.len)
-        for index in indexPath:
-            path.add(index)
-            v.setRowExpanded(true, path)
+        for n in v.nodesOnPath(indexPath):
+            n.expanded = true
+        v.checkViewSize()
     else:
         v.setRowExpanded(false, indexPath)
 
@@ -358,7 +362,7 @@ proc moveSelectionLeft(v: OutlineView) =
 
 proc moveSelectionRight(v: OutlineView) =
     let curNode = v.selectedNode
-    if curNode.hasChildren:
+    if curNode.expandable and curNode.children.len > 0 and not curNode.expanded:
         v.expandBranch(v.selectedIndexPath)
     else:
         v.moveSelectionDown(v.selectedIndexPath)
