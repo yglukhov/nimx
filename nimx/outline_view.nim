@@ -103,10 +103,15 @@ method draw*(v: OutlineView, r: Rect) =
             v.tempIndexPath[0] = i
             v.drawNode(c, y, v.tempIndexPath)
 
-proc nodeAtIndexPath(v: OutlineView, indexPath: openarray[int]): ItemNode =
-    result = v.rootItem
+iterator nodesOnPath(v: OutlineView, indexPath: openarray[int]): ItemNode =
+    var n = v.rootItem
     for i in indexPath:
-        result = result.children[i]
+        n = n.children[i]
+        yield n
+
+proc nodeAtIndexPath(v: OutlineView, indexPath: openarray[int]): ItemNode =
+    for n in v.nodesOnPath(indexPath):
+        result = n
 
 proc selectedNode(v: OutlineView): ItemNode =
     v.nodeAtIndexPath(v.selectedIndexPath)
@@ -149,10 +154,9 @@ proc itemAtIndexPath*(v: OutlineView, indexPath: openarray[int]): Variant =
 
 proc setBranchExpanded*(v: OutlineView, expanded: bool, indexPath: openarray[int]) =
     if expanded:
-        var path = newSeqOfCap[int](indexPath.len)
-        for index in indexPath:
-            path.add(index)
-            v.setRowExpanded(true, path)
+        for n in v.nodesOnPath(indexPath):
+            n.expanded = true
+        v.checkViewSize()
     else:
         v.setRowExpanded(false, indexPath)
 
@@ -312,13 +316,16 @@ method onTouchEv*(v: OutlineView, e: var Event): bool =
 
 method acceptsFirstResponder*(v: OutlineView): bool = true
 
+proc hasChildren(n: ItemNode): bool =
+    n.expandable and n.expanded and n.children.len != 0
+
 proc moveSelectionUp(v: OutlineView, path: var IndexPath) =
     if path[^1] > 0:
         path[^1].dec
 
         proc getLowestVisibleChildPath(v: OutlineView, path: var IndexPath) =
             let nodeAtPath = v.nodeAtIndexPath(path)
-            if nodeAtPath.expandable and nodeAtPath.expanded:
+            if nodeAtPath.hasChildren:
                 path.add(nodeAtPath.children.len - 1)
                 getLowestVisibleChildPath(v, path)
 
@@ -329,7 +336,7 @@ proc moveSelectionUp(v: OutlineView, path: var IndexPath) =
 
 proc moveSelectionDown(v: OutlineView, path: var IndexPath) =
     var nodeAtPath = v.nodeAtIndexPath(path)
-    if nodeAtPath.expandable and nodeAtPath.expanded and nodeAtPath.children.len > 0:
+    if nodeAtPath.hasChildren:
         path.add(0)
         v.selectItemAtIndexPath(path)
         return
@@ -348,7 +355,7 @@ proc moveSelectionDown(v: OutlineView, path: var IndexPath) =
 
 proc moveSelectionLeft(v: OutlineView) =
     let curNode = v.selectedNode
-    if curNode.expandable and curNode.children.len > 0 and curNode.expanded:
+    if curNode.hasChildren:
         v.collapseBranch(v.selectedIndexPath)
     elif v.selectedIndexPath.len >= 2:
         v.selectItemAtIndexPath(v.selectedIndexPath[0..^2])

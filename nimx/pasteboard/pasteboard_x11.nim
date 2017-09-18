@@ -22,9 +22,6 @@ proc getTextFormat(d: PDisplay): TAtom =
 
 const x11ClipboardSelection = "CLIPBOARD"
 
-proc getWMInfo11*(window: WindowPtr; info: var WMInfoX11): Bool32 {.
-    importc: "SDL_GetWindowWMInfo".}
-
 proc nimxCutBuffer(display: PDisplay): TAtom = 
     result = XInternAtom(display, "SDL_CUTBUFFER", 0)
 
@@ -35,7 +32,7 @@ template displayConnection(body: untyped)=
     var winInfo: WMinfoX11
     getVersion(winInfo.version)
     
-    if keyWnd.SdlWindow.getSDLWindow().getWMInfo11(winInfo) == False32 and winInfo.display.isNil:
+    if keyWnd.SdlWindow.getSDLWindow().getWMInfo(cast[ptr WMInfo](addr winInfo)[]) == False32 and winInfo.display.isNil:
         raise newException(Exception, "Can't retreive SDLWindow info")
 
     var display{.inject, used.} = cast[PDisplay](winInfo.display)
