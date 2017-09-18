@@ -288,12 +288,15 @@ proc handleEvent(event: ptr sdl2.Event): Bool32 =
     result = True32
 
 method onResize*(w: SdlWindow, newSize: Size) =
+    procCall w.Window.onResize(newSize)
+    let constrainedSize = w.frame.size
+    if constrainedSize != newSize:
+        w.impl.setSize(constrainedSize.width.cint, constrainedSize.height.cint)
     when defined(macosx) and not defined(ios):
         w.pixelRatio = w.scaleFactor()
     else:
         w.pixelRatio = screenScaleFactor()
-    glViewport(0, 0, GLSizei(newSize.width * w.pixelRatio), GLsizei(newSize.height * w.pixelRatio))
-    procCall w.Window.onResize(newSize)
+    glViewport(0, 0, GLSizei(constrainedSize.width * w.pixelRatio), GLsizei(constrainedSize.height * w.pixelRatio))
 
 when false:
     # Framerate limiter
