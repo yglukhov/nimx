@@ -5,8 +5,7 @@ when defined(js) or defined(emscripten):
     when defined(emscripten):
         import jsbind.emscripten
 elif appKit:
-    import private.objc_appkit
-    enableObjC()
+    import darwin.app_kit as apkt
 else:
     import sdl2
 
