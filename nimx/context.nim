@@ -473,6 +473,7 @@ void compose() {
 """
 
 proc drawArc*(c: GraphicsContext, center: Point, radius: Coord, fromAngle, toAngle: Coord) =
+    if abs(fromAngle - toAngle) < 0.0001: return
     var fromAngle = fromAngle
     var toAngle = toAngle
     fromAngle = fromAngle mod (2 * Pi)
