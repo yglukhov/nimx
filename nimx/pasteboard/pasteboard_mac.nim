@@ -1,9 +1,7 @@
 import abstract_pasteboard
 export abstract_pasteboard
 
-import nimx.private.objc_appkit
-
-enableObjC()
+import darwin.app_kit
 
 type MacPasteboard = ref object of Pasteboard
     p: NSPasteboard
@@ -51,7 +49,7 @@ proc pbRead(p: Pasteboard, kind: string): PasteboardItem =
 proc pasteboardWithName*(name: string): Pasteboard =
     var res: MacPasteboard
     res.new(finalizePboard)
-    res.p = macPasteboardWithName(nativePboardName(name)).retain()
+    res.p = NSPasteboard.withName(nativePboardName(name)).retain()
     res.writeImpl = pbWrite
     res.readImpl = pbRead
     result = res
