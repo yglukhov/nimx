@@ -63,6 +63,7 @@ when web:
             return b;
             """, arrayBuffer.p)
             result = cast[string](r)
+            shallow(result)
 
 proc getHttpStream(url: string, handler: Handler) =
     when web:
@@ -81,6 +82,9 @@ proc getHttpStream(url: string, handler: Handler) =
     else:
         sendRequest("GET", url, nil, []) do(r: Response):
             if r.statusCode >= 200 and r.statusCode < 300:
+                var b: string
+                shallowCopy(b, r.body)
+                shallow(b)
                 let s = newStringStream(r.body)
                 handler(s, nil)
             else:

@@ -312,8 +312,8 @@ method onTouchEv(cpva: ColorPickerV, e: var Event): bool =
 
 # ColorPickerCircle
 
-proc newColorPickerCircle(defaultPalette: ColorPickerPalette, radius: Coord): ColorPickerCircle =
-    result.new
+proc newColorPickerCircle(defaultPalette: ColorPickerPalette, radius: Coord, frame: Rect): ColorPickerCircle =
+    result = ColorPickerCircle.new(frame)
     result.radius = radius
     result.palette = defaultPalette
 
@@ -432,9 +432,10 @@ method init*(cpv: ColorPickerView, r: Rect) =
 
     # Color Picker Circle
     let rightSize = r.width - cpv.rightMargin
-    cpv.circle = newColorPickerCircle(ColorPickerPalette.HSV, (rightSize - 2.0 * margin) / 2.0)
-    cpv.circle.setFrameOrigin(newPoint(cpv.rightMargin + margin, margin))
-    cpv.circle.setFrameSize(newSize(rightSize - margin, rightSize - margin))
+    let circleRadius = (rightSize - 2.0 * margin) / 2.0
+    let circleRect = newRect(cpv.rightMargin + margin, margin, rightSize - margin, rightSize - margin)
+
+    cpv.circle = newColorPickerCircle(ColorPickerPalette.HSV, circleRadius, circleRect)
     cpv.addSubview(cpv.circle)
 
     # Color Palette Popup Chooser
