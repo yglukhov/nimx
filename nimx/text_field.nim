@@ -260,6 +260,7 @@ method onTouchEv*(t: TextField, e: var Event): bool =
                 else:
                     t.mText.getClosestCursorPositionToPoint(pt, cursorPos, cursorOffset)
                     t.textSelection = cursorPos .. cursorPos
+                t.bumpCursorVisibility()
 
     of bsUp:
         if t.selectable and t.isSelecting:
@@ -422,13 +423,14 @@ method onKeyDown*(t: TextField, e: var Event): bool =
         t.focusOnCursor()
 
         when defined(macosx) or defined(windows) or defined(linux):
-            case cmd
-            of kcPaste:
+            if cmd == kcPaste:
                 if t.editable:
                     let s = pasteboardWithName(PboardGeneral).readString()
                     if not s.isNil:
                         t.insertText(s)
-            of kcCopy, kcCut, kcUseSelectionForFind:
+
+        when defined(macosx) or defined(windows) or defined(linux) or defined(emscripten) or defined(js):
+            if cmd in { kcCopy, kcCut, kcUseSelectionForFind }:
                 let s = t.selectedText()
                 if not s.isNil:
                     if cmd == kcUseSelectionForFind:
@@ -437,7 +439,6 @@ method onKeyDown*(t: TextField, e: var Event): bool =
                         pasteboardWithName(PboardGeneral).writeString(s)
                     if cmd == kcCut and t.editable:
                         t.clearSelection()
-            else: discard
 
 method onTextInput*(t: TextField, s: string): bool =
     if not t.editable: return false

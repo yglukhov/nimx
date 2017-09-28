@@ -44,20 +44,13 @@ else:
             w.isFullscreen = v
 
 when defined(macosx) and not defined(ios):
-    import nimx.private.objc_appkit
-    enableObjC()
-    {.emit: "#import <AppKit/AppKit.h>".}
-    type NSWindow {.importc, header: "<AppKit/AppKit.h>", final.} = distinct int
-
+    import darwin.app_kit.nswindow
     proc scaleFactor(w: SdlWindow): float32 =
         var wminfo: WMInfo
         discard w.impl.getWMInfo(wminfo)
-        let nsWindow = cast[NSWindow](wminfo.padding)
-
-        {.emit: """
-        `result` = [`nsWindow` respondsToSelector: @selector(backingScaleFactor)] ? [`nsWindow` backingScaleFactor] : 1.0f;
-        """.}
-
+        let nsWindow = cast[ptr NSWindow](addr wminfo.padding[0])[]
+        assert(not nsWindow.isNil)
+        result = nsWindow.scaleFactor
 
 proc getSDLWindow*(wnd: SdlWindow): WindowPtr = wnd.impl
 
