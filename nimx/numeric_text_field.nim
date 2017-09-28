@@ -1,13 +1,7 @@
 import strutils, math, times
-import nimx.keyboard
-import nimx.text_field
-import nimx.view_event_handling
-import nimx.window_event_handling
-import nimx.composition
-import nimx.context
-import nimx.font
-import nimx.animation
-import nimx.window
+import nimx / [keyboard, text_field, formatted_text, 
+    view_event_handling, window_event_handling, composition,
+    context, font, animation, window]
 
 type NumericTextField* = ref object of TextField
     precision*: uint
@@ -25,6 +19,7 @@ proc newNumericTextField*(r: Rect, precision: uint = 2): NumericTextField =
 method init*(v: NumericTextField, r: Rect) =
     procCall v.TextField.init(r)
     v.precision = 2
+    v.formattedText.horizontalAlignment = haCenter
 
 #[
 method onScroll*(v: NumericTextField, e: var Event): bool =
@@ -65,22 +60,9 @@ proc drawArrows(v: NumericTextField) =
         setUniform("uAngle", Coord(0))
 
 method draw*(t: NumericTextField, r: Rect) =
+    procCall t.TextField.draw(r)
     if not t.isFirstResponder():
-        let c = currentContext()
-        c.fillColor = whiteColor()
-        c.strokeColor = newGrayColor(0.74)
-        c.strokeWidth = 1.0
-        c.drawRect(t.bounds)
         t.drawArrows()
-
-        if t.text != nil:
-            let font = t.font()
-            let sz = font.sizeOfString(t.text)
-            var pt = sz.centerInRect(t.bounds)
-            c.fillColor = t.textColor
-            c.drawText(font, pt, t.text)
-    else:
-        procCall t.TextField.draw(r)
 
 #[
 proc roundTo(v, t: float): float =
