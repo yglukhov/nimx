@@ -41,6 +41,7 @@ type
         droppedElemIndexPath: IndexPath # Initial index path of the element that is currently being dragged
         dropAfterItem: ItemNode
         dropInsideItem: ItemNode
+        dragStartLocation: Point
 
     IndexPath* = seq[int]
 
@@ -208,7 +209,7 @@ proc reloadDataForNode(v: OutlineView, n: ItemNode, indexPath: var IndexPath) =
 
     let lastIndex = indexPath.len
     indexPath.add(0)
-    
+
     if not v.mDisplayFilter.isNil:
         n.filtered = not v.mDisplayFilter(n.item)
 
@@ -284,16 +285,19 @@ method onTouchEv*(v: OutlineView, e: var Event): bool =
         if e.buttonState == bsDown:
             let pos = e.localPosition
             let i = v.itemAtPos(pos, v.tempIndexPath)
+            v.dragStartLocation = pos
             if i.isNil:
                 v.draggedElemIndexPath = @[]
             else:
                 v.draggedElemIndexPath = v.tempIndexPath
         else: # Dragging
+            echo e.offset
             let pos = e.localPosition
+            let dragLen = pow(abs(pos.x - v.dragStartLocation.x), 2) + pow(abs(pos.y - v.dragStartLocation.y), 2)
             var i = v.itemAtPos(pos, v.tempIndexPath)
             if i.isNil:
                 v.droppedElemIndexPath = @[]
-            else:
+            elif sqrt(dragLen) > 10:
                 v.droppedElemIndexPath = v.tempIndexPath
                 v.dropAfterItem = i
                 # When mouse hovers over the row, the drop target may be one of the following:
