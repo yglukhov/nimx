@@ -31,17 +31,17 @@ proc onFullscreenChange*(eventType: cint, fullscreenChangeEvent: ptr EmscriptenF
 
 method fullscreen*(w: EmscriptenWindow): bool =
     return EM_ASM_INT("""
-    var result = false;
-    if (document.fullscreenElement !== undefined) {
-        result = document.fullscreenElement !== null;
-    } else if (document.webkitFullscreenElement !== undefined) {
-        result = document.webkitFullscreenElement !== null;
-    } else if (document.mozFullScreenElement !== undefined) {
-        result = document.mozFullScreenElement !== null;
-    } else if (document.msFullscreenElement !== undefined) {
-        result = document.msFullscreenElement !== null;
-    }
-    return result ? 1 : 0;
+        var result = false;
+        if (document.fullscreenElement !== undefined) {
+            result = document.fullscreenElement !== null;
+        } else if (document.webkitFullscreenElement !== undefined) {
+            result = document.webkitFullscreenElement !== null;
+        } else if (document.mozFullScreenElement !== undefined) {
+            result = document.mozFullScreenElement !== null;
+        } else if (document.msFullscreenElement !== undefined) {
+            result = document.msFullscreenElement !== null;
+        }
+        return result ? 1 : 0;
     """, w.canvasId.cstring) != 0
 
 method `fullscreen=`*(w: EmscriptenWindow, v: bool) =
