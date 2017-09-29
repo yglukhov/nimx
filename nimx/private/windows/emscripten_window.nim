@@ -27,7 +27,7 @@ method fullscreenAvailable*(w: EmscriptenWindow): bool =
     """) != 0
 
 proc onFullscreenChange*(eventType: cint, fullscreenChangeEvent: ptr EmscriptenFullscreenChangeEvent, userData: pointer): EM_BOOL {.cdecl.} =
-    sharedNotificationCenter().postNotification("FULLSCREEN_HAS_BEEN_CHANGED", newVariant((window: cast[Window](userData), fullscreen: bool(fullscreenChangeEvent.isFullscreen))))
+    sharedNotificationCenter().postNotification("WINDOW_FULLSCREEN_HAS_BEEN_CHANGED", newVariant((window: cast[Window](userData), fullscreen: bool(fullscreenChangeEvent.isFullscreen))))
 
 method fullscreen*(w: EmscriptenWindow): bool =
     return EM_ASM_INT("""
