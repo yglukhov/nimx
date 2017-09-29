@@ -135,14 +135,13 @@ proc reloadData(v: CollectionView) =
     else:
         while v.subviews.len() > 0:
             v.subviews[0].removeFromSuperview()
-
+    
         for i in rangeCache.start .. min(v.rangeCache.finish, v.numberOfItems() - 1):
             let newView = v.viewForItem(i)
             newView.setFrameSize(v.itemSize)
             v.pushToCollection(newView)
 
-proc updateLayout*(v: CollectionView) =
-    ## Update subviews positioning
+proc update(v: CollectionView)=
     v.reloadData()
     let r = v.visibleRectOfItems()
     let rangeCache = v.visibleRangeOfItems()
@@ -159,6 +158,10 @@ proc updateLayout*(v: CollectionView) =
         v.subviews[i - rangeCache.start].setFrameOrigin(newPoint(posX, posY))
 
     v.setNeedsDisplay()
+
+proc updateLayout*(v: CollectionView) =
+   v.scrollOffset = 0.0
+   v.update()
 
 method init*(v: CollectionView, r: Rect) =
     procCall v.View.init(r)
@@ -179,7 +182,7 @@ method onScrollProgress(ls: CollectionScrollListener, dx, dy : float32, e : var 
         ls.v.scrollOffset = min(max(0, ls.p.x - dx), if ls.v.widthFull() - ls.v.frame.width >= 0: ls.v.widthFull() - ls.v.frame.width else: 0)
     else:
         ls.v.scrollOffset = min(max(0, ls.p.y - dy), if ls.v.heightFull() - ls.v.frame.height >= 0: ls.v.heightFull() - ls.v.frame.height else: 0)
-    ls.v.updateLayout()
+    ls.v.update()
 
 method onTapUp(ls: CollectionScrollListener, dx, dy : float32, e : var Event) =
     discard
@@ -190,8 +193,8 @@ method onScroll*(v: CollectionView, e: var Event): bool =
         v.scrollOffset = clamp(v.scrollOffset, 0, max(v.widthFull() - v.frame.width, 0))
     else:
         v.scrollOffset = clamp(v.scrollOffset, 0, max(v.heightFull() - v.frame.height,0))
-    v.updateLayout()
+    v.update()
 
 method resizeSubviews*(v: CollectionView, oldSize: Size) =
     if not v.numberOfItems.isNil():
-        v.updateLayout()
+        v.update()
