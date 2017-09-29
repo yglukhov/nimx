@@ -212,7 +212,9 @@ proc reloadDataForNode(v: OutlineView, n: ItemNode, indexPath: var IndexPath) =
 
     if not v.mDisplayFilter.isNil:
         n.filtered = not v.mDisplayFilter(n.item)
-
+    else:
+        n.filtered = false
+        
     for i in 0 ..< childrenCount:
         indexPath[lastIndex] = i
         if n.children[i].isNil:
