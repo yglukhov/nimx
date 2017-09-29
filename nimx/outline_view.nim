@@ -214,7 +214,7 @@ proc reloadDataForNode(v: OutlineView, n: ItemNode, indexPath: var IndexPath) =
         n.filtered = not v.mDisplayFilter(n.item)
     else:
         n.filtered = false
-        
+
     for i in 0 ..< childrenCount:
         indexPath[lastIndex] = i
         if n.children[i].isNil:
@@ -231,6 +231,7 @@ proc reloadDataForNode(v: OutlineView, n: ItemNode, indexPath: var IndexPath) =
 proc reloadData*(v: OutlineView) =
     v.tempIndexPath.setLen(0)
     v.reloadDataForNode(v.rootItem, v.tempIndexPath)
+    v.checkViewSize()
 
 proc setDisplayFilter*(v: OutlineView, f: proc(item: Variant):bool)=
     v.mDisplayFilter = f
