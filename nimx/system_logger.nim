@@ -18,12 +18,10 @@ elif defined(macosx) or defined(ios):
     proc native_log(a: cstring) =
         {.emit: "NSLog(CFSTR(\"%s\"), `a`);".}
 elif defined(android):
-    {.emit: """
-    #include <android/log.h>
-    """.}
-
-    proc native_log(a: cstring) =
-        {.emit: """__android_log_write(ANDROID_LOG_INFO, "NIM_APP", `a`);""".}
+    proc log_write(prio: cint, tag, text: cstring) {.importc: "__android_log_write".}
+    template native_log(a: cstring) =
+        # ANDROID_LOG_INFO = 4
+        log_write(4, "NIM_APP", a)
 else:
     template native_log(a: string) = echo a
 
