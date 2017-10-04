@@ -408,24 +408,37 @@ proc moveSelectionUp(v: OutlineView, path: var IndexPath) =
                 path[^1].dec
                 nodeAtPath = v.nodeAtIndexPath(path)
 
+            if nodeAtPath.filtered:
+                path = path[0..^2]
+                v.moveSelectionUp(path)
+                return
             if nodeAtPath.hasChildren:
                 path.add(nodeAtPath.children.len - 1)
                 getLowestVisibleChildPath(v, path)
 
         v.getLowestVisibleChildPath(path)
         v.selectItemAtIndexPath(path)
+
     elif path.len > 1:
         v.selectItemAtIndexPath(path[0..^2])
 
 proc moveSelectionDown(v: OutlineView, path: var IndexPath) =
     var nodeAtPath = v.nodeAtIndexPath(path)
-    if nodeAtPath.isNil or nodeAtPath.hasChildren:
+    if nodeAtPath.isNil:
         path.add(0)
         v.selectItemAtIndexPath(path)
         return
 
+    elif nodeAtPath.hasChildren:
+        path.add(0)
+        if v.nodeAtIndexPath(path).filtered:
+            v.moveSelectionDown(path)
+        else:
+            v.selectItemAtIndexPath(path)
+        return
+
     proc getLowerNeighbour(v: OutlineView, path: IndexPath) =
-        if path.len >= 2:
+        if path.len > 1:
             var parent = v.nodeAtIndexPath(path[0..^2])
             if path[^1] + 1 < parent.children.len:
                 var newPath = path
@@ -435,8 +448,8 @@ proc moveSelectionDown(v: OutlineView, path: var IndexPath) =
                     newPath[^1].inc
                     n = v.nodeAtIndexPath(newPath)
 
-                if n.filtered and path.len >= 2:
-                    v.getLowerNeighbour(path[0..^2])    
+                if n.filtered:
+                    v.getLowerNeighbour(path[0..^2])
                 else:
                     v.selectItemAtIndexPath(newPath)
             else:
