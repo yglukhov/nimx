@@ -394,42 +394,56 @@ method acceptsFirstResponder*(v: OutlineView): bool = true
 proc hasChildren(n: ItemNode): bool =
     n.expandable and n.expanded and n.children.len != 0
 
-proc moveSelection(v: OutlineView, path: var IndexPath, directionUp: bool) =
-    if path.len == 0: # no selection, select rootItem
+proc moveSelectionUp(v: OutlineView, path: var IndexPath) =
+    if path.len == 0:
         path.add(0)
         v.selectItemAtIndexPath(path)
         return
 
-    let dir = -(directionUp.int8 * 2 - 1)
+    if path[^1] > 0:
+        path[^1].dec
+        proc getLowestVisibleChildPath(v: OutlineView, path: var IndexPath) =
+            var nodeAtPath = v.nodeAtIndexPath(path)
+            while nodeAtPath.filtered and path[^1] > 0:
+                path[^1].dec
+                nodeAtPath = v.nodeAtIndexPath(path)
 
-    proc indexWalk(path: var IndexPath)=
-        var pl = if path.len > 1: v.nodeAtIndexPath(path[0..^2]).children.len else: 0
-        var cl = v.nodeAtIndexPath(path).children.len
-        path[^1].inc(dir)
+            if nodeAtPath.hasChildren:
+                path.add(nodeAtPath.children.len - 1)
+                getLowestVisibleChildPath(v, path)
 
-        if path[^1] < 0:
-            path[^1] = 0
-            if path.len > 1:
-                path = path[0 .. ^2]
-
-        elif path[^1] > pl - 1:
-            path[^1] = max(pl - 1, 0)
-            if cl > 0:
-                path.add(0)
-
-    indexWalk(path)
-    var nextNode = v.nodeAtIndexPath(path)
-    while nextNode.filtered:
-        indexWalk(path)
-        nextNode = v.nodeAtIndexPath(path)
-
-    v.selectItemAtIndexPath(path)
-
-proc moveSelectionUp(v: OutlineView, path: var IndexPath) =
-    v.moveSelection(path, true)
+        v.getLowestVisibleChildPath(path)
+        v.selectItemAtIndexPath(path)
+    elif path.len > 1:
+        v.selectItemAtIndexPath(path[0..^2])
 
 proc moveSelectionDown(v: OutlineView, path: var IndexPath) =
-    v.moveSelection(path, false)
+    var nodeAtPath = v.nodeAtIndexPath(path)
+    if nodeAtPath.isNil or nodeAtPath.hasChildren:
+        path.add(0)
+        v.selectItemAtIndexPath(path)
+        return
+
+    proc getLowerNeighbour(v: OutlineView, path: IndexPath) =
+        if path.len >= 2:
+            var parent = v.nodeAtIndexPath(path[0..^2])
+            if path[^1] + 1 < parent.children.len:
+                var newPath = path
+                newPath[^1].inc
+                var n = v.nodeAtIndexPath(newPath)
+                while n.filtered and newPath[^1] < parent.children.len:
+                    newPath[^1].inc
+                    n = v.nodeAtIndexPath(newPath)
+
+                if n.filtered:
+                    v.getLowerNeighbour(path[0..^2])    
+                
+                v.selectItemAtIndexPath(newPath)
+            else:
+                v.getLowerNeighbour(path[0..^2])
+
+    v.getLowerNeighbour(path)
+    v.selectItemAtIndexPath(path)
 
 proc moveSelectionLeft(v: OutlineView) =
     let curNode = v.selectedNode
