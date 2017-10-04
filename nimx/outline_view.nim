@@ -431,14 +431,14 @@ proc moveSelectionDown(v: OutlineView, path: var IndexPath) =
                 var newPath = path
                 newPath[^1].inc
                 var n = v.nodeAtIndexPath(newPath)
-                while n.filtered and newPath[^1] < parent.children.len:
+                while n.filtered and newPath[^1] + 1 < parent.children.len:
                     newPath[^1].inc
                     n = v.nodeAtIndexPath(newPath)
 
-                if n.filtered:
+                if n.filtered and path.len >= 2:
                     v.getLowerNeighbour(path[0..^2])    
-                
-                v.selectItemAtIndexPath(newPath)
+                else:
+                    v.selectItemAtIndexPath(newPath)
             else:
                 v.getLowerNeighbour(path[0..^2])
 
