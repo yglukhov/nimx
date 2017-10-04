@@ -547,12 +547,19 @@ proc nimbleOverrideFlags(b: Builder): seq[string] =
         if not origNimblePath.isNil: result.add("--excludePath:" & origNimblePath)
         result.add("--NimblePath:" & cp.path)
 
-proc jsPostBuild(b: Builder) =
+proc postprocessWebTarget(b: Builder) =
     if not b.disableClosureCompiler and fileExists(b.executablePath):
         if b.platform == "js":
             closure_compiler.compileFileAndRewrite(b.executablePath, ADVANCED_OPTIMIZATIONS, b.enableClosureCompilerSourceMap)
         # If source map is disabled, emscripten has already run build-in closure compiler
         elif b.platform == "emscripten" and b.enableClosureCompilerSourceMap:
+            # Copy one of the optimization steps for using in closure compiler
+            let f = getTempDir() / "emscripten_temp" / "emcc-10-eval-ctors.js"
+            if fileExists(f):
+                copyFile(f, b.executablePath)
+            else:
+                echo "File for closure compiler doesn't exist: ", f
+
             # Closure compiler ADVANCED_OPTIMIZATIONS has no compatibility with emscripten
             closure_compiler.compileFileAndRewrite(b.executablePath, SIMPLE_OPTIMIZATIONS, b.enableClosureCompilerSourceMap)
 
@@ -713,7 +720,7 @@ proc build*(b: Builder) =
                     quit 1
             b.nimFlags.add(["--cpu:i386", "--os:windows", "--cc:gcc", "--gcc.exe:" & mxeBin, "--gcc.linkerexe:" & mxeBin])
         b.makeWindowsResource()
-    of "emscripten":
+    of "emscripten", "wasm":
         let emcc = emccWrapperPath()
         b.emscriptenPreloadFiles.add(b.originalResourcePath & "/OpenSans-Regular.ttf@/res/OpenSans-Regular.ttf")
         b.executablePath = b.buildRoot / "main.js"
@@ -735,54 +742,27 @@ proc build*(b: Builder) =
         if not b.debugMode:
             b.additionalCompilerFlags.add("-Oz")
 
-        if not b.disableClosureCompiler:
-            b.additionalLinkerFlags.add("-Oz")
+        if b.platform == "emscripten":
+            if not b.disableClosureCompiler:
+                b.additionalLinkerFlags.add("-Oz")
 
-            # Emscripten creates step-by-step optimization if env EMCC_DEBUG=2. One of the steps will be used later in closure compiler.
-            # In this case we can receive source map and size of the output file will be the smallest.
-            if b.enableClosureCompilerSourceMap:
-              putEnv("EMCC_DEBUG", "2")
-    of "wasm":
-        let emcc = emccWrapperPath()
-        b.emscriptenPreloadFiles.add(b.originalResourcePath & "/OpenSans-Regular.ttf@/res/OpenSans-Regular.ttf")
-        b.executablePath = b.buildRoot / "main.js"
-        b.nimFlags.add(["--cpu:i386", "-d:wasm", "-d:emscripten", "--os:linux", "--cc:clang",
-            "--clang.cpp.exe=" & emcc.quoteShell(), "--clang.cpp.linkerexe=" & emcc.quoteShell(), "-d:SDL_Static"])
-
-        b.emscriptenPreJS.add(b.makeEmscriptenPreloadData())
-
-        var preJsContent = ""
-        for js in b.emscriptenPreJS:
-            preJsContent &= readFile(js)
-        let preJS = b.nimcachePath / "pre.js"
-        writeFile(preJS, preJsContent)
-        b.additionalLinkerFlags.add(["--pre-js", preJS])
-
-        b.additionalNimFlags.add(["-d:useRealtimeGC"])
-        b.additionalLinkerFlags.add(["-s", "WASM=1"])
-
-        if not b.debugMode:
-            b.additionalCompilerFlags.add("-Oz")
-
-        # if not b.disableClosureCompiler:
-        #     b.additionalLinkerFlags.add("-Oz")
-
-        #     # Emscripten creates step-by-step optimization if env EMCC_DEBUG=2. One of the steps will be used later in closure compiler.
-        #     # In this case we can receive source map and size of the output file will be the smallest.
-        #     if b.enableClosureCompilerSourceMap:
-        #       putEnv("EMCC_DEBUG", "2")
-
-
+                # Emscripten creates step-by-step optimization if env EMCC_DEBUG=2. One of the steps will be used later in closure compiler.
+                # In this case we can receive source map and size of the output file will be the smallest.
+                if b.enableClosureCompilerSourceMap:
+                    putEnv("EMCC_DEBUG", "2")
+            if not b.debugMode:
+                b.additionalLinkerFlags.add(["-s", "ELIMINATE_DUPLICATE_FUNCTIONS=1"])
+        elif b.platform == "wasm":
+            addCAndLFlags(["-s", "WASM=1"])
     else: discard
 
-    if b.platform != "js" and b.platform != "emscripten":
+    if b.platform notin ["js", "emscripten", "wasm"]:
         b.nimFlags.add("--threads:on")
         if b.platform != "windows" and not b.avoidSDL:
             b.linkerFlags.add("-lSDL2")
 
-    if b.runAfterBuild and b.platform != "android" and b.platform != "ios" and
-            b.platform != "ios-sim" and b.platform != "js" and
-            b.platform != "emscripten":
+    if b.runAfterBuild and b.platform notin ["android", "ios", "ios-sim",
+            "js", "wasm", "emscripten"]:
         b.nimFlags.add("--run")
 
     b.nimFlags.add(["--warning[LockLevel]:off", "--verbosity:" & $b.nimVerbosity,
@@ -790,7 +770,7 @@ proc build*(b: Builder) =
                 "--parallelBuild:" & $b.nimParallelBuild, "--out:" & b.executablePath,
                 "--nimcache:" & b.nimcachePath])
 
-    if b.platform != "windows" and b.platform != "emscripten" and b.platform != "wasm" and not b.avoidSDL:
+    if b.platform notin ["windows", "emscripten", "wasm"] and not b.avoidSDL:
         b.nimFlags.add("--noMain")
 
     if b.avoidSDL: b.nimFlags.add("-d:nimxAvoidSDL")
@@ -819,7 +799,6 @@ proc build*(b: Builder) =
 
     let command = case b.platform
         of "js": "js"
-        of "wasm": "cpp"
         else: "c"
 
     b.nimFlags.add("--putEnv:NIMX_RES_PATH=" & b.resourcePath)
@@ -831,18 +810,8 @@ proc build*(b: Builder) =
 
     direShell args
 
-    if b.platform == "emscripten":
-        # Copy one of the optimization steps for using in closure compiler
-        if not b.disableClosureCompiler and b.enableClosureCompilerSourceMap:
-            let f = getTempDir() / "emscripten_temp" / "emcc-10-eval-ctors.js"
-            if fileExists(f):
-                copyFile(f, b.executablePath)
-            else:
-                echo "File for closure compiler doesn't exist: ", f
-
-        b.jsPostBuild()
-    elif b.platform == "js":
-        b.jsPostBuild()
+    if b.platform in ["emscripten", "wasm", "js"]:
+        b.postprocessWebTarget()
     elif b.platform == "ios":
         if not b.codesignIdentity.isNil:
             b.signIosBundle()

@@ -20,12 +20,10 @@ export control
 
 type TextField* = ref object of Control
     mText: FormattedText
-    #mText*: string
     editable*: bool
     continuous*: bool
     selectable*: bool
     isSelecting*: bool
-    textColor*: Color
     mFont*: Font
     selectionStartLine: int
     selectionEndLine: int
@@ -86,12 +84,16 @@ proc newLabel*(parent: View = nil, position: Point = newPoint(0, 0), size: Size 
     if not isNil(parent):
         parent.addSubview(result)
 
+proc `textColor=`*(t: TextField, c: Color)=
+    t.mText.setTextColorInRange(0, -1, c)
+
+proc textColor*(t: TextField): Color = t.mText.colorOfRuneAtPos(0).color1
+
 method init*(t: TextField, r: Rect) =
     procCall t.Control.init(r)
     t.editable = true
     t.selectable = true
     t.textSelection = -1 .. -1
-    t.textColor = newGrayColor(0.0)
     t.hasBezel = true
     t.mText = newFormattedText()
     t.mText.verticalAlignment = vaCenter
@@ -260,6 +262,7 @@ method onTouchEv*(t: TextField, e: var Event): bool =
                 else:
                     t.mText.getClosestCursorPositionToPoint(pt, cursorPos, cursorOffset)
                     t.textSelection = cursorPos .. cursorPos
+                t.bumpCursorVisibility()
 
     of bsUp:
         if t.selectable and t.isSelecting:
@@ -422,13 +425,14 @@ method onKeyDown*(t: TextField, e: var Event): bool =
         t.focusOnCursor()
 
         when defined(macosx) or defined(windows) or defined(linux):
-            case cmd
-            of kcPaste:
+            if cmd == kcPaste:
                 if t.editable:
                     let s = pasteboardWithName(PboardGeneral).readString()
                     if not s.isNil:
                         t.insertText(s)
-            of kcCopy, kcCut, kcUseSelectionForFind:
+
+        when defined(macosx) or defined(windows) or defined(linux) or defined(emscripten) or defined(js):
+            if cmd in { kcCopy, kcCut, kcUseSelectionForFind }:
                 let s = t.selectedText()
                 if not s.isNil:
                     if cmd == kcUseSelectionForFind:
@@ -437,7 +441,6 @@ method onKeyDown*(t: TextField, e: var Event): bool =
                         pasteboardWithName(PboardGeneral).writeString(s)
                     if cmd == kcCut and t.editable:
                         t.clearSelection()
-            else: discard
 
 method onTextInput*(t: TextField, s: string): bool =
     if not t.editable: return false
@@ -462,18 +465,15 @@ method visitProperties*(v: TextField, pv: var PropertyVisitor) =
     procCall v.Control.visitProperties(pv)
     pv.visitProperty("text", v.text)
     pv.visitProperty("editable", v.editable)
-    pv.visitProperty("textColor", v.textColor)
 
 method serializeFields*(v: TextField, s: Serializer) =
     procCall v.View.serializeFields(s)
     s.serialize("text", v.text)
     s.serialize("editable", v.editable)
-    s.serialize("textColor", v.textColor)
 
 method deserializeFields*(v: TextField, s: Deserializer) =
     procCall v.View.deserializeFields(s)
     s.deserialize("text", v.mText)
     s.deserialize("editable", v.editable)
-    s.deserialize("textColor", v.textColor)
 
 registerClass(TextField)

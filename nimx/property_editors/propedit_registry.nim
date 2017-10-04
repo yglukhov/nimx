@@ -36,7 +36,7 @@ proc propertyEditorForProperty*(editedObject: Variant, title: string, v: Variant
     result.name = "'" & title & "'"
     result.autoresizingMask = {afFlexibleWidth, afFlexibleMaxY}
     let label = newLabel(newRect(0, 0, 100, editorRowHeight))
-    label.textColor = newGrayColor(0.9)
+    label.textColor = blackColor()
     label.name = "label"
     label.text = title & ":"
     label.font = editorFont()

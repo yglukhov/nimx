@@ -20,6 +20,7 @@ const offsetOutline = 6
 type ItemNode = ref object
     expanded: bool
     expandable: bool
+    filtered: bool
     children: seq[ItemNode]
     item: Variant
     cell: TableViewCell
@@ -29,6 +30,7 @@ type
         rootItem: ItemNode
         selectedIndexPath*: IndexPath
         numberOfChildrenInItem*: proc(item: Variant, indexPath: openarray[int]): int
+        mDisplayFilter: proc(item: Variant):bool
         childOfItem*: proc(item: Variant, indexPath: openarray[int]): Variant
         createCell*: proc(): TableViewCell
         configureCell*: proc (cell: TableViewCell, indexPath: openarray[int])
@@ -39,6 +41,7 @@ type
         droppedElemIndexPath: IndexPath # Initial index path of the element that is currently being dragged
         dropAfterItem: ItemNode
         dropInsideItem: ItemNode
+        dragStartLocation: Point
 
     IndexPath* = seq[int]
 
@@ -59,6 +62,7 @@ template xOffsetForIndexPath(ip: IndexPath): Coord =
     Coord(offsetOutline + ip.len * offsetOutline * 2)
 
 proc drawNode(v: OutlineView, n: ItemNode, y: var Coord, indexPath: var IndexPath) =
+    if n.filtered: return
     let c = currentContext()
     if n.cell.isNil:
         n.cell = v.createCell()
@@ -120,6 +124,7 @@ proc getExposedRowsCount(node: ItemNode): int =
     result = 1
     if node.expanded:
         for child in node.children:
+            if child.filtered: continue
             result += child.getExposedRowsCount()
 
 proc getExposingRowNum(v: OutlineView, indexPath: IndexPath): int =
@@ -128,7 +133,9 @@ proc getExposingRowNum(v: OutlineView, indexPath: IndexPath): int =
     for indexInPath in indexPath:
         result += 1
         for neighb in 0 ..< indexInPath:
-            result += parentNode.children[neighb].getExposedRowsCount
+            let ch = parentNode.children[neighb]
+            if ch.filtered: continue
+            result += ch.getExposedRowsCount
         parentNode = parentNode.children[indexInPath]
 
 proc checkViewSize(v: OutlineView) =
@@ -173,6 +180,7 @@ proc itemAtPos(v: OutlineView, n: ItemNode, p: Point, y: var Coord, indexPath: v
         let lastIndex = indexPath.len
         indexPath.add(0)
         for i, c in n.children:
+            if c.filtered: continue
             indexPath[lastIndex] = i
             result = v.itemAtPos(c, p, y, indexPath)
             if not result.isNil: return
@@ -184,6 +192,7 @@ proc itemAtPos(v: OutlineView, p: Point, indexPath: var IndexPath): ItemNode =
     if not v.rootItem.children.isNil:
         for i, c in v.rootItem.children:
             indexPath[0] = i
+            if c.filtered: continue
             result = v.itemAtPos(c, p, y, indexPath)
             if not result.isNil: break
 
@@ -200,6 +209,12 @@ proc reloadDataForNode(v: OutlineView, n: ItemNode, indexPath: var IndexPath) =
 
     let lastIndex = indexPath.len
     indexPath.add(0)
+
+    if not v.mDisplayFilter.isNil:
+        n.filtered = not v.mDisplayFilter(n.item)
+    else:
+        n.filtered = false
+
     for i in 0 ..< childrenCount:
         indexPath[lastIndex] = i
         if n.children[i].isNil:
@@ -207,11 +222,20 @@ proc reloadDataForNode(v: OutlineView, n: ItemNode, indexPath: var IndexPath) =
         if not v.childOfItem.isNil:
             n.children[i].item = v.childOfItem(n.item, indexPath)
         v.reloadDataForNode(n.children[i], indexPath)
+
+        if not n.children[i].filtered:
+            n.filtered = false
+
     indexPath.setLen(lastIndex)
 
 proc reloadData*(v: OutlineView) =
     v.tempIndexPath.setLen(0)
     v.reloadDataForNode(v.rootItem, v.tempIndexPath)
+    v.checkViewSize()
+
+proc setDisplayFilter*(v: OutlineView, f: proc(item: Variant):bool)=
+    v.mDisplayFilter = f
+    v.reloadData()
 
 template selectionChanged(v: OutlineView) =
     if not v.onSelectionChanged.isNil: v.onSelectionChanged()
@@ -264,16 +288,19 @@ method onTouchEv*(v: OutlineView, e: var Event): bool =
         if e.buttonState == bsDown:
             let pos = e.localPosition
             let i = v.itemAtPos(pos, v.tempIndexPath)
+            v.dragStartLocation = pos
             if i.isNil:
                 v.draggedElemIndexPath = @[]
             else:
                 v.draggedElemIndexPath = v.tempIndexPath
         else: # Dragging
+            echo e.offset
             let pos = e.localPosition
+            let dragLen = pow(abs(pos.x - v.dragStartLocation.x), 2) + pow(abs(pos.y - v.dragStartLocation.y), 2)
             var i = v.itemAtPos(pos, v.tempIndexPath)
             if i.isNil:
                 v.droppedElemIndexPath = @[]
-            else:
+            elif sqrt(dragLen) > 10:
                 v.droppedElemIndexPath = v.tempIndexPath
                 v.dropAfterItem = i
                 # When mouse hovers over the row, the drop target may be one of the following:

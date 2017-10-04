@@ -1,5 +1,5 @@
 import nimx/[ abstract_window, view, context, event, app, screen,
-            portable_gl, linkage_details ]
+            portable_gl, linkage_details, notification_center ]
 import opengl
 import unicode, times, logging
 import jsbind, jsbind.emscripten
@@ -24,7 +24,10 @@ method fullscreenAvailable*(w: EmscriptenWindow): bool =
             result = document.msFullscreenEnabled;
         }
         return result ? 1 : 0;
-    """, w.canvasId.cstring) != 0
+    """) != 0
+
+proc onFullscreenChange*(eventType: cint, fullscreenChangeEvent: ptr EmscriptenFullscreenChangeEvent, userData: pointer): EM_BOOL {.cdecl.} =
+    sharedNotificationCenter().postNotification("WINDOW_FULLSCREEN_HAS_BEEN_CHANGED", newVariant((window: cast[Window](userData), fullscreen: bool(fullscreenChangeEvent.isFullscreen))))
 
 method fullscreen*(w: EmscriptenWindow): bool =
     return EM_ASM_INT("""
@@ -292,7 +295,7 @@ proc initCommon(w: EmscriptenWindow, r: view.Rect) =
     attrs.antialias = 0
     attrs.stencil = 1
     w.ctx = emscripten_webgl_create_context(w.canvasId, addr attrs)
-    if w.ctx < 0:
+    if w.ctx <= 0:
         raise newException(Exception, "Could not create WebGL context: " & $w.ctx)
     discard emscripten_webgl_make_context_current(w.ctx)
     w.renderingContext = newGraphicsContext()
@@ -315,6 +318,8 @@ proc initCommon(w: EmscriptenWindow, r: view.Rect) =
     discard emscripten_set_focus_callback(nil, cast[pointer](w), 1, onFocus)
 
     discard emscripten_set_webglcontextlost_callback(w.canvasId, cast[pointer](w), 0, onContextLost)
+
+    discard emscripten_set_fullscreenchange_callback(docId, cast[pointer](w), 0, onFullscreenChange)
 
     discard emscripten_set_resize_callback(nil, cast[pointer](w), 0, onResize)
 
