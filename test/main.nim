@@ -28,6 +28,7 @@ import sample09_docking_tabs
 import sample10_text
 import sample11_expanded_views
 import sample12_menus
+import sample13_drag_and_drop
 
 const isMobile = defined(ios) or defined(android)
 

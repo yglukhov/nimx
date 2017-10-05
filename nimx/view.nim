@@ -22,8 +22,19 @@ type ClipType* = enum
     ctNone
     ctDefaultClip
 
+type DragState* = enum
+    dsWait
+    dsDragged
+
 type
     GestureDetector* = ref object of RootObj
+
+    DragAndDrop* = ref object of RootObj
+        mStartPos*: Point
+        mCurrentPos*: Point
+        activateStep*: float32
+        isDragged*: bool
+        dragState*: DragState
 
     View* = ref object of RootObj
         window*: Window
@@ -40,6 +51,7 @@ type
         mouseInside*: bool
         handleMouseOver: bool
         hidden*: bool
+        dragAndDropDelegate*: DragAndDrop
 
     Window* = ref object of View
         firstResponder*: View       ## handler of untargeted (keyboard and menu) input
@@ -48,6 +60,13 @@ type
         mouseOverListeners*: seq[View]
         pixelRatio*: float32
         mActiveBgColor*: Color
+
+    DragEvent* = object
+        currentPos*: Point
+        deltaPos*: Point
+        draggedView*: View
+        targetView*: View
+        # userData*: Variant
 
 method init*(v: View, frame: Rect) {.base.} =
     v.frame = frame

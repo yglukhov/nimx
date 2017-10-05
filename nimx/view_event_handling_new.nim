@@ -6,15 +6,21 @@ import typetraits
 
 method onGestEvent*(d: GestureDetector, e: var Event) : bool {.base.} = discard
 method onScroll*(v: View, e: var Event): bool = discard
+method onDragEv*(dd: DragAndDrop, v: View, e: Event): bool {.base.}  = discard
 
 method name*(v: View): string {.base.} =
     result = "View"
 
 method onTouchEv*(v: View, e: var Event): bool {.base.} =
+    if not v.dragAndDropDelegate.isNil:
+        if  v.dragAndDropDelegate.onDragEv(v, e):
+            return true
+
     if not v.gestureDetectors.isNil:
         for d in v.gestureDetectors:
             let r = d.onGestEvent(e)
             result = result or r
+
     if e.buttonState == bsDown:
         if v.acceptsFirstResponder:
             result = v.makeFirstResponder()
