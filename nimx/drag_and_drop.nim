@@ -1,4 +1,3 @@
-
 import view
 import types
 import class_registry
@@ -40,7 +39,6 @@ var prevTarget: View = nil
 method onDragEv*(dd: BaseDragAndDrop, v: View, e: Event): bool =
     result = true
 
-    # echo "e.buttonState ", e.buttonState
     if e.buttonState == bsDown:
         dd.mStartPos = e.position
         dd.dragState = dsWait
@@ -55,6 +53,7 @@ method onDragEv*(dd: BaseDragAndDrop, v: View, e: Event): bool =
         dd.dragState = dsDragged
         dd.mCurrentPos = e.position
         result = true
+        prevTarget = nil
         dd.onDragStart(dragEv)
 
     if e.buttonState == bsUp:
@@ -76,12 +75,15 @@ method onDragEv*(dd: BaseDragAndDrop, v: View, e: Event): bool =
                 dragEv.targetView = prevTarget
                 prevTarget.dragAndDropDelegate.onDragOverExit(dragEv)
             if not target.isNil and not target.dragAndDropDelegate.isNil:
+                dragEv.targetView = target
                 target.dragAndDropDelegate.onDragOverEnter(dragEv)
 
         elif not target.isNil and not target.dragAndDropDelegate.isNil:
                 target.dragAndDropDelegate.onDragOver(dragEv)
 
+    # if not prevTarget.isNil and not target.isNil:
+    #     echo "!! target ", target.name, "  prevT  ", prevTarget.name," ddd ", target.dragAndDropDelegate.isNil
     prevTarget = target
-    # echo "dd.dragState ", dd.dragState, "  start ", dd.mStartPos, "  curr  ", dd.mCurrentPos
+
 
 registerClass(BaseDragAndDrop)
