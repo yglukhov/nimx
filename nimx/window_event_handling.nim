@@ -3,6 +3,7 @@ import abstract_window
 import event
 import view_event_handling
 import view_event_handling_new
+import drag_and_drop
 
 proc propagateEventThroughResponderChain(w: Window, e: var Event): bool =
     var r = w.firstResponder
@@ -67,6 +68,9 @@ method handleEvent*(w: Window, e: var Event): bool {.base.} =
         of etScroll:
             result = w.processMouseWheelEvent(e)
         of etMouse, etTouch:
+            currentDragClipboard().currentPos = e.position
+            if e.buttonState == bsUp:
+                stopDrag()
             result = w.processTouchEvent(e)
         of etKeyboard:
             result = w.propagateEventThroughResponderChain(e)

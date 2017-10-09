@@ -10,6 +10,7 @@ import image
 import notification_center
 import mini_profiler
 import portable_gl
+import drag_and_drop
 export view
 
 # Window type is defined in view module
@@ -86,6 +87,13 @@ method drawWindow*(w: Window) {.base.} =
         font.size = old_size
     ResetOverdrawValue()
     ResetDIPValue()
+
+    if not currentDragClipboard().item.isNil:
+        var rect = currentDragClipboard().rect
+        rect.origin += currentDragClipboard().currentPos
+        w.needsDisplay = true
+        currentContext().fillColor = newColor(1, 0.0, 0.0, 0.8)
+        currentContext().drawRect(rect)
 
 method draw*(w: Window, rect: Rect) =
     let c = currentContext()

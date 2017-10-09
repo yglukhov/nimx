@@ -24,6 +24,17 @@ type MyDropDelegate* = ref object of BaseDragAndDrop
 
 type MyDragDelegate* = ref object of BaseDragAndDrop
 
+type DraggedView* = ref object of View
+
+method onTouchEv*(v: DraggedView, e: var Event): bool =
+    if e.buttonState == bsDown:
+        let dItem = DraggedItem.new()
+        startDrag(dItem)
+
+proc newDraggedView*(r: Rect): DraggedView =
+    result.new()
+    result.init(r)
+
 #============= MyDragProxyDelegate ==============
 method onDragStart*(dd: MyDragProxyDelegate, e: DragEvent) =
     dd.proxy = newView(newRect(10, 10, 150, 60))
@@ -73,7 +84,7 @@ method onDrag*(dd: MyDragDelegate, e: DragEvent) =
 
 
 proc createDraggedView(pos: Point, name: string): View =
-    result = newView(newRect(pos.x, pos.y, 150, 60))
+    result = newDraggedView(newRect(pos.x, pos.y, 150, 60))
     result.name = name
     result.backgroundColor = newColor(0.0, 1.0, 0.0, 1.0)
     result.dragAndDropDelegate = MyDragProxyDelegate.new()
