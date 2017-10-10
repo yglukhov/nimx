@@ -20,6 +20,8 @@ type CancelBehavior* = enum
 type TimingFunction = proc(time: float): float
 type AnimationFunction = proc(progress: float)
 
+const MIN_DURATION:float = 0.0
+
 type ProgressHandler = object
     handler: proc()
     progress: float
@@ -146,8 +148,11 @@ method onProgress*(a: Animation, p: float) {.base.} =
         a.onAnimate(a.curvedProgress(p))
 
 proc loopProgress(a: Animation, t: float): float=
-    let duration = t - a.startTime
-    doAssert(duration > -0.0001, $duration)
+    var duration = t - a.startTime
+    #doAssert(duration > -0.0001, $duration)
+    if duration < MIN_DURATION:
+        duration = MIN_DURATION
+
     a.curLoop = a.currentLoopForTotalDuration(duration)
     result = (duration mod a.loopDuration) / a.loopDuration
 
