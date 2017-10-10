@@ -635,7 +635,6 @@ void compose()
 
 type ForEachLineAttributeCallback = proc(c: GraphicsContext, t: FormattedText, p: var Point, curLine, endIndex: int, str: string) {.nimcall.}
 proc forEachLineAttribute(c: GraphicsContext, origP: Point, t: FormattedText, cb: ForEachLineAttributeCallback) =
-    # echo "forEach"
     var p = origP
     let numLines = t.lines.len
     var curLine = 0
