@@ -165,7 +165,8 @@ var gTestsToRun: seq[string] # Test names which user wants to run
 when defined(js) or defined(emscripten):
     import nimx.pathutils
 elif defined(android):
-    import sdl2, jnim
+    import jnim
+    import nimx.utils.android
     import android.app.activity, android.content.intent, android.os.base_bundle
 else:
     import os
@@ -179,7 +180,7 @@ proc initTestsToRunIfNeeded() =
         when defined(js) or defined(emscripten):
             gTestsToRun = getCurrentHref().uriParam("nimxAutoTest", "").split(',')
         elif defined(android):
-            let act = Activity.fromJObject(cast[jobject](sdl2.androidGetActivity()))
+            let act = mainActivity()
             assert(not act.isNil)
             let extras = act.getIntent().getExtras()
             if not extras.isNil:
