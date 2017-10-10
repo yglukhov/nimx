@@ -11,3 +11,9 @@ proc screenShot*(v: View):SelfContainedImage=
     var image = imageWithSize(v.bounds.size)
     v.renderToImage(image)
     result = image
+
+proc screenShotRecursive*(v: View):SelfContainedImage=
+    var image = imageWithSize(v.bounds.size)
+    image.draw do():
+        v.recursiveDrawSubviews()
+    result = image

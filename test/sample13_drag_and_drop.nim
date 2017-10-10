@@ -1,5 +1,6 @@
 import sample_registry
 import strutils
+import variant
 
 import nimx.view
 import nimx.font
@@ -14,11 +15,9 @@ import nimx.event
 import nimx.drag_and_drop
 import nimx.text_field
 import nimx.expanding_view
+import nimx.view_render_to_image
 
 type DragAndDropView = ref object of View
-
-type MyDragProxyDelegate* = ref object of BaseDragAndDrop
-    proxy: View
 
 type MyDropDelegate* = ref object of BaseDragAndDrop
 
@@ -29,66 +28,44 @@ type DraggedView* = ref object of View
 method onTouchEv*(v: DraggedView, e: var Event): bool =
     if e.buttonState == bsDown:
         let dItem = DraggedItem.new()
+        dItem.data = newVariant(v)
+        dItem.image = v.screenShotRecursive()
         startDrag(dItem)
 
 proc newDraggedView*(r: Rect): DraggedView =
     result.new()
     result.init(r)
 
-#============= MyDragProxyDelegate ==============
-method onDragStart*(dd: MyDragProxyDelegate, e: DragEvent) =
-    dd.proxy = newView(newRect(10, 10, 150, 60))
-    dd.proxy.name = "dragged_proxy"
-    dd.proxy.backgroundColor = e.draggedView.backgroundColor
-    dd.proxy.backgroundColor.a = 0.5
-    dd.proxy.setFrameOrigin(dd.mCurrentPos + newPoint(1, 1))
-    e.draggedView.window.addSubView(dd.proxy)
-
-method onDrag*(dd: MyDragProxyDelegate, e: DragEvent) =
-    dd.proxy.setFrameOrigin(dd.proxy.frame.origin + e.deltaPos)
-
-method onDrop*(dd: MyDragProxyDelegate, e: DragEvent) =
-    dd.proxy.removeFromSuperview()
-    let label = e.draggedView.subviews[1].TextField
-    if not e.targetView.name.isNil:
-        label.text = "drop to: " & e.targetView.name
-    else:
-        label.text = "drop to: "
 
 #============= MyDropDelegate ==============
-method onDragOverEnter*(dd: MyDropDelegate, e: DragEvent) =
-    if e.targetView.name.find("_drop_") == -1:
-        return
 
-    let label = e.targetView.subviews[1].TextField
-    if not e.draggedView.name.isNil:
-        label.text = "drag over: " & e.draggedView.name
-        e.targetView.backgroundColor.a = 0.5
+method onDragEnter*(dd: MyDropDelegate, i: DraggedItem) =
+    let sourceView = i.data.get(DraggedView)
 
-method onDragOverExit*(dd: MyDropDelegate, e: DragEvent) =
-    if e.targetView.name.find("_drop_") == -1:
-        return
+    let label = i.target.subviews[1].TextField
+    if not sourceView.name.isNil:
+        label.text = "drag over: " & sourceView.name
+        i.target.backgroundColor.a = 0.5
 
-    e.targetView.backgroundColor.a = 1.0
-    let label = e.targetView.subviews[1].TextField
+method onDragExit*(dd: MyDropDelegate, i: DraggedItem) =
+    let sourceView = i.data.get(DraggedView)
+
+    i.target.backgroundColor.a = 1.0
+    let label = i.target.subviews[1].TextField
     label.text = "drag over: "
 
-method onDropOver*(dd: MyDropDelegate, e: DragEvent) =
-    e.targetView.backgroundColor.a = 1.0
-    let label = e.targetView.subviews[1].TextField
+method onDrop*(dd: MyDropDelegate, i: DraggedItem) =
+    let sourceView = i.data.get(DraggedView)
+    i.target.backgroundColor = sourceView.backgroundColor
+    i.target.backgroundColor.a = 1.0
+    let label = i.target.subviews[1].TextField
     label.text = "drag over: "
-
-#============= MyDragDelegate ==============
-method onDrag*(dd: MyDragDelegate, e: DragEvent) =
-    e.draggedView.setFrameOrigin(e.draggedView.frame.origin + e.deltaPos)
 
 
 proc createDraggedView(pos: Point, name: string): View =
     result = newDraggedView(newRect(pos.x, pos.y, 150, 60))
     result.name = name
     result.backgroundColor = newColor(0.0, 1.0, 0.0, 1.0)
-    result.dragAndDropDelegate = MyDragProxyDelegate.new()
-    result.dragAndDropDelegate.activateStep = 4.0
 
     let label_name = newLabel(newRect(2, 0, 200, 40))
     label_name.text = result.name
@@ -103,6 +80,7 @@ proc createDropView(pos: Point, name: string, delegate: MyDropDelegate): View =
     result.name = name
     result.backgroundColor = newColor(1.0, 0.0, 0.0, 1.0)
     result.dragAndDropDelegate = delegate
+    result.dragAndDropDelegate.MyDropDelegate.view = result
 
     let label_name = newLabel(newRect(2, 150, 200, 40))
     label_name.text = result.name

@@ -68,9 +68,7 @@ method handleEvent*(w: Window, e: var Event): bool {.base.} =
         of etScroll:
             result = w.processMouseWheelEvent(e)
         of etMouse, etTouch:
-            currentDragClipboard().currentPos = e.position
-            if e.buttonState == bsUp:
-                stopDrag()
+            currentDragSystem().processDragEvent(e)
             result = w.processTouchEvent(e)
         of etKeyboard:
             result = w.propagateEventThroughResponderChain(e)

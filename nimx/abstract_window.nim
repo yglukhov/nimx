@@ -59,6 +59,7 @@ method drawWindow*(w: Window) {.base.} =
     w.needsDisplay = false
 
     w.recursiveDrawSubviews()
+    let c = currentContext()
 
     let profiler = sharedProfiler()
     if profiler.enabled:
@@ -69,7 +70,6 @@ method drawWindow*(w: Window) {.base.} =
 
         const fontSize = 14
         const profilerWidth = 110
-        let c = currentContext()
         var font = systemFont()
         let old_size = font.size
         font.size = fontSize
@@ -88,12 +88,17 @@ method drawWindow*(w: Window) {.base.} =
     ResetOverdrawValue()
     ResetDIPValue()
 
-    if not currentDragClipboard().item.isNil:
-        var rect = currentDragClipboard().rect
-        rect.origin += currentDragClipboard().currentPos
-        w.needsDisplay = true
-        currentContext().fillColor = newColor(1, 0.0, 0.0, 0.8)
-        currentContext().drawRect(rect)
+    let dc = currentDragSystem()
+    if not dc.item.isNil:
+        var rect = newRect(0, 0, 20, 20)
+        rect.origin += currentDragSystem().item.position
+
+        if not dc.item.image.isNil:
+            rect.size = dc.item.image.size
+            c.drawImage(dc.item.image, rect)
+        else:
+            c.fillColor = newColor(0.0, 1.0, 0.0, 0.8)
+            c.drawRect(rect)
 
 method draw*(w: Window, rect: Rect) =
     let c = currentContext()
