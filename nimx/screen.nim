@@ -3,7 +3,8 @@ when defined(ios):
 elif defined(macosx):
     import darwin.app_kit
 elif defined(android):
-    import jnim, sdl2
+    import jnim
+    import nimx.utils.android
     import android.util.display_metrics
     import android.view.display
     import android.view.window_manager
@@ -18,9 +19,8 @@ proc screenScaleFactor*(): float =
     elif defined(js):
         asm "`result` = window.devicePixelRatio;"
     elif defined(android):
-        let act = Activity.fromJObject(cast[jobject](sdl2.androidGetActivity()))
         let dm = DisplayMetrics.new()
-        act.getWindowManager().getDefaultDisplay().getMetrics(dm)
+        mainActivity().getWindowManager().getDefaultDisplay().getMetrics(dm)
         result = dm.density
         result = 1.0 # TODO: Take care of this
     elif defined(emscripten):
