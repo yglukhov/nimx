@@ -635,6 +635,7 @@ void compose()
 
 type ForEachLineAttributeCallback = proc(c: GraphicsContext, t: FormattedText, p: var Point, curLine, endIndex: int, str: string) {.nimcall.}
 proc forEachLineAttribute(c: GraphicsContext, origP: Point, t: FormattedText, cb: ForEachLineAttributeCallback) =
+    # echo "forEach"
     var p = origP
     let numLines = t.lines.len
     var curLine = 0
@@ -660,33 +661,48 @@ proc forEachLineAttribute(c: GraphicsContext, origP: Point, t: FormattedText, cb
 
         if not lastAttrFont.isNil:
             let nextLine = curLine + 1
-            if nextLine < numLines and t.lines[nextLine].hidden:
+            let isNextLineHidden = nextLine < numLines and t.lines[nextLine].hidden
+
+            if (curLine == numLines - 1 or isNextLineHidden) and t.mTruncationBehavior != tbNone:
+                let lastIndex = lastAttrEndIndex
                 var symbols = ""
+                var runeWidth = 0.0
 
                 if t.mTruncationBehavior == tbEllipsis:
-                    var c: Rune
-                    var i = 0
                     symbols = "..."
-                    fastRuneAt(symbols, i, c, true)
-                    let runeWidth = lastAttrFont.getAdvanceForRune(c)
-                    if t.horizontalAlignment == haCenter:
-                        let halfRuneWidth = runeWidth * (symbols.len / 2)
-                        if p.x < halfRuneWidth:
-                            if lastAttrEndIndex >= lastAttrStartIndex + symbols.len:
-                                lastAttrEndIndex -= symbols.len
-                            else:
-                                lastAttrEndIndex = lastAttrStartIndex
-                        else:
-                            p.x -= halfRuneWidth
-                    else:
-                        if t.mBoundingSize.width < t.lines[curLine].width + runeWidth * 3:
-                            if lastAttrEndIndex >= lastAttrStartIndex + symbols.len:
-                                lastAttrEndIndex -= symbols.len
-                            else:
-                                lastAttrEndIndex = lastAttrStartIndex
+                    runeWidth = lastAttrFont.getAdvanceForRune(Rune(symbols[0]))
 
-                cb(c, t, p, curLine, lastCurAttrIndex, t.mText.substr(lastAttrStartIndex, lastAttrEndIndex) & symbols)
-                break
+                let ellipsisWidth = runeWidth * symbols.len.float
+                var width = ellipsisWidth
+                var index = lastAttrStartIndex
+                var isCut = false
+                while index <= lastIndex:
+                    var r: Rune
+                    fastRuneAt(t.mText, index, r, true)
+                    var w = lastAttrFont.getAdvanceForRune(r)
+                    if w + width < t.mBoundingSize.width:
+                        width = width + w
+                        lastAttrEndIndex = index - 1
+                    else:
+                        isCut = true
+                        break
+
+                if isNextLineHidden:
+                    isCut = true
+
+                if not isCut:
+                    width -= ellipsisWidth
+
+                if t.horizontalAlignment == haCenter:
+                    p.x = (t.mBoundingSize.width - width) * 0.5
+                elif t.horizontalAlignment == haRight:
+                    p.x = t.mBoundingSize.width - width
+
+                if not isCut:
+                    cb(c, t, p, curLine, lastCurAttrIndex, t.mText.substr(lastAttrStartIndex, lastAttrEndIndex))
+                else:
+                    cb(c, t, p, curLine, lastCurAttrIndex, t.mText.substr(lastAttrStartIndex, lastAttrEndIndex) & symbols)
+                    break
             else:
                 cb(c, t, p, curLine, lastCurAttrIndex, t.mText.substr(lastAttrStartIndex, lastAttrEndIndex))
 
