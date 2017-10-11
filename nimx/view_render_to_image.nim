@@ -3,7 +3,7 @@ import nimx.render_to_image
 import nimx.image
 import nimx.types
 
-proc renderToImage(v: View, image: SelfContainedImage)=
+proc renderToImage*(v: View, image: SelfContainedImage)=
     image.draw do():
         v.recursiveDrawSubviews()
 
