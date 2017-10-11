@@ -6,7 +6,8 @@
 ## Reading a string
 ## let myString = p.read().data
 
-import nimx.pasteboard.pasteboard_item
+import pasteboard_item
+export pasteboard_item
 
 type
     Pasteboard* = ref object {.inheritable.}
