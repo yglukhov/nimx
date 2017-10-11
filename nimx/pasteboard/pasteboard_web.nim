@@ -1,5 +1,6 @@
 import abstract_pasteboard
 export abstract_pasteboard
+import pasteboard_item
 
 import strutils
 import jsbind

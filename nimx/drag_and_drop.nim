@@ -4,11 +4,9 @@ import class_registry
 import variant
 
 import nimx.image
-import nimx.pasteboard.pasteboard
+import nimx.pasteboard.pasteboard_item
 
 const DragPboardKindDefault* = "nimx.dragged.default"
-
-type BaseDragAndDrop* = ref object of DragAndDrop
 
 type DragSystem* = ref object
     rect*: Rect
@@ -35,20 +33,20 @@ proc stopDrag*() =
     currentDragSystem().pItem = nil
     currentDragSystem().prevTarget = nil
 
-proc newDragAndDrop*(): BaseDragAndDrop =
+proc newDragDestinationDelegate*(): DragDestinationDelegate =
     result.new()
 
-method onDrag*(dd: DragAndDrop, target: View, i: PasteboardItem) {.base.} = discard
-method onDrop*(dd: DragAndDrop, target: View, i: PasteboardItem) {.base.} = discard
-method onDragEnter*(dd: DragAndDrop, target: View, i: PasteboardItem) {.base.} = discard
-method onDragExit*(dd: DragAndDrop, target: View, i: PasteboardItem) {.base.} = discard
+method onDrag*(dd: DragDestinationDelegate, target: View, i: PasteboardItem) {.base.} = discard
+method onDrop*(dd: DragDestinationDelegate, target: View, i: PasteboardItem) {.base.} = discard
+method onDragEnter*(dd: DragDestinationDelegate, target: View, i: PasteboardItem) {.base.} = discard
+method onDragExit*(dd: DragDestinationDelegate, target: View, i: PasteboardItem) {.base.} = discard
 
 proc findSubviewAtPointAux*(v: View, p: Point, target: var View): View =
     for i in countdown(v.subviews.len - 1, 0):
         let s = v.subviews[i]
         var pp = s.convertPointFromParent(p)
         if pp.inRect(s.bounds):
-            if not v.dragAndDropDelegate.isNil:
+            if not v.dragDestination.isNil:
                 target = v
             result = s.findSubviewAtPointAux(pp, target)
             if not result.isNil:
@@ -56,13 +54,10 @@ proc findSubviewAtPointAux*(v: View, p: Point, target: var View): View =
 
     if result.isNil:
         result = v
-        if not result.dragAndDropDelegate.isNil:
+        if not result.dragDestination.isNil:
             target = result
 
 
 proc findSubviewAtPoint*(v: View, p: Point): View =
     discard v.findSubviewAtPointAux(p, result)
     if result == v: result = nil
-
-
-registerClass(BaseDragAndDrop)

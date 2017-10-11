@@ -16,22 +16,17 @@ import nimx.drag_and_drop
 import nimx.text_field
 import nimx.expanding_view
 import nimx.view_render_to_image
-import nimx.pasteboard.pasteboard
+import nimx.pasteboard.pasteboard_item
 
 type DragAndDropView = ref object of View
-type MyDropDelegate* = ref object of BaseDragAndDrop
+type MyDropDelegate* = ref object of DragDestinationDelegate
 type DraggedView* = ref object of View
 
 method onTouchEv*(v: DraggedView, e: var Event): bool =
     if e.buttonState == bsDown:
         let dpi = newPasteboardItem(DragPboardKindDefault, v.name)
-        let image = v.screenShotRecursive()
+        let image = v.screenShot()
         startDrag(dpi, image)
-
-proc newDraggedView*(r: Rect): DraggedView =
-    result.new()
-    result.init(r)
-
 
 #============= MyDropDelegate ==============
 
@@ -57,7 +52,7 @@ method onDrop*(dd: MyDropDelegate, target: View, i: PasteboardItem) =
 #============= Views ==============
 
 proc createDraggedView(pos: Point, name: string): View =
-    result = newDraggedView(newRect(pos.x, pos.y, 150, 60))
+    result = DraggedView.new(newRect(pos.x, pos.y, 150, 60))
     result.name = name
     result.backgroundColor = newColor(0.0, 1.0, 0.0, 1.0)
 
@@ -69,7 +64,7 @@ proc createDropView(pos: Point, name: string, delegate: MyDropDelegate): View =
     result = newView(newRect(pos.x, pos.y, 200, 200))
     result.name = name
     result.backgroundColor = newColor(1.0, 0.0, 0.0, 1.0)
-    result.dragAndDropDelegate = delegate
+    result.dragDestination = delegate
 
     let label_name = newLabel(newRect(2, 150, 200, 40))
     label_name.text = result.name

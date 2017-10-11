@@ -64,9 +64,9 @@ proc processDragEvent*(b: DragSystem, e: var Event) =
 
     e.window.needsDisplay = true
     let target = e.window.findSubviewAtPoint(e.position)
-    var dropDelegate: DragAndDrop
+    var dropDelegate: DragDestinationDelegate
     if not target.isNil:
-        dropDelegate = target.dragAndDropDelegate
+        dropDelegate = target.dragDestination
 
     if e.buttonState == bsUp:
         if not dropDelegate.isNil:
@@ -75,12 +75,12 @@ proc processDragEvent*(b: DragSystem, e: var Event) =
         return
 
     if b.prevTarget != target:
-        if not b.prevTarget.isNil and not b.prevTarget.dragAndDropDelegate.isNil:
-            b.prevTarget.dragAndDropDelegate.onDragExit(b.prevTarget, b.pItem)
+        if not b.prevTarget.isNil and not b.prevTarget.dragDestination.isNil:
+            b.prevTarget.dragDestination.onDragExit(b.prevTarget, b.pItem)
         if not target.isNil and not dropDelegate.isNil:
             dropDelegate.onDragEnter(target, b.pItem)
 
-    elif not target.isNil and not target.dragAndDropDelegate.isNil:
+    elif not target.isNil and not target.dragDestination.isNil:
             dropDelegate.onDrag(target, b.pItem)
 
     b.prevTarget = target
