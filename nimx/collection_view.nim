@@ -52,7 +52,7 @@ proc layoutDirection*(v: CollectionView): LayoutDirection = v.layoutDirection
 proc itemSize*(v: CollectionView): Size = v.itemSize
 proc layoutWidth*(v: CollectionView): int = v.layoutWidth
 
-proc columnCount(v: CollectionView): int =
+proc columnCount*(v: CollectionView): int =
     ## Get horizontal number of items which depends on view settings
     var layoutWidth: int = 0
     if v.layoutDirection == LayoutDirection.LeftToRight:
@@ -67,7 +67,7 @@ proc columnCount(v: CollectionView): int =
 proc widthFull(v: CollectionView): Coord =
     return (v.itemSize.width + v.offset) * v.columnCount().Coord
 
-proc rowCount(v: CollectionView): int =
+proc rowCount*(v: CollectionView): int =
     ## Get vertical number of items
     var layoutWidth: int = 0
     if v.layoutDirection == LayoutDirection.TopDown:
