@@ -26,14 +26,18 @@ type
         texture*: TextureRef
         mSize: Size
         texCoords*: array[4, GLfloat]
-        framebuffer*: FramebufferRef
-        renderbuffer*: RenderbufferRef
         mFilePath: string
+        mRenderTarget*: ImageRenderTarget
 
     FixedTexCoordSpriteImage* = ref object of Image
         spriteSheet: Image
         mSize: Size
         texCoords: array[4, GLfloat]
+
+    ImageRenderTarget* = ref object
+        framebuffer*: FramebufferRef
+        renderbuffer*: RenderbufferRef
+
 
 template setupTexParams(gl: GL) =
     when defined(android) or defined(ios):
@@ -56,21 +60,51 @@ method filePath*(i: SelfContainedImage): string = i.mFilePath
 
 when not defined(js):
     let totalImages = sharedProfiler().newDataSource(int, "Images")
-    proc finalizeImage(i: SelfContainedImage) =
+    proc finalize(i: SelfContainedImage) =
         if i.texture != invalidTexture:
             glDeleteTextures(1, addr i.texture)
-        if i.framebuffer != invalidFrameBuffer:
-            glDeleteFramebuffers(1, addr i.framebuffer)
-        if i.renderbuffer != invalidRenderbuffer:
-            glDeleteRenderbuffers(1, addr i.renderbuffer)
         dec totalImages
+
+    proc finalize(r: ImageRenderTarget) =
+        if r.framebuffer != invalidFrameBuffer:
+            glDeleteFramebuffers(1, addr r.framebuffer)
+        if r.renderbuffer != invalidRenderbuffer:
+            glDeleteRenderbuffers(1, addr r.renderbuffer)
 
 proc newSelfContainedImage(): SelfContainedImage {.inline.} =
     when defined(js):
         result.new()
     else:
         inc totalImages
-        result.new(finalizeImage)
+        result.new(finalize)
+
+proc newImageRenderTarget*(): ImageRenderTarget {.inline.} =
+    when defined(js):
+        result.new()
+    else:
+        result.new(finalize)
+
+proc framebuffer*(i: SelfContainedImage): FramebufferRef {.inline, deprecated.} =
+    let rt = i.mRenderTarget
+    if not rt.isNil:
+        result = rt.framebuffer
+
+proc `framebuffer=`*(i: SelfContainedImage, b: FramebufferRef) {.inline, deprecated.} =
+    let rt = i.mRenderTarget
+    assert(b == invalidFrameBuffer or not rt.isNil)
+    if not rt.isNil:
+        rt.framebuffer = b
+
+proc renderbuffer*(i: SelfContainedImage): RenderbufferRef {.inline, deprecated.} =
+    let rt = i.mRenderTarget
+    if not rt.isNil:
+        result = rt.renderbuffer
+
+proc `renderbuffer=`*(i: SelfContainedImage, b: RenderbufferRef) {.inline, deprecated.} =
+    let rt = i.mRenderTarget
+    assert(b == invalidRenderbuffer or not rt.isNil)
+    if not rt.isNil:
+        rt.renderbuffer = b
 
 when not web:
     template offset(p: pointer, off: int): pointer =
@@ -286,8 +320,9 @@ proc resetToSize*(i: SelfContainedImage, size: Size, gl: GL) =
         gl.bindTexture(gl.TEXTURE_2D, i.texture)
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA.GLint, texWidth.GLsizei, texHeight.GLsizei, 0, gl.RGBA, gl.UNSIGNED_BYTE, nil)
 
-        if i.renderbuffer != invalidRenderbuffer:
-            gl.bindRenderbuffer(gl.RENDERBUFFER, i.renderbuffer)
+        let rt = i.mRenderTarget
+        if not rt.isNil and rt.renderbuffer != invalidRenderbuffer:
+            gl.bindRenderbuffer(gl.RENDERBUFFER, rt.renderbuffer)
             let depthStencilFormat = when defined(js) or defined(emscripten): gl.DEPTH_STENCIL else: gl.DEPTH24_STENCIL8
             gl.renderbufferStorage(gl.RENDERBUFFER, depthStencilFormat, texWidth.GLsizei, texHeight.GLsizei)
 

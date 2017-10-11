@@ -13,7 +13,10 @@ type GlFrameState* = tuple[
 ]
 
 proc bindFramebuffer*(gl: GL, i: SelfContainedImage, makeDepthAndStencil: bool = true) =
-    if i.framebuffer.isEmpty:
+    if i.mRenderTarget.isNil:
+        i.mRenderTarget = newImageRenderTarget()
+    let rt = i.mRenderTarget
+    if rt.framebuffer.isEmpty:
         var texCoords : array[4, GLfloat]
         var texture = i.getTextureQuad(gl, texCoords)
 
@@ -21,8 +24,8 @@ proc bindFramebuffer*(gl: GL, i: SelfContainedImage, makeDepthAndStencil: bool =
             texture = gl.createTexture()
             i.texture = texture
 
-        i.framebuffer = gl.createFramebuffer()
-        gl.bindFramebuffer(gl.FRAMEBUFFER, i.framebuffer)
+        rt.framebuffer = gl.createFramebuffer()
+        gl.bindFramebuffer(gl.FRAMEBUFFER, rt.framebuffer)
         gl.bindTexture(gl.TEXTURE_2D, texture)
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
 
@@ -56,9 +59,9 @@ proc bindFramebuffer*(gl: GL, i: SelfContainedImage, makeDepthAndStencil: bool =
                     gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, texWidth.GLsizei, texHeight.GLsizei)
                     gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, depthBuffer)
 
-            i.renderbuffer = depthBuffer
+            rt.renderbuffer = depthBuffer
     else:
-        gl.bindFramebuffer(gl.FRAMEBUFFER, i.framebuffer)
+        gl.bindFramebuffer(gl.FRAMEBUFFER, rt.framebuffer)
 
 proc getGlFrameState*(gfs: var GlFrameState) =
     let gl = sharedGL()
