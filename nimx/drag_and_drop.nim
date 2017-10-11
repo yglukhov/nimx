@@ -6,8 +6,6 @@ import variant
 import nimx.image
 import nimx.pasteboard.pasteboard_item
 
-const DragPboardKindDefault* = "nimx.dragged.default"
-
 type DragSystem* = ref object
     rect*: Rect
     itemPosition*: Point

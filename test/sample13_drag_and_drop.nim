@@ -22,9 +22,11 @@ type DragAndDropView = ref object of View
 type MyDropDelegate* = ref object of DragDestinationDelegate
 type DraggedView* = ref object of View
 
+const PboardSampleDrag* = "nimx.sample.drag"
+
 method onTouchEv*(v: DraggedView, e: var Event): bool =
     if e.buttonState == bsDown:
-        let dpi = newPasteboardItem(DragPboardKindDefault, v.name)
+        let dpi = newPasteboardItem(PboardSampleDrag, v.name)
         let image = v.screenShot()
         startDrag(dpi, image)
 
