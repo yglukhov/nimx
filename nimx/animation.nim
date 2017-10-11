@@ -2,7 +2,7 @@
 import math
 import macros
 import algorithm
-import system_logger
+import logging
 import times
 
 type LoopPattern* = enum
@@ -150,6 +150,7 @@ method onProgress*(a: Animation, p: float) {.base.} =
 proc loopProgress(a: Animation, t: float): float=
     var duration = t - a.startTime
     if duration < MIN_LOOP_DURATION:
+        error("Invalid duration - ", duration, " set to min value ",  MIN_LOOP_DURATION)
         duration = MIN_LOOP_DURATION
 
     a.curLoop = a.currentLoopForTotalDuration(duration)
