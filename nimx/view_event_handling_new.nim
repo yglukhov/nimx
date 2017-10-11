@@ -5,8 +5,6 @@ import system_logger
 import typetraits
 import drag_and_drop
 
-import nimx.pasteboard.pasteboard
-
 method onGestEvent*(d: GestureDetector, e: var Event) : bool {.base.} = discard
 method onScroll*(v: View, e: var Event): bool = discard
 
