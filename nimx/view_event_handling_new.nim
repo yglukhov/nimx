@@ -5,6 +5,8 @@ import system_logger
 import typetraits
 import drag_and_drop
 
+import nimx.pasteboard.pasteboard
+
 method onGestEvent*(d: GestureDetector, e: var Event) : bool {.base.} = discard
 method onScroll*(v: View, e: var Event): bool = discard
 
@@ -55,11 +57,9 @@ proc handleMouseOverEvent(v: View, e : var Event) =
             vi.onMouseOut(e)
     e.localPosition = localPosition
 
-
-
 proc processDragEvent*(b: DragSystem, e: var Event) =
-    b.currentPos = e.position
-    if b.item.isNil:
+    b.itemPosition = e.position
+    if b.pItem.isNil:
         return
 
     e.window.needsDisplay = true
@@ -68,28 +68,21 @@ proc processDragEvent*(b: DragSystem, e: var Event) =
     if not target.isNil:
         dropDelegate = target.dragAndDropDelegate
 
-    b.item.position = b.currentPos
-    b.item.target = target
-
     if e.buttonState == bsUp:
         if not dropDelegate.isNil:
-            dropDelegate.onDrop(b.item)
+            dropDelegate.onDrop(target, b.pItem)
         stopDrag()
         return
 
     if b.prevTarget != target:
         if not b.prevTarget.isNil and not b.prevTarget.dragAndDropDelegate.isNil:
-            b.item.target = b.prevTarget
-            b.prevTarget.dragAndDropDelegate.onDragExit(b.item)
+            b.prevTarget.dragAndDropDelegate.onDragExit(b.prevTarget, b.pItem)
         if not target.isNil and not dropDelegate.isNil:
-            b.item.target = target
-            dropDelegate.onDragEnter(b.item)
+            dropDelegate.onDragEnter(target, b.pItem)
 
     elif not target.isNil and not target.dragAndDropDelegate.isNil:
-            dropDelegate.onDrag(b.item)
+            dropDelegate.onDrag(target, b.pItem)
 
-    # if not b.prevTarget.isNil and not target.isNil:
-    #     echo "!! target ", target.name, "  prevT  ", b.prevTarget.name," ddd ", target.dragAndDropDelegate.isNil
     b.prevTarget = target
 
 proc processTouchEvent*(v: View, e : var Event): bool =

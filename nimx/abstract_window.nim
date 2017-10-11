@@ -89,13 +89,13 @@ method drawWindow*(w: Window) {.base.} =
     ResetDIPValue()
 
     let dc = currentDragSystem()
-    if not dc.item.isNil:
+    if not dc.pItem.isNil:
         var rect = newRect(0, 0, 20, 20)
-        rect.origin += currentDragSystem().item.position
+        rect.origin += currentDragSystem().itemPosition
 
-        if not dc.item.image.isNil:
-            rect.size = dc.item.image.size
-            c.drawImage(dc.item.image, rect)
+        if not dc.image.isNil:
+            rect.size = dc.image.size
+            c.drawImage(dc.image, rect)
         else:
             c.fillColor = newColor(0.0, 1.0, 0.0, 0.8)
             c.drawRect(rect)

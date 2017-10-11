@@ -6,23 +6,16 @@ import variant
 import nimx.image
 import nimx.pasteboard.pasteboard
 
-const DragPboardKind* = "io.github.gutyria.nimx"
+const DragPboardKindDefault* = "nimx.dragged.default"
 
 type BaseDragAndDrop* = ref object of DragAndDrop
 
-type DraggedItem* = ref object
-    data*: Variant
-    image*: Image
-    position*: Point
-    target*: View
-    pastboard*: PasteboardItem
-
 type DragSystem* = ref object
     rect*: Rect
-    currentPos*: Point
+    itemPosition*: Point
     pItem*: PasteboardItem
-    item*: DraggedItem
     prevTarget*: View
+    image*: Image
 
 var gDragSystem: DragSystem = nil
 proc currentDragSystem*(): DragSystem =
@@ -32,31 +25,23 @@ proc currentDragSystem*(): DragSystem =
 
     result = gDragSystem
 
-proc startDrag*(item: DraggedItem) =
-    echo "startDrag"
-    # let dpi = newPasteboardItem(DragPboardKind, $s.jsonNode)
-    currentDragSystem().item = item
+
+proc startDrag*(item: PasteboardItem, image: Image = nil) =
+    currentDragSystem().pItem = item
+    currentDragSystem().image = image
     currentDragSystem().prevTarget = nil
 
 proc stopDrag*() =
-    echo "stop drag"
-    currentDragSystem().item = nil
+    currentDragSystem().pItem = nil
     currentDragSystem().prevTarget = nil
-
 
 proc newDragAndDrop*(): BaseDragAndDrop =
     result.new()
-    result.activateStep = 4.0
 
-method onDrag*(dd: DragAndDrop, i: DraggedItem) {.base.} = discard
-method onDrop*(dd: DragAndDrop, i: DraggedItem) {.base.} = discard
-method onDragEnter*(dd: DragAndDrop, i: DraggedItem) {.base.} = discard
-method onDragExit*(dd: DragAndDrop, i: DraggedItem) {.base.} = discard
-
-# method onDrag*(v: DragAndDrop, i: DraggedItem) {.base.} = discard
-# method onDrop*(dd: DragAndDrop, i: DraggedItem) {.base.} = discard
-# method onDragEnter*(dd: DragAndDrop, i: DraggedItem) {.base.} = discard
-# method onDragExit*(dd: DragAndDrop, i: DraggedItem) {.base.} = discard
+method onDrag*(dd: DragAndDrop, target: View, i: PasteboardItem) {.base.} = discard
+method onDrop*(dd: DragAndDrop, target: View, i: PasteboardItem) {.base.} = discard
+method onDragEnter*(dd: DragAndDrop, target: View, i: PasteboardItem) {.base.} = discard
+method onDragExit*(dd: DragAndDrop, target: View, i: PasteboardItem) {.base.} = discard
 
 proc findSubviewAtPointAux*(v: View, p: Point, target: var View): View =
     for i in countdown(v.subviews.len - 1, 0):

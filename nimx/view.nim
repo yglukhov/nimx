@@ -26,11 +26,6 @@ type
     GestureDetector* = ref object of RootObj
 
     DragAndDrop* = ref object of RootObj
-        mStartPos*: Point
-        mCurrentPos*: Point
-        activateStep*: float32
-        isDragged*: bool
-        view*: View
 
     View* = ref object of RootObj
         window*: Window
