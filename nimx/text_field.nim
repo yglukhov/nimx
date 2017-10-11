@@ -217,6 +217,8 @@ proc drawSelection(t: TextField) {.inline.} =
         c.drawRect(r)
 
 method draw*(t: TextField, r: Rect) =
+    procCall t.View.draw(r)
+
     let c = currentContext()
     if t.editable and t.hasBezel:
         c.fillColor = whiteColor()
