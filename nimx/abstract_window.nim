@@ -10,6 +10,7 @@ import image
 import notification_center
 import mini_profiler
 import portable_gl
+import drag_and_drop
 export view
 
 # Window type is defined in view module
@@ -58,6 +59,7 @@ method drawWindow*(w: Window) {.base.} =
     w.needsDisplay = false
 
     w.recursiveDrawSubviews()
+    let c = currentContext()
 
     let profiler = sharedProfiler()
     if profiler.enabled:
@@ -68,7 +70,6 @@ method drawWindow*(w: Window) {.base.} =
 
         const fontSize = 14
         const profilerWidth = 110
-        let c = currentContext()
         var font = systemFont()
         let old_size = font.size
         font.size = fontSize
@@ -86,6 +87,18 @@ method drawWindow*(w: Window) {.base.} =
         font.size = old_size
     ResetOverdrawValue()
     ResetDIPValue()
+
+    let dc = currentDragSystem()
+    if not dc.pItem.isNil:
+        var rect = newRect(0, 0, 20, 20)
+        rect.origin += currentDragSystem().itemPosition
+
+        if not dc.image.isNil:
+            rect.size = dc.image.size
+            c.drawImage(dc.image, rect)
+        else:
+            c.fillColor = newColor(0.0, 1.0, 0.0, 0.8)
+            c.drawRect(rect)
 
 method draw*(w: Window, rect: Rect) =
     let c = currentContext()

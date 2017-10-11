@@ -1,5 +1,6 @@
 import abstract_pasteboard
 export abstract_pasteboard
+import pasteboard_item
 import os, times
 import xlib, x, xatom, xutil
 import nimx.app, nimx.private.windows.sdl_window
@@ -8,7 +9,7 @@ import sdl2
 type X11Pasteboard = ref object of Pasteboard
 const XINT_MAX = 32767
 
-type WMinfoX11 = object 
+type WMinfoX11 = object
     version*: SDL_Version
     subsystem*: SysWMType
     display*: pointer
@@ -22,7 +23,7 @@ proc getTextFormat(d: PDisplay): TAtom =
 
 const x11ClipboardSelection = "CLIPBOARD"
 
-proc nimxCutBuffer(display: PDisplay): TAtom = 
+proc nimxCutBuffer(display: PDisplay): TAtom =
     result = XInternAtom(display, "SDL_CUTBUFFER", 0)
 
 template displayConnection(body: untyped)=
@@ -31,13 +32,13 @@ template displayConnection(body: untyped)=
 
     var winInfo: WMinfoX11
     getVersion(winInfo.version)
-    
+
     if keyWnd.SdlWindow.getSDLWindow().getWMInfo(cast[ptr WMInfo](addr winInfo)[]) == False32 and winInfo.display.isNil:
         raise newException(Exception, "Can't retreive SDLWindow info")
 
     var display{.inject, used.} = cast[PDisplay](winInfo.display)
     var window{.inject, used.} = cast[TWindow](winInfo.window)
-    
+
     assert(not display.isNil)
     var rootWindow{.inject, used.} = DefaultRootWindow(display)
 
@@ -75,7 +76,7 @@ proc pbRead(p: Pasteboard, kind: string): PasteboardItem =
             owner = window
             selection = XInternAtom(display, "SDL_SELECTION", 0)
             discard XConvertSelection(display, clipboard, format, selection, owner, CurrentTime)
-            
+
         var selType: TAtom
         var selFormat: cint
         var bytes: culong = 0

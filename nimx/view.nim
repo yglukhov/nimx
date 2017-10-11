@@ -25,6 +25,8 @@ type ClipType* = enum
 type
     GestureDetector* = ref object of RootObj
 
+    DragDestinationDelegate* = ref object of RootObj
+
     View* = ref object of RootObj
         window*: Window
         name*: string
@@ -40,6 +42,7 @@ type
         mouseInside*: bool
         handleMouseOver: bool
         hidden*: bool
+        dragDestination*: DragDestinationDelegate
 
     Window* = ref object of View
         firstResponder*: View       ## handler of untargeted (keyboard and menu) input
