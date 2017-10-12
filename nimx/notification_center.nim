@@ -260,7 +260,7 @@ proc addObserver*(nc: NotificationCenter, ev: string, observerId: ref | SomeOrdi
     if o.isNil:
         o = newTable[int, NCCallback]()
         nc.observers[ev] = o
-    o.add(obsId, cb)
+    o[obsId] = cb
 
 proc postNotification*(nc: NotificationCenter, ev: string, args: Variant) =
     let o = nc.observers.getOrDefault(ev)
