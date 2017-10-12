@@ -26,21 +26,18 @@ type
         texture*: TextureRef
         mSize: Size
         texCoords*: array[4, GLfloat]
-        framebuffer*: FramebufferRef
-        renderbuffer*: RenderbufferRef
         mFilePath: string
-
-    SpriteSheet* {.deprecated.} = ref object of SelfContainedImage
-        images: TableRef[string, SpriteImage]
-
-    SpriteImage* {.deprecated.} = ref object of Image
-        spriteSheet*: Image
-        mSubRect: Rect
+        mRenderTarget*: ImageRenderTarget
 
     FixedTexCoordSpriteImage* = ref object of Image
         spriteSheet: Image
         mSize: Size
         texCoords: array[4, GLfloat]
+
+    ImageRenderTarget* = ref object
+        framebuffer*: FramebufferRef
+        renderbuffer*: RenderbufferRef
+
 
 template setupTexParams(gl: GL) =
     when defined(android) or defined(ios):
@@ -63,21 +60,51 @@ method filePath*(i: SelfContainedImage): string = i.mFilePath
 
 when not defined(js):
     let totalImages = sharedProfiler().newDataSource(int, "Images")
-    proc finalizeImage(i: SelfContainedImage) =
+    proc finalize(i: SelfContainedImage) =
         if i.texture != invalidTexture:
             glDeleteTextures(1, addr i.texture)
-        if i.framebuffer != invalidFrameBuffer:
-            glDeleteFramebuffers(1, addr i.framebuffer)
-        if i.renderbuffer != invalidRenderbuffer:
-            glDeleteRenderbuffers(1, addr i.renderbuffer)
         dec totalImages
+
+    proc finalize(r: ImageRenderTarget) =
+        if r.framebuffer != invalidFrameBuffer:
+            glDeleteFramebuffers(1, addr r.framebuffer)
+        if r.renderbuffer != invalidRenderbuffer:
+            glDeleteRenderbuffers(1, addr r.renderbuffer)
 
 proc newSelfContainedImage(): SelfContainedImage {.inline.} =
     when defined(js):
         result.new()
     else:
         inc totalImages
-        result.new(finalizeImage)
+        result.new(finalize)
+
+proc newImageRenderTarget*(): ImageRenderTarget {.inline.} =
+    when defined(js):
+        result.new()
+    else:
+        result.new(finalize)
+
+proc framebuffer*(i: SelfContainedImage): FramebufferRef {.inline, deprecated.} =
+    let rt = i.mRenderTarget
+    if not rt.isNil:
+        result = rt.framebuffer
+
+proc `framebuffer=`*(i: SelfContainedImage, b: FramebufferRef) {.inline, deprecated.} =
+    let rt = i.mRenderTarget
+    assert(b == invalidFrameBuffer or not rt.isNil)
+    if not rt.isNil:
+        rt.framebuffer = b
+
+proc renderbuffer*(i: SelfContainedImage): RenderbufferRef {.inline, deprecated.} =
+    let rt = i.mRenderTarget
+    if not rt.isNil:
+        result = rt.renderbuffer
+
+proc `renderbuffer=`*(i: SelfContainedImage, b: RenderbufferRef) {.inline, deprecated.} =
+    let rt = i.mRenderTarget
+    assert(b == invalidRenderbuffer or not rt.isNil)
+    if not rt.isNil:
+        rt.renderbuffer = b
 
 when not web:
     template offset(p: pointer, off: int): pointer =
@@ -188,7 +215,6 @@ method isLoaded*(i: SelfContainedImage): bool =
     else:
         result = true
 
-method isLoaded*(i: SpriteImage): bool = i.spriteSheet.isLoaded
 method isLoaded*(i: FixedTexCoordSpriteImage): bool = i.spriteSheet.isLoaded
 
 method getTextureQuad*(i: Image, gl: GL, texCoords: var array[4, GLfloat]): TextureRef {.base.} =
@@ -253,20 +279,7 @@ method getTextureQuad*(i: SelfContainedImage, gl: GL, texCoords: var array[4, GL
 
 method size*(i: Image): Size {.base.} = discard
 method size*(i: SelfContainedImage): Size = i.mSize
-method size*(i: SpriteImage): Size = i.mSubRect.size
 method size*(i: FixedTexCoordSpriteImage): Size = i.mSize
-
-method getTextureQuad*(i: SpriteImage, gl: GL, texCoords: var array[4, GLfloat]): TextureRef =
-    result = i.spriteSheet.getTextureQuad(gl, texCoords)
-    let superSize = i.spriteSheet.size
-    let s0 = texCoords[0]
-    let t0 = texCoords[1]
-    let s1 = texCoords[2]
-    let t1 = texCoords[3]
-    texCoords[0] = s0 + (s1 - s0) * (i.mSubRect.x / superSize.width)
-    texCoords[1] = t0 + (t1 - t0) * (i.mSubRect.y / superSize.height)
-    texCoords[2] = s0 + (s1 - s0) * (i.mSubRect.maxX / superSize.width)
-    texCoords[3] = t0 + (t1 - t0) * (i.mSubRect.maxY / superSize.height)
 
 method getTextureQuad*(i: FixedTexCoordSpriteImage, gl: GL, texCoords: var array[4, GLfloat]): TextureRef =
     result = i.spriteSheet.getTextureQuad(gl, texCoords)
@@ -275,25 +288,11 @@ method getTextureQuad*(i: FixedTexCoordSpriteImage, gl: GL, texCoords: var array
     texCoords[2] = i.texCoords[2]
     texCoords[3] = i.texCoords[3]
 
-proc subimageWithRect*(i: Image, r: Rect): SpriteImage =
-    result.new()
-    result.spriteSheet = i
-    result.mSubRect = r
-
 proc subimageWithTexCoords*(i: Image, s: Size, texCoords: array[4, GLfloat]): FixedTexCoordSpriteImage =
     result.new()
     result.spriteSheet = i
     result.mSize = s
     result.texCoords = texCoords
-
-proc imageNamed*(s: SpriteSheet, name: string): SpriteImage =
-    if not s.images.isNil:
-        result = s.images[name]
-    if result.isNil and s.texture.isEmpty:
-        result.new()
-        result.spriteSheet = s
-        if s.images.isNil: s.images = newTable[string, SpriteImage]()
-        s.images[name] = result
 
 proc flipVertically*(i: SelfContainedImage) =
     swap(i.texCoords[1], i.texCoords[3])
@@ -321,8 +320,9 @@ proc resetToSize*(i: SelfContainedImage, size: Size, gl: GL) =
         gl.bindTexture(gl.TEXTURE_2D, i.texture)
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA.GLint, texWidth.GLsizei, texHeight.GLsizei, 0, gl.RGBA, gl.UNSIGNED_BYTE, nil)
 
-        if i.renderbuffer != invalidRenderbuffer:
-            gl.bindRenderbuffer(gl.RENDERBUFFER, i.renderbuffer)
+        let rt = i.mRenderTarget
+        if not rt.isNil and rt.renderbuffer != invalidRenderbuffer:
+            gl.bindRenderbuffer(gl.RENDERBUFFER, rt.renderbuffer)
             let depthStencilFormat = when defined(js) or defined(emscripten): gl.DEPTH_STENCIL else: gl.DEPTH24_STENCIL8
             gl.renderbufferStorage(gl.RENDERBUFFER, depthStencilFormat, texWidth.GLsizei, texHeight.GLsizei)
 
