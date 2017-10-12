@@ -226,8 +226,8 @@ when defined(js):
         """.}
         let texWidth = nextPowerOfTwo(width.int)
         let texHeight = nextPowerOfTwo(height.int)
-        i.texWidth = texWidth.int32
-        i.texHeight = texHeight.int32
+        i.texWidth = texWidth.int16
+        i.texHeight = texHeight.int16
         i.mSize.width = width
         i.mSize.height = height
         i.texCoords[2] = width / texWidth.Coord
