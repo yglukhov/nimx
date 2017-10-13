@@ -21,23 +21,26 @@ else:
 
 type
     Image* = ref object of RootObj
+        texCoords*: array[4, GLfloat]
+        mSize: Size
+        texWidth*, texHeight*: int16
 
     SelfContainedImage* = ref object of Image
         texture*: TextureRef
-        mSize: Size
-        texCoords*: array[4, GLfloat]
         mFilePath: string
         mRenderTarget*: ImageRenderTarget
 
     FixedTexCoordSpriteImage* = ref object of Image
         spriteSheet: Image
-        mSize: Size
-        texCoords: array[4, GLfloat]
 
-    ImageRenderTarget* = ref object
+    ImageRenderTarget* = ref object # This will be moved to render_to_image soon
         framebuffer*: FramebufferRef
-        renderbuffer*: RenderbufferRef
-
+        depthbuffer*: RenderbufferRef
+        stencilbuffer*: RenderbufferRef
+        vpX*, vpY*: GLint # Viewport geometry
+        vpW*, vpH*: GLsizei
+        texWidth*, texHeight*: int16
+        needsDepthStencil*: bool
 
 template setupTexParams(gl: GL) =
     when defined(android) or defined(ios):
@@ -65,23 +68,11 @@ when not defined(js):
             glDeleteTextures(1, addr i.texture)
         dec totalImages
 
-    proc finalize(r: ImageRenderTarget) =
-        if r.framebuffer != invalidFrameBuffer:
-            glDeleteFramebuffers(1, addr r.framebuffer)
-        if r.renderbuffer != invalidRenderbuffer:
-            glDeleteRenderbuffers(1, addr r.renderbuffer)
-
 proc newSelfContainedImage(): SelfContainedImage {.inline.} =
     when defined(js):
         result.new()
     else:
         inc totalImages
-        result.new(finalize)
-
-proc newImageRenderTarget*(): ImageRenderTarget {.inline.} =
-    when defined(js):
-        result.new()
-    else:
         result.new(finalize)
 
 proc framebuffer*(i: SelfContainedImage): FramebufferRef {.inline, deprecated.} =
@@ -98,19 +89,19 @@ proc `framebuffer=`*(i: SelfContainedImage, b: FramebufferRef) {.inline, depreca
 proc renderbuffer*(i: SelfContainedImage): RenderbufferRef {.inline, deprecated.} =
     let rt = i.mRenderTarget
     if not rt.isNil:
-        result = rt.renderbuffer
+        result = rt.depthbuffer
 
 proc `renderbuffer=`*(i: SelfContainedImage, b: RenderbufferRef) {.inline, deprecated.} =
     let rt = i.mRenderTarget
     assert(b == invalidRenderbuffer or not rt.isNil)
     if not rt.isNil:
-        rt.renderbuffer = b
+        rt.depthbuffer = b
 
 when not web:
     template offset(p: pointer, off: int): pointer =
         cast[pointer](cast[int](p) + off)
 
-    proc loadBitmapToTexture(data: ptr uint8, x, y, comp: int, texture: var TextureRef, size: var Size, texCoords: var array[4, GLfloat]) =
+    proc loadBitmapToTexture(data: ptr uint8, x, y, comp: int, texture: var TextureRef, size: var Size, texCoords: var array[4, GLfloat], texWidth, texHeight: var int16) =
         glGenTextures(1, addr texture)
         glBindTexture(GL_TEXTURE_2D, texture)
         let format : GLenum = case comp:
@@ -120,8 +111,8 @@ when not web:
             of 4: GL_RGBA
             else: GLenum(0)
         size = newSize(x.Coord, y.Coord)
-        let texWidth = nextPowerOfTwo(x)
-        let texHeight = nextPowerOfTwo(y)
+        texWidth = nextPowerOfTwo(x).int16
+        texHeight = nextPowerOfTwo(y).int16
 
         var pixelData = data
 
@@ -160,7 +151,7 @@ when not web:
             dealloc(pixelData)
 
     proc initWithBitmap*(i: SelfContainedImage, data: ptr uint8, x, y, comp: int) =
-        loadBitmapToTexture(data, x, y, comp, i.texture, i.mSize, i.texCoords)
+        loadBitmapToTexture(data, x, y, comp, i.texture, i.mSize, i.texCoords, i.texWidth, i.texHeight)
 
     proc initWithContentsOfFile*(i: SelfContainedImage, path: string) =
         var x, y, comp: cint
@@ -200,10 +191,10 @@ proc imageWithResource*(name: string): Image =
 proc imageWithSize*(size: Size): SelfContainedImage =
     result = newSelfContainedImage()
     result.mSize = size
-    let texWidth = nextPowerOfTwo(size.width.int)
-    let texHeight = nextPowerOfTwo(size.height.int)
-    result.texCoords[2] = size.width / texWidth.Coord
-    result.texCoords[3] = size.height / texHeight.Coord
+    result.texWidth = nextPowerOfTwo(size.width.int).int16
+    result.texHeight = nextPowerOfTwo(size.height.int).int16
+    result.texCoords[2] = size.width / result.texWidth.Coord
+    result.texCoords[3] = size.height / result.texHeight.Coord
 
 method isLoaded*(i: Image): bool {.base.} = false
 
@@ -235,6 +226,8 @@ when defined(js):
         """.}
         let texWidth = nextPowerOfTwo(width.int)
         let texHeight = nextPowerOfTwo(height.int)
+        i.texWidth = texWidth.int16
+        i.texHeight = texHeight.int16
         i.mSize.width = width
         i.mSize.height = height
         i.texCoords[2] = width / texWidth.Coord
@@ -277,9 +270,7 @@ method getTextureQuad*(i: SelfContainedImage, gl: GL, texCoords: var array[4, GL
     texCoords[3] = i.texCoords[3]
     result = i.texture
 
-method size*(i: Image): Size {.base.} = discard
-method size*(i: SelfContainedImage): Size = i.mSize
-method size*(i: FixedTexCoordSpriteImage): Size = i.mSize
+proc size*(i: Image): Size {.inline.} = i.mSize
 
 method getTextureQuad*(i: FixedTexCoordSpriteImage, gl: GL, texCoords: var array[4, GLfloat]): TextureRef =
     result = i.spriteSheet.getTextureQuad(gl, texCoords)
@@ -293,12 +284,22 @@ proc subimageWithTexCoords*(i: Image, s: Size, texCoords: array[4, GLfloat]): Fi
     result.spriteSheet = i
     result.mSize = s
     result.texCoords = texCoords
+    result.texWidth = i.texWidth
+    result.texHeight = i.texHeight
 
-proc flipVertically*(i: SelfContainedImage) =
+proc flipVertically*(i: SelfContainedImage) {.inline.} =
     swap(i.texCoords[1], i.texCoords[3])
 
-proc flipped*(i: SelfContainedImage): bool=
-    result = i.texCoords[1] > i.texCoords[3]
+proc flipped*(i: Image): bool {.inline.} = i.texCoords[1] > i.texCoords[3]
+
+proc backingSize*(i: Image): Size =
+    result.width = i.texWidth.float32 * (i.texCoords[2] - i.texCoords[0])
+    result.height = i.texHeight.float32 * abs(i.texCoords[1] - i.texCoords[3])
+
+proc backingRect*(i: Image): Rect =
+    result.origin.x = i.texWidth.float32 * i.texCoords[0]
+    result.origin.y = i.texHeight.float32 * min(i.texCoords[0], i.texCoords[3])
+    result.size = i.backingSize
 
 proc resetToSize*(i: SelfContainedImage, size: Size, gl: GL) =
     i.mSize = size
@@ -307,6 +308,8 @@ proc resetToSize*(i: SelfContainedImage, size: Size, gl: GL) =
 
     let texWidth = nextPowerOfTwo(size.width.int)
     let texHeight = nextPowerOfTwo(size.height.int)
+    i.texWidth = texWidth.int16
+    i.texHeight = texHeight.int16
 
     i.texCoords[0] = 0
     i.texCoords[1] = 0
@@ -319,12 +322,6 @@ proc resetToSize*(i: SelfContainedImage, size: Size, gl: GL) =
     if i.texture != invalidTexture:
         gl.bindTexture(gl.TEXTURE_2D, i.texture)
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA.GLint, texWidth.GLsizei, texHeight.GLsizei, 0, gl.RGBA, gl.UNSIGNED_BYTE, nil)
-
-        let rt = i.mRenderTarget
-        if not rt.isNil and rt.renderbuffer != invalidRenderbuffer:
-            gl.bindRenderbuffer(gl.RENDERBUFFER, rt.renderbuffer)
-            let depthStencilFormat = when defined(js) or defined(emscripten): gl.DEPTH_STENCIL else: gl.DEPTH24_STENCIL8
-            gl.renderbufferStorage(gl.RENDERBUFFER, depthStencilFormat, texWidth.GLsizei, texHeight.GLsizei)
 
 proc generateMipmap*(i: SelfContainedImage, gl: GL) =
     if i.texture != invalidTexture:
@@ -416,6 +413,7 @@ when asyncResourceLoad:
             texture: TextureRef
             glCtx: GlContextPtr
             wnd: WindowPtr
+            texWidth, texHeight: int16
 
     proc loadComplete(ctx: pointer) {.cdecl.} =
         let c = cast[ImageLoadingCtx](ctx)
@@ -432,6 +430,8 @@ when asyncResourceLoad:
             i.texture = c.texture
             i.texCoords = c.texCoords
             i.mSize = c.size
+            i.texWidth = c.texWidth
+            i.texHeight = c.texHeight
         i.setFilePath(c.url)
         c.completionCallback(i)
 
@@ -467,7 +467,7 @@ when asyncResourceLoad:
                     var x, y, comp: cint
                     var bitmap = stbi_load_from_memory(cast[ptr uint8](addr data[0]),
                         data.len.cint, addr x, addr y, addr comp, 0)
-                    loadBitmapToTexture(bitmap, x, y, comp, c.texture, c.size, c.texCoords)
+                    loadBitmapToTexture(bitmap, x, y, comp, c.texture, c.size, c.texCoords, c.texWidth, c.texHeight)
                     stbi_image_free(bitmap)
 
                 let fenceId = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, GLbitfield(0))
@@ -487,15 +487,15 @@ when defined(emscripten):
         callback: proc(i: Image)
         image: SelfContainedImage
 
-    proc nimxImagePrepareTexture(c: pointer, x, y: cint) {.EMSCRIPTEN_KEEPALIVE.} =
+    proc nimxImagePrepareTexture(c: pointer, x, y, texWidth, texHeight: cint) {.EMSCRIPTEN_KEEPALIVE.} =
         handleJSExceptions:
             let ctx = cast[ImageLoadingCtx](c)
             ctx.image = newSelfContainedImage()
             glGenTextures(1, addr ctx.image.texture)
             glBindTexture(GL_TEXTURE_2D, ctx.image.texture)
             ctx.image.mSize = newSize(x.Coord, y.Coord)
-            let texWidth = nextPowerOfTwo(x)
-            let texHeight = nextPowerOfTwo(y)
+            ctx.image.texWidth = texWidth.int16
+            ctx.image.texHeight = texHeight.int16
 
             ctx.image.texCoords[2] = 1.0
             ctx.image.texCoords[3] = 1.0
@@ -503,9 +503,6 @@ when defined(emscripten):
             if texWidth != x or texHeight != y:
                 ctx.image.texCoords[2] = x.Coord / texWidth.Coord
                 ctx.image.texCoords[3] = y.Coord / texHeight.Coord
-
-            ctx.image.mSize.width = x.Coord
-            ctx.image.mSize.height = y.Coord
 
     proc nimxImageLoaded(c: pointer) {.EMSCRIPTEN_KEEPALIVE.} =
         handleJSExceptions:
@@ -538,10 +535,10 @@ when defined(emscripten):
         i.crossOrigin = '';
         i.onload = function () {
             try {
-                _nimxImagePrepareTexture($0, i.width, i.height);
-                GLctx.pixelStorei(GLctx.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
                 var texWidth = _nimxNextPowerOf2(i.width);
                 var texHeight = _nimxNextPowerOf2(i.height);
+                _nimxImagePrepareTexture($0, i.width, i.height, texWidth, texHeight);
+                GLctx.pixelStorei(GLctx.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
                 if (texWidth != i.width || texHeight != i.height) {
                     var canvas = document.createElement('canvas');
                     canvas.width = texWidth;
