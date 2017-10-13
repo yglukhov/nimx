@@ -355,11 +355,30 @@ method startTextInput*(w: SdlWindow, r: Rect) =
 method stopTextInput*(w: SdlWindow) =
     stopTextInput()
 
+when defined(macosx):
+    # Handle live resize on macos
+    proc resizeEventWatch(userdata: pointer; event: ptr sdl2.Event): Bool32 {.cdecl.} =
+        if event.kind == WindowEvent:
+            let wndEv = cast[WindowEventPtr](event)
+            case wndEv.event
+            of WindowEvent_Resized:
+                let wnd = windowFromSDLEvent(wndEv)
+                var evt = newEvent(etWindowResized)
+                evt.window = wnd
+                evt.position.x = wndEv.data1.Coord
+                evt.position.y = wndEv.data2.Coord
+                discard mainApplication().handleEvent(evt)
+            else:
+                discard
+
 proc runUntilQuit*() =
     # Initialize fist dummy event. The kind should be any unused kind.
     var evt = sdl2.Event(kind: UserEvent1)
     #setEventFilter(eventFilter, nil)
     animateAndDraw()
+
+    when defined(macosx):
+        addEventWatch(resizeEventWatch, nil)
 
     # Main loop
     while true:
