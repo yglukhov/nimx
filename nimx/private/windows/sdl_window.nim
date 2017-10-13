@@ -391,6 +391,11 @@ proc runUntilQuit*() =
 
     discard quit(evt)
 
+proc criticalError() =
+    logi "Exception caught: ", getCurrentExceptionMsg()
+    logi getCurrentException().getStackTrace()
+    quit 1
+
 template runApplication*(body: typed): typed =
     sdlMain()
 
@@ -398,6 +403,4 @@ template runApplication*(body: typed): typed =
         body
         runUntilQuit()
     except:
-        logi "Exception caught: ", getCurrentExceptionMsg()
-        logi getCurrentException().getStackTrace()
-        quit 1
+        criticalError()
