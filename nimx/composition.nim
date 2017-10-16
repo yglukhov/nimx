@@ -539,9 +539,8 @@ template setupPosteffectUniforms*(cc: CompiledComposition) =
     for pe in postEffectStack:
         pe.setupProc(cc)
 
-var overdrawValue = 0
-template GetOverdrawValue*() : int =
-    int(overdrawValue.float32 / 1000.float32)
+var overdrawValue = 0'f32
+template GetOverdrawValue*() : float32 = overdrawValue / 1000
 
 template ResetOverdrawValue*() =
     overdrawValue = 0
@@ -559,7 +558,7 @@ template draw*(comp: var Composition, r: Rect, code: untyped): typed =
     let cc = gl.getCompiledComposition(comp)
     gl.useProgram(cc.program)
 
-    overdrawValue += int(r.size.width * r.size.height)
+    overdrawValue += r.size.width * r.size.height
     DIPValue += 1
 
     const componentCount = 2
