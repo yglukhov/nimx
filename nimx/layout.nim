@@ -81,7 +81,7 @@ proc setConstraintStrength(c: Constraint, strength: float) =
     c.strength = clipStrength(strength)
 
 proc layoutAux(rootView: NimNode, body: NimNode): NimNode =
-    var views = @[rootView]
+    var views = @[body]
     var childParentRelations = @[-1]
     collectAllViewNodes(body, views, childParentRelations)
 
@@ -113,7 +113,10 @@ proc layoutAux(rootView: NimNode, body: NimNode): NimNode =
         result.add(newCall("addSubview", ids[childParentRelations[i]], ids[i]))
 
     for i in 1 ..< numViews:
-        for p in views[i][2]:
+        views[i] = views[i][2]
+
+    for i in 0 ..< numViews:
+        for p in views[i]:
             if p.kind == nnkCall and p.len == 2 and p[0].kind == nnkIdent:
                 let prop = $p[0]
                 if prop.len > 2 and prop.startsWith("on") and prop[2].isUpperAscii:
