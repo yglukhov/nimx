@@ -183,8 +183,10 @@ proc recalcScrollKnobSizes(v: ScrollView) =
     var cs = v.contentSize
     if not v.mHorizontalScrollBar.isNil:
         v.mHorizontalScrollBar.knobSize = v.bounds.width / cs.width
+        v.mHorizontalScrollBar.hidden = v.mHorizontalScrollBar.knobSize == 1.0
     if not v.mVerticalScrollBar.isNil:
         v.mVerticalScrollBar.knobSize = v.bounds.height / cs.height
+        v.mVerticalScrollBar.hidden = v.mVerticalScrollBar.knobSize == 1.0
 
 method resizeSubviews*(v: ScrollView, oldSize: Size) =
     procCall v.View.resizeSubviews(oldSize)
