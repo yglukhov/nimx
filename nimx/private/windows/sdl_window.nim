@@ -288,12 +288,15 @@ proc handleEvent(event: ptr sdl2.Event): Bool32 =
     result = True32
 
 method onResize*(w: SdlWindow, newSize: Size) =
+    procCall w.Window.onResize(newSize)
+    let constrainedSize = w.frame.size
+    if constrainedSize != newSize:
+        w.impl.setSize(constrainedSize.width.cint, constrainedSize.height.cint)
     when defined(macosx) and not defined(ios):
         w.pixelRatio = w.scaleFactor()
     else:
         w.pixelRatio = screenScaleFactor()
-    glViewport(0, 0, GLSizei(newSize.width * w.pixelRatio), GLsizei(newSize.height * w.pixelRatio))
-    procCall w.Window.onResize(newSize)
+    glViewport(0, 0, GLSizei(constrainedSize.width * w.pixelRatio), GLsizei(constrainedSize.height * w.pixelRatio))
 
 when false:
     # Framerate limiter
@@ -355,11 +358,30 @@ method startTextInput*(w: SdlWindow, r: Rect) =
 method stopTextInput*(w: SdlWindow) =
     stopTextInput()
 
+when defined(macosx):
+    # Handle live resize on macos
+    proc resizeEventWatch(userdata: pointer; event: ptr sdl2.Event): Bool32 {.cdecl.} =
+        if event.kind == WindowEvent:
+            let wndEv = cast[WindowEventPtr](event)
+            case wndEv.event
+            of WindowEvent_Resized:
+                let wnd = windowFromSDLEvent(wndEv)
+                var evt = newEvent(etWindowResized)
+                evt.window = wnd
+                evt.position.x = wndEv.data1.Coord
+                evt.position.y = wndEv.data2.Coord
+                discard mainApplication().handleEvent(evt)
+            else:
+                discard
+
 proc runUntilQuit*() =
     # Initialize fist dummy event. The kind should be any unused kind.
     var evt = sdl2.Event(kind: UserEvent1)
     #setEventFilter(eventFilter, nil)
     animateAndDraw()
+
+    when defined(macosx):
+        addEventWatch(resizeEventWatch, nil)
 
     # Main loop
     while true:
@@ -369,6 +391,11 @@ proc runUntilQuit*() =
 
     discard quit(evt)
 
+proc criticalError() =
+    logi "Exception caught: ", getCurrentExceptionMsg()
+    logi getCurrentException().getStackTrace()
+    quit 1
+
 template runApplication*(body: typed): typed =
     sdlMain()
 
@@ -376,6 +403,4 @@ template runApplication*(body: typed): typed =
         body
         runUntilQuit()
     except:
-        logi "Exception caught: ", getCurrentExceptionMsg()
-        logi getCurrentException().getStackTrace()
-        quit 1
+        criticalError()

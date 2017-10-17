@@ -11,6 +11,7 @@ import notification_center
 import mini_profiler
 import portable_gl
 import drag_and_drop
+import kiwi
 export view
 
 # Window type is defined in view module
@@ -27,9 +28,6 @@ method title*(w: Window): string {.base.} = ""
 method fullscreenAvailable*(w: Window): bool {.base.} = false
 method fullscreen*(w: Window): bool {.base.} = false
 method `fullscreen=`*(w: Window, v: bool) {.base.} = discard
-
-method onResize*(w: Window, newSize: Size) {.base.} =
-    procCall w.View.setFrameSize(newSize)
 
 # Bug 2488. Can not use {.global.} for JS target.
 var lastTime = epochTime()
@@ -55,7 +53,33 @@ when false:
         memory = int(4 * memory / 1024 / 1024)
         return memory
 
+proc shouldUseConstraintSystem(w: Window): bool {.inline.} =
+    # We assume that constraint system should not be used if there are no
+    # constraints in the solver.
+    # All of this is done to preserve temporary backwards compatibility with the
+    # legacy autoresizing masks system.
+    # 4 is the number of constraints added by the window itself for every of
+    # its edit variables.
+    w.layoutSolver.constraintsCount > 4
+
+proc updateLayout(w: Window) =
+    if w.shouldUseConstraintSystem:
+        w.layoutSolver.updateVariables()
+        w.recursiveUpdateLayout(zeroPoint)
+    w.needsLayout = false
+
+method onResize*(w: Window, newSize: Size) {.base.} =
+    if w.shouldUseConstraintSystem:
+        w.layoutSolver.suggestValue(w.layout.width, newSize.width)
+        w.layoutSolver.suggestValue(w.layout.height, newSize.height)
+        w.updateLayout()
+    else:
+        procCall w.View.setFrameSize(newSize)
+
 method drawWindow*(w: Window) {.base.} =
+    if w.needsLayout:
+        w.updateLayout()
+
     w.needsDisplay = false
 
     w.recursiveDrawSubviews()
@@ -184,6 +208,17 @@ method init*(w: Window, frame: Rect) =
     w.mouseOverListeners = @[]
     w.animationRunners = @[]
     w.pixelRatio = 1.0
+    let s = newSolver()
+    w.layoutSolver = s
+    s.addEditVariable(w.layout.x, 1000)
+    s.addEditVariable(w.layout.y, 1000)
+    s.addEditVariable(w.layout.width, 100)
+    s.addEditVariable(w.layout.height, 100)
+
+    s.suggestValue(w.layout.x, 0)
+    s.suggestValue(w.layout.y, 0)
+    s.suggestValue(w.layout.width, frame.width)
+    s.suggestValue(w.layout.height, frame.height)
 
     #default animation runner for window
     var defaultRunner = newAnimationRunner()
