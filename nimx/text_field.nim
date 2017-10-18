@@ -75,6 +75,7 @@ proc newLabel*(r: Rect): TextField =
     result = newTextField(r)
     result.editable = false
     result.selectable = false
+    result.backgroundColor.a = 0
 
 proc newLabel*(parent: View = nil, position: Point = newPoint(0, 0), size: Size = newSize(100, 20), text: string = "label"): TextField =
     result = newLabel(newRect(position.x, position.y, size.width, size.height))
@@ -94,6 +95,7 @@ method init*(t: TextField, r: Rect) =
     t.editable = true
     t.selectable = true
     t.textSelection = -1 .. -1
+    t.backgroundColor = whiteColor()
     t.hasBezel = true
     t.mText = newFormattedText()
     t.mText.verticalAlignment = vaCenter
@@ -221,7 +223,7 @@ method draw*(t: TextField, r: Rect) =
 
     let c = currentContext()
     if t.editable and t.hasBezel:
-        c.fillColor = whiteColor()
+        c.fillColor = t.backgroundColor
         c.strokeColor = newGrayColor(0.74)
         c.strokeWidth = 1.0
         c.drawRect(t.bounds)
