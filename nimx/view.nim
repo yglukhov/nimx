@@ -32,7 +32,7 @@ type
     DragDestinationDelegate* = ref object of RootObj
 
     LayoutInfo = object
-        x*, y*, width*, height*: Variable
+        vars*: ViewLayoutVars
         constraintPrototypes: seq[Constraint]
         constraints: seq[Constraint]
 
@@ -64,32 +64,32 @@ type
         mActiveBgColor*: Color
         layoutSolver*: Solver
 
-    ConstraintVariablePlaceholderSource = object
+    ViewLayoutVars = object
         x*, y*, width*, height*: Variable
 
-proc centerX*(phs: ConstraintVariablePlaceholderSource): Expression = phs.x + phs.width / 2
-proc centerY*(phs: ConstraintVariablePlaceholderSource): Expression = phs.y + phs.height / 2
+proc centerX*(phs: ViewLayoutVars): Expression = phs.x + phs.width / 2
+proc centerY*(phs: ViewLayoutVars): Expression = phs.y + phs.height / 2
 
-proc left*(phs: ConstraintVariablePlaceholderSource): Variable {.inline.} = phs.x
-proc right*(phs: ConstraintVariablePlaceholderSource): Expression {.inline.} = phs.x + phs.width
+proc left*(phs: ViewLayoutVars): Variable {.inline.} = phs.x
+proc right*(phs: ViewLayoutVars): Expression {.inline.} = phs.x + phs.width
 
-proc top*(phs: ConstraintVariablePlaceholderSource): Variable {.inline.} = phs.y
-proc bottom*(phs: ConstraintVariablePlaceholderSource): Expression = phs.y + phs.height
+proc top*(phs: ViewLayoutVars): Variable {.inline.} = phs.y
+proc bottom*(phs: ViewLayoutVars): Expression = phs.y + phs.height
 
-proc center*(phs: ConstraintVariablePlaceholderSource): array[2, Expression] = [phs.centerX, phs.centerY]
-proc size*(phs: ConstraintVariablePlaceholderSource): array[2, Expression] = [newExpression(newTerm(phs.width)), newExpression(newTerm(phs.height))]
+proc center*(phs: ViewLayoutVars): array[2, Expression] = [phs.centerX, phs.centerY]
+proc size*(phs: ViewLayoutVars): array[2, Expression] = [newExpression(newTerm(phs.width)), newExpression(newTerm(phs.height))]
 
 const leftToRight = true
 
-proc leading*(phs: ConstraintVariablePlaceholderSource): Expression =
+proc leading*(phs: ViewLayoutVars): Expression =
     if leftToRight: newExpression(newTerm(phs.left)) else: -phs.right
 
-proc trailing*(phs: ConstraintVariablePlaceholderSource): Expression =
+proc trailing*(phs: ViewLayoutVars): Expression =
     if leftToRight: phs.right else: -newExpression(newTerm(phs.left))
 
-var prevPHS*, nextPHS*, superPHS*, selfPHS*: ConstraintVariablePlaceholderSource
+var prevPHS*, nextPHS*, superPHS*, selfPHS*: ViewLayoutVars
 
-proc init(phs: var ConstraintVariablePlaceholderSource) =
+proc init(phs: var ViewLayoutVars) =
     phs.x = newVariable("x", 0)
     phs.y = newVariable("y", 0)
     phs.width = newVariable("width", 0)
@@ -100,11 +100,8 @@ init(nextPHS)
 init(superPHS)
 init(selfPHS)
 
-proc init(i: var LayoutInfo, frame: Rect) =
-    i.x = newVariable("x", frame.x)
-    i.y = newVariable("y", frame.y)
-    i.width = newVariable("width", frame.width)
-    i.height = newVariable("height", frame.height)
+proc init(i: var LayoutInfo) =
+    i.vars.init()
     i.constraintPrototypes = @[]
     i.constraints = @[]
 
@@ -117,44 +114,44 @@ proc replacePlaceholderVar(view: View, indexOfViewInSuper: int, v: var Variable)
 
     if system.`==`(v, prevPHS.x):
         doAssert(not prevView.isNil, "Cannot resolve prev, view is is the first child")
-        v = prevView.layout.x
+        v = prevView.layout.vars.x
     elif system.`==`(v, prevPHS.y):
         doAssert(not prevView.isNil, "Cannot resolve prev, view is is the first child")
-        v = prevView.layout.y
+        v = prevView.layout.vars.y
     elif system.`==`(v, prevPHS.width):
         doAssert(not prevView.isNil, "Cannot resolve prev, view is is the first child")
-        v = prevView.layout.width
+        v = prevView.layout.vars.width
     elif system.`==`(v, prevPHS.height):
         doAssert(not prevView.isNil, "Cannot resolve prev, view is is the first child")
-        v = prevView.layout.height
+        v = prevView.layout.vars.height
     elif system.`==`(v, nextPHS.x):
         doAssert(not nextView.isNil, "Cannot resolve next, view is is the last child")
-        v = nextView.layout.x
+        v = nextView.layout.vars.x
     elif system.`==`(v, nextPHS.y):
         doAssert(not nextView.isNil, "Cannot resolve next, view is is the last child")
-        v = nextView.layout.y
+        v = nextView.layout.vars.y
     elif system.`==`(v, nextPHS.width):
         doAssert(not nextView.isNil, "Cannot resolve next, view is is the last child")
-        v = nextView.layout.width
+        v = nextView.layout.vars.width
     elif system.`==`(v, nextPHS.height):
         doAssert(not nextView.isNil, "Cannot resolve next, view is is the last child")
-        v = nextView.layout.height
+        v = nextView.layout.vars.height
     elif system.`==`(v, superPHS.x):
-        v = view.superview.layout.x
+        v = view.superview.layout.vars.x
     elif system.`==`(v, superPHS.y):
-        v = view.superview.layout.y
+        v = view.superview.layout.vars.y
     elif system.`==`(v, superPHS.width):
-        v = view.superview.layout.width
+        v = view.superview.layout.vars.width
     elif system.`==`(v, superPHS.height):
-        v = view.superview.layout.height
+        v = view.superview.layout.vars.height
     elif system.`==`(v, selfPHS.x):
-        v = view.layout.x
+        v = view.layout.vars.x
     elif system.`==`(v, selfPHS.y):
-        v = view.layout.y
+        v = view.layout.vars.y
     elif system.`==`(v, selfPHS.width):
-        v = view.layout.width
+        v = view.layout.vars.width
     elif system.`==`(v, selfPHS.height):
-        v = view.layout.height
+        v = view.layout.vars.height
 
 proc instantiateConstraint(v: View, c: Constraint): Constraint =
     result = newConstraint(c.expression, c.op, c.strength)
@@ -173,7 +170,7 @@ proc addConstraint*(v: View, c: Constraint) =
 
 method init*(v: View, frame: Rect) {.base.} =
     v.frame = frame
-    v.layout.init(frame)
+    v.layout.init()
     v.bounds = newRect(0, 0, frame.width, frame.height)
     v.subviews = @[]
     v.gestureDetectors = @[]
@@ -447,12 +444,12 @@ method resizeSubviews*(v: View, oldSize: Size) {.base.} = # Deprecated
         s.setFrame(newRect)
 
 proc recursiveUpdateLayout*(v: View, relPoint: Point) =
-    v.frame.origin.x = v.layout.x.value - relPoint.x
-    v.frame.origin.y = v.layout.y.value - relPoint.y
-    v.frame.size.width = v.layout.width.value
-    v.frame.size.height = v.layout.height.value
+    v.frame.origin.x = v.layout.vars.x.value - relPoint.x
+    v.frame.origin.y = v.layout.vars.y.value - relPoint.y
+    v.frame.size.width = v.layout.vars.width.value
+    v.frame.size.height = v.layout.vars.height.value
     v.bounds.size = v.frame.size
-    let relPoint = newPoint(v.layout.x.value, v.layout.y.value)
+    let relPoint = newPoint(v.layout.vars.x.value, v.layout.vars.y.value)
     for s in v.subviews:
         s.recursiveUpdateLayout(relPoint)
 

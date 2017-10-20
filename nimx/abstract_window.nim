@@ -70,8 +70,8 @@ proc updateLayout(w: Window) =
 
 method onResize*(w: Window, newSize: Size) {.base.} =
     if w.shouldUseConstraintSystem:
-        w.layoutSolver.suggestValue(w.layout.width, newSize.width)
-        w.layoutSolver.suggestValue(w.layout.height, newSize.height)
+        w.layoutSolver.suggestValue(w.layout.vars.width, newSize.width)
+        w.layoutSolver.suggestValue(w.layout.vars.height, newSize.height)
         w.updateLayout()
     else:
         procCall w.View.setFrameSize(newSize)
@@ -210,15 +210,15 @@ method init*(w: Window, frame: Rect) =
     w.pixelRatio = 1.0
     let s = newSolver()
     w.layoutSolver = s
-    s.addEditVariable(w.layout.x, 1000)
-    s.addEditVariable(w.layout.y, 1000)
-    s.addEditVariable(w.layout.width, 100)
-    s.addEditVariable(w.layout.height, 100)
+    s.addEditVariable(w.layout.vars.x, 1000)
+    s.addEditVariable(w.layout.vars.y, 1000)
+    s.addEditVariable(w.layout.vars.width, 100)
+    s.addEditVariable(w.layout.vars.height, 100)
 
-    s.suggestValue(w.layout.x, 0)
-    s.suggestValue(w.layout.y, 0)
-    s.suggestValue(w.layout.width, frame.width)
-    s.suggestValue(w.layout.height, frame.height)
+    s.suggestValue(w.layout.vars.x, 0)
+    s.suggestValue(w.layout.vars.y, 0)
+    s.suggestValue(w.layout.vars.width, frame.width)
+    s.suggestValue(w.layout.vars.height, frame.height)
 
     #default animation runner for window
     var defaultRunner = newAnimationRunner()

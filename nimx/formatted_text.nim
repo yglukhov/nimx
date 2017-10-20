@@ -8,6 +8,7 @@ type
         mAttributes: seq[Attributes]
         lines: seq[LineInfo]
         mTotalHeight: float32
+        mTotalWidth: float32
         horizontalAlignment*: HorizontalTextAlignment
         verticalAlignment*: VerticalAlignment
         mBoundingSize: Size
@@ -102,6 +103,7 @@ proc updateCache(t: FormattedText) =
     t.shadowAttrs.setLen(0)
     t.strokeAttrs.setLen(0)
     t.mTotalHeight = 0
+    t.mTotalWidth = 0
 
     var curLineInfo: LineInfo
     curLineInfo.height = t.mAttributes[0].font.height
@@ -168,6 +170,7 @@ proc updateCache(t: FormattedText) =
                     let tmp = curLineInfo # JS bug workaround. Copy to temp object.
                     t.lines.add(tmp)
                     t.mTotalHeight += curLineInfo.height + t.mLineSpacing
+                    t.mTotalWidth = max(t.mTotalWidth, curLineInfo.width)
                     curLineInfo.top = t.mTotalHeight
                     curLineInfo.startByte = i
                     curLineInfo.startRune = curRune + 1
@@ -181,6 +184,7 @@ proc updateCache(t: FormattedText) =
                 let tmp = curLineInfo # JS bug workaround. Copy to temp object.
                 t.lines.add(tmp)
                 t.mTotalHeight += curLineInfo.height + t.mLineSpacing
+                t.mTotalWidth = max(t.mTotalWidth, curLineInfo.width)
                 curLineInfo.top = t.mTotalHeight
                 curLineInfo.startByte = curWordStartByte
                 curLineInfo.startRune = curWordStartRune
@@ -213,6 +217,7 @@ proc updateCache(t: FormattedText) =
         let tmp = curLineInfo # JS bug workaround. Copy to temp object.
         t.lines.add(tmp)
         t.mTotalHeight += curLineInfo.height + t.mLineSpacing
+        t.mTotalWidth = max(t.mTotalWidth, curLineInfo.width)
         curLineInfo.hidden = not canAddWordWithHeight()
 
     # echo "Cache updated for ", t.mText
@@ -272,6 +277,10 @@ proc hasShadow*(t: FormattedText): bool =
 proc totalHeight*(t: FormattedText): float32 =
     t.updateCacheIfNeeded()
     t.mTotalHeight
+
+proc totalWidth*(t: FormattedText): float32 =
+    t.updateCacheIfNeeded()
+    t.mTotalWidth
 
 proc prepareAttributes(t: FormattedText, a: int): int =
     result = lowerBoundIt(t.mAttributes, 0, t.mAttributes.high, cmp(it.startRune, a) < 0)
