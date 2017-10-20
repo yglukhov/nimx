@@ -266,11 +266,13 @@ template postNotification*(nc: NotificationCenter, ev: string, args: Variant) =
     let o = nc.observers.getOrDefault(ev)
     if not o.isNil:
         for v in o.values:
-            warn "NC postNotification ", ev, " from ", instantiationInfo(), " with args ", args.typeId
+            when defined(debugNC):
+                warn "NC postNotification ", ev, " from ", instantiationInfo(), " with args ", args.typeId
             v(args)
 
 template postNotification*(nc: NotificationCenter, ev: string)=
-    warn "NC postNotification ", ev, " from ", instantiationInfo()
+    when defined(debugNC):
+        warn "NC postNotification ", ev, " from ", instantiationInfo()
     nc.postNotification(ev, newVariant())
 
 when isMainModule:
