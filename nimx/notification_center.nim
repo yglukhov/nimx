@@ -1,4 +1,4 @@
-import tables, sequtils, macros
+import tables, sequtils, macros, logging
 
 import variant # for legacy api
 export variant
@@ -262,15 +262,16 @@ proc addObserver*(nc: NotificationCenter, ev: string, observerId: ref | SomeOrdi
         nc.observers[ev] = o
     o[obsId] = cb
 
-proc postNotification*(nc: NotificationCenter, ev: string, args: Variant) =
+template postNotification*(nc: NotificationCenter, ev: string, args: Variant) =
     let o = nc.observers.getOrDefault(ev)
     if not o.isNil:
         for v in o.values:
+            warn "NC postNotification ", ev, " from ", instantiationInfo(), " with args ", args.typeId
             v(args)
 
-proc postNotification*(nc: NotificationCenter, ev: string)=
+template postNotification*(nc: NotificationCenter, ev: string)=
+    warn "NC postNotification ", ev, " from ", instantiationInfo()
     nc.postNotification(ev, newVariant())
-
 
 when isMainModule:
     proc tests*(nc:NotificationCenter)=
