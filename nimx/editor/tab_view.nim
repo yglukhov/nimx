@@ -21,6 +21,7 @@ type TabView* = ref object of View
     mouseTracker: proc(e: Event): bool
     tabFramesValid: bool
     dockingTabs*: bool
+    onTabSelected*: proc(i: int)
     configurationButton: Button
 
 proc contentFrame(v: TabView): Rect =
@@ -45,7 +46,7 @@ method init*(v: TabView, r: Rect) =
     v.selectedTab = -1
     v.backgroundColor = newGrayColor(0.5)
 
-proc selectedView(v: TabView): View =
+proc selectedView*(v: TabView): View =
     if v.selectedTab < 0 or v.selectedTab > v.tabs.high:
         nil
     else:
@@ -87,9 +88,12 @@ proc selectTab*(v: TabView, i: int) =
     if not sv.isNil:
         sv.removeFromSuperview()
     v.selectedTab = i
+    if not v.onTabSelected.isNil:
+        v.onTabSelected(i)
     sv = v.selectedView
     sv.setFrame(v.contentFrame)
     v.addSubview(sv)
+    discard sv.makeFirstResponder()
 
 proc insertTab*(v: TabView, i: int, title: string, view: View) =
     var t: Tab
@@ -106,6 +110,10 @@ proc tabIndex*(v: TabView, title: string): int=
     for i, t in v.tabs:
         if t.title == title:
             return i
+
+proc setTabTitle*(v: TabView, i: int, title: string)=
+    if i >= 0 and i < v.tabs.len:
+        v.tabs[i].title = title
 
 proc addTab*(v: TabView, title: string, view: View) {.inline.} =
     v.insertTab(v.tabs.len, title, view)

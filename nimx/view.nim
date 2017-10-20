@@ -7,9 +7,12 @@ import property_visitor
 import class_registry
 import serializers
 import kiwi
+import notification_center
 
 export types
 export animation_runner, class_registry
+
+const NimxFristResponderChangedInWindow* = "NimxFristResponderChangedInWindow"
 
 type AutoresizingFlag* = enum
     afFlexibleMinX
@@ -248,6 +251,7 @@ proc makeFirstResponder*(w: Window, responder: View): bool =
     if shouldChange:
         w.firstResponder = r
         r.viewDidBecomeFirstResponder()
+        sharedNotificationCenter().postNotification(NimxFristResponderChangedInWindow, newVariant(r))
         result = true
 
 method makeFirstResponder*(v: View): bool {.base.} =
