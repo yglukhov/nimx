@@ -22,7 +22,7 @@ type TabView* = ref object of View
     tabFramesValid: bool
     dockingTabs*: bool
     configurationButton: Button
-    onSlit*: proc(v: TabView)
+    onSplit*: proc(v: TabView)
     onRemove*: proc(v: TabView)
 
 proc contentFrame(v: TabView): Rect =
@@ -295,10 +295,10 @@ proc split*(v: TabView, horizontally, before: bool, title: string, view: View) =
         sz.height /= 2
 
     let ntv = newTabViewForSplit(sz, title, view, v)
-    ntv.onSlit = v.onSlit
+    ntv.onSplit = v.onSplit
     ntv.onRemove = v.onRemove
-    if not ntv.onSlit.isNil:
-        ntv.onSlit(ntv)
+    if not ntv.onSplit.isNil:
+        ntv.onSplit(ntv)
 
     if (s of LinearLayout) and LinearLayout(s).horizontal == horizontally:
         v.setFrameSize(sz)
