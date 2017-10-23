@@ -21,8 +21,9 @@ type TabView* = ref object of View
     mouseTracker: proc(e: Event): bool
     tabFramesValid: bool
     dockingTabs*: bool
-    onTabSelected*: proc(i: int)
     configurationButton: Button
+    onSplit*: proc(v: TabView)
+    onRemove*: proc(v: TabView)
 
 proc contentFrame(v: TabView): Rect =
     result = v.bounds
@@ -88,8 +89,6 @@ proc selectTab*(v: TabView, i: int) =
     if not sv.isNil:
         sv.removeFromSuperview()
     v.selectedTab = i
-    if not v.onTabSelected.isNil:
-        v.onTabSelected(i)
     sv = v.selectedView
     sv.setFrame(v.contentFrame)
     v.addSubview(sv)
@@ -104,6 +103,12 @@ proc insertTab*(v: TabView, i: int, title: string, view: View) =
     v.tabFramesValid = false
     if v.tabs.len == 1:
         v.selectTab(0)
+
+proc tabIndex*(v: TabView, sv: View): int=
+    result = -1
+    for i, t in v.tabs:
+        if t.view == sv:
+            return i
 
 proc tabIndex*(v: TabView, title: string): int=
     result = -1
@@ -280,7 +285,7 @@ proc newSplitView(r: Rect, horizontal: bool): LinearLayout =
     result.autoresizingMask = {afFlexibleWidth, afFlexibleHeight}
     result.userResizeable = true
 
-proc split(v: TabView, horizontally, before: bool, title: string, view: View) =
+proc split*(v: TabView, horizontally, before: bool, title: string, view: View) =
     let s = v.superview
 
     var sz = v.frame.size
@@ -290,6 +295,10 @@ proc split(v: TabView, horizontally, before: bool, title: string, view: View) =
         sz.height /= 2
 
     let ntv = newTabViewForSplit(sz, title, view, v)
+    ntv.onSplit = v.onSplit
+    ntv.onRemove = v.onRemove
+    if not ntv.onSplit.isNil:
+        ntv.onSplit(ntv)
 
     if (s of LinearLayout) and LinearLayout(s).horizontal == horizontally:
         v.setFrameSize(sz)
@@ -410,6 +419,8 @@ proc trackDocking(v: TabView, tab: int): proc(e: Event): bool =
                     v.selectTab(tab)
 
             if v.tabsCount == 0:
+                if not v.onRemove.isNil:
+                    v.onRemove(v)
                 v.removeFromSplitViewSystem()
 
 method onTouchEv*(v: TabView, e: var Event): bool =

@@ -195,6 +195,7 @@ proc setDividerPosition*(v: LinearLayout, pos: Coord, i: int) =
         s2.setFrame(f2)
 
 proc dividerPositions*(v: LinearLayout): seq[Coord] =
+    if v.subviews.len == 0: return @[]
     let ln = v.subviews.len - 1
     result = newSeq[Coord](ln)
     for i in 0 ..< ln:
