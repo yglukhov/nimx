@@ -202,7 +202,9 @@ when not defined(js):
                 "/usr/share/fonts/truetype",
                 "/usr/share/fonts/truetype/ubuntu-font-family",
                 "/usr/share/fonts/TTF",
-                "/usr/share/fonts/truetype/dejavu"
+                "/usr/share/fonts/truetype/dejavu",
+                "/usr/share/fonts/dejavu",
+                "/usr/share/fonts"
             ]
 
 when not defined(js):
