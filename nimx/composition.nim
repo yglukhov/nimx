@@ -280,9 +280,10 @@ const posAttr : GLuint = 0
 
 proc replaceSymbolsInLine(syms: openarray[string], ln: string): string {.compileTime.} =
     result = ln
-    for s in syms:
-        result = result.replaceWord(s & ".tex", s & "_tex")
-        result = result.replaceWord(s & ".texCoords", s & "_texCoords")
+    if result.len != 0:
+        for s in syms:
+            result = result.replaceWord(s & ".tex", s & "_tex")
+            result = result.replaceWord(s & ".texCoords", s & "_texCoords")
 
 #[
 proc uniforNamesFromShaderCode(code: string): seq[string] =
