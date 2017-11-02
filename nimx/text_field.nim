@@ -20,9 +20,9 @@ export control
 
 type TextField* = ref object of Control
     mText: FormattedText
-    editable*: bool
+    mEditable: bool
     continuous*: bool
-    selectable*: bool
+    mSelectable: bool
     isSelecting*: bool
     mFont*: Font
     selectionStartLine: int
@@ -36,6 +36,24 @@ template len[T](s: Slice[T]): T = s.b - s.a
 var cursorPos = 0
 var cursorVisible = true
 var cursorUpdateTimer : Timer
+
+proc selectable*(t: TextField): bool = t.mSelectable
+
+proc `selectable=`*(t: TextField, v: bool) =
+    if v:
+        t.backgroundColor.a = 1.0
+    else:
+        t.backgroundColor.a = 0.0
+    t.mSelectable = v
+
+proc editable*(t: TextField): bool = t.mEditable
+
+proc `editable=`*(t: TextField, v: bool)=
+    if v:
+        t.backgroundColor.a = 1.0
+    else:
+        t.backgroundColor.a = 0.0
+    t.mEditable = v
 
 var cursorOffset : Coord
 
@@ -75,6 +93,7 @@ proc newLabel*(r: Rect): TextField =
     result = newTextField(r)
     result.editable = false
     result.selectable = false
+    result.backgroundColor.a = 0
 
 proc newLabel*(parent: View = nil, position: Point = newPoint(0, 0), size: Size = newSize(100, 20), text: string = "label"): TextField =
     result = newLabel(newRect(position.x, position.y, size.width, size.height))
@@ -94,6 +113,7 @@ method init*(t: TextField, r: Rect) =
     t.editable = true
     t.selectable = true
     t.textSelection = -1 .. -1
+    t.backgroundColor = whiteColor()
     t.hasBezel = true
     t.mText = newFormattedText()
     t.mText.verticalAlignment = vaCenter
@@ -217,9 +237,11 @@ proc drawSelection(t: TextField) {.inline.} =
         c.drawRect(r)
 
 method draw*(t: TextField, r: Rect) =
+    procCall t.View.draw(r)
+
     let c = currentContext()
     if t.editable and t.hasBezel:
-        c.fillColor = whiteColor()
+        c.fillColor = t.backgroundColor
         c.strokeColor = newGrayColor(0.74)
         c.strokeWidth = 1.0
         c.drawRect(t.bounds)
@@ -466,14 +488,14 @@ method visitProperties*(v: TextField, pv: var PropertyVisitor) =
     pv.visitProperty("text", v.text)
     pv.visitProperty("editable", v.editable)
 
-method serializeFields*(v: TextField, s: Serializer) =
-    procCall v.View.serializeFields(s)
-    s.serialize("text", v.text)
-    s.serialize("editable", v.editable)
+# method serializeFields*(v: TextField, s: Serializer) =
+#     procCall v.View.serializeFields(s)
+#     s.serialize("text", v.text)
+#     s.serialize("editable", v.editable)
 
-method deserializeFields*(v: TextField, s: Deserializer) =
-    procCall v.View.deserializeFields(s)
-    s.deserialize("text", v.mText)
-    s.deserialize("editable", v.editable)
+# method deserializeFields*(v: TextField, s: Deserializer) =
+#     procCall v.View.deserializeFields(s)
+#     s.deserialize("text", v.mText)
+#     s.deserialize("editable", v.editable)
 
 registerClass(TextField)

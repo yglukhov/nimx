@@ -52,7 +52,7 @@ proc layoutDirection*(v: CollectionView): LayoutDirection = v.layoutDirection
 proc itemSize*(v: CollectionView): Size = v.itemSize
 proc layoutWidth*(v: CollectionView): int = v.layoutWidth
 
-proc columnCount(v: CollectionView): int =
+proc columnCount*(v: CollectionView): int =
     ## Get horizontal number of items which depends on view settings
     var layoutWidth: int = 0
     if v.layoutDirection == LayoutDirection.LeftToRight:
@@ -65,9 +65,9 @@ proc columnCount(v: CollectionView): int =
         return layoutWidth
 
 proc widthFull(v: CollectionView): Coord =
-    return (v.itemSize.width + v.offset) * v.columnCount().Coord 
+    return (v.itemSize.width + v.offset) * v.columnCount().Coord
 
-proc rowCount(v: CollectionView): int =
+proc rowCount*(v: CollectionView): int =
     ## Get vertical number of items
     var layoutWidth: int = 0
     if v.layoutDirection == LayoutDirection.TopDown:
@@ -106,19 +106,16 @@ proc `layoutDirection=`*(v: CollectionView, layoutDirection: LayoutDirection) =
     v.layoutDirection = layoutDirection
     v.rangeCache.dirty = true
     v.scrollOffset = 0
-    v.updateLayout()
 
 proc `itemSize=`*(v: CollectionView, itemSize: Size) =
     v.itemSize = itemSize
     v.rangeCache.dirty = true
     v.scrollOffset = 0
-    v.updateLayout()
 
 proc `layoutWidth=`*(v: CollectionView, layoutWidth: int) =
     v.layoutWidth = layoutWidth
     v.rangeCache.dirty = true
     v.scrollOffset = 0
-    v.updateLayout()
 
 proc pushToCollection(v: CollectionView, s: View) =
     ## Add new subview to collection view
@@ -135,7 +132,7 @@ proc reloadData(v: CollectionView) =
     else:
         while v.subviews.len() > 0:
             v.subviews[0].removeFromSuperview()
-    
+
         for i in rangeCache.start .. min(v.rangeCache.finish, v.numberOfItems() - 1):
             let newView = v.viewForItem(i)
             newView.setFrameSize(v.itemSize)
@@ -147,14 +144,14 @@ proc update(v: CollectionView)=
     let rangeCache = v.visibleRangeOfItems()
     for i in rangeCache.start .. rangeCache.finish:
         let posX = if v.layoutDirection == LayoutDirection.LeftToRight:
-                       -(r.x.int mod v.itemSize.width.int).Coord + ((i - v.rangeCache.start) div v.rowCount()).Coord * (v.itemSize.width + v.offset)
+                       -(r.x.int mod v.itemSize.width.int).Coord + ((i - v.rangeCache.start) div v.rowCount()).Coord * (v.itemSize.width + v.offset) + v.offset
                    else:
-                       ((i - rangeCache.start) mod v.columnCount()).Coord * (v.itemSize.width + v.offset)
-            
+                       ((i - rangeCache.start) mod v.columnCount()).Coord * (v.itemSize.width + v.offset) + v.offset
+
         let posY = if v.layoutDirection == LayoutDirection.LeftToRight:
-                       ((i - rangeCache.start) mod v.rowCount()).Coord * (v.itemSize.height + v.offset)
+                       ((i - rangeCache.start) mod v.rowCount()).Coord * (v.itemSize.height + v.offset) + v.offset
                    else:
-                       -(r.y.int mod v.itemSize.height.int).Coord + ((i - v.rangeCache.start) div v.columnCount()).Coord * (v.itemSize.height + v.offset)
+                       -(r.y.int mod v.itemSize.height.int).Coord + ((i - v.rangeCache.start) div v.columnCount()).Coord * (v.itemSize.height + v.offset) + v.offset
         v.subviews[i - rangeCache.start].setFrameOrigin(newPoint(posX, posY))
 
     v.setNeedsDisplay()

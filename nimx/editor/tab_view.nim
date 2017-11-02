@@ -22,6 +22,8 @@ type TabView* = ref object of View
     tabFramesValid: bool
     dockingTabs*: bool
     configurationButton: Button
+    onSplit*: proc(v: TabView)
+    onRemove*: proc(v: TabView)
 
 proc contentFrame(v: TabView): Rect =
     result = v.bounds
@@ -45,7 +47,7 @@ method init*(v: TabView, r: Rect) =
     v.selectedTab = -1
     v.backgroundColor = newGrayColor(0.5)
 
-proc selectedView(v: TabView): View =
+proc selectedView*(v: TabView): View =
     if v.selectedTab < 0 or v.selectedTab > v.tabs.high:
         nil
     else:
@@ -90,6 +92,7 @@ proc selectTab*(v: TabView, i: int) =
     sv = v.selectedView
     sv.setFrame(v.contentFrame)
     v.addSubview(sv)
+    discard sv.makeFirstResponder()
 
 proc insertTab*(v: TabView, i: int, title: string, view: View) =
     var t: Tab
@@ -101,11 +104,21 @@ proc insertTab*(v: TabView, i: int, title: string, view: View) =
     if v.tabs.len == 1:
         v.selectTab(0)
 
+proc tabIndex*(v: TabView, sv: View): int=
+    result = -1
+    for i, t in v.tabs:
+        if t.view == sv:
+            return i
+
 proc tabIndex*(v: TabView, title: string): int=
     result = -1
     for i, t in v.tabs:
         if t.title == title:
             return i
+
+proc setTabTitle*(v: TabView, i: int, title: string)=
+    if i >= 0 and i < v.tabs.len:
+        v.tabs[i].title = title
 
 proc addTab*(v: TabView, title: string, view: View) {.inline.} =
     v.insertTab(v.tabs.len, title, view)
@@ -272,7 +285,7 @@ proc newSplitView(r: Rect, horizontal: bool): LinearLayout =
     result.autoresizingMask = {afFlexibleWidth, afFlexibleHeight}
     result.userResizeable = true
 
-proc split(v: TabView, horizontally, before: bool, title: string, view: View) =
+proc split*(v: TabView, horizontally, before: bool, title: string, view: View) =
     let s = v.superview
 
     var sz = v.frame.size
@@ -282,6 +295,10 @@ proc split(v: TabView, horizontally, before: bool, title: string, view: View) =
         sz.height /= 2
 
     let ntv = newTabViewForSplit(sz, title, view, v)
+    ntv.onSplit = v.onSplit
+    ntv.onRemove = v.onRemove
+    if not ntv.onSplit.isNil:
+        ntv.onSplit(ntv)
 
     if (s of LinearLayout) and LinearLayout(s).horizontal == horizontally:
         v.setFrameSize(sz)
@@ -402,6 +419,8 @@ proc trackDocking(v: TabView, tab: int): proc(e: Event): bool =
                     v.selectTab(tab)
 
             if v.tabsCount == 0:
+                if not v.onRemove.isNil:
+                    v.onRemove(v)
                 v.removeFromSplitViewSystem()
 
 method onTouchEv*(v: TabView, e: var Event): bool =

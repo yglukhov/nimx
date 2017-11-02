@@ -66,7 +66,7 @@ proc handleEvent*(a: Application, e: var Event): bool =
                 a.modifiers.excl(kc)
             a.inputState.excl(kc)
 
-        e.modifiers = a.modifiers
+    e.modifiers = a.modifiers
 
     var control = efcContinue
     var cleanupEventFilters = false

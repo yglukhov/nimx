@@ -25,7 +25,7 @@ import variant
 when defined(js):
     from dom import alert
 elif not defined(android) and not defined(ios) and not defined(emscripten):
-    import native_dialogs
+    import file_dialog.dialog
 
 template toStr(v: SomeReal, precision: uint): string = formatFloat(v, ffDecimal, precision)
 template toStr(v: SomeInteger): string = $v
@@ -229,8 +229,14 @@ when not defined(android) and not defined(ios):
             elif defined(emscripten):
                 discard
             else:
-                let path = callDialogFileOpen("Select Image")
-                if not path.isNil:
+                var di: DialogInfo
+                di.title = "Select image"
+                di.kind = dkOpenFile
+                di.filters = @[(name:"PNG", ext:"*.png")]
+                let path = di.show()
+                echo "get path (", path, ")", path.len > 0
+                if path.len > 0:
+
                     var i: Image
                     try:
                         i = imageWithContentsOfFile(path)

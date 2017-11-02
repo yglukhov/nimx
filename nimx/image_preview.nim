@@ -5,6 +5,7 @@ import nimx.image
 import nimx.button
 import nimx.view
 import nimx.event
+import nimx.panel_view
 import nimx.view_event_handling_new
 import nimx.context
 import nimx.types
@@ -14,18 +15,19 @@ const bottomSize = 30.0
 const maxSize = 768.0
 const minSize = 128.0
 
-type ImagePreview* = ref object of View
+type ImagePreview* = ref object of PanelView
     image*: Image
     title*: string
     contentView*: View
     imgScale*: float
 
 method init*(v: ImagePreview, r: Rect) =
-    procCall v.View.init(r)
+    procCall v.PanelView.init(r)
     v.backgroundColor = newColor(0.2, 0.2, 0.2, 1.0)
     v.title = "Image Preview"
 
     let closeBttn = newButton(v, newPoint(r.width - 16.0 - 1.0, 1.0), newSize(16, 16), "X")
+    closeBttn.autoresizingMask = {afFlexibleMinX, afFlexibleMaxY}
     closeBttn.onAction do():
         v.removeFromSuperview()
 
@@ -51,7 +53,7 @@ proc newImagePreview*(r: Rect, img: Image): ImagePreview =
     result.imgScale = scale
 
 method draw(v: ImagePreview, r: Rect) =
-    procCall v.View.draw(r)
+    procCall v.PanelView.draw(r)
     let c = currentContext()
     let f = systemFontOfSize(14.0)
     var titleRect: Rect
@@ -88,9 +90,14 @@ method draw(v: ImagePreview, r: Rect) =
         pathInfo = "Path: " & $v.image.filePath
     c.drawText(f, newPoint(5, r.height - bottomSize), pathInfo)
 
-method onTouchEv*(v: ImagePreview, e: var Event) : bool =
-    discard procCall v.View.onTouchEv(e)
-    result = true
+# method onTouchEv*(v: ImagePreview, e: var Event) : bool =
+#     discard procCall v.PanelView.onTouchEv(e)
+    # if  e.localPosition
+#     result = true
+
+# method onScroll*(v: ImagePreview, e: var Event): bool =
+#     v.imgScale += (e.offset.y / 300.0)
+#     result = true
 
 proc popupAtPoint*(ip: ImagePreview, v: View, p: Point) =
     ip.removeFromSuperview()

@@ -3,6 +3,7 @@ import event
 export event
 import system_logger
 import typetraits
+import drag_and_drop
 
 method onGestEvent*(d: GestureDetector, e: var Event) : bool {.base.} = discard
 method onScroll*(v: View, e: var Event): bool = discard
@@ -15,6 +16,7 @@ method onTouchEv*(v: View, e: var Event): bool {.base.} =
         for d in v.gestureDetectors:
             let r = d.onGestEvent(e)
             result = result or r
+
     if e.buttonState == bsDown:
         if v.acceptsFirstResponder:
             result = v.makeFirstResponder()
@@ -52,6 +54,34 @@ proc handleMouseOverEvent(v: View, e : var Event) =
             vi.mouseInside = false
             vi.onMouseOut(e)
     e.localPosition = localPosition
+
+proc processDragEvent*(b: DragSystem, e: var Event) =
+    b.itemPosition = e.position
+    if b.pItem.isNil:
+        return
+
+    e.window.needsDisplay = true
+    let target = e.window.findSubviewAtPoint(e.position)
+    var dropDelegate: DragDestinationDelegate
+    if not target.isNil:
+        dropDelegate = target.dragDestination
+
+    if e.buttonState == bsUp:
+        if not dropDelegate.isNil:
+            dropDelegate.onDrop(target, b.pItem)
+        stopDrag()
+        return
+
+    if b.prevTarget != target:
+        if not b.prevTarget.isNil and not b.prevTarget.dragDestination.isNil:
+            b.prevTarget.dragDestination.onDragExit(b.prevTarget, b.pItem)
+        if not target.isNil and not dropDelegate.isNil:
+            dropDelegate.onDragEnter(target, b.pItem)
+
+    elif not target.isNil and not target.dragDestination.isNil:
+            dropDelegate.onDrag(target, b.pItem)
+
+    b.prevTarget = target
 
 proc processTouchEvent*(v: View, e : var Event): bool =
     if e.buttonState == bsDown:

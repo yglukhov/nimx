@@ -280,9 +280,10 @@ const posAttr : GLuint = 0
 
 proc replaceSymbolsInLine(syms: openarray[string], ln: string): string {.compileTime.} =
     result = ln
-    for s in syms:
-        result = result.replaceWord(s & ".tex", s & "_tex")
-        result = result.replaceWord(s & ".texCoords", s & "_texCoords")
+    if result.len != 0:
+        for s in syms:
+            result = result.replaceWord(s & ".tex", s & "_tex")
+            result = result.replaceWord(s & ".texCoords", s & "_texCoords")
 
 #[
 proc uniforNamesFromShaderCode(code: string): seq[string] =
@@ -539,9 +540,8 @@ template setupPosteffectUniforms*(cc: CompiledComposition) =
     for pe in postEffectStack:
         pe.setupProc(cc)
 
-var overdrawValue = 0
-template GetOverdrawValue*() : int =
-    int(overdrawValue.float32 / 1000.float32)
+var overdrawValue = 0'f32
+template GetOverdrawValue*() : float32 = overdrawValue / 1000
 
 template ResetOverdrawValue*() =
     overdrawValue = 0
@@ -559,7 +559,7 @@ template draw*(comp: var Composition, r: Rect, code: untyped): typed =
     let cc = gl.getCompiledComposition(comp)
     gl.useProgram(cc.program)
 
-    overdrawValue += int(r.size.width * r.size.height)
+    overdrawValue += r.size.width * r.size.height
     DIPValue += 1
 
     const componentCount = 2
