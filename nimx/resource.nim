@@ -8,6 +8,8 @@ import pathutils
 import variant
 import typetraits
 
+{.deprecated.} # this file is deprecated. Use the nimx.assets stuff instead.
+
 when defined(js) or defined(emscripten):
     import ospaths
 

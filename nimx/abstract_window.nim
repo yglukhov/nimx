@@ -1,16 +1,8 @@
 
-import view
-import animation
+import view, animation, context, font, composition, image, notification_center,
+    mini_profiler, portable_gl, drag_and_drop
 import times
-import context
-import font
-import composition
-import resource
 import image
-import notification_center
-import mini_profiler
-import portable_gl
-import drag_and_drop
 import kiwi
 export view
 
@@ -65,7 +57,12 @@ proc shouldUseConstraintSystem(w: Window): bool {.inline.} =
 proc updateLayout(w: Window) =
     if w.shouldUseConstraintSystem:
         w.layoutSolver.updateVariables()
+        let oldSz = newSize(w.layout.vars.width.value, w.layout.vars.height.value)
         w.recursiveUpdateLayout(zeroPoint)
+        let newSz = newSize(w.layout.vars.width.value, w.layout.vars.height.value)
+        if newSz != oldSz:
+            discard # TODO: update window size
+
     w.needsLayout = false
 
 method onResize*(w: Window, newSize: Size) {.base.} =

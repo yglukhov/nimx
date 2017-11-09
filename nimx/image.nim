@@ -1,15 +1,8 @@
-import types
-import opengl
 import math, strutils, tables, json, streams, logging
-import portable_gl
-import resource
-import resource_cache
-import system_logger
-import mini_profiler
+import types, portable_gl, mini_profiler, system_logger
+import opengl
 
-import nimx.assets.asset_loading
-import nimx.assets.url_stream
-import nimx.assets.asset_manager # Required to register "res" url handler
+import nimx / assets / [ asset_loading, url_stream, asset_manager ]
 
 const web = defined(js) or defined(emscripten)
 
@@ -649,10 +642,3 @@ else:
                 i.initWithStream(s)
                 i.setFilePath(url)
                 handler(i)
-
-registerResourcePreloader(["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga", "pvr"]) do(name: string, callback: proc(i: SelfContainedImage)):
-    sharedAssetManager().getAssetAtPath(name, false) do(i: Image, err: string):
-        if i.isNil:
-            callback(nil)
-        else:
-            callback(SelfContainedImage(i))

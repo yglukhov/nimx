@@ -1,5 +1,6 @@
 import strutils, streams, logging
-import nimx.resource, nimx.private.font.font_data
+import nimx.private.font.font_data
+import nimx.assets.url_stream
 import rect_packer
 import ttf
 
@@ -19,9 +20,13 @@ template setSize*(p: StbTtfGlyphProvider, sz: float32) =
 proc loadFontData(p: StbTtfGlyphProvider) =
     if not p.fontData.isNil: return
     if p.path.startsWith("res://"):
-        let fstr = streamForResourceWithPath(p.path.substr("res://".len))
-        p.fontData = fstr.readAll()
-        fstr.close()
+        var s: Stream
+        openStreamForUrl(p.path) do(st: Stream, err: string):
+            s = st
+        if not s.isNil:
+            error "Could not load font from path: ", p.path
+        p.fontData = s.readAll()
+        s.close()
     else:
         p.fontData = readFile(p.path)
 
