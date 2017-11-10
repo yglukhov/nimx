@@ -142,6 +142,7 @@ method draw*(w: SdlWindow, r: Rect) =
     gl.stencilMask(0x00)
 
 method drawWindow(w: SdlWindow) =
+    discard glMakeCurrent(w.impl, w.sdlGlContext)
     let c = w.renderingContext
     let oldContext = setCurrentContext(c)
     c.withTransform ortho(0, w.frame.width, w.frame.height, 0, -1, 1):
