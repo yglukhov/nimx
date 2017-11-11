@@ -94,6 +94,9 @@ proc handleEvent*(a: Application, e: var Event): bool =
 
 proc drawWindows*(a: Application) =
     for w in a.windows:
+        if w.needsLayout:
+            w.updateLayout()
+
         if w.needsDisplay:
             w.drawWindow()
 

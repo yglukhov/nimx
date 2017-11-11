@@ -40,6 +40,7 @@ const attributeNames = [
     "top", "bottom",
     "leading", "trailing",
     "centerX", "centerY",
+    "origin",
     "center",
     "size"
     ]
@@ -64,8 +65,18 @@ proc transformConstraintNode(cn, subject: NimNode): NimNode =
         for i in 0 ..< cn.len:
             cn[i] = transformConstraintNode(cn[i], subject)
 
-template setControlHandler(c: View, p: untyped, a: untyped) =
-    c.p() do(): a
+template setControlHandlerBlock(c: View, p: untyped, a: untyped) =
+    when compiles(c.p(nil)):
+        c.p() do(): a
+    else:
+        c.p = proc() =
+            a
+
+template setControlHandlerLambda(c: View, p: untyped, a: untyped) =
+    when compiles(c.p(a)):
+        c.p(a)
+    else:
+        c.p = a
 
 proc addConstraintWithStrength(v: View, c: Constraint, strength: float) =
     c.strength = clipStrength(strength)
@@ -74,11 +85,11 @@ proc addConstraintWithStrength(v: View, c: Constraint, strength: float) =
 proc addConstraintWithStrength(v: View, cc: openarray[Constraint], strength: float) =
     for c in cc: v.addConstraintWithStrength(c, strength)
 
-proc addConstraint(v: View, c: openarray[Constraint]) =
-    for cc in c: v.addConstraint(cc)
-
-proc setConstraintStrength(c: Constraint, strength: float) =
-    c.strength = clipStrength(strength)
+proc convertDoToProc(n: NimNode): NimNode =
+    expectKind(n, nnkDo)
+    result = newProc()
+    result.params = n.params
+    result.body = n.body
 
 proc layoutAux(rootView: NimNode, body: NimNode): NimNode =
     var views = @[body]
@@ -120,8 +131,13 @@ proc layoutAux(rootView: NimNode, body: NimNode): NimNode =
             if p.kind == nnkCall and p.len == 2 and p[0].kind == nnkIdent:
                 let prop = $p[0]
                 if prop.len > 2 and prop.startsWith("on") and prop[2].isUpperAscii:
-                    result.add(newCall(bindSym"setControlHandler", ids[i], p[0], p[1]))
+                    if p[1].kind == nnkDo:
+                        result.add(newCall(bindSym"setControlHandlerLambda", ids[i], p[0], p[1]))
+                    else:
+                        result.add(newCall(bindSym"setControlHandlerBlock", ids[i], p[0], p[1]))
                 else:
+                    if p[1].kind == nnkDo:
+                        p[1] = convertDoToProc(p[1])
                     result.add(newAssignment(newDotExpr(ids[i], p[0]), p[1]))
             elif p.kind == nnkInfix:
                 var op = $p[0]
@@ -140,7 +156,10 @@ proc layoutAux(rootView: NimNode, body: NimNode): NimNode =
                     subject = expression[1]
 
                 result.add(newCall(bindSym"addConstraintWithStrength", ids[i], transformConstraintNode(expression, subject), strength))
-
+            elif p.kind == nnkStmtList and p.len == 1 and p[0].kind == nnkDiscardStmt:
+                discard
+            elif p.kind == nnkDiscardStmt:
+                discard
             elif p.isViewDesc():
                 discard
             else:
