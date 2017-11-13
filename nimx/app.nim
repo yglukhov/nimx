@@ -35,6 +35,10 @@ proc mainApplication*(): Application =
 proc addWindow*(a: Application, w: Window) =
     a.windows.add(w)
 
+proc removeWindow*(a: Application, w: Window) =
+    let i = a.windows.find(w)
+    if i >= 0: a.windows.delete(i)
+
 proc handleEvent*(a: Application, e: var Event): bool =
     if numberOfActiveTouches() == 0 and e.kind == etMouse and e.buttonState == bsUp:
         # There may be cases when mouse up is not paired with mouse down.

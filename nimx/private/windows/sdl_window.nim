@@ -197,6 +197,9 @@ proc eventWithSDLEvent(event: ptr sdl2.Event): Event =
                     wnd.onFocusChange(false)
                 of WindowEvent_Exposed:
                     wnd.setNeedsDisplay()
+                of WindowEvent_Close:
+                    mainApplication().removeWindow(wnd)
+                    wnd.getSDLWindow().destroyWindow()
                 else:
                     discard
 
