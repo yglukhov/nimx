@@ -154,21 +154,24 @@ proc replacePlaceholderVar(view: View, indexOfViewInSuper: int, v: var Variable)
     elif system.`==`(v, selfPHS.height):
         v = view.layout.vars.height
 
-proc instantiateConstraint(v: View, c: Constraint): Constraint =
-    result = newConstraint(c.expression, c.op, c.strength)
+proc instantiateConstraint(v: View, c: Constraint) =
+    # Instantiate constrinat prototype and add it to the window
+    let ic = newConstraint(c.expression, c.op, c.strength)
     let indexOfViewInSuper = v.superview.subviews.find(v)
     assert(indexOfViewInSuper != -1)
-    let count = result.expression.terms.len
+    let count = ic.expression.terms.len
     for i in 0 ..< count:
-        replacePlaceholderVar(v, indexOfViewInSuper, result.expression.terms[i].variable)
+        replacePlaceholderVar(v, indexOfViewInSuper, ic.expression.terms[i].variable)
+
+    v.layout.constraints.add(ic)
+
+    assert(not v.window.isNil, "Internal error")
+    v.window.layoutSolver.addConstraint(ic)
 
 proc addConstraint*(v: View, c: Constraint) =
     v.layout.constraintPrototypes.add(c)
     if not v.window.isNil:
-        let ic = v.instantiateConstraint(c)
-        v.layout.constraints.add(ic)
-        assert(v.layout.constraintPrototypes.len == v.layout.constraints.len)
-        v.window.layoutSolver.addConstraint(ic)
+        v.instantiateConstraint(c)
 
 proc removeConstraint*(v: View, c: Constraint) =
     let idx = v.layout.constraintPrototypes.find(c)
@@ -298,9 +301,7 @@ method viewWillMoveToWindow*(v: View, w: Window) {.base.} =
 method viewDidMoveToWindow*(v: View){.base.} =
     if not v.window.isNil:
         for c in v.layout.constraintPrototypes:
-            let ic = v.instantiateConstraint(c)
-            v.layout.constraints.add(ic)
-            v.window.layoutSolver.addConstraint(ic)
+            v.instantiateConstraint(c)
 
     for s in v.subviews:
         s.viewDidMoveToWindow()
