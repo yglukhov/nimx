@@ -7,30 +7,58 @@ import kiwi / [ symbolics, strength ]
 export symbolics, strength, kiwi_vector_symbolics
 export superPHS, selfPHS, prevPHS, nextPHS
 
-proc isViewDesc(n: NimNode): bool =
+proc isViewDescNodeAux(n: NimNode): bool =
     n.kind == nnkPrefix and $n[0] == "-"
+
+proc isViewDescNode(n: NimNode): bool =
+    isViewDescNodeAux(n) or
+        (n.kind == nnkInfix and n.len == 4 and n[0].kind == nnkIdent and $n[0] == "as" and isViewDescNodeAux(n[1]) and n[2].kind == nnkIdent)
+
+proc isPropertyNode(n: NimNode): bool =
+    n.kind == nnkCall and n.len == 2 and n[0].kind == nnkIdent
+
+proc isConstraintNode(n: NimNode): bool =
+    if n.kind == nnkInfix:
+        var op = $n[0]
+        if op == "@":
+            op = $n[1][0]
+        result = op in ["==", ">=", "<="]
+
+proc isDiscardNode(n: NimNode): bool =
+    n.kind == nnkDiscardStmt or (n.kind == nnkStmtList and n.len == 1 and n[0].kind == nnkDiscardStmt)
+
+proc getIdFromViewDesc(n: NimNode): NimNode =
+    if n.kind == nnkInfix: # - View as v:
+        result = n[2]
+    # let header = viewDesc[1]
+    # if header.kind == nnkCommand and header.len == 2 and header[1].kind == nnkIdent:
+    #     result = header[1]
+
+proc getInitializerFromViewDesc(n: NimNode): NimNode =
+    ## Returns initializer node. It is either a type or expression that returns a view
+
+    if n.kind == nnkPrefix: # - Initializer:
+        result = n[1]
+    elif n.kind == nnkInfix: # - Initializer as v:
+        result = n[1][1]
+    else:
+        assert(false, "Invalid node")
+
+proc getBodyFromViewDesc(n: NimNode): NimNode =
+    if n.kind == nnkPrefix: # - View: body
+        result = n[2]
+    elif n.kind == nnkInfix: # - View as v: body
+        result = n[3]
+    else:
+        assert(false, "Invalid node")
 
 proc collectAllViewNodes(body: NimNode, allViews: var seq[NimNode], childParentRelations: var seq[int]) =
     var parentId = allViews.len - 1
     for c in body:
-        if c.isViewDesc():
+        if c.isViewDescNode():
             allViews.add(c)
             childParentRelations.add(parentId)
-            collectAllViewNodes(c[2], allViews, childParentRelations)
-
-proc getIdFromViewDesc(viewDesc: NimNode): NimNode =
-    let header = viewDesc[1]
-    if header.kind == nnkCommand and header.len == 2 and header[1].kind == nnkIdent:
-        result = header[1]
-
-proc getTypeFromViewDesc(viewDesc: NimNode): NimNode =
-    let header = viewDesc[1]
-    if header.kind == nnkCommand and header.len == 2 and header[0].kind == nnkIdent:
-        result = header[0]
-    elif header.kind == nnkIdent:
-        result = header
-    else:
-        assert(false, "Invalid node")
+            collectAllViewNodes(getBodyFromViewDesc(c), allViews, childParentRelations)
 
 const placeholderNames = ["super", "self", "prev", "next"]
 const attributeNames = [
@@ -91,6 +119,8 @@ proc convertDoToProc(n: NimNode): NimNode =
     result.params = n.params
     result.body = n.body
 
+var uniqueIdCounter {.compileTime.} = 0
+
 proc layoutAux(rootView: NimNode, body: NimNode): NimNode =
     var views = @[body]
     var childParentRelations = @[-1]
@@ -98,8 +128,8 @@ proc layoutAux(rootView: NimNode, body: NimNode): NimNode =
 
     let numViews = views.len
 
-    var types = newSeq[NimNode](numViews)
-    for i in 1 ..< numViews: types[i] = getTypeFromViewDesc(views[i])
+    var initializers = newSeq[NimNode](numViews)
+    for i in 1 ..< numViews: initializers[i] = getInitializerFromViewDesc(views[i])
 
     var ids = newSeq[NimNode](numViews)
     ids[0] = rootView
@@ -108,27 +138,37 @@ proc layoutAux(rootView: NimNode, body: NimNode): NimNode =
         if id.kind == nnkIdent:
             ids[i] = id
         else:
-            ids[i] = newIdentNode("layout_" & $types[i] & "_" & $i)
+            var typeName = ""
+            if initializers[i].kind == nnkIdent:
+                typeName = "_" & $initializers[i]
+
+            ids[i] = newIdentNode("layout" & typeName & "_" & $i & "_" & $uniqueIdCounter)
+            inc uniqueIdCounter
 
     result = newNimNode(nnkStmtList)
     let idDefinitions = newNimNode(nnkLetSection)
 
     for i in 1 ..< numViews:
-        idDefinitions.add(newIdentDefs(ids[i], newEmptyNode(), newCall("new", types[i])))
+        if initializers[i].kind == nnkIdent:
+            # Explicit type. Need to create with new(). init() is called later.
+            idDefinitions.add(newIdentDefs(ids[i], newEmptyNode(), newCall("new", initializers[i])))
+        else:
+            idDefinitions.add(newIdentDefs(ids[i], newEmptyNode(), initializers[i]))
     result.add(idDefinitions)
 
     for i in 1 ..< numViews:
-        result.add(newCall("init", ids[i], newIdentNode("zeroRect")))
+        if initializers[i].kind == nnkIdent: # Explicit type. Need to cal init()
+            result.add(newCall("init", ids[i], newIdentNode("zeroRect")))
 
     for i in 1 ..< numViews:
         result.add(newCall("addSubview", ids[childParentRelations[i]], ids[i]))
 
     for i in 1 ..< numViews:
-        views[i] = views[i][2]
+        views[i] = getBodyFromViewDesc(views[i])
 
     for i in 0 ..< numViews:
         for p in views[i]:
-            if p.kind == nnkCall and p.len == 2 and p[0].kind == nnkIdent:
+            if p.isPropertyNode():
                 let prop = $p[0]
                 if prop.len > 2 and prop.startsWith("on") and prop[2].isUpperAscii:
                     if p[1].kind == nnkDo:
@@ -139,7 +179,7 @@ proc layoutAux(rootView: NimNode, body: NimNode): NimNode =
                     if p[1].kind == nnkDo:
                         p[1] = convertDoToProc(p[1])
                     result.add(newAssignment(newDotExpr(ids[i], p[0]), p[1]))
-            elif p.kind == nnkInfix:
+            elif p.isConstraintNode():
                 var op = $p[0]
                 var strength: NimNode
                 var expression = p
@@ -156,14 +196,12 @@ proc layoutAux(rootView: NimNode, body: NimNode): NimNode =
                     subject = expression[1]
 
                 result.add(newCall(bindSym"addConstraintWithStrength", ids[i], transformConstraintNode(expression, subject), strength))
-            elif p.kind == nnkStmtList and p.len == 1 and p[0].kind == nnkDiscardStmt:
+            elif p.isDiscardNode():
                 discard
-            elif p.kind == nnkDiscardStmt:
-                discard
-            elif p.isViewDesc():
+            elif p.isViewDescNode():
                 discard
             else:
-                echo "Unknown node:"
+                echo "Invalid AST in layout markup:"
                 echo repr(p)
                 assert(false)
 
