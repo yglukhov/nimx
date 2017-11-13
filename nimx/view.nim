@@ -76,9 +76,6 @@ proc right*(phs: ViewLayoutVars): Expression {.inline.} = phs.x + phs.width
 proc top*(phs: ViewLayoutVars): Variable {.inline.} = phs.y
 proc bottom*(phs: ViewLayoutVars): Expression = phs.y + phs.height
 
-proc center*(phs: ViewLayoutVars): array[2, Expression] = [phs.centerX, phs.centerY]
-proc size*(phs: ViewLayoutVars): array[2, Expression] = [newExpression(newTerm(phs.width)), newExpression(newTerm(phs.height))]
-
 const leftToRight = true
 
 proc leading*(phs: ViewLayoutVars): Expression =
@@ -86,6 +83,10 @@ proc leading*(phs: ViewLayoutVars): Expression =
 
 proc trailing*(phs: ViewLayoutVars): Expression =
     if leftToRight: phs.right else: -newExpression(newTerm(phs.left))
+
+proc origin*(phs: ViewLayoutVars): array[2, Expression] = [newExpression(newTerm(phs.x)), newExpression(newTerm(phs.y))]
+proc center*(phs: ViewLayoutVars): array[2, Expression] = [phs.centerX, phs.centerY]
+proc size*(phs: ViewLayoutVars): array[2, Expression] = [newExpression(newTerm(phs.width)), newExpression(newTerm(phs.height))]
 
 var prevPHS*, nextPHS*, superPHS*, selfPHS*: ViewLayoutVars
 
@@ -166,7 +167,17 @@ proc addConstraint*(v: View, c: Constraint) =
     if not v.window.isNil:
         let ic = v.instantiateConstraint(c)
         v.layout.constraints.add(ic)
+        assert(v.layout.constraintPrototypes.len == v.layout.constraints.len)
         v.window.layoutSolver.addConstraint(ic)
+
+proc removeConstraint*(v: View, c: Constraint) =
+    let idx = v.layout.constraintPrototypes.find(c)
+    assert(idx != -1)
+    v.layout.constraintPrototypes.del(idx)
+    if not v.window.isNil:
+        v.window.layoutSolver.removeConstraint(v.layout.constraints[idx])
+        v.layout.constraints.del(idx)
+        assert(v.layout.constraintPrototypes.len == v.layout.constraints.len)
 
 method init*(v: View, frame: Rect) {.base.} =
     v.frame = frame
@@ -443,12 +454,15 @@ method resizeSubviews*(v: View, oldSize: Size) {.base.} = # Deprecated
 
         s.setFrame(newRect)
 
+method updateLayout*(v: View) {.base.} = discard
+
 proc recursiveUpdateLayout*(v: View, relPoint: Point) =
     v.frame.origin.x = v.layout.vars.x.value - relPoint.x
     v.frame.origin.y = v.layout.vars.y.value - relPoint.y
     v.frame.size.width = v.layout.vars.width.value
     v.frame.size.height = v.layout.vars.height.value
     v.bounds.size = v.frame.size
+    v.updateLayout()
     let relPoint = newPoint(v.layout.vars.x.value, v.layout.vars.y.value)
     for s in v.subviews:
         s.recursiveUpdateLayout(relPoint)

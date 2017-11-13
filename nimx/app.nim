@@ -96,13 +96,10 @@ proc handleEvent*(a: Application, e: var Event): bool =
 
     decrementActiveTouchesIfNeeded(e)
 
-var i = 0
 proc drawWindows*(a: Application) =
-    for wi, w in a.windows:
+    for w in a.windows:
         if w.needsDisplay:
             w.drawWindow()
-            i = clamp(i + 1, 0, 100000)
-            # echo wi, " drawing of ", a.windows.len , " dc ",  i
 
 proc runAnimations*(a: Application) =
     for w in a.windows: w.runAnimations()

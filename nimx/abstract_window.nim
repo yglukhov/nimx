@@ -1,16 +1,8 @@
 
-import view
-import animation
+import view, animation, context, font, composition, image, notification_center,
+    mini_profiler, portable_gl, drag_and_drop
 import times
-import context
-import font
-import composition
-import resource
 import image
-import notification_center
-import mini_profiler
-import portable_gl
-import drag_and_drop
 import kiwi
 export view
 
@@ -62,11 +54,15 @@ proc shouldUseConstraintSystem(w: Window): bool {.inline.} =
     # its edit variables.
     w.layoutSolver.constraintsCount > 4
 
-proc updateLayout(w: Window) =
+proc updateLayout*(w: Window) =
+    w.needsLayout = false
     if w.shouldUseConstraintSystem:
         w.layoutSolver.updateVariables()
+        let oldSz = newSize(w.layout.vars.width.value, w.layout.vars.height.value)
         w.recursiveUpdateLayout(zeroPoint)
-    w.needsLayout = false
+        let newSz = newSize(w.layout.vars.width.value, w.layout.vars.height.value)
+        if newSz != oldSz:
+            discard # TODO: update window size
 
 method onResize*(w: Window, newSize: Size) {.base.} =
     if w.shouldUseConstraintSystem:
@@ -210,19 +206,16 @@ method init*(w: Window, frame: Rect) =
     w.pixelRatio = 1.0
     let s = newSolver()
     w.layoutSolver = s
-    s.addEditVariable(w.layout.vars.x, 1000)
-    s.addEditVariable(w.layout.vars.y, 1000)
-    s.addEditVariable(w.layout.vars.width, 100)
-    s.addEditVariable(w.layout.vars.height, 100)
+    s.addConstraint(w.layout.vars.x == 0)
+    s.addConstraint(w.layout.vars.y == 0)
+    s.addEditVariable(w.layout.vars.width, STRONG)
+    s.addEditVariable(w.layout.vars.height, STRONG)
 
-    s.suggestValue(w.layout.vars.x, 0)
-    s.suggestValue(w.layout.vars.y, 0)
     s.suggestValue(w.layout.vars.width, frame.width)
     s.suggestValue(w.layout.vars.height, frame.height)
 
     #default animation runner for window
-    var defaultRunner = newAnimationRunner()
-    w.addAnimationRunner(defaultRunner)
+    w.addAnimationRunner(newAnimationRunner())
 
 method enterFullscreen*(w: Window) {.base.} = discard
 method exitFullscreen*(w: Window) {.base.} = discard

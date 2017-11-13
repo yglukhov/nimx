@@ -1,17 +1,8 @@
-import control
-import context
-import image
-import types
-import system_logger
-import event
-import font
-import app
+import control, context, image, types, event, font, app, composition
 import view_event_handling
 import view_event_handling_new
-import composition
-import property_visitor
-import serializers
-import resource
+
+import property_visitor, serializers
 
 export control
 
