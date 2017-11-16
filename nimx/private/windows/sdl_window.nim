@@ -81,7 +81,7 @@ proc initCommon(w: SdlWindow, r: view.Rect) =
         quit 1
     if defaultWindow.isNil:
         defaultWindow = w
-    procCall init(w.Window, r)
+
     discard glSetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 1)
     w.sdlGlContext = w.impl.glCreateContext()
     if w.sdlGlContext == nil:
@@ -91,26 +91,36 @@ proc initCommon(w: SdlWindow, r: view.Rect) =
 
     mainApplication().addWindow(w)
     discard w.impl.setData("__nimx_wnd", cast[pointer](w))
-    w.onResize(r.size)
+
+proc flags(w: SdlWindow): cuint=
+    result = SDL_WINDOW_OPENGL or SDL_WINDOW_HIDDEN or SDL_WINDOW_RESIZABLE or SDL_WINDOW_ALLOW_HIGHDPI
+    if w.isFullscreen:
+        result = result or SDL_WINDOW_FULLSCREEN
 
 proc initFullscreen*(w: SdlWindow) =
     initSDLIfNeeded()
     var displayMode : DisplayMode
     discard getDesktopDisplayMode(0, displayMode)
-    let flags = SDL_WINDOW_OPENGL or SDL_WINDOW_FULLSCREEN or SDL_WINDOW_RESIZABLE or SDL_WINDOW_ALLOW_HIGHDPI
-    w.impl = createWindow(nil, 0, 0, displayMode.w, displayMode.h, flags)
+    w.isFullscreen = true
+    w.impl = createWindow(nil, 0, 0, displayMode.w, displayMode.h, w.flags)
 
     var width, height : cint
     w.impl.getSize(width, height)
     w.initCommon(newRect(0, 0, Coord(width), Coord(height)))
 
-method init*(w: SdlWindow, r: view.Rect) =
+proc initSdlWindow(w: SdlWindow, r: view.Rect)=
     when defined(ios):
         w.initFullscreen()
     else:
         initSDLIfNeeded()
-        w.impl = createWindow(nil, cint(r.x), cint(r.y), cint(r.width), cint(r.height), SDL_WINDOW_OPENGL or SDL_WINDOW_RESIZABLE or SDL_WINDOW_ALLOW_HIGHDPI)
+        w.impl = createWindow(nil, cint(r.x), cint(r.y), cint(r.width), cint(r.height), w.flags)
         w.initCommon(newRect(0, 0, r.width, r.height))
+
+method init*(w: SdlWindow, r: view.Rect) =
+    w.initSdlWindow(r)
+
+    procCall w.Window.init(r)
+    w.onResize(r.size)
 
 proc newFullscreenSdlWindow*(): SdlWindow =
     result.new()
@@ -120,11 +130,38 @@ proc newSdlWindow*(r: view.Rect): SdlWindow =
     result.new()
     result.init(r)
 
+proc isShown(w: SdlWindow): bool = not w.impl.isNil
+
+method show*(w: SdlWindow)=
+    if not w.isShown:
+        w.initSdlWindow(w.frame)
+
+    w.impl.showWindow()
+    w.impl.raiseWindow()
+
+method hide*(w: SdlWindow)=
+    var lx, ly: cint
+    w.impl.getPosition(lx, ly)
+    w.setFrameOrigin(newPoint(lx.Coord, ly.Coord))
+    mainApplication().removeWindow(w)
+    w.impl.destroyWindow()
+    w.impl = nil
+    w.sdlGlContext = nil
+    w.renderingContext = nil
+
+method onWindowDestroy*(w: SdlWindow) =
+    w.hide()
+
+method onWindowCreate*(w: SdlWindow)=
+    w.show()
+
 newWindow = proc(r: view.Rect): Window =
     result = newSdlWindow(r)
+    result.onWindowCreate()
 
 newFullscreenWindow = proc(): Window =
     result = newFullscreenSdlWindow()
+    result.onWindowCreate()
 
 method `title=`*(w: SdlWindow, t: string) =
     w.impl.setTitle(t)
@@ -198,8 +235,7 @@ proc eventWithSDLEvent(event: ptr sdl2.Event): Event =
                 of WindowEvent_Exposed:
                     wnd.setNeedsDisplay()
                 of WindowEvent_Close:
-                    mainApplication().removeWindow(wnd)
-                    wnd.getSDLWindow().destroyWindow()
+                    wnd.onWindowDestroy()
                 else:
                     discard
 
@@ -292,6 +328,7 @@ proc handleEvent(event: ptr sdl2.Event): Bool32 =
     result = True32
 
 method onResize*(w: SdlWindow, newSize: Size) =
+    discard glMakeCurrent(w.impl, w.sdlGlContext)
     procCall w.Window.onResize(newSize)
     let constrainedSize = w.frame.size
     if constrainedSize != newSize:

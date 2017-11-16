@@ -45,6 +45,12 @@ when false:
         memory = int(4 * memory / 1024 / 1024)
         return memory
 
+
+method show*(w: Window) {.base.} = discard
+method hide*(w: Window) {.base.} = discard
+method onWindowCreate*(w: Window) {.base.} = discard
+method onWindowDestroy*(w: Window) {.base.} = discard
+
 proc shouldUseConstraintSystem(w: Window): bool {.inline.} =
     # We assume that constraint system should not be used if there are no
     # constraints in the solver.
