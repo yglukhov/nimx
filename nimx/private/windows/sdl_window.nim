@@ -130,11 +130,10 @@ proc newSdlWindow*(r: view.Rect): SdlWindow =
     result.new()
     result.init(r)
 
-proc isShown(w: SdlWindow): bool = not w.impl.isNil
-
 method show*(w: SdlWindow)=
-    if not w.isShown:
+    if w.impl.isNil:
         w.initSdlWindow(w.frame)
+        w.setFrameOrigin zeroPoint
 
     w.impl.showWindow()
     w.impl.raiseWindow()
@@ -143,25 +142,20 @@ method hide*(w: SdlWindow)=
     var lx, ly: cint
     w.impl.getPosition(lx, ly)
     w.setFrameOrigin(newPoint(lx.Coord, ly.Coord))
+
     mainApplication().removeWindow(w)
     w.impl.destroyWindow()
     w.impl = nil
     w.sdlGlContext = nil
     w.renderingContext = nil
 
-method onWindowDestroy*(w: SdlWindow) =
-    w.hide()
-
-method onWindowCreate*(w: SdlWindow)=
-    w.show()
-
 newWindow = proc(r: view.Rect): Window =
     result = newSdlWindow(r)
-    result.onWindowCreate()
+    result.show()
 
 newFullscreenWindow = proc(): Window =
     result = newFullscreenSdlWindow()
-    result.onWindowCreate()
+    result.show()
 
 method `title=`*(w: SdlWindow, t: string) =
     w.impl.setTitle(t)
@@ -235,7 +229,10 @@ proc eventWithSDLEvent(event: ptr sdl2.Event): Event =
                 of WindowEvent_Exposed:
                     wnd.setNeedsDisplay()
                 of WindowEvent_Close:
-                    wnd.onWindowDestroy()
+                    if wnd.onClosed.isNil:
+                        wnd.hide()
+                    else:
+                        wnd.onClosed()
                 else:
                     discard
 

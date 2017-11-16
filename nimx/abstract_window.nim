@@ -48,8 +48,6 @@ when false:
 
 method show*(w: Window) {.base.} = discard
 method hide*(w: Window) {.base.} = discard
-method onWindowCreate*(w: Window) {.base.} = discard
-method onWindowDestroy*(w: Window) {.base.} = discard
 
 proc shouldUseConstraintSystem(w: Window): bool {.inline.} =
     # We assume that constraint system should not be used if there are no
