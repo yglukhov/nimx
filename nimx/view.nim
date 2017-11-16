@@ -63,7 +63,7 @@ type
         pixelRatio*: float32
         mActiveBgColor*: Color
         layoutSolver*: Solver
-        onClosed*: proc()
+        onClose*: proc()
 
     ViewLayoutVars = object
         x*, y*, width*, height*: Variable

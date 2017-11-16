@@ -229,10 +229,10 @@ proc eventWithSDLEvent(event: ptr sdl2.Event): Event =
                 of WindowEvent_Exposed:
                     wnd.setNeedsDisplay()
                 of WindowEvent_Close:
-                    if wnd.onClosed.isNil:
+                    if wnd.onClose.isNil:
                         wnd.hide()
                     else:
-                        wnd.onClosed()
+                        wnd.onClose()
                 else:
                     discard
 
