@@ -4,7 +4,6 @@ import nimx/[ abstract_window, system_logger, view, context, event, app, screen,
                 linkage_details, portable_gl ]
 import nimx.private.sdl_vk_map
 import opengl
-import logging
 
 export abstract_window
 
