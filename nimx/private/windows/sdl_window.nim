@@ -5,7 +5,6 @@ import nimx/[ abstract_window, system_logger, view, context, event, app, screen,
 import nimx.private.sdl_vk_map
 import opengl
 
-
 export abstract_window
 
 proc initSDLIfNeeded() =
@@ -75,7 +74,7 @@ method enableAnimation*(w: SdlWindow, flag: bool) =
 # assuming that touch devices may have only one window.
 var defaultWindow: SdlWindow
 
-proc initCommon(w: SdlWindow, r: view.Rect) =
+proc initCommon(w: SdlWindow) =
     if w.impl == nil:
         logi "Could not create window!"
         quit 1
@@ -93,28 +92,23 @@ proc initCommon(w: SdlWindow, r: view.Rect) =
     discard w.impl.setData("__nimx_wnd", cast[pointer](w))
 
 proc flags(w: SdlWindow): cuint=
-    result = SDL_WINDOW_OPENGL or SDL_WINDOW_HIDDEN or SDL_WINDOW_RESIZABLE or SDL_WINDOW_ALLOW_HIGHDPI
+    result = SDL_WINDOW_OPENGL or SDL_WINDOW_RESIZABLE or SDL_WINDOW_ALLOW_HIGHDPI or SDL_WINDOW_HIDDEN
     if w.isFullscreen:
         result = result or SDL_WINDOW_FULLSCREEN
+    # else:
+        # result = result or SDL_WINDOW_HIDDEN
 
-proc initFullscreen*(w: SdlWindow) =
-    initSDLIfNeeded()
-    var displayMode : DisplayMode
-    discard getDesktopDisplayMode(0, displayMode)
+proc initFullscreen(w: SdlWindow, r: view.Rect) =
     w.isFullscreen = true
-    w.impl = createWindow(nil, 0, 0, displayMode.w, displayMode.h, w.flags)
-
-    var width, height : cint
-    w.impl.getSize(width, height)
-    w.initCommon(newRect(0, 0, Coord(width), Coord(height)))
+    w.impl = createWindow(nil, 0, 0, r.width.cint, r.height.cint, w.flags)
+    w.initCommon()
 
 proc initSdlWindow(w: SdlWindow, r: view.Rect)=
-    when defined(ios):
-        w.initFullscreen()
+    when defined(ios) or defined(android):
+        w.initFullscreen(r)
     else:
-        initSDLIfNeeded()
         w.impl = createWindow(nil, cint(r.x), cint(r.y), cint(r.width), cint(r.height), w.flags)
-        w.initCommon(newRect(0, 0, r.width, r.height))
+        w.initCommon()
 
 method init*(w: SdlWindow, r: view.Rect) =
     w.initSdlWindow(r)
@@ -123,10 +117,16 @@ method init*(w: SdlWindow, r: view.Rect) =
     w.onResize(r.size)
 
 proc newFullscreenSdlWindow*(): SdlWindow =
+    initSDLIfNeeded()
+
+    var displayMode : DisplayMode
+    discard getDesktopDisplayMode(0, displayMode)
+
     result.new()
-    result.initFullscreen()
+    result.init(newRect(0, 0, displayMode.w.Coord, displayMode.h.Coord))
 
 proc newSdlWindow*(r: view.Rect): SdlWindow =
+    initSDLIfNeeded()
     result.new()
     result.init(r)
 
