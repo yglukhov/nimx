@@ -6,6 +6,7 @@ type GlFrameState* = tuple
     clearColor: array[4, GLfloat]
     viewportSize: array[4, GLint]
     framebuffer: FramebufferRef
+    renderBuffer: RenderbufferRef
     bStencil: bool
     rt: ImageRenderTarget
 
@@ -130,6 +131,8 @@ proc beginDraw*(t: ImageRenderTarget, state: var GlFrameState) =
 
     let gl = sharedGL()
     state.framebuffer = gl.boundFramebuffer()
+    when defined(ios):
+        state.renderBuffer = cast[RenderbufferRef](gl.getParami(GL_FRAMEBUFFER_BINDING))
     state.viewportSize = gl.getViewport()
     state.bStencil = gl.getParamb(gl.STENCIL_TEST)
     gl.getClearColor(state.clearColor)
@@ -149,6 +152,8 @@ proc endDraw*(t: ImageRenderTarget, state: var GlFrameState) =
     gl.clearColor(state.clearColor[0], state.clearColor[1], state.clearColor[2], state.clearColor[3])
     gl.viewport(state.viewportSize)
     gl.bindFramebuffer(gl.FRAMEBUFFER, state.framebuffer)
+    when defined(ios):
+        gl.bindRenderbuffer(gl.RENDERBUFFER, state.renderBuffer)
 
 proc beginDraw*(sci: SelfContainedImage, gfs: var GlFrameState) {.deprecated.} =
     var rt = sci.mRenderTarget

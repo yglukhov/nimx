@@ -135,7 +135,7 @@ proc findEnvPaths(b: Builder) =
 
             if ndk_path.len > 0:
                 ndk_path = replaceInStr(ndk_path, "ndk-stack")
-            elif existsEnv("ANDROID_NDK_HOME"):
+            if ndk_path.len == 0 and existsEnv("ANDROID_NDK_HOME"):
                 ndk_path = getEnv("ANDROID_NDK_HOME")
 
             if sdk_path.len > 0:
@@ -243,7 +243,7 @@ proc newBuilder*(platform: string): Builder =
 
     if b.platform in ["ios", "ios-sim"]:
         b.iOSSDKVersion = getiOSSDKVersion()
-        b.iOSMinVersion = b.iOSSDKVersion
+        b.iOSMinVersion = "9.3"#b.iOSSDKVersion
     elif b.platform == "macosx":
         b.macOSSDKVersion = "10.12"
         for v in ["10.7", "10.8", "10.9", "10.10", "10.11", "10.12", "10.13"]:
@@ -682,7 +682,7 @@ proc build*(b: Builder) =
         if b.platform == "ios":
             sdkPath = iOSSDKPath(b.iOSSDKVersion)
             sdlLibDir = b.buildSDLForIOS(false)
-            b.nimFlags.add("--cpu:arm")
+            b.nimFlags.add(["--cpu:arm", "--cpu:arm64"])
             addCAndLFlags(["-mios-version-min=" & b.iOSMinVersion])
         else:
             sdkPath = iOSSimulatorSDKPath(b.iOSSDKVersion)
