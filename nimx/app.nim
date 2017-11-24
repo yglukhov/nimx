@@ -56,7 +56,7 @@ proc handleEvent*(a: Application, e: var Event): bool =
         fakeEvent.window = e.window
         discard a.handleEvent(fakeEvent)
 
-    incrementActiveTouchesIfNeeded(e)
+    begunTouchProcessing(e)
 
     if e.kind == etMouse or e.kind == etTouch or e.kind == etKeyboard:
         let kc = e.keyCode
@@ -94,7 +94,7 @@ proc handleEvent*(a: Application, e: var Event): bool =
         elif e.kind == etAppWillEnterForeground:
             for w in a.windows: w.enableAnimation(true)
 
-    decrementActiveTouchesIfNeeded(e)
+    endTouchProcessing(e)
 
 proc drawWindows*(a: Application) =
     for w in a.windows:

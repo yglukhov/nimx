@@ -1,6 +1,7 @@
 import types
 import unicode
 import abstract_window
+import view
 
 import keyboard
 export keyboard
@@ -21,15 +22,12 @@ type ButtonState* = enum
     bsUnknown
     bsUp
     bsDown
-
-type Touch* = object
-    position*: Point
-    id*: int
+    # bsCancel
 
 type Event* = object
     timestamp*: uint32
     kind*: EventType
-    pointerId*: int
+    pointerId*: int # raw touchId
     position*: Point
     localPosition*: Point
     offset*: Point
@@ -40,6 +38,8 @@ type Event* = object
     window*: Window
     text*: string
     modifiers*: ModifiersSet
+    target*: View # for touch events
+    id*: int # logic touchId
 
 proc newEvent*(kind: EventType, position: Point = zeroPoint, keyCode: VirtualKey = VirtualKey.Unknown,
                buttonState: ButtonState = bsUnknown, pointerId : int = 0, timestamp : uint32 = 0): Event =
@@ -87,16 +87,72 @@ proc isMouseMoveEvent*(e: Event): bool = e.buttonState == bsUnknown and e.kind =
 
 var activeTouches = 0
 
+const nimxMaxTouches = 10
+var activeTouchesSeq: array[nimxMaxTouches, Event]
+
+proc initTouches()=
+    for i in 0 ..< activeTouchesSeq.len:
+        activeTouchesSeq[i].pointerId = -1
+initTouches()
+
+import logging
+
+proc setLogicalId(e: var Event)=
+    if e.buttonState == bsDown:
+        e.id = -1
+        for i, t in activeTouchesSeq:
+            if t.pointerId == -1:
+                e.id = i
+                break
+            # else:
+            #     info "bsDown ", t.pointerId, " id ", e.pointerId, " e.id ", e.id
+
+        # info "setlogicid ", e.id, " for nativeid ", e.pointerId
+        doAssert(e.id >= 0, "Incorrect logical id in bsDown ")
+    else:
+        e.id = -1
+        for t in activeTouchesSeq:
+            if t.pointerId == e.pointerId:
+                e.id = t.id
+                e.target = t.target
+                break
+
+        when not defined(ios) and not defined(android):
+            if e.id == -1 and e.buttonState == bsUnknown:
+                for i, t in activeTouchesSeq:
+                    if t.pointerId == -1:
+                        e.id = i
+                        break
+
+        doAssert(e.id >= 0, "Incorrect logical id in " & $e.buttonState)
+
 template numberOfActiveTouches*(): int = activeTouches
 
-proc incrementActiveTouchesIfNeeded*(e: Event) =
-    # Private proc. Should be called from application.handleEvent()
-    if (e.kind == etTouch or e.kind == etMouse) and e.buttonState == bsDown:
+proc incrementActiveTouchesIfNeeded(e: Event) =
+    if e.buttonState == bsDown:
         inc activeTouches
         assert(activeTouches > 0)
 
-proc decrementActiveTouchesIfNeeded*(e: Event) =
-    # Private proc. Should be called from application.handleEvent()
-    if (e.kind == etTouch or e.kind == etMouse) and e.buttonState == bsUp:
+proc decrementActiveTouchesIfNeeded(e: Event) =
+    if e.buttonState == bsUp:
         assert(activeTouches > 0)
         dec activeTouches
+
+# Private proc. Should be called from application.handleEvent()
+proc begunTouchProcessing*(e: var Event)=
+    if (e.kind == etTouch or e.kind == etMouse):
+        e.incrementActiveTouchesIfNeeded()
+
+        e.setLogicalId()
+        activeTouchesSeq[e.id] = e
+
+# Private proc. Should be called from application.handleEvent()
+proc endTouchProcessing*(e: var Event)=
+    if (e.kind == etTouch or e.kind == etMouse):
+        e.decrementActiveTouchesIfNeeded()
+
+        if e.buttonState == bsUp:
+            # info "reset touch ", e.pointerId, " logic ", e.id
+            e.pointerId = -1
+
+        activeTouchesSeq[e.id] = e
