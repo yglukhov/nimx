@@ -134,8 +134,12 @@ when not defined(emscripten):
     when defined(ios):
         useFrameworks("OpenGLES", "UIKit", "GameController", "CoreMotion")
         when not defined(simulator):
-            {.passC:"-arch armv7".}
-            {.passL:"-arch armv7".}
+            when hostCPU == "arm":
+                {.passC:"-arch armv7".}
+                {.passL:"-arch armv7".}
+            elif hostCPU == "arm64":
+                {.passC:"-arch arm64".}
+                {.passL:"-arch arm64".}
     elif defined(macosx):
         useFrameworks("OpenGL", "AppKit", "AudioUnit", "ForceFeedback", "IOKit", "Carbon", "CoreServices", "ApplicationServices")
 

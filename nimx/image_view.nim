@@ -1,10 +1,6 @@
-import nimx.context
-import nimx.image
-import nimx.types
-import nimx.view
+import nimx / [ context, image, types, view ]
 import nimx.property_visitor
 import nimx.serializers
-import nimx.resource
 
 type
     ImageFillRule* {.pure.} = enum
@@ -98,7 +94,7 @@ method visitProperties*(v: ImageView, pv: var PropertyVisitor) =
 
 method serializeFields*(v: ImageView, s: Serializer) =
     procCall v.View.serializeFields(s)
-    s.serialize("image", resourceNameForPath(v.image.filePath))
+    s.serialize("image", v.image.filePath)
     s.serialize("fillRule", v.fillRule)
     s.serialize("marginLeft", v.imageMarginLeft)
     s.serialize("marginRight", v.imageMarginRight)

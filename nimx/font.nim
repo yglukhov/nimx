@@ -1,9 +1,6 @@
-import types
-import system_logger
-import unicode
-import streams
-import nimx.resource
-import nimx.timer
+import unicode, streams, logging
+
+import nimx / [ types, timer, portable_gl ]
 import nimx.private.font.font_data
 
 when defined(js):
@@ -19,8 +16,8 @@ else:
 import private.edtaa3func # From ttf library
 import private.simple_table
 
-import opengl
-import portable_gl
+when defined(android):
+    import nimx.assets.url_stream
 
 type Baseline* = enum
     bTop
@@ -202,7 +199,9 @@ when not defined(js):
                 "/usr/share/fonts/truetype",
                 "/usr/share/fonts/truetype/ubuntu-font-family",
                 "/usr/share/fonts/TTF",
-                "/usr/share/fonts/truetype/dejavu"
+                "/usr/share/fonts/truetype/dejavu",
+                "/usr/share/fonts/dejavu",
+                "/usr/share/fonts"
             ]
 
 when not defined(js):
@@ -245,10 +244,13 @@ proc newFontWithFace*(face: string, size: float): Font =
         else:
             when defined(android):
                 let path = face & ".ttf"
-                let ff = streamForResourceWithPath(path)
-                if not ff.isNil:
-                    ff.close()
-                    result = newFontWithFile("res://" & path, size)
+                let url = "res://" & path
+                var s: Stream
+                openStreamForURL(url) do(st: Stream, err: string):
+                    s = st
+                if not s.isNil:
+                    s.close()
+                    result = newFontWithFile(url, size)
 
 proc systemFontSize*(): float = 16
 
@@ -265,17 +267,17 @@ proc systemFontOfSize*(size: float): Font =
         if result != nil: return
 
     when not defined(js):
-        logi "ERROR: Could not find system font:"
+        error "Could not find system font:"
         for face in preferredFonts:
             for f in potentialFontFilesForFace(face):
-                logi "Tried path '", f, "'"
+                error "Tried path '", f, "'"
 
 proc systemFont*(): Font =
     if sysFont == nil:
         sysFont = systemFontOfSize(systemFontSize())
     result = sysFont
     if result == nil:
-        logi "WARNING: Could not create system font"
+        warn "Could not create system font"
 
 var dfCtx : DistanceFieldContext[float32]
 

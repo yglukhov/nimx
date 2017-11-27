@@ -591,7 +591,7 @@ proc signIosBundle(b: Builder) =
 
 proc ndkBuild(b: Builder) =
     withDir(b.buildRoot / b.javaPackageId):
-        putEnv "NIM_INCLUDE_DIR", expandTilde(b.nimIncludeDir)
+        putEnv "NIM_INCLUDE_DIR", expandTilde(b.nimIncludeDir).replace('\\','/')
         if b.useGradle:
             putEnv "ANDROID_SDK_HOME", expandTilde(b.androidSdk)
             putEnv "ANDROID_HOME", expandTilde(b.androidSdk)
