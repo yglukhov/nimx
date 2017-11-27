@@ -152,7 +152,6 @@ proc endDraw*(t: ImageRenderTarget, state: var GlFrameState) =
     gl.viewport(state.viewportSize)
     gl.bindFramebuffer(gl.FRAMEBUFFER, state.framebuffer)
 
-
 proc beginDraw*(sci: SelfContainedImage, gfs: var GlFrameState) {.deprecated.} =
     var rt = sci.mRenderTarget
     if rt.isNil:
@@ -168,7 +167,6 @@ proc endDraw*(sci: SelfContainedImage, gfs: var GlFrameState) {.deprecated.} =
 proc draw*(sci: SelfContainedImage, drawProc: proc()) =
     var gfs: GlFrameState
     let rt = newImageRenderTarget()
-
     rt.setImage(sci)
     rt.beginDraw(gfs)
 
