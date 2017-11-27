@@ -245,7 +245,7 @@ proc newBuilder*(platform: string): Builder =
 
     if b.platform in ["ios", "ios-sim"]:
         b.iOSSDKVersion = getiOSSDKVersion()
-        b.iOSMinVersion = "9.3"#b.iOSSDKVersion
+        b.iOSMinVersion = b.iOSSDKVersion
     elif b.platform == "macosx":
         b.macOSSDKVersion = "10.12"
         for v in ["10.7", "10.8", "10.9", "10.10", "10.11", "10.12", "10.13"]:
