@@ -22,7 +22,6 @@ type ButtonState* = enum
     bsUnknown
     bsUp
     bsDown
-    # bsCancel
 
 type Event* = object
     timestamp*: uint32
@@ -89,6 +88,7 @@ var activeTouches = 0
 
 const nimxMaxTouches = 10
 var activeTouchesSeq: array[nimxMaxTouches, Event]
+var multiTouchEnabled* = false
 
 proc initTouches()=
     for i in 0 ..< activeTouchesSeq.len:
@@ -104,10 +104,6 @@ proc setLogicalId(e: var Event)=
             if t.pointerId == -1:
                 e.id = i
                 break
-            # else:
-            #     info "bsDown ", t.pointerId, " id ", e.pointerId, " e.id ", e.id
-
-        # info "setlogicid ", e.id, " for nativeid ", e.pointerId
         doAssert(e.id >= 0, "Incorrect logical id in bsDown ")
     else:
         e.id = -1
@@ -152,7 +148,6 @@ proc endTouchProcessing*(e: var Event)=
         e.decrementActiveTouchesIfNeeded()
 
         if e.buttonState == bsUp:
-            # info "reset touch ", e.pointerId, " logic ", e.id
             e.pointerId = -1
 
         activeTouchesSeq[e.id] = e

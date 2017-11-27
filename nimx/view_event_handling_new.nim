@@ -85,9 +85,6 @@ proc processDragEvent*(b: DragSystem, e: var Event) =
     b.prevTarget = target
 
 proc processTouchEvent*(v: View, e : var Event): bool =
-    # if e.buttonState != bsUnknown:
-    #     info "touch event ", e.id, " native ", e.pointerId, " state ", e.buttonState
-
     if e.buttonState == bsDown:
         if v.hidden: return false
         v.interceptEvents = false

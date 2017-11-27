@@ -272,9 +272,6 @@ proc handleMomentaryTouchEv(b: Button, e: var Event): bool =
         b.value = 0
         if e.localPosition.inRect(b.bounds):
             b.sendAction(e)
-    # else:
-    #     b.setState(bsUp)
-    #     result = false
 
 proc handleToggleTouchEv(b: Button, e: var Event): bool =
     result = true
@@ -291,9 +288,6 @@ proc handleToggleTouchEv(b: Button, e: var Event): bool =
             b.value = toggleValue(b.value)
             b.sendAction(e)
         b.setState(if b.value == 1: bsDown else: bsUp)
-    # else:
-    #     b.setState(if b.value == 1: bsDown else: bsUp)
-    #     result = false
 
 method onTouchEv*(b: Button, e: var Event): bool =
     discard procCall b.View.onTouchEv(e)
