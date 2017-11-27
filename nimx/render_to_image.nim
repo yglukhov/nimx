@@ -131,8 +131,6 @@ proc beginDraw*(t: ImageRenderTarget, state: var GlFrameState) =
 
     let gl = sharedGL()
     state.framebuffer = gl.boundFramebuffer()
-    when defined(ios):
-        state.renderBuffer = cast[RenderbufferRef](gl.getParami(GL_FRAMEBUFFER_BINDING))
     state.viewportSize = gl.getViewport()
     state.bStencil = gl.getParamb(gl.STENCIL_TEST)
     gl.getClearColor(state.clearColor)
@@ -152,8 +150,7 @@ proc endDraw*(t: ImageRenderTarget, state: var GlFrameState) =
     gl.clearColor(state.clearColor[0], state.clearColor[1], state.clearColor[2], state.clearColor[3])
     gl.viewport(state.viewportSize)
     gl.bindFramebuffer(gl.FRAMEBUFFER, state.framebuffer)
-    when defined(ios):
-        gl.bindRenderbuffer(gl.RENDERBUFFER, state.renderBuffer)
+
 
 proc beginDraw*(sci: SelfContainedImage, gfs: var GlFrameState) {.deprecated.} =
     var rt = sci.mRenderTarget
@@ -170,6 +167,9 @@ proc endDraw*(sci: SelfContainedImage, gfs: var GlFrameState) {.deprecated.} =
 proc draw*(sci: SelfContainedImage, drawProc: proc()) =
     var gfs: GlFrameState
     let rt = newImageRenderTarget()
+    let gl = sharedGL()
+    let oldRB = gl.boundRenderBuffer()
+
     rt.setImage(sci)
     rt.beginDraw(gfs)
 
@@ -178,6 +178,7 @@ proc draw*(sci: SelfContainedImage, drawProc: proc()) =
 
     rt.endDraw(gfs)
     rt.dispose()
+    gl.bindRenderbuffer(gl.RENDERBUFFER, oldRB)
     # OpenGL framebuffer coordinate system is flipped comparing to how we load
     # and handle the rest of images. Compensate for that by flipping texture
     # coords here.

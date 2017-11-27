@@ -129,14 +129,16 @@ proc findEnvPaths(b: Builder) =
         var error_msg = ""
         ## try find binary for android sdk, ndk, and nim
         if b.platform == "android":
-            var ndk_path = findExe("ndk-stack")
+            var ndk_path: string
             var sdk_path = findExe("adb")
             var nim_path = findExe("nim")
 
-            if ndk_path.len > 0:
-                ndk_path = replaceInStr(ndk_path, "ndk-stack")
-            if ndk_path.len == 0 and existsEnv("ANDROID_NDK_HOME"):
+            if existsEnv("ANDROID_NDK_HOME"):
                 ndk_path = getEnv("ANDROID_NDK_HOME")
+            else:
+                ndk_path = findExe("ndk-stack")
+                if ndk_path.len > 0:
+                    ndk_path = replaceInStr(ndk_path, "ndk-stack")
 
             if sdk_path.len > 0:
                 sdk_path = replaceInStr(sdk_path, "platform")
@@ -682,7 +684,7 @@ proc build*(b: Builder) =
         if b.platform == "ios":
             sdkPath = iOSSDKPath(b.iOSSDKVersion)
             sdlLibDir = b.buildSDLForIOS(false)
-            b.nimFlags.add(["--cpu:arm", "--cpu:arm64"])
+            b.nimFlags.add(["--cpu:arm64"])
             addCAndLFlags(["-mios-version-min=" & b.iOSMinVersion])
         else:
             sdkPath = iOSSimulatorSDKPath(b.iOSSDKVersion)

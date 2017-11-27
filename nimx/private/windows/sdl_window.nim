@@ -54,7 +54,6 @@ when defined(macosx) and not defined(ios):
 proc getSDLWindow*(wnd: SdlWindow): WindowPtr = wnd.impl
 
 var animationEnabled = 0
-proc nextEvent(evt: var sdl2.Event)
 
 method enableAnimation*(w: SdlWindow, flag: bool) =
     doAssert( (animationEnabled == 0 and flag) or (animationEnabled != 0 and not flag) , "animationEnabled: " & $animationEnabled & " flag: " & $flag)
@@ -63,11 +62,6 @@ method enableAnimation*(w: SdlWindow, flag: bool) =
         when defined(ios):
             proc animationCallback(p: pointer) {.cdecl.} =
                 let w = cast[SdlWindow](p)
-                # TODO some strange fix for iOS
-                # looks like events wait another thread and we have latency
-                # if we process events at this place - all right
-                var evt = sdl2.Event(kind: UserEvent1)
-                nextEvent(evt)
                 w.runAnimations()
                 w.drawWindow()
             discard iPhoneSetAnimationCallback(w.impl, 0, animationCallback, cast[pointer](w))
