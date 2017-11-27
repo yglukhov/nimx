@@ -6,7 +6,6 @@ type GlFrameState* = tuple
     clearColor: array[4, GLfloat]
     viewportSize: array[4, GLint]
     framebuffer: FramebufferRef
-    renderBuffer: RenderbufferRef
     bStencil: bool
     rt: ImageRenderTarget
 
@@ -37,6 +36,7 @@ proc init(rt: ImageRenderTarget, texWidth, texHeight: int16) =
 
     if rt.needsDepthStencil:
         let oldFramebuffer = gl.boundFramebuffer()
+        let oldRB = gl.boundRenderBuffer()
         gl.bindFramebuffer(gl.FRAMEBUFFER, rt.framebuffer)
 
         let depthBuffer = gl.createRenderbuffer()
@@ -74,6 +74,7 @@ proc init(rt: ImageRenderTarget, texWidth, texHeight: int16) =
             rt.stencilbuffer = stencilBuffer
 
         gl.bindFramebuffer(gl.FRAMEBUFFER, oldFramebuffer)
+        gl.bindRenderbuffer(gl.RENDERBUFFER, oldRB)
 
 proc resize(rt: ImageRenderTarget, texWidth, texHeight: int16) =
     let gl = sharedGL()
@@ -167,8 +168,6 @@ proc endDraw*(sci: SelfContainedImage, gfs: var GlFrameState) {.deprecated.} =
 proc draw*(sci: SelfContainedImage, drawProc: proc()) =
     var gfs: GlFrameState
     let rt = newImageRenderTarget()
-    let gl = sharedGL()
-    let oldRB = gl.boundRenderBuffer()
 
     rt.setImage(sci)
     rt.beginDraw(gfs)
@@ -178,7 +177,6 @@ proc draw*(sci: SelfContainedImage, drawProc: proc()) =
 
     rt.endDraw(gfs)
     rt.dispose()
-    gl.bindRenderbuffer(gl.RENDERBUFFER, oldRB)
     # OpenGL framebuffer coordinate system is flipped comparing to how we load
     # and handle the rest of images. Compensate for that by flipping texture
     # coords here.
