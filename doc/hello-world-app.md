@@ -54,4 +54,4 @@ nim c -r --threads:on --noMain helloworld
 ```
 
 The application should launch and look like so:
-![Hello world app](sample-screenshot.png)
+![Hello world app](hello-world-app.png)
