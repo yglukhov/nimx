@@ -18,18 +18,21 @@ import scroll_view
 
 export control
 
-type TextField* = ref object of Control
-    mText: FormattedText
-    mEditable: bool
-    continuous*: bool
-    mSelectable: bool
-    isSelecting*: bool
-    mFont*: Font
-    selectionStartLine: int
-    selectionEndLine: int
-    textSelection: Slice[int]
-    multiline*: bool
-    hasBezel*: bool
+type
+    TextField* = ref object of Control
+        mText: FormattedText
+        mEditable: bool
+        continuous*: bool
+        mSelectable: bool
+        isSelecting*: bool
+        mFont*: Font
+        selectionStartLine: int
+        selectionEndLine: int
+        textSelection: Slice[int]
+        multiline*: bool
+        hasBezel*: bool
+
+    Label* = ref object of TextField
 
 template len[T](s: Slice[T]): T = s.b - s.a
 
@@ -117,6 +120,11 @@ method init*(t: TextField, r: Rect) =
     t.hasBezel = true
     t.mText = newFormattedText()
     t.mText.verticalAlignment = vaCenter
+
+method init*(v: Label, r: Rect) =
+    procCall v.TextField.init(r)
+    v.editable = false
+    v.selectable = false
 
 proc `font=`*(t: TextField, f: Font) =
     t.mFont = f
