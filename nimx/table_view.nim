@@ -1,19 +1,12 @@
-import view
-export view
+import view, event, context, view_event_handling, view_event_handling_new, app,
+    table_view_cell, scroll_view
 
-import view_event_handling
-import view_event_handling_new
-import event
-import context
 import clip_view
 
-import table_view_cell
-export table_view_cell
-
-import system_logger
-import app
-
 import intsets
+import kiwi
+
+export view, table_view_cell
 
 type SelectionMode* = enum
     smNone
@@ -28,7 +21,7 @@ type SelectionKind* {.pure.} = enum
 type TableView* = ref object of View
     numberOfColumns*: int
     numberOfRows*: proc (): int
-    mCreateCell: proc(c: int): TableViewCell
+    mCreateCell: proc(column: int): TableViewCell
     configureCell*: proc (cell: TableViewCell)
     heightOfRow*: proc (row: int): Coord
     onSelectionChange*: proc()
@@ -39,7 +32,6 @@ type TableView* = ref object of View
     selectionMode*: SelectionMode
     selectedRows*: IntSet
 
-    rows : array[1, int]
     initiallyClickedRow: int
 
 proc `createCell=`*(v: TableView, p: proc(): TableViewCell) =
@@ -226,9 +218,10 @@ method draw*(v: TableView, r: Rect) =
 proc isRowSelected*(t: TableView, row: int): bool = t.selectedRows.contains(row)
 
 proc updateSelectedCells*(t: TableView) {.inline.} =
-    for i, s in t.subviews:
-        for c in s.subviews:
-            TableViewCell(c).selected = t.isRowSelected(i)
+    for r in t.subviews:
+        let isSelected = t.isRowSelected(TableViewCell(r.subviews[0]).row)
+        for c in r.subviews:
+            TableViewCell(c).selected = isSelected
 
 proc selectRow*(t: TableView, row: int) =
     t.selectedRows = initIntSet()
@@ -244,10 +237,9 @@ method onTouchEv(b: TableView, e: var Event): bool =
         of bsDown:
             if b.selectionMode == smSingleSelection:
                 let initialPos = e.localPosition
-                b.rows[0] = -1
-                b.getRowsAtHeights([initialPos.y], b.rows)
-                if b.rows[0] != -1:
-                    b.initiallyClickedRow = b.rows[0]
+                var rows = [-1]
+                b.getRowsAtHeights([initialPos.y], rows)
+                b.initiallyClickedRow = rows[0]
         of bsUnknown:
             e.localPosition = b.convertPointFromWindow(e.position)
             var newRows: array[1, int]
@@ -255,6 +247,6 @@ method onTouchEv(b: TableView, e: var Event): bool =
             if newRows[0] != b.initiallyClickedRow:
                 result = false
         of bsUp:
-            if b.rows[0] != -1:
-                b.selectRow(b.rows[0])
+            if b.initiallyClickedRow != -1:
+                b.selectRow(b.initiallyClickedRow)
                 result = false
