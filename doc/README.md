@@ -6,7 +6,7 @@ TOC
     - [Hello world app](hello-world-app.md)
 
 - Layout
-    - nimx layout DSL
+    - [Layout DSL](layout-dsl.md)
     - Constraint system
 
 - Controls
