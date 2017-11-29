@@ -127,7 +127,7 @@ proc decrementActiveTouchesIfNeeded(e: Event) =
         dec activeTouches
 
 # Private proc. Should be called from application.handleEvent()
-proc begunTouchProcessing*(e: var Event)=
+proc beginTouchProcessing*(e: var Event)=
     if (e.kind == etTouch or e.kind == etMouse):
         e.incrementActiveTouchesIfNeeded()
 

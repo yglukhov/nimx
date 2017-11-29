@@ -56,7 +56,7 @@ proc handleEvent*(a: Application, e: var Event): bool =
         fakeEvent.window = e.window
         discard a.handleEvent(fakeEvent)
 
-    begunTouchProcessing(e)
+    beginTouchProcessing(e)
 
     if e.kind == etMouse or e.kind == etTouch or e.kind == etKeyboard:
         let kc = e.keyCode
