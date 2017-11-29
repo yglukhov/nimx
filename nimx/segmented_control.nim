@@ -54,6 +54,9 @@ method init*(s: SegmentedControl, r: Rect) =
     procCall s.Control.init(r)
     s.segments = @["hello", "world", "yo"]
 
+method updateLayout*(s: SegmentedControl) =
+    s.widthsValid = false
+
 proc recalculateSegmentWidths(s: SegmentedControl) =
     if s.widths.isNil:
         s.widths = newSeq[Coord](s.mSegments.len)

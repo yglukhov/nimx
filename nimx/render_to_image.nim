@@ -36,6 +36,7 @@ proc init(rt: ImageRenderTarget, texWidth, texHeight: int16) =
 
     if rt.needsDepthStencil:
         let oldFramebuffer = gl.boundFramebuffer()
+        let oldRB = gl.boundRenderBuffer()
         gl.bindFramebuffer(gl.FRAMEBUFFER, rt.framebuffer)
 
         let depthBuffer = gl.createRenderbuffer()
@@ -73,6 +74,7 @@ proc init(rt: ImageRenderTarget, texWidth, texHeight: int16) =
             rt.stencilbuffer = stencilBuffer
 
         gl.bindFramebuffer(gl.FRAMEBUFFER, oldFramebuffer)
+        gl.bindRenderbuffer(gl.RENDERBUFFER, oldRB)
 
 proc resize(rt: ImageRenderTarget, texWidth, texHeight: int16) =
     let gl = sharedGL()

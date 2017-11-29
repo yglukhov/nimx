@@ -19,19 +19,23 @@ type ButtonBehavior* = enum
     bbMomentaryLight
     bbToggle
 
-type Button* = ref object of Control
-    title*: string
-    image*: Image
-    imageMarginLeft*: Coord
-    imageMarginRight*: Coord
-    imageMarginTop*: Coord
-    imageMarginBottom*: Coord
-    state*: ButtonState
-    value*: int8
-    enabled*: bool
-    hasBezel*: bool
-    style*: ButtonStyle
-    behavior*: ButtonBehavior
+type
+    Button* = ref object of Control
+        title*: string
+        image*: Image
+        imageMarginLeft*: Coord
+        imageMarginRight*: Coord
+        imageMarginTop*: Coord
+        imageMarginBottom*: Coord
+        state*: ButtonState
+        value*: int8
+        enabled*: bool
+        hasBezel*: bool
+        style*: ButtonStyle
+        behavior*: ButtonBehavior
+
+    Checkbox* = ref object of Button
+    Radiobox* = ref object of Button
 
 proc newButton*(r: Rect): Button =
     result.new()
@@ -63,7 +67,7 @@ proc newImageButton*(parent: View = nil, position: Point = newPoint(0, 0), size:
     if not isNil(parent):
         parent.addSubview(result)
 
-method init(b: Button, frame: Rect) =
+method init*(b: Button, frame: Rect) =
     procCall b.Control.init(frame)
     b.state = bsUp
     b.enabled = true
@@ -73,6 +77,16 @@ method init(b: Button, frame: Rect) =
     b.imageMarginRight = 2
     b.imageMarginTop = 2
     b.imageMarginBottom = 2
+
+method init*(b: Checkbox, frame: Rect) =
+    procCall b.Button.init(frame)
+    b.style = bsCheckbox
+    b.behavior = bbToggle
+
+method init*(b: Radiobox, frame: Rect) =
+    procCall b.Button.init(frame)
+    b.style = bsRadiobox
+    b.behavior = bbToggle
 
 proc drawTitle(b: Button, xOffset: Coord) =
     if b.title != nil:
