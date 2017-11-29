@@ -98,29 +98,31 @@ initTouches()
 import logging
 
 proc setLogicalId(e: var Event)=
-    if e.buttonState == bsDown:
-        e.id = -1
-        for i, t in activeTouchesSeq:
-            if t.pointerId == -1:
-                e.id = i
-                break
-        doAssert(e.id >= 0, "Incorrect logical id in bsDown ")
-    else:
-        e.id = -1
-        for t in activeTouchesSeq:
-            if t.pointerId == e.pointerId:
-                e.id = t.id
-                e.target = t.target
-                break
+    if e.kind == etTouch:
+        if e.buttonState == bsDown:
+            e.id = -1
+            for i, t in activeTouchesSeq:
+                if t.pointerId == -1:
+                    e.id = i
+                    break
 
-        when not defined(ios) and not defined(android):
-            if e.id == -1 and e.buttonState == bsUnknown:
-                for i, t in activeTouchesSeq:
-                    if t.pointerId == -1:
-                        e.id = i
-                        break
+            doAssert(e.id >= 0, "Incorrect logical id in bsDown ")
+        else:
+            e.id = -1
+            for t in activeTouchesSeq:
+                if t.pointerId == e.pointerId:
+                    e.id = t.id
+                    e.target = t.target
+                    break
 
-        doAssert(e.id >= 0, "Incorrect logical id in " & $e.buttonState)
+            doAssert(e.id >= 0, "Incorrect logical id in " & $e.buttonState)
+
+    else: # e.kind == etMouse
+        e.id = 0
+        if e.buttonState != bsDown:
+            e.target = activeTouchesSeq[e.id].target
+
+    info "setLogicalId state ", e.buttonState, " id ", e.id
 
 template numberOfActiveTouches*(): int = activeTouches
 
