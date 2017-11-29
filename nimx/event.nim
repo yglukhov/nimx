@@ -85,44 +85,34 @@ proc isButtonUpEvent*(e: Event): bool = e.buttonState == bsUp
 proc isMouseMoveEvent*(e: Event): bool = e.buttonState == bsUnknown and e.kind == etMouse
 
 var activeTouches = 0
-
 const nimxMaxTouches = 10
+const invalidTouchId = -1
 var activeTouchesSeq: array[nimxMaxTouches, Event]
-var multiTouchEnabled* = false
 
 proc initTouches()=
     for i in 0 ..< activeTouchesSeq.len:
-        activeTouchesSeq[i].pointerId = -1
+        activeTouchesSeq[i].pointerId = invalidTouchId
 initTouches()
 
-import logging
+proc findFirstTouchByRawId(id: int): int=
+    for i, v in activeTouchesSeq:
+        if v.pointerId == id:
+            return i
 
 proc setLogicalId(e: var Event)=
     if e.kind == etTouch:
+        e.id = invalidTouchId
+
         if e.buttonState == bsDown:
-            e.id = -1
-            for i, t in activeTouchesSeq:
-                if t.pointerId == -1:
-                    e.id = i
-                    break
-
-            doAssert(e.id >= 0, "Incorrect logical id in bsDown ")
+            e.id = findFirstTouchByRawId(invalidTouchId)
         else:
-            e.id = -1
-            for t in activeTouchesSeq:
-                if t.pointerId == e.pointerId:
-                    e.id = t.id
-                    e.target = t.target
-                    break
+            e.id = findFirstTouchByRawId(e.pointerId)
+            e.target = activeTouchesSeq[e.id].target
 
-            doAssert(e.id >= 0, "Incorrect logical id in " & $e.buttonState)
-
-    else: # e.kind == etMouse
+    else: # etMouse
         e.id = 0
         if e.buttonState != bsDown:
             e.target = activeTouchesSeq[e.id].target
-
-    info "setLogicalId state ", e.buttonState, " id ", e.id
 
 template numberOfActiveTouches*(): int = activeTouches
 
@@ -150,6 +140,6 @@ proc endTouchProcessing*(e: var Event)=
         e.decrementActiveTouchesIfNeeded()
 
         if e.buttonState == bsUp:
-            e.pointerId = -1
+            e.pointerId = invalidTouchId
 
         activeTouchesSeq[e.id] = e

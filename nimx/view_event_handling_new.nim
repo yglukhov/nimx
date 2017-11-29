@@ -92,7 +92,6 @@ proc processTouchEvent*(v: View, e : var Event): bool =
         if v.subviews.isNil or v.subviews.len == 0:
             result = v.onTouchEv(e)
             if result and e.target.isNil:
-                # info "settarget ", v.name
                 e.target = v
         else:
             if v.onInterceptTouchEv(e):
@@ -109,7 +108,6 @@ proc processTouchEvent*(v: View, e : var Event): bool =
                             v.touchTarget = s
                             if e.target.isNil:
                                 e.target = s
-                                # info "settarget 3", s.name
                             break
 
                 if result and v.onListenTouchEv(e):
@@ -119,14 +117,8 @@ proc processTouchEvent*(v: View, e : var Event): bool =
                     result = v.onTouchEv(e)
                     if result and e.target.isNil:
                         e.target = v
-                        # info "settarget 2", v.name
-    # elif e.buttonState != bsCancel:
     else:
         if numberOfActiveTouches() > 0:
-            # if not e.target.isNil:
-            #     info "touch ", e.id, " state ", e.buttonState , " target ", e.target.name
-            # else:
-            #     info "touch ", e.id, " state ", e.buttonState , " target nil"
             if v.subviews.isNil or v.subviews.len == 0:
                 # single view
                 if not v.isMainWindow(e):
@@ -142,34 +134,18 @@ proc processTouchEvent*(v: View, e : var Event): bool =
                         result = v.onTouchEv(e)
                     else:
                         if not e.target.isNil:
-                            # if e.buttonState == bsUp:
-                            #     echo "uptouch at ", e.target.name
-
                             var localPosition = e.localPosition
                             e.localPosition = e.target.convertPointFromWindow(localPosition)
                             if v.onListenTouchEv(e):
                                 discard v.onTouchEv(e)
                             result = e.target.onTouchEv(e)
                             e.localPosition = localPosition
-
-                        # if not v.touchTarget.isNil:
-                        #     let target = v.touchTarget
-                        #     var localPosition = e.localPosition
-                        #     e.localPosition = target.convertPointFromParent(localPosition)
-                        #     if v.onListenTouchEv(e):
-                        #         discard v.onTouchEv(e)
-                        #     result = target.processTouchEvent(e)
-                        #     e.localPosition = localPosition
                         else:
                             if not v.isMainWindow(e):
                                 result = v.onTouchEv(e)
         else:
             if v.isMainWindow(e):
                 v.handleMouseOverEvent(e)
-
-    # else: #bsCancel
-    #     if not e.target.isNil:
-    #         discard e.target.onTouchEv(e)
 
     if e.buttonState == bsUp:
         if v.isMainWindow(e) and numberOfActiveTouches() == 1:
