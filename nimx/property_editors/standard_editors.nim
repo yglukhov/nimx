@@ -25,7 +25,7 @@ import variant
 when defined(js):
     from dom import alert
 elif not defined(android) and not defined(ios) and not defined(emscripten):
-    import file_dialog.dialog
+    import os_files.dialog
 
 template toStr(v: SomeReal, precision: uint): string = formatFloat(v, ffDecimal, precision)
 template toStr(v: SomeInteger): string = $v
