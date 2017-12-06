@@ -22,14 +22,10 @@ type ButtonState* = enum
     bsUp
     bsDown
 
-type Touch* = object
-    position*: Point
-    id*: int
-
 type Event* = object
     timestamp*: uint32
     kind*: EventType
-    pointerId*: int
+    pointerId*: int # raw touchId
     position*: Point
     localPosition*: Point
     offset*: Point
@@ -89,14 +85,22 @@ var activeTouches = 0
 
 template numberOfActiveTouches*(): int = activeTouches
 
-proc incrementActiveTouchesIfNeeded*(e: Event) =
-    # Private proc. Should be called from application.handleEvent()
-    if (e.kind == etTouch or e.kind == etMouse) and e.buttonState == bsDown:
+proc incrementActiveTouchesIfNeeded(e: Event) =
+    if e.buttonState == bsDown:
         inc activeTouches
         assert(activeTouches > 0)
 
-proc decrementActiveTouchesIfNeeded*(e: Event) =
-    # Private proc. Should be called from application.handleEvent()
-    if (e.kind == etTouch or e.kind == etMouse) and e.buttonState == bsUp:
+proc decrementActiveTouchesIfNeeded(e: Event) =
+    if e.buttonState == bsUp:
         assert(activeTouches > 0)
         dec activeTouches
+
+# Private proc. Should be called from application.handleEvent()
+proc beginTouchProcessing*(e: var Event)=
+    if (e.kind == etTouch or e.kind == etMouse):
+        e.incrementActiveTouchesIfNeeded()
+
+# Private proc. Should be called from application.handleEvent()
+proc endTouchProcessing*(e: var Event)=
+    if (e.kind == etTouch or e.kind == etMouse):
+        e.decrementActiveTouchesIfNeeded()
