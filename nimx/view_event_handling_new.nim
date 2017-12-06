@@ -129,7 +129,7 @@ proc processTouchEvent*(v: View, e : var Event): bool =
                         result = s.processTouchEvent(e)
                         if result:
                             v.touchTarget = s
-                            e.setTouchTarget(v)
+                            e.setTouchTarget(s)
                             break
 
                 if result and v.onListenTouchEv(e):
