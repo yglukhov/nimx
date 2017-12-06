@@ -1,7 +1,7 @@
 
 import view, animation, context, font, composition, image, notification_center,
     mini_profiler, portable_gl, drag_and_drop
-import times
+import times, tables
 import image
 import kiwi
 export view
@@ -205,6 +205,7 @@ method init*(w: Window, frame: Rect) =
     procCall w.View.init(frame)
     w.window = w
     w.needsDisplay = true
+    w.mCurrentTouches = newTable[int, View]()
     w.mouseOverListeners = @[]
     w.animationRunners = @[]
     w.pixelRatio = 1.0

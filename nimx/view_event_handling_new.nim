@@ -84,32 +84,27 @@ proc processDragEvent*(b: DragSystem, e: var Event) =
 
     b.prevTarget = target
 
-proc getCurrentTouches(e: Event): TableRef[int, View]=
-    if not e.window.isNil:
-        if e.window.mCurrentTouches.isNil:
-            e.window.mCurrentTouches = newTable[int, View]()
-        result = e.window.mCurrentTouches
+proc getCurrentTouches(e: Event): TableRef[int, View] {.inline.}=
+    assert(not e.window.isNil, "Internal error")
+    result = e.window.mCurrentTouches
 
 proc setTouchTarget(e: Event, v: View)=
     let ct = e.getCurrentTouches()
-    if not ct.isNil:
-        if e.pointerId notin ct and not v.window.isNil:
-            ct[e.pointerId] = v
+    if e.pointerId notin ct and not v.window.isNil:
+        ct[e.pointerId] = v
 
 proc getTouchTarget(e: Event): View =
     let ct = e.getCurrentTouches()
-    if not ct.isNil:
-        if e.pointerId in ct:
-            var r = ct[e.pointerId]
-            if not r.window.isNil:
-                result = r
-            else:
-                ct.del(e.pointerId)
+    if e.pointerId in ct:
+        var r = ct[e.pointerId]
+        if not r.window.isNil:
+            result = r
+        else:
+            ct.del(e.pointerId)
 
 proc removeTouchTarget(e: Event)=
     let ct = e.getCurrentTouches()
-    if not ct.isNil:
-        ct.del(e.pointerId)
+    ct.del(e.pointerId)
 
 proc processTouchEvent*(v: View, e : var Event): bool =
     if e.buttonState == bsDown:
