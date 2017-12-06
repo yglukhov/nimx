@@ -64,6 +64,7 @@ type
         mActiveBgColor*: Color
         layoutSolver*: Solver
         onClose*: proc()
+        mCurrentTouches*: TableRef[int, View]
 
     ViewLayoutVars = object
         x*, y*, width*, height*: Variable

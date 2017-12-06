@@ -4,6 +4,7 @@ export event
 import system_logger
 import typetraits
 import drag_and_drop
+import tables
 
 method onGestEvent*(d: GestureDetector, e: var Event) : bool {.base.} = discard
 method onScroll*(v: View, e: var Event): bool = discard
@@ -83,6 +84,33 @@ proc processDragEvent*(b: DragSystem, e: var Event) =
 
     b.prevTarget = target
 
+proc getCurrentTouches(e: Event): TableRef[int, View]=
+    if not e.window.isNil:
+        if e.window.mCurrentTouches.isNil:
+            e.window.mCurrentTouches = newTable[int, View]()
+        result = e.window.mCurrentTouches
+
+proc setTouchTarget(e: Event, v: View)=
+    let ct = e.getCurrentTouches()
+    if not ct.isNil:
+        if e.pointerId notin ct and not v.window.isNil:
+            ct[e.pointerId] = v
+
+proc getTouchTarget(e: Event): View =
+    let ct = e.getCurrentTouches()
+    if not ct.isNil:
+        if e.pointerId in ct:
+            var r = ct[e.pointerId]
+            if not r.window.isNil:
+                result = r
+            else:
+                ct.del(e.pointerId)
+
+proc removeTouchTarget(e: Event)=
+    let ct = e.getCurrentTouches()
+    if not ct.isNil:
+        ct.del(e.pointerId)
+
 proc processTouchEvent*(v: View, e : var Event): bool =
     if e.buttonState == bsDown:
         if v.hidden: return false
@@ -90,8 +118,9 @@ proc processTouchEvent*(v: View, e : var Event): bool =
         v.touchTarget = nil
         if v.subviews.isNil or v.subviews.len == 0:
             result = v.onTouchEv(e)
-            if result and e.target.isNil:
-                e.target = v
+            if result:
+                e.setTouchTarget(v)
+
         else:
             if v.onInterceptTouchEv(e):
                 v.interceptEvents = true
@@ -105,8 +134,7 @@ proc processTouchEvent*(v: View, e : var Event): bool =
                         result = s.processTouchEvent(e)
                         if result:
                             v.touchTarget = s
-                            if e.target.isNil:
-                                e.target = s
+                            e.setTouchTarget(v)
                             break
 
                 if result and v.onListenTouchEv(e):
@@ -114,8 +142,8 @@ proc processTouchEvent*(v: View, e : var Event): bool =
                 if not result:
                     e.localPosition = localPosition
                     result = v.onTouchEv(e)
-                    if result and e.target.isNil:
-                        e.target = v
+                    if result:
+                        e.setTouchTarget(v)
     else:
         if numberOfActiveTouches() > 0:
             if v.subviews.isNil or v.subviews.len == 0:
@@ -132,12 +160,13 @@ proc processTouchEvent*(v: View, e : var Event): bool =
                         v.interceptEvents = true
                         result = v.onTouchEv(e)
                     else:
-                        if not e.target.isNil:
+                        var target = e.getTouchTarget()
+                        if not target.isNil:
                             var localPosition = e.localPosition
-                            e.localPosition = e.target.convertPointFromWindow(localPosition)
+                            e.localPosition = target.convertPointFromWindow(localPosition)
                             if v.onListenTouchEv(e):
                                 discard v.onTouchEv(e)
-                            result = e.target.onTouchEv(e)
+                            result = target.onTouchEv(e)
                             e.localPosition = localPosition
                         else:
                             if not v.isMainWindow(e):
@@ -150,6 +179,7 @@ proc processTouchEvent*(v: View, e : var Event): bool =
         if v.isMainWindow(e) and numberOfActiveTouches() == 1:
             v.touchTarget = nil
             v.interceptEvents = false
+        removeTouchTarget(e)
 
 proc processMouseWheelEvent*(v: View, e : var Event): bool =
     if v.hidden: return false

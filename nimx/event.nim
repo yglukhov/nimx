@@ -1,7 +1,6 @@
 import types
 import unicode
 import abstract_window
-import view
 
 import keyboard
 export keyboard
@@ -37,8 +36,6 @@ type Event* = object
     window*: Window
     text*: string
     modifiers*: ModifiersSet
-    target*: View # for touch events
-    id*: int # logic touchId
 
 proc newEvent*(kind: EventType, position: Point = zeroPoint, keyCode: VirtualKey = VirtualKey.Unknown,
                buttonState: ButtonState = bsUnknown, pointerId : int = 0, timestamp : uint32 = 0): Event =
@@ -85,34 +82,6 @@ proc isButtonUpEvent*(e: Event): bool = e.buttonState == bsUp
 proc isMouseMoveEvent*(e: Event): bool = e.buttonState == bsUnknown and e.kind == etMouse
 
 var activeTouches = 0
-const nimxMaxTouches = 10
-const invalidTouchId = -1
-var activeTouchesSeq: array[nimxMaxTouches, Event]
-
-proc initTouches()=
-    for i in 0 ..< activeTouchesSeq.len:
-        activeTouchesSeq[i].pointerId = invalidTouchId
-initTouches()
-
-proc findFirstTouchByRawId(id: int): int=
-    for i, v in activeTouchesSeq:
-        if v.pointerId == id:
-            return i
-
-proc setLogicalId(e: var Event)=
-    if e.kind == etTouch:
-        e.id = invalidTouchId
-
-        if e.buttonState == bsDown:
-            e.id = findFirstTouchByRawId(invalidTouchId)
-        else:
-            e.id = findFirstTouchByRawId(e.pointerId)
-            e.target = activeTouchesSeq[e.id].target
-
-    else: # etMouse
-        e.id = 0
-        if e.buttonState != bsDown:
-            e.target = activeTouchesSeq[e.id].target
 
 template numberOfActiveTouches*(): int = activeTouches
 
@@ -131,15 +100,7 @@ proc beginTouchProcessing*(e: var Event)=
     if (e.kind == etTouch or e.kind == etMouse):
         e.incrementActiveTouchesIfNeeded()
 
-        e.setLogicalId()
-        activeTouchesSeq[e.id] = e
-
 # Private proc. Should be called from application.handleEvent()
 proc endTouchProcessing*(e: var Event)=
     if (e.kind == etTouch or e.kind == etMouse):
         e.decrementActiveTouchesIfNeeded()
-
-        if e.buttonState == bsUp:
-            e.pointerId = invalidTouchId
-
-        activeTouchesSeq[e.id] = e
