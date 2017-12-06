@@ -21,6 +21,10 @@ proc newVector2*(x, y: Coord = 0): Vector2 = [x, y]
 proc newVector3*(x, y, z: Coord = 0): Vector3 = [x, y, z]
 proc newVector4*(x, y, z, w: Coord = 0): Vector4 = [x, y, z, w]
 
+proc newVector3*(v2: Vector2): Vector3 = newVector3(v2[0], v2[1])
+proc newVector4*(v2: Vector2): Vector4 = newVector4(v2[0], v2[1])
+proc newVector4*(v3: Vector3): Vector4 = newVector4(v3[0], v3[1], v3[2])
+
 proc length*(v: Vector2): Coord = sqrt(v[0] * v[0] + v[1] * v[1])
 proc length*(v: Vector3): Coord = sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2])
 
