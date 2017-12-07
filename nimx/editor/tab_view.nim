@@ -24,6 +24,7 @@ type TabView* = ref object of View
     configurationButton: Button
     onSplit*: proc(v: TabView)
     onRemove*: proc(v: TabView)
+    onClose*: proc(v: View)
 
 proc contentFrame(v: TabView): Rect =
     result = v.bounds
@@ -116,10 +117,6 @@ proc tabIndex*(v: TabView, title: string): int=
         if t.title == title:
             return i
 
-proc setTabTitle*(v: TabView, i: int, title: string)=
-    if i >= 0 and i < v.tabs.len:
-        v.tabs[i].title = title
-
 proc addTab*(v: TabView, title: string, view: View) {.inline.} =
     v.insertTab(v.tabs.len, title, view)
 
@@ -132,6 +129,7 @@ proc removeTab*(v: TabView, i: int) =
         else: v.selectedTab = -1
     v.tabFramesValid = false
 
+proc removeFromSplitViewSystem*(v: View)
 proc userConfigurable*(v: TabView): bool = not v.configurationButton.isNil
 proc `userConfigurable=`*(v: TabView, b: bool) =
     if b and v.configurationButton.isNil:
@@ -150,6 +148,16 @@ proc `userConfigurable=`*(v: TabView, b: bool) =
             orientationItem("Left", TabBarOrientation.left)
             orientationItem("Right", TabBarOrientation.right)
             orientationItem("Bottom", TabBarOrientation.bottom)
+
+            if v.tabs.len > 1:
+                let tm = newMenuItem("Close current")
+                tm.action = proc() =
+                    if not v.onClose.isNil:
+                        v.onClose(v.selectedView())
+                    v.removeTab(v.selectedTab)
+
+                m.items.add(tm)
+
             m.popupAtPoint(v.configurationButton, zeroPoint)
         v.addSubview(v.configurationButton)
     elif not b and not v.configurationButton.isNil:
@@ -297,6 +305,7 @@ proc split*(v: TabView, horizontally, before: bool, title: string, view: View) =
     let ntv = newTabViewForSplit(sz, title, view, v)
     ntv.onSplit = v.onSplit
     ntv.onRemove = v.onRemove
+    ntv.onClose = v.onClose
     if not ntv.onSplit.isNil:
         ntv.onSplit(ntv)
 
