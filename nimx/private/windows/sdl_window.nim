@@ -4,6 +4,7 @@ import nimx/[ abstract_window, system_logger, view, context, event, app, screen,
                 linkage_details, portable_gl ]
 import nimx.private.sdl_vk_map
 import opengl
+import times, logging
 
 export abstract_window
 
@@ -356,11 +357,16 @@ proc animateAndDraw() =
             mainApplication().runAnimations()
             mainApplication().drawWindows()
 
+when defined(useRealtimeGC):
+    var lastFullCollectTime = 0.0
+    const fullCollectThreshold = 128 * 1024 * 1024 # 128 Megabytes
+
 proc nextEvent(evt: var sdl2.Event) =
-    if gcRequested:
-        echo "full collect"
-        GC_fullCollect()
-        gcRequested = false
+    when not defined(useRealtimeGC):
+        if gcRequested:
+            info "GC_fullCollect"
+            GC_fullCollect()
+            gcRequested = false
 
     when defined(ios):
         proc iPhoneSetEventPump(enabled: Bool32) {.importc: "SDL_iPhoneSetEventPump".}
@@ -389,6 +395,18 @@ proc nextEvent(evt: var sdl2.Event) =
                     break
 
         animateAndDraw()
+
+    when defined(useRealtimeGC):
+        let t = epochTime()
+        if gcRequested or (t > lastFullCollectTime + 10 and getOccupiedMem() > fullCollectThreshold):
+            GC_enable()
+            GC_setMaxPause(0)
+            GC_fullCollect()
+            GC_disable()
+            lastFullCollectTime = t
+            gcRequested = false
+        else:
+            GC_step(1000, true)
 
 method startTextInput*(w: SdlWindow, r: Rect) =
     startTextInput()
@@ -435,6 +453,9 @@ proc criticalError() =
     quit 1
 
 template runApplication*(body: typed): typed =
+    when defined(useRealtimeGC):
+        GC_disable() # We disable the GC to manually call it close to stack bottom.
+
     sdlMain()
 
     try:
