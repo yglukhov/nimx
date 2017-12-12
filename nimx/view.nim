@@ -353,6 +353,10 @@ proc removeFromSuperview(v: View, callHandlers: bool) =
 method removeFromSuperview*(v: View) {.base.} =
     v.removeFromSuperview(true)
 
+proc removeAllSubviews*(v: View)=
+    while v.subviews.len > 0:
+        v.subviews[0].removeFromSuperview()
+
 proc insertSubview*(v, s: View, i: int) =
     if s.superview != v:
         if v.window != s.window: s.viewWillMoveToWindow(v.window)
