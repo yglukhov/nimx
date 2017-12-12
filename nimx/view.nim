@@ -354,7 +354,7 @@ method removeFromSuperview*(v: View) {.base.} =
     v.removeFromSuperview(true)
 
 proc removeAllSubviews*(v: View)=
-    while not v.subviews.isNil and v.subviews.len > 0:
+    while v.subviews.len > 0:
         v.subviews[0].removeFromSuperview()
 
 proc insertSubview*(v, s: View, i: int) =
