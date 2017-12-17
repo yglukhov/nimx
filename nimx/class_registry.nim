@@ -122,6 +122,7 @@ when isMainModule:
     type B = ref object of A
     type C = ref object of B
 
+    echo "typeId RootRef: ", getTypeId(RootRef)
     echo "typeId RootObj: ", getTypeId(RootObj)
     echo "typeId A: ", getTypeId(A)
     echo "typeId B: ", getTypeId(B)
@@ -132,7 +133,7 @@ when isMainModule:
     template sameType(t1, t2: typedesc): bool =
         t1 is t2 and t2 is t1
 
-    assert sameType(superType(A), RootObj)
+    assert sameType(superType(A), RootRef)
     assert sameType(superType(B), A)
     assert sameType(superType(C), B)
 
@@ -140,7 +141,7 @@ when isMainModule:
     registerClass(B)
     registerClass(C)
 
-    doAssert(superTypeRelations[getTypeId(A)] == getTypeId(RootObj))
+    doAssert(superTypeRelations[getTypeId(A)] == getTypeId(RootRef))
     doAssert(superTypeRelations[getTypeId(B)] == getTypeId(A))
 
     proc isSubtypeOf(tself, tsuper: string): bool =
@@ -172,3 +173,10 @@ when isMainModule:
     doAssert(a.classTypeId() == getTypeId(A))
     doAssert(b.classTypeId() == getTypeId(B))
     doAssert(c.classTypeId() == getTypeId(C))
+
+    proc getSupertypeTypeId(a: typedesc): TypeId =
+        type ParentType = superType(a)
+        const id = getTypeId(ParentType)
+        return id
+
+    doAssert(getSupertypeTypeId(A) == getTypeId(RootRef))
