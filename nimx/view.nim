@@ -36,7 +36,7 @@ type
         constraintPrototypes: seq[Constraint]
         constraints: seq[Constraint]
 
-    View* = ref object of RootObj
+    View* = ref object of RootRef
         window*: Window
         name*: string
         frame: Rect                 ## view rect in superview coordinate system
