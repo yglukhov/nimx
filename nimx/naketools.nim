@@ -525,29 +525,11 @@ proc curPackageNameAndPath(): tuple[name, path: string] =
 
 proc nimbleOverrideFlags(b: Builder): seq[string] =
     result = @[]
-    var d = getCurrentDir()
-    while d.len > 1:
-        let nimbleoverride = d / "nimbleoverride"
-        if fileExists(nimbleoverride):
-            echo "WARNING: nimbleoverride feature is deprecated and will soon be removed!"
-            for ln in lines(nimbleoverride):
-                let path = ln.strip()
-                if path.len > 0 and path[0] != '#':
-                    var absPath = path
-                    if not isAbsolute(absPath): absPath = d / absPath
-                    let pkgName = packageNameAtPath(absPath)
-                    var origNimblePath: string
-                    if not pkgName.isNil:
-                        origNimblePath = nimblePath(pkgName)
-                    if not origNimblePath.isNil: result.add("--excludePath:" & origNimblePath)
-                    result.add("--NimblePath:" & absPath)
-        d = d.parentDir()
-
     let cp = curPackageNameAndPath()
     if not cp.name.isNil:
         let origNimblePath = nimblePath(cp.name)
         if not origNimblePath.isNil: result.add("--excludePath:" & origNimblePath)
-        result.add("--NimblePath:" & cp.path)
+        result.add("--path:" & cp.path)
 
 proc postprocessWebTarget(b: Builder) =
     if not b.disableClosureCompiler and fileExists(b.executablePath):
