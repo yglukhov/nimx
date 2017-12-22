@@ -178,7 +178,11 @@ proc getAllTestNames(): seq[string] =
 proc initTestsToRunIfNeeded() =
     if gTestsToRun.isNil:
         when defined(js) or defined(emscripten):
-            gTestsToRun = getCurrentHref().uriParam("nimxAutoTest", "").split(',')
+            let testsStr = getCurrentHref().uriParam("nimxAutoTest")
+            if testsStr.len == 0:
+                gTestsToRun = @[]
+            else:
+                gTestsToRun = testsStr.split(',')
         elif defined(android):
             let act = mainActivity()
             assert(not act.isNil)
