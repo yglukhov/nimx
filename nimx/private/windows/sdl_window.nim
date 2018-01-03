@@ -447,19 +447,12 @@ proc runUntilQuit*() =
 
     discard quit(evt)
 
-proc criticalError() =
-    logi "Exception caught: ", getCurrentExceptionMsg()
-    logi getCurrentException().getStackTrace()
-    quit 1
-
 template runApplication*(body: typed): typed =
     when defined(useRealtimeGC):
         GC_disable() # We disable the GC to manually call it close to stack bottom.
 
     sdlMain()
 
-    try:
-        body
-        runUntilQuit()
-    except:
-        criticalError()
+    body
+    runUntilQuit()
+
