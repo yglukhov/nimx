@@ -242,8 +242,11 @@ proc drawText*(c: GraphicsContext, font: Font, pt: var Point, text: string) =
     let preScale = 1.0 / 320.0 # magic constant...
 
     if subpixelDraw:
-        cc = gl.getCompiledComposition(fontSubpixelCompositionWithDynamicBase)
+        if gl.getParami(gl.BLEND_SRC_ALPHA) != gl.BLEND_SRC_ALPHA.GLint or gl.getParami(gl.BLEND_DST_ALPHA) != gl.ONE_MINUS_SRC_ALPHA.GLint:
+            subpixelDraw = false
 
+    if subpixelDraw:
+        cc = gl.getCompiledComposition(fontSubpixelCompositionWithDynamicBase)
         gl.blendColor(c.fillColor.r, c.fillColor.g, c.fillColor.b, c.fillColor.a)
         gl.blendFunc(gl.CONSTANT_COLOR, gl.ONE_MINUS_SRC_COLOR)
     else:
@@ -264,7 +267,7 @@ proc drawText*(c: GraphicsContext, font: Font, pt: var Point, text: string) =
     c.drawTextBase(font, pt, text)
 
     if subpixelDraw:
-        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+        gl.blendFunc(gl.BLEND_SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 
 proc drawText*(c: GraphicsContext, font: Font, pt: Point, text: string) =
     var p = pt
