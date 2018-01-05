@@ -59,6 +59,7 @@ when defined js:
             DEPTH24_STENCIL8* : GLenum
             FRAMEBUFFER_BINDING : GLenum
             RENDERBUFFER_BINDING : GLenum
+            BLEND_SRC_RGB*, BLEND_SRC_ALPHA*, BLEND_DST_RGB*, BLEND_DST_ALPHA*: GLenum
             STENCIL_TEST*, DEPTH_TEST*, SCISSOR_TEST* : GLenum
             MAX_TEXTURE_SIZE*: GLenum
             NEVER*, LESS*, LEQUAL*, GREATER*, GEQUAL*, EQUAL*, NOTEQUAL*, ALWAYS*: GLenum
@@ -243,7 +244,10 @@ else:
     template DEPTH_TEST*(gl: GL): GLenum = GL_DEPTH_TEST
     template SCISSOR_TEST*(gl: GL): GLenum = GL_SCISSOR_TEST
     template MAX_TEXTURE_SIZE*(gl: GL): GLenum = GL_MAX_TEXTURE_SIZE
-
+    template BLEND_SRC_RGB*(gl: GL): GLenum = GL_BLEND_SRC_RGB
+    template BLEND_SRC_ALPHA*(gl: GL): GLenum = GL_BLEND_SRC_ALPHA
+    template BLEND_DST_RGB*(gl: GL): GLenum = GL_BLEND_DST_RGB
+    template BLEND_DST_ALPHA*(gl: GL): GLenum = GL_BLEND_DST_ALPHA
     template NEVER*(gl: GL): GLenum = GL_NEVER
     template LESS*(gl: GL): GLenum = GL_LESS
     template LEQUAL*(gl: GL): GLenum = GL_LEQUAL
