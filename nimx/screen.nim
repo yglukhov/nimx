@@ -3,8 +3,6 @@ when defined(ios):
 elif defined(macosx):
     import darwin.app_kit
 elif defined(android):
-    import jnim
-    import nimx.utils.android
     import android.util.display_metrics
     import android.view.display
     import android.view.window_manager
@@ -20,7 +18,7 @@ proc screenScaleFactor*(): float =
         asm "`result` = window.devicePixelRatio;"
     elif defined(android):
         let dm = DisplayMetrics.new()
-        mainActivity().getWindowManager().getDefaultDisplay().getMetrics(dm)
+        currentActivity().getWindowManager().getDefaultDisplay().getMetrics(dm)
         result = dm.density
         result = 1.0 # TODO: Take care of this
     elif defined(emscripten):

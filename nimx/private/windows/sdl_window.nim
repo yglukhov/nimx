@@ -6,6 +6,10 @@ import nimx.private.sdl_vk_map
 import opengl
 import times, logging
 
+when defined(android):
+    import android.app.activity
+    import jnim
+
 export abstract_window
 
 proc initSDLIfNeeded() =
@@ -447,11 +451,20 @@ proc runUntilQuit*() =
 
     discard quit(evt)
 
+when defined(android):
+    proc setupCurrentActivity() =
+        let a = cast[jobject](sdl2.androidGetActivity())
+        assert(not a.isNil, "Internal error")
+        setCurrentActivity(Activity.fromJObject(a))
+
 template runApplication*(body: typed): typed =
     when defined(useRealtimeGC):
         GC_disable() # We disable the GC to manually call it close to stack bottom.
 
     sdlMain()
+
+    when defined(android):
+        setupCurrentActivity()
 
     body
     runUntilQuit()

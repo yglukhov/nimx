@@ -166,7 +166,6 @@ when defined(js) or defined(emscripten):
     import nimx.pathutils
 elif defined(android):
     import jnim
-    import nimx.utils.android
     import android.app.activity, android.content.intent, android.os.base_bundle
 else:
     import os
@@ -184,7 +183,7 @@ proc initTestsToRunIfNeeded() =
             else:
                 gTestsToRun = testsStr.split(',')
         elif defined(android):
-            let act = mainActivity()
+            let act = currentActivity()
             assert(not act.isNil)
             let extras = act.getIntent().getExtras()
             if not extras.isNil:

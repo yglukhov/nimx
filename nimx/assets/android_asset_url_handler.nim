@@ -4,10 +4,9 @@ import android.ndk.aasset_manager
 import android.app.activity
 import android.content.res.asset_manager
 import android.content.context
-import nimx.utils.android
 
 proc getAssetManager(): AAssetManager =
-    result = mainActivity().getApplication().getAssets().getNative()
+    result = currentActivity().getApplication().getAssets().getNative()
 
 let gAssetManager = getAssetManager()
 
