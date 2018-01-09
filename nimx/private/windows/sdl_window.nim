@@ -6,6 +6,10 @@ import nimx.private.sdl_vk_map
 import opengl
 import times, logging
 
+when defined(android):
+    import android.app.activity
+    import jnim
+
 export abstract_window
 
 proc initSDLIfNeeded() =
@@ -447,10 +451,11 @@ proc runUntilQuit*() =
 
     discard quit(evt)
 
-proc criticalError() =
-    logi "Exception caught: ", getCurrentExceptionMsg()
-    logi getCurrentException().getStackTrace()
-    quit 1
+when defined(android):
+    proc setupCurrentActivity() =
+        let a = cast[jobject](sdl2.androidGetActivity())
+        assert(not a.isNil, "Internal error")
+        setCurrentActivity(Activity.fromJObject(a))
 
 template runApplication*(body: typed): typed =
     when defined(useRealtimeGC):
@@ -458,8 +463,9 @@ template runApplication*(body: typed): typed =
 
     sdlMain()
 
-    try:
-        body
-        runUntilQuit()
-    except:
-        criticalError()
+    when defined(android):
+        setupCurrentActivity()
+
+    body
+    runUntilQuit()
+
