@@ -36,7 +36,7 @@ type
         constraintPrototypes: seq[Constraint]
         constraints: seq[Constraint]
 
-    View* = ref object of RootObj
+    View* = ref object of RootRef
         window*: Window
         name*: string
         frame: Rect                 ## view rect in superview coordinate system
@@ -352,6 +352,10 @@ proc removeFromSuperview(v: View, callHandlers: bool) =
 
 method removeFromSuperview*(v: View) {.base.} =
     v.removeFromSuperview(true)
+
+proc removeAllSubviews*(v: View)=
+    while v.subviews.len > 0:
+        v.subviews[0].removeFromSuperview()
 
 proc insertSubview*(v, s: View, i: int) =
     if s.superview != v:
