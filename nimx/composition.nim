@@ -212,7 +212,7 @@ void drawShape(float dist, vec4 color) {
 // Draw shape without taking underlying fragments in account
 void drawInitialShape(float dist, vec4 color) {
     gl_FragColor = color;
-    gl_FragColor.w = fillAlpha(dist);
+    gl_FragColor.w *= fillAlpha(dist);
 }
 
 // Same as drawShape, but respects source alpha
@@ -228,6 +228,10 @@ proc fillAlpha*(dist: float32): float32 =
 
 proc drawShape*(res: var vec4, dist: float32, color: vec4) =
     res = mix(res, color, fillAlpha(dist))
+
+proc drawInitialShape*(res: var vec4, dist: float32, color: vec4) =
+    res = color
+    res.w *= fillAlpha(dist)
 
 proc sdRect*(p: vec2, rect: vec4): float32 =
     let b = rect.zw / 2.0
