@@ -236,7 +236,7 @@ uniform float uStrokeWidth;
 uniform float uRadius;
 
 void compose() {
-    drawShape(sdRoundedRect(bounds, uRadius), uStrokeColor);
+    drawInitialShape(sdRoundedRect(bounds, uRadius), uStrokeColor);
     drawShape(sdRoundedRect(insetRect(bounds, uStrokeWidth), uRadius - uStrokeWidth), uFillColor);
 }
 """
@@ -251,7 +251,7 @@ proc drawRoundedRect*(c: GraphicsContext, r: Rect, radius: Coord) =
 proc drawRect(bounds, uFillColor, uStrokeColor: vec4,
                     uStrokeWidth: float32,
                     vPos: vec2): vec4 =
-    result.drawShape(sdRect(vPos, bounds), uStrokeColor);
+    result.drawInitialShape(sdRect(vPos, bounds), uStrokeColor);
     result.drawShape(sdRect(vPos, insetRect(bounds, uStrokeWidth)), uFillColor);
 
 var rectComposition = newCompositionWithNimsl(drawRect)
@@ -265,7 +265,7 @@ proc drawRect*(c: GraphicsContext, r: Rect) =
 proc drawEllipse(bounds, uFillColor, uStrokeColor: vec4,
                     uStrokeWidth: float32,
                     vPos: vec2): vec4 =
-    result.drawShape(sdEllipseInRect(vPos, bounds), uStrokeColor);
+    result.drawInitialShape(sdEllipseInRect(vPos, bounds), uStrokeColor);
     result.drawShape(sdEllipseInRect(vPos, insetRect(bounds, uStrokeWidth)), uFillColor);
 
 var ellipseComposition = newCompositionWithNimsl(drawEllipse)
