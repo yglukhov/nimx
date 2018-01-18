@@ -95,7 +95,6 @@ method draw(b: PopupButton, r: Rect) =
 
 method onTouchEv(b: PopupButton, e: var Event): bool =
     if b.mItems.len > 0:
-        result = true
         case e.buttonState
         of bsDown:
             var menu : Menu
