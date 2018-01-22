@@ -1,18 +1,14 @@
 
 template sdlMain*() =
-    when not defined(windows):
+    when defined(ios) or defined(android):
         when not compileOption("noMain"):
             {.error: "Please run Nim with --noMain flag.".}
 
-        when defined(android):
-            import nimx.system_logger
+        import nimx.system_logger
         {.push stackTrace: off.}
         proc setupLogger() {.cdecl.} =
-            when defined(android):
-                errorMessageWriter = proc(msg: string) =
-                    logi msg
-            else:
-                discard
+            errorMessageWriter = proc(msg: string) =
+                logi msg
         {.pop.}
 
         when defined(ios):
