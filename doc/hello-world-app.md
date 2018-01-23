@@ -44,13 +44,9 @@ runApplication:
                 greetingLabel.text = "Hello, world!"
 ```
 
-Compile and run on Windows:
+Compile and run:
 ```sh
 nim c -r --threads:on helloworld
-```
-Compile and run on MacOS, Linux, etc:
-```sh
-nim c -r --threads:on --noMain helloworld
 ```
 
 The application should launch and look like so:

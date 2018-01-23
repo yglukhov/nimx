@@ -1,4 +1,4 @@
-#!/usr/local/bin/nim c -r --noMain
+#!/usr/local/bin/nim c -r
 
 import sample_registry
 
