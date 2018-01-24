@@ -251,10 +251,10 @@ method subviewDidChangeDesiredSize*(v: ScrollView, sub: View, desiredSize: Size)
 
 proc recalcScrollKnobSizes(v: ScrollView) = # [Deprecated old layout]
     var cs = v.contentSize
-    if not v.mHorizontalScrollBar.isNil:
+    if not v.mHorizontalScrollBar.isNil and cs.width != 0.0:
         v.mHorizontalScrollBar.knobSize = v.bounds.width / cs.width
         v.mHorizontalScrollBar.hidden = v.mHorizontalScrollBar.knobSize == 1.0
-    if not v.mVerticalScrollBar.isNil:
+    if not v.mVerticalScrollBar.isNil and cs.height != 0.0:
         v.mVerticalScrollBar.knobSize = v.bounds.height / cs.height
         v.mVerticalScrollBar.hidden = v.mVerticalScrollBar.knobSize == 1.0
 
