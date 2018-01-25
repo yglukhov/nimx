@@ -72,7 +72,7 @@ proc requiredTotalHeight(v: TableView, rowCount: int): Coord {.inline.} =
     if v.heightOfRow.isNil:
         result = v.defaultRowHeight * rowCount.Coord
     else:
-        for i in 0 .. < rowCount:
+        for i in 0 ..< rowCount:
             result += v.heightOfRowUsingDelegate(i)
 
 proc requiredHeightForRow(v: TableView, row: int): Coord {.inline.} =
@@ -159,7 +159,7 @@ proc topCoordOfRow(v: TableView, row: int): Coord {.inline.} =
     if v.heightOfRow.isNil:
         result = row.Coord * v.defaultRowHeight
     else:
-        for i in 0 .. < row:
+        for i in 0 ..< row:
             result += v.heightOfRowUsingDelegate(i)
 
 type TableRow = ref object of View

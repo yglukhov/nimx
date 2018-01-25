@@ -248,9 +248,9 @@ proc drawRoundedRect*(c: GraphicsContext, r: Rect, radius: Coord) =
         setUniform("uStrokeWidth", c.strokeWidth)
         setUniform("uRadius", radius)
 
-proc drawRect(bounds, uFillColor, uStrokeColor: vec4,
+proc drawRect(bounds, uFillColor, uStrokeColor: Vec4,
                     uStrokeWidth: float32,
-                    vPos: vec2): vec4 =
+                    vPos: Vec2): Vec4 =
     result.drawInitialShape(sdRect(vPos, bounds), uStrokeColor);
     result.drawShape(sdRect(vPos, insetRect(bounds, uStrokeWidth)), uFillColor);
 
@@ -262,9 +262,9 @@ proc drawRect*(c: GraphicsContext, r: Rect) =
         setUniform("uStrokeColor", if c.strokeWidth == 0: c.fillColor else: c.strokeColor)
         setUniform("uStrokeWidth", c.strokeWidth)
 
-proc drawEllipse(bounds, uFillColor, uStrokeColor: vec4,
+proc drawEllipse(bounds, uFillColor, uStrokeColor: Vec4,
                     uStrokeWidth: float32,
-                    vPos: vec2): vec4 =
+                    vPos: Vec2): Vec4 =
     result.drawInitialShape(sdEllipseInRect(vPos, bounds), uStrokeColor);
     result.drawShape(sdEllipseInRect(vPos, insetRect(bounds, uStrokeWidth)), uFillColor);
 

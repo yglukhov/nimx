@@ -230,7 +230,7 @@ proc bezierXForProgress*(x1, y1, x2, y2, p: float): float {.inline.} =
 
     # Newton raphson iteration
     var aGuessT = p
-    for i in 0 .. < 4:
+    for i in 0 ..< 4:
         var currentSlope = getSlope(aGuessT, x1, x2)
         if currentSlope == 0.0: break
         var currentX = calcBezier(aGuessT, x1, x2) - p

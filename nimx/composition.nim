@@ -226,29 +226,29 @@ proc fillAlpha*(dist: float32): float32 =
     result = 1.0 - smoothstep(-d, d, dist)
     #    return 1.0 - step(0.0, dist); # No antialiasing
 
-proc drawShape*(res: var vec4, dist: float32, color: vec4) =
+proc drawShape*(res: var Vec4, dist: float32, color: Vec4) =
     res = mix(res, color, fillAlpha(dist))
 
-proc drawInitialShape*(res: var vec4, dist: float32, color: vec4) =
+proc drawInitialShape*(res: var Vec4, dist: float32, color: Vec4) =
     res = color
     res.w *= fillAlpha(dist)
 
-proc sdRect*(p: vec2, rect: vec4): float32 =
+proc sdRect*(p: Vec2, rect: Vec4): float32 =
     let b = rect.zw / 2.0
     let dp = p - (rect.xy + b)
     let d = abs(dp) - b
     result = min(max(d.x, d.y), 0.0) + length(max(d, 0.0))
 
-proc sdEllipseInRect*(pos: vec2, rect: vec4): float32 =
+proc sdEllipseInRect*(pos: Vec2, rect: Vec4): float32 =
     let ab = rect.zw / 2.0
     let center = rect.xy + ab
     let p = pos - center
     result = dot(p * p, 1.0 / (ab * ab)) - 1.0
     result *= min(ab.x, ab.y)
 
-proc insetRect*(r: vec4, by: float32): vec4 = newVec4(r.xy + by, r.zw - by * 2.0)
+proc insetRect*(r: Vec4, by: float32): Vec4 = newVec4(r.xy + by, r.zw - by * 2.0)
 
-proc vertexShader(aPosition: vec2, uModelViewProjectionMatrix: mat4, uBounds: vec4, vPos: var vec2): vec4 =
+proc vertexShader(aPosition: Vec2, uModelViewProjectionMatrix: Mat4, uBounds: Vec4, vPos: var Vec2): Vec4 =
     vPos = uBounds.xy + aPosition * uBounds.zw
     result = uModelViewProjectionMatrix * newVec4(vPos, 0.0, 1.0);
 
