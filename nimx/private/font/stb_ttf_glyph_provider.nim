@@ -63,7 +63,7 @@ proc bakeChars*(p: StbTtfGlyphProvider, start: int32, data: var GlyphData) =
 
     var glyphIndexes: array[charChunkLength, cint]
 
-    for i in startChar .. < endChar:
+    for i in startChar ..< endChar:
         if isPrintableCodePoint(i):
             let g = stbtt_FindGlyphIndex(p.fontInfo, i) # g > 0 when found
             glyphIndexes[i - startChar] = g
@@ -89,7 +89,7 @@ proc bakeChars*(p: StbTtfGlyphProvider, start: int32, data: var GlyphData) =
     data.bitmapHeight = height.uint16
     var temp_bitmap = newSeq[byte](width * height)
 
-    for i in startChar .. < endChar:
+    for i in startChar ..< endChar:
         let indexOfGlyphInRange = i - startChar
         data.dfDoneForGlyph[indexOfGlyphInRange] = true
         if isPrintableCodePoint(i):

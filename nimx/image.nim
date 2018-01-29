@@ -119,7 +119,7 @@ when not web:
             let xExtrusion = min(2, texWidth - x)
             let yExtrusion = min(2, texHeight - y)
 
-            for row in 0 .. <y:
+            for row in 0 ..< y:
                 copyMem(offset(newData, row * texRowWidth), offset(data, row * rowWidth), rowWidth)
                 let lastRowPixel = offset(data, row * rowWidth - comp)
                 for i in 0 ..< xExtrusion:
