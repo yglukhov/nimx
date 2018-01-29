@@ -12,7 +12,7 @@ proc newTabTitle(v: DockingTabsSampleView): string =
     inc v.tabNameIndex
     result = "Tab " & $v.tabNameIndex
 
-proc newRandomColor(): Color = newColor(random(1.0), random(1.0), random(1.0), 1.0)
+proc newRandomColor(): Color = newColor(rand(1.0), rand(1.0), rand(1.0), 1.0)
 
 proc newTab(v: DockingTabsSampleView): View =
     result = View.new(newRect(0, 0, 100, 100))

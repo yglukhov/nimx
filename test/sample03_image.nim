@@ -22,8 +22,8 @@ method init*(v: ImageSampleView, r: Rect) =
         v.setNeedsDisplay()
 
 proc renderToImage(): Image =
-    result = imageWithSize(newSize(200, 80))
-    result.draw do():
+    let r = imageWithSize(newSize(200, 80))
+    r.draw do():
         let c = currentContext()
         c.fillColor = newColor(0.5, 0.5, 1)
         c.strokeColor = newColor(1, 0, 0)
@@ -32,6 +32,7 @@ proc renderToImage(): Image =
         c.fillColor = blackColor()
         let font = systemFontOfSize(32)
         c.drawText(font, newPoint(10, 25), "Runtime image")
+    result = r
 
 method draw(v: ImageSampleView, r: Rect) =
     if v.generatedImage.isNil:

@@ -53,7 +53,7 @@ proc updateFrame(v: ExpandingView) =
     elif not v.contentView.superview.isNil:
         v.contentView.removeFromSuperView()
 
-method init*(v: ExpandingView, r: Rect, hasOffset: bool) =
+proc init*(v: ExpandingView, r: Rect, hasOffset: bool) =
     procCall v.View.init(r)
     v.backgroundColor = newColor(0.2, 0.2, 0.2, 1.0)
     v.title = "Expanded View"

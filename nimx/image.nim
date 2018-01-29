@@ -165,7 +165,7 @@ when not web:
         result.initWithContentsOfFile(path)
 
 when not web:
-    proc initWithStream(i: SelfContainedImage, s: Stream) =
+    proc initWithStream(i: SelfContainedImage, s: Stream) {.used.}=
         var data = s.readAll()
         s.close()
         if isPVRData(data):
