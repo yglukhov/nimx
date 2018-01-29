@@ -99,7 +99,7 @@ proc flags(w: SdlWindow): cuint=
     # else:
         # result = result or SDL_WINDOW_HIDDEN
 
-proc initFullscreen(w: SdlWindow, r: view.Rect) =
+proc initFullscreen(w: SdlWindow, r: view.Rect) {.used.} =
     w.isFullscreen = true
     w.impl = createWindow(nil, 0, 0, r.width.cint, r.height.cint, w.flags)
     w.initCommon()

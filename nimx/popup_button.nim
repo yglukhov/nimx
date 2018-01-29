@@ -97,7 +97,7 @@ method onTouchEv(b: PopupButton, e: var Event): bool =
     if b.mItems.len > 0:
         case e.buttonState
         of bsDown:
-            var menu : Menu
+            var menu : MenuItem
             menu.new()
             menu.items = b.mItems
             menu.popupAtPoint(b, newPoint(0, -b.mSelectedIndex.Coord * 20.0), newSize(b.bounds.size.width, 20.0))

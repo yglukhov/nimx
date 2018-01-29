@@ -68,9 +68,6 @@ proc newShaderProgram*(gl: GL, vs, fs: string,
     elif info.len > 0:
         logi "Program linked: ", info
 
-proc newShaderProgram(gl: GL, vs, fs: string): ProgramRef {.inline.} = # Deprecated. kinda.
-    gl.newShaderProgram(vs, fs, [(saPosition.GLuint, "position")])
-
 when defined js:
     type Transform3DRef = ref Transform3D
 else:
@@ -205,9 +202,6 @@ proc setColorUniform*(c: GraphicsContext, loc: UniformLocation, color: Color) =
 
 proc setColorUniform*(c: GraphicsContext, program: ProgramRef, name: cstring, color: Color) =
     c.setColorUniform(c.gl.getUniformLocation(program, name), color)
-
-template setFillColorUniform(c: GraphicsContext, program: ProgramRef) =
-    c.setColorUniform(program, "fillColor", c.fillColor)
 
 proc setRectUniform*(c: GraphicsContext, loc: UniformLocation, r: Rect) =
     when defined js:

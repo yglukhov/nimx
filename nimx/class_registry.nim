@@ -11,7 +11,7 @@ proc nodeTypedefInheritsFrom(n: NimNode): NimNode =
     if n[2].kind == nnkRefTy and n[2][0].kind == nnkObjectTy and n[2][0][1].kind == nnkOfInherit:
         result = n[2][0][1][0]
 
-proc `*`(s: string, i: int): string {.compileTime.} =
+proc `*`(s: string, i: int): string {.compileTime, used.} =
     result = ""
     for ii in 0 ..< i: result &= s
 
