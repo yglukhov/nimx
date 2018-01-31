@@ -1,17 +1,7 @@
 import strutils
-
 import sample_registry
-
-import nimx.view
-import nimx.font
-import nimx.context
-import nimx.button
-import nimx.text_field
-import nimx.slider
-import nimx.popup_button
-import nimx.formatted_text
-import nimx.segmented_control
-import nimx.scroll_view
+import nimx / [ view, font, context, button, text_field, slider, popup_button,
+                formatted_text, segmented_control, scroll_view ]
 
 type TextView = ref object of View
     text: FormattedText
@@ -24,9 +14,7 @@ const textSample = """Nim is statically typed, with a simple syntax. It supports
     Object-oriented programming is supported by inheritance and multiple dispatch. Functions can be generic and can also be overloaded, generics are further enhanced by the support for type classes.
     Operator overloading is also supported. Nim includes automatic garbage collection based on deferred reference counting with cycle detection.
     Andrew Binstock (editor-in-chief of Dr. Dobb's) says Nim (formerly known as Nimrod) "presents a most original design that straddles Pascal and Python and compiles to C code or JavaScript.
-    And realistic SoftSadow :)" """
-
-#const textSample = """Hello"""
+    And realistic Soft Shadow :)"""
 
 iterator rangesOfSubstring(haystack, needle: string): (int, int) =
     var start = 0
@@ -59,7 +47,7 @@ method init(v: TextSampleView, r: Rect) =
     for a, b in tv.text.rangesOfSubstring("supported"):
         tv.formattedText.setTextColorInRange(a, b, newColor(0, 0.6, 0))
 
-    for a, b in tv.text.rangesOfSubstring("SoftSadow"):
+    for a, b in tv.text.rangesOfSubstring("Soft Shadow"):
         tv.formattedText.setFontInRange(a, b, systemFontOfSize(40))
         tv.formattedText.setShadowInRange(a, b, newColor(0.0, 0.0, 1.0, 1.0), newSize(2, 3), 5.0, 0.8)
 

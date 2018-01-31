@@ -1,16 +1,7 @@
-
 import sample_registry
 
-import nimx.view
-import nimx.font
-import nimx.context
-import nimx.composition
-import nimx.button
-import nimx.autotest
-
-import nimx.gesture_detector
-import nimx.view_event_handling_new
-import nimx.event
+import nimx / [ view, font, context, composition, button, autotest,
+                gesture_detector, view_event_handling ]
 
 const welcomeMessage = "Welcome to nimX"
 
