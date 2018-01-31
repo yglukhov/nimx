@@ -5,7 +5,6 @@ import composition
 import context
 import font
 import view_event_handling
-import view_event_handling_new
 import app
 import property_visitor
 import serializers

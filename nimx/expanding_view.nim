@@ -5,7 +5,6 @@ import nimx.image
 import nimx.button
 import nimx.view
 import nimx.event
-import nimx.view_event_handling_new
 import nimx.context
 import nimx.types
 import nimx.color

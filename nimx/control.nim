@@ -1,9 +1,6 @@
 
-import view
+import view, view_event_handling
 export view
-
-import event
-import view_event_handling_new
 
 type Control* = ref object of View
     actionHandler: proc(e: Event)

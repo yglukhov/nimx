@@ -1,8 +1,6 @@
 import types
 import abstract_window
-import event
 import view_event_handling
-import view_event_handling_new
 import drag_and_drop
 
 proc propagateEventThroughResponderChain(w: Window, e: var Event): bool =

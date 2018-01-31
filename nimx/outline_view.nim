@@ -1,12 +1,9 @@
 import nimx.view
 import nimx.context
-import nimx.composition
 import nimx.font
 import nimx.types
-import nimx.event
 import nimx.table_view_cell
 import nimx.view_event_handling
-import nimx.view_event_handling_new
 
 import scroll_view
 
@@ -199,7 +196,7 @@ proc itemAtPos(v: OutlineView, p: Point, indexPath: var IndexPath, y: var Coord)
             indexPath[0] = i
             if c.filtered: continue
             result = v.itemAtPos(c, p, y, indexPath)
-            if not result.isNil: 
+            if not result.isNil:
                 y -= rowHeight
                 break
 
@@ -276,7 +273,7 @@ method onTouchEv*(v: OutlineView, e: var Event): bool =
         let pos = e.localPosition
         var y = 0.Coord
         let i = v.itemAtPos(pos, v.tempIndexPath, y)
-        
+
         if not v.touchTarget.isNil:
             e.localPosition = v.touchTarget.convertPointFromParent(pos)
             if v.touchTarget.processTouchEvent(e):
@@ -301,7 +298,7 @@ method onTouchEv*(v: OutlineView, e: var Event): bool =
             v.droppedElemIndexPath = @[]
             v.dropAfterItem = nil
             v.dropInsideItem = nil
-            
+
             result = true
 
     elif e.buttonState == bsDown:
@@ -316,7 +313,7 @@ method onTouchEv*(v: OutlineView, e: var Event): bool =
                 v.draggedElemIndexPath = @[]
             else:
                 v.draggedElemIndexPath = v.tempIndexPath
-        
+
         if not i.isNil:
             v.configureCellAUX(i, y, v.tempIndexPath)
             e.localPosition = i.cell.convertPointFromParent(pos)
@@ -343,7 +340,7 @@ method onTouchEv*(v: OutlineView, e: var Event): bool =
             if result:
                 return result
             e.localPosition = pos
-        
+
         if not v.onDragAndDrop.isNil:
             if i.isNil:
                 v.droppedElemIndexPath = @[]

@@ -6,7 +6,6 @@ import nimx.button
 import nimx.view
 import nimx.event
 import nimx.panel_view
-import nimx.view_event_handling_new
 import nimx.context
 import nimx.types
 

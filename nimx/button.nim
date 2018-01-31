@@ -1,6 +1,5 @@
 import control, context, image, types, event, font, app, composition
 import view_event_handling
-import view_event_handling_new
 
 import property_visitor, serializers
 

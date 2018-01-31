@@ -2,16 +2,9 @@ import view
 export view
 
 import view_event_handling
-import view_event_handling_new
-import nimx.gesture_detector
 import nimx.gesture_detector
 import types
-import event
-import context
 import clip_view
-
-import system_logger
-import app
 
 type
 
