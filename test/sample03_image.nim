@@ -1,10 +1,6 @@
-import nimx.view
-import nimx.image
-import nimx.context
-import nimx.render_to_image
-import nimx.font
-import nimx.assets.asset_manager
 import sample_registry
+import nimx / [ view, image, context, render_to_image, font ]
+import nimx.assets.asset_manager
 
 type ImageSampleView = ref object of View
     image: Image

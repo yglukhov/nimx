@@ -1,12 +1,6 @@
 import math # for PI
-import nimx.view
-import nimx.image
-import nimx.context
-import nimx.animation
-import nimx.window
-import nimx.button
-import nimx.progress_indicator
 import sample_registry
+import nimx / [ view, image, context, animation, window, button, progress_indicator ]
 
 type AnimationSampleView = ref object of View
     rotation: Coord

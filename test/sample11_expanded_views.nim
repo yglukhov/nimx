@@ -1,17 +1,6 @@
+import strutils, random
 import sample_registry
-import strutils
-import random
-
-import nimx.view
-import nimx.font
-import nimx.context
-import nimx.composition
-import nimx.button
-import nimx.autotest
-
-import nimx.event
-import nimx.expanding_view
-import nimx.stack_view
+import nimx / [ view, font, context, button, expanding_view, stack_view ]
 
 type ExpandingSampleView = ref object of View
     welcomeFont: Font

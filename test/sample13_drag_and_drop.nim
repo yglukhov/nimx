@@ -1,21 +1,8 @@
-import sample_registry
 import strutils
 import variant
-
-import nimx.view
-import nimx.font
-import nimx.context
-import nimx.composition
-import nimx.button
-import nimx.autotest
-
-import nimx.gesture_detector
-import nimx.view_event_handling_new
-import nimx.event
-import nimx.drag_and_drop
-import nimx.text_field
-import nimx.expanding_view
-import nimx.view_render_to_image
+import sample_registry
+import nimx / [ view, view_event_handling, drag_and_drop, text_field, expanding_view,
+                view_render_to_image ]
 import nimx.pasteboard.pasteboard_item
 
 type DragAndDropView = ref object of View
@@ -76,7 +63,6 @@ proc createDropView(pos: Point, name: string, delegate: MyDropDelegate): View =
     label_drop.text = "drop : "
     result.addSubView(label_drop)
 
-
 method init(v: DragAndDropView, r: Rect) =
     procCall v.View.init(r)
 
@@ -103,9 +89,5 @@ method init(v: DragAndDropView, r: Rect) =
     let exp_drop_view = createDropView(newPoint(350.0, 80.0), "exp_drop_view", dropDelegate)
     exp_drop_view.backgroundColor = newColor(1.0, 0.0, 1.0, 1.0)
     expView.addContent(exp_drop_view)
-
-method draw(v: DragAndDropView, r: Rect) =
-    let c = currentContext()
-    c.fillColor = whiteColor()
 
 registerSample(DragAndDropView, "DragAndDrop")

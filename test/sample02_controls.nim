@@ -1,16 +1,7 @@
 import sample_registry
 
-import nimx.view
-import nimx.segmented_control
-import nimx.color_picker
-import nimx.button
-import nimx.image
-import nimx.image_view
-import nimx.text_field
-import nimx.types
-import nimx.slider
-import nimx.popup_button
-import nimx.progress_indicator
+import nimx / [ view, segmented_control, color_picker, button, image, image_view,
+                text_field, slider, popup_button, progress_indicator ]
 import nimx.assets.asset_manager
 
 type ControlsSampleView = ref object of View

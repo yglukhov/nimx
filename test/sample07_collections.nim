@@ -1,14 +1,7 @@
-import sample_registry
-
-import nimx.collection_view
-import nimx.image
-import nimx.popup_button
-import nimx.slider
-import nimx.text_field
-import nimx.timer
-import nimx.types
-import nimx.view
 import strutils
+import sample_registry
+import nimx / [ collection_view, image, popup_button, slider, text_field, timer,
+                view ]
 
 type CollectionsSampleView = ref object of View
 
