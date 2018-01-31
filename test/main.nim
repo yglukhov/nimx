@@ -3,7 +3,6 @@
 import sample_registry
 
 import nimx.view
-import nimx.system_logger
 import nimx.app
 import nimx.scroll_view
 import nimx.table_view
@@ -29,6 +28,7 @@ import sample10_text
 import sample11_expanded_views
 import sample12_menus
 import sample13_drag_and_drop
+import sample14_layout
 
 const isMobile = defined(ios) or defined(android)
 
