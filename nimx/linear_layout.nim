@@ -1,6 +1,4 @@
-import nimx.view, nimx.event, nimx.cursor, nimx.view_event_handling_new
-import view_dragging_listener
-
+import nimx / [ view, cursor, view_event_handling, view_dragging_listener ]
 export view
 
 type

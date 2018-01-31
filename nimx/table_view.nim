@@ -1,5 +1,4 @@
-import view, event, context, view_event_handling, view_event_handling_new, app,
-    table_view_cell, scroll_view
+import view, view_event_handling, table_view_cell, scroll_view
 
 import clip_view
 

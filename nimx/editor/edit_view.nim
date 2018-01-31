@@ -4,7 +4,6 @@ import view, panel_view, context, undo_manager, toolbar, button, menu, resource
 import inspector_panel
 
 import gesture_detector
-import view_event_handling_new
 import window_event_handling
 
 import nimx.property_editors.autoresizing_mask_editor # Imported here to be registered in the propedit registry

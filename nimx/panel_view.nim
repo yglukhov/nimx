@@ -2,7 +2,6 @@ import math
 import nimx.view
 import nimx.app
 import nimx.event
-import nimx.view_event_handling_new
 import nimx.context
 import nimx.types
 import nimx.composition

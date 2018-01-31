@@ -1,10 +1,9 @@
 import math, strutils
 import nimx.view
 import nimx.context, nimx.matrixes
-import nimx.view_event_handling_new
 import nimx.font
 import nimx.linear_layout, nimx.button, nimx.menu
-import nimx.event, nimx.window_event_handling
+import nimx / [ view_event_handling, window_event_handling ]
 
 type
     Tab = tuple[title: string, view: View, frame: Rect]

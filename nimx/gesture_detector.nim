@@ -1,6 +1,5 @@
 import view
 import event
-import view_event_handling_new
 import system_logger
 import app
 

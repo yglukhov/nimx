@@ -1,7 +1,7 @@
 import view, window
 import kiwi
 
-import nimx.view, nimx.event, nimx.cursor, nimx.view_event_handling_new
+import nimx / [ view, cursor, view_event_handling ]
 import view_dragging_listener
 
 

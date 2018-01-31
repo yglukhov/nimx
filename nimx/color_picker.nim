@@ -5,13 +5,12 @@ export view
 
 import context
 import composition
-import event
 import types
 import portable_gl
 import popup_button
 import strutils
 import text_field
-import view_event_handling_new
+import view_event_handling
 import view_dragging_listener
 import button
 import app
