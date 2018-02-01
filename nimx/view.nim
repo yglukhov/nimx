@@ -31,10 +31,13 @@ type
 
     DragDestinationDelegate* = ref object of RootObj
 
+    ConstraintWithPrototype = object
+        proto: Constraint
+        inst: Constraint
+
     LayoutInfo = object
         vars*: ViewLayoutVars
-        constraintPrototypes: seq[Constraint]
-        constraints: seq[Constraint]
+        constraints: seq[ConstraintWithPrototype]
 
     View* = ref object of RootRef
         window*: Window
@@ -105,7 +108,6 @@ init(selfPHS)
 
 proc init(i: var LayoutInfo) =
     i.vars.init()
-    i.constraintPrototypes = @[]
     i.constraints = @[]
 
 proc replacePlaceholderVar(view: View, indexOfViewInSuper: int, v: var Variable) =
@@ -156,33 +158,38 @@ proc replacePlaceholderVar(view: View, indexOfViewInSuper: int, v: var Variable)
     elif system.`==`(v, selfPHS.height):
         v = view.layout.vars.height
 
-proc instantiateConstraint(v: View, c: Constraint) =
+proc instantiateConstraint(v: View, c: var ConstraintWithPrototype) =
     # Instantiate constrinat prototype and add it to the window
-    let ic = newConstraint(c.expression, c.op, c.strength)
+    let ic = newConstraint(c.proto.expression, c.proto.op, c.proto.strength)
     let indexOfViewInSuper = v.superview.subviews.find(v)
     assert(indexOfViewInSuper != -1)
     let count = ic.expression.terms.len
     for i in 0 ..< count:
         replacePlaceholderVar(v, indexOfViewInSuper, ic.expression.terms[i].variable)
 
-    v.layout.constraints.add(ic)
+    assert(c.inst.isNil, "Internal error")
+    c.inst = ic
 
     assert(not v.window.isNil, "Internal error")
     v.window.layoutSolver.addConstraint(ic)
 
 proc addConstraint*(v: View, c: Constraint) =
-    v.layout.constraintPrototypes.add(c)
+    v.layout.constraints.add(ConstraintWithPrototype(proto: c))
     if not v.window.isNil:
-        v.instantiateConstraint(c)
+        v.instantiateConstraint(v.layout.constraints[^1])
 
 proc removeConstraint*(v: View, c: Constraint) =
-    let idx = v.layout.constraintPrototypes.find(c)
+    var idx = -1
+    for i in 0 ..< v.layout.constraints.len:
+        if v.layout.constraints[i].proto == c:
+            idx = i
+            break
     assert(idx != -1)
-    v.layout.constraintPrototypes.del(idx)
+    let inst = v.layout.constraints[idx].inst
+    v.layout.constraints.del(idx)
     if not v.window.isNil:
-        v.window.layoutSolver.removeConstraint(v.layout.constraints[idx])
-        v.layout.constraints.del(idx)
-        assert(v.layout.constraintPrototypes.len == v.layout.constraints.len)
+        assert(not inst.isNil)
+        v.window.layoutSolver.removeConstraint(inst)
 
 method init*(v: View, frame: Rect) {.base.} =
     v.frame = frame
@@ -286,11 +293,9 @@ method viewWillMoveToWindow*(v: View, w: Window) {.base.} =
         if v.window.firstResponder == v and w != v.window:
             discard v.window.makeFirstResponder(nil)
 
-        for c in v.layout.constraints:
-            v.window.layoutSolver.removeConstraint(c)
-        v.layout.constraints.setLen(0)
-
-    assert(v.layout.constraints.len == 0)
+        for c in v.layout.constraints.mitems:
+            v.window.layoutSolver.removeConstraint(c.inst)
+            c.inst = nil
 
     if not w.isNil:
         if v.handleMouseOver:
@@ -302,7 +307,7 @@ method viewWillMoveToWindow*(v: View, w: Window) {.base.} =
 
 method viewDidMoveToWindow*(v: View){.base.} =
     if not v.window.isNil:
-        for c in v.layout.constraintPrototypes:
+        for c in v.layout.constraints.mitems:
             v.instantiateConstraint(c)
 
     for s in v.subviews:
