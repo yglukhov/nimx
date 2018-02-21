@@ -246,8 +246,14 @@ proc pushJsonNode(s: JsonDeserializer) =
 method deserialize(s: JsonDeserializer, v: var bool) = v = s.deserializeJsonNode().bval
 method deserialize(s: JsonDeserializer, v: var int32) = v = int32(s.deserializeJsonNode().num)
 method deserialize(s: JsonDeserializer, v: var int64) = v = int64(s.deserializeJsonNode().num)
-method deserialize(s: JsonDeserializer, v: var float32) = v = s.deserializeJsonNode().getFloat()
-method deserialize(s: JsonDeserializer, v: var float64) = v = s.deserializeJsonNode().getFloat()
+
+when NimVersion <= "0.17.2":
+  method deserialize(s: JsonDeserializer, v: var float32) = v = s.deserializeJsonNode().getFNum()
+  method deserialize(s: JsonDeserializer, v: var float64) = v = s.deserializeJsonNode().getFNum()
+else:
+  method deserialize(s: JsonDeserializer, v: var float32) = v = s.deserializeJsonNode().getFloat()
+  method deserialize(s: JsonDeserializer, v: var float64) = v = s.deserializeJsonNode().getFloat()
+
 method deserialize(s: JsonDeserializer, v: var string) =
     let n = s.deserializeJsonNode()
     if n.kind == JString:
