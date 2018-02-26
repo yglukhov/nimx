@@ -1,6 +1,10 @@
 import unicode
 import nimx.font, nimx.composition, nimx.context, nimx.types
 
+var textSubpixelDrawing = true
+proc enableTextSubpixelDrawing*(state: bool) =
+    textSubpixelDrawing = state
+
 let fontComposition = newComposition("""
 attribute vec4 aPosition;
 
@@ -231,7 +235,7 @@ proc drawText*(c: GraphicsContext, font: Font, pt: var Point, text: string) =
     # assume orthographic projection with units = screen pixels, origin at top left
     let gl = c.gl
     var cc : CompiledComposition
-    var subpixelDraw = true
+    var subpixelDraw = textSubpixelDrawing
 
     if hasPostEffect():
         subpixelDraw = false
