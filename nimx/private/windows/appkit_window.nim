@@ -172,7 +172,7 @@ else:
 
 var animationEnabled = 0
 
-method enableAnimation*(w: AppkitWindow, flag: bool) =
+method animationStateChanged*(w: AppkitWindow, flag: bool) =
     discard
 
 proc initCommon(w: AppkitWindow, r: view.Rect) =
