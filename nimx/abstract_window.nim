@@ -132,9 +132,14 @@ method draw*(w: Window, rect: Rect) =
         w.mActiveBgColor = w.backgroundColor
     gl.clear(gl.COLOR_BUFFER_BIT or gl.STENCIL_BUFFER_BIT or gl.DEPTH_BUFFER_BIT)
 
-method enableAnimation*(w: Window, flag: bool) {.base.} = discard
-method resumeAnimation*(w: Window) {.base.} = discard
-method pauseAnimation*(w: Window) {.base.} = discard
+method animationStateChanged*(w: Window, state: bool) {.base.} = discard
+
+proc isAnimationEnabled*(w: Window): bool = w.mAnimationEnabled
+
+proc enableAnimation*(w: Window, flag: bool) =
+    if w.mAnimationEnabled != flag:
+        w.mAnimationEnabled = flag
+        w.animationStateChanged(flag)
 
 method startTextInput*(w: Window, r: Rect) {.base.} = discard
 method stopTextInput*(w: Window) {.base.} = discard
@@ -158,13 +163,6 @@ proc runAnimations*(w: Window) =
 
         if totalAnims > 0:
             w.needsDisplay = true
-
-    # TODO: DIRTY HACK FOR iOS. Please refactor this shit.
-    when defined(ios):
-        if prevAnimsCount == 0:
-            w.enableAnimation(true)
-        totalAnims = 1
-        return
 
     if prevAnimsCount == 0 and totalAnims >= 1:
         w.enableAnimation(true)

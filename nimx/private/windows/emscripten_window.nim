@@ -73,7 +73,7 @@ method `fullscreen=`*(w: EmscriptenWindow, v: bool) =
             }
         """)
 
-method enableAnimation*(w: EmscriptenWindow, flag: bool) =
+method animationStateChanged*(w: EmscriptenWindow, flag: bool) =
     discard
 
 proc getCanvasDimensions(id: cstring, cssRect: var Rect, virtualSize: var Size) {.inline.} =
@@ -143,7 +143,7 @@ proc onTouchStart(eventType: cint, touchEvent: ptr EmscriptenTouchEvent, userDat
 
 proc onMouseUp(eventType: cint, mouseEvent: ptr EmscriptenMouseEvent, userData: pointer): EM_BOOL {.cdecl.} =
     onMouseButton(eventType, mouseEvent, userData, bsUp)
-    
+
 proc onTouchEnd(eventType: cint, touchEvent: ptr EmscriptenTouchEvent, userData: pointer): EM_BOOL {.cdecl.} =
     touchEvent.onTouchEvent(bsUp, userData)
     # Treat Document Level Touch Event Listeners as Passive https://www.chromestatus.com/features/5093566007214080
@@ -272,7 +272,7 @@ proc initCommon(w: EmscriptenWindow, r: view.Rect) =
         if (window.__nimx_textinput && window.__nimx_textinput.oninput)
             window.__nimx_textinput.focus();
     };
-    
+
     canvas.ontouchstart =
     canvas.oncontextmenu = function(e) {
         e.preventDefault();
@@ -305,7 +305,7 @@ proc initCommon(w: EmscriptenWindow, r: view.Rect) =
     discard emscripten_set_mouseup_callback(docID, cast[pointer](w), 0, onMouseUp)
     discard emscripten_set_mousemove_callback(docID, cast[pointer](w), 0, onMouseMove)
     discard emscripten_set_wheel_callback(w.canvasId, cast[pointer](w), 0, onMouseWheel)
-    
+
     discard emscripten_set_touchstart_callback(docID, cast[pointer](w), 0, onTouchStart)
     discard emscripten_set_touchmove_callback(docID, cast[pointer](w), 0, onTouchMove)
     discard emscripten_set_touchend_callback(docID, cast[pointer](w), 0, onTouchEnd)

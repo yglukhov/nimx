@@ -54,30 +54,19 @@ when defined(macosx) and not defined(ios):
 
 proc getSDLWindow*(wnd: SdlWindow): WindowPtr = wnd.impl
 
-var animationEnabled = 0
-var pausedAnimation = 0
+var animationEnabled = false
 
-method enableAnimation*(w: SdlWindow, flag: bool) =
-    doAssert( (animationEnabled == 0 and flag) or (animationEnabled != 0 and not flag) , "animationEnabled: " & $animationEnabled & " flag: " & $flag)
-    if flag:
-        inc animationEnabled
-        when defined(ios):
+method animationStateChanged*(w: SdlWindow, state: bool) =
+    animationEnabled = state
+    when defined(ios):
+        if state:
             proc animationCallback(p: pointer) {.cdecl.} =
                 let w = cast[SdlWindow](p)
                 w.runAnimations()
                 w.drawWindow()
             discard iPhoneSetAnimationCallback(w.impl, 0, animationCallback, cast[pointer](w))
-    else:
-        dec animationEnabled
-        when defined(ios):
+        else:
             discard iPhoneSetAnimationCallback(w.impl, 0, nil, nil)
-
-method resumeAnimation*(w: SdlWindow) =
-    animationEnabled = pausedAnimation
-
-method pauseAnimation*(w: SdlWindow) =
-    pausedAnimation = animationEnabled
-    animationEnabled = 0
 
 # SDL does not provide window id in touch event info, so we add this workaround
 # assuming that touch devices may have only one window.
@@ -361,7 +350,7 @@ proc animateAndDraw() =
         mainApplication().runAnimations()
         mainApplication().drawWindows()
     else:
-        if animationEnabled == 0:
+        if not animationEnabled:
             mainApplication().runAnimations()
             mainApplication().drawWindows()
 
@@ -385,11 +374,11 @@ proc nextEvent(evt: var sdl2.Event) =
         while pollEvent(evt):
             discard handleEvent(addr evt)
 
-        if animationEnabled == 0:
+        if not animationEnabled:
             mainApplication().drawWindows()
     else:
         var doPoll = false
-        if animationEnabled > 0:
+        if animationEnabled:
             doPoll = true
         elif waitEvent(evt):
             discard handleEvent(addr evt)

@@ -68,6 +68,7 @@ type
         layoutSolver*: Solver
         onClose*: proc()
         mCurrentTouches*: TableRef[int, View]
+        mAnimationEnabled*: bool
 
     ViewLayoutVars = object
         x*, y*, width*, height*: Variable
