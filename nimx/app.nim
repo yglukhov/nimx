@@ -90,9 +90,9 @@ proc handleEvent*(a: Application, e: var Event): bool =
         if not e.window.isNil:
             result = e.window.handleEvent(e)
         elif e.kind == etAppWillEnterBackground:
-            for w in a.windows: w.enableAnimation(false)
+            for w in a.windows: w.pauseAnimation()
         elif e.kind == etAppWillEnterForeground:
-            for w in a.windows: w.enableAnimation(true)
+            for w in a.windows: w.resumeAnimation()
 
     endTouchProcessing(e)
 

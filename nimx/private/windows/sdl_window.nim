@@ -55,6 +55,7 @@ when defined(macosx) and not defined(ios):
 proc getSDLWindow*(wnd: SdlWindow): WindowPtr = wnd.impl
 
 var animationEnabled = 0
+var pausedAnimation = 0
 
 method enableAnimation*(w: SdlWindow, flag: bool) =
     doAssert( (animationEnabled == 0 and flag) or (animationEnabled != 0 and not flag) , "animationEnabled: " & $animationEnabled & " flag: " & $flag)
@@ -70,6 +71,13 @@ method enableAnimation*(w: SdlWindow, flag: bool) =
         dec animationEnabled
         when defined(ios):
             discard iPhoneSetAnimationCallback(w.impl, 0, nil, nil)
+
+method resumeAnimation*(w: SdlWindow) =
+    animationEnabled = pausedAnimation
+
+method pauseAnimation*(w: SdlWindow) =
+    pausedAnimation = animationEnabled
+    animationEnabled = 0
 
 # SDL does not provide window id in touch event info, so we add this workaround
 # assuming that touch devices may have only one window.

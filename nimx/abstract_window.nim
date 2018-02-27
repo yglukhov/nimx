@@ -133,6 +133,8 @@ method draw*(w: Window, rect: Rect) =
     gl.clear(gl.COLOR_BUFFER_BIT or gl.STENCIL_BUFFER_BIT or gl.DEPTH_BUFFER_BIT)
 
 method enableAnimation*(w: Window, flag: bool) {.base.} = discard
+method resumeAnimation*(w: Window) {.base.} = discard
+method pauseAnimation*(w: Window) {.base.} = discard
 
 method startTextInput*(w: Window, r: Rect) {.base.} = discard
 method stopTextInput*(w: Window) {.base.} = discard
