@@ -216,30 +216,34 @@ template setElementWidthHeight(elementName: cstring, w, h: float32) =
     """, cstring(elementName), float32(w), float32(h))
 
 proc updateCanvasSize(w: EmscriptenWindow) =
-    let aspectRatio = w.bounds.width / w.bounds.height
+    w.pixelRatio = screenScaleFactor()
 
-    const maxWidth = 1920
-    const maxHeight = 1080
+    let aspectRatio = w.bounds.width / w.bounds.height
 
     var width, height: float32
     getDocumentSize(width, height)
 
-    let screenAspect = width / height
+    when not defined(disableEmscriptenFixedRatio):
+        const maxWidth = 1920
+        const maxHeight = 1080
 
-    var scaleFactor: Coord
-    if (screenAspect > aspectRatio):
-        scaleFactor = height / maxHeight
+        let screenAspect = width / height
+
+        var scaleFactor: Coord
+        if (screenAspect > aspectRatio):
+            scaleFactor = height / maxHeight
+        else:
+            scaleFactor = width / maxWidth
+
+        width = maxWidth * scaleFactor
+        height = maxHeight * scaleFactor
+
+        if scaleFactor > 1: scaleFactor = 1
+        let canvWidth = maxWidth * scaleFactor
+        let canvHeight = maxHeight * scaleFactor
     else:
-        scaleFactor = width / maxWidth
-
-    width = maxWidth * scaleFactor
-    height = maxHeight * scaleFactor
-
-    w.pixelRatio = screenScaleFactor()
-
-    if scaleFactor > 1: scaleFactor = 1
-    let canvWidth = maxWidth * scaleFactor
-    let canvHeight = maxHeight * scaleFactor
+        let canvWidth = width
+        let canvHeight = height
 
     setElementWidthHeight(w.canvasId, w.pixelRatio * canvWidth, w.pixelRatio * canvHeight)
 
