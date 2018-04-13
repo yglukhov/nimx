@@ -31,7 +31,7 @@ runApplication:
     w.makeLayout: # DSL follows
         - Label as greetingLabel: # Add a view of type Label to the window. Create a local reference to it named greetingLabel.
             center == super # center point of the label should be equal to center point of superview
-            width == 300 # width should be 150 points
+            width == 300 # width should be 300 points
             height == 15 # well, this should be obvious now
             text: "Press the Greet button to see the greeting" # property "text" should be set to whatever the label should display
         - Button: # Add a view of type Button. We're not referring to it so it's anonymous.
