@@ -113,11 +113,11 @@ proc addConstraintWithStrength(v: View, c: Constraint, strength: float) =
 proc addConstraintWithStrength(v: View, cc: openarray[Constraint], strength: float) =
     for c in cc: v.addConstraintWithStrength(c, strength)
 
-proc convertDoToProc(n: NimNode): NimNode =
-    expectKind(n, nnkDo)
-    result = newProc()
-    result.params = n.params
-    result.body = n.body
+# proc convertDoToProc(n: NimNode): NimNode =
+#     expectKind(n, nnkDo)
+#     result = newProc()
+#     result.params = n.params
+#     result.body = n.body
 
 var uniqueIdCounter {.compileTime.} = 0
 
@@ -176,8 +176,10 @@ proc layoutAux(rootView: NimNode, body: NimNode): NimNode =
                     else:
                         result.add(newCall(bindSym"setControlHandlerBlock", ids[i], p[0], p[1]))
                 else:
-                    if p[1].kind == nnkDo:
-                        p[1] = convertDoToProc(p[1])
+                    # It looks like newer nim doesn't require nnkDo to nnkProc conversion,
+                    # moreover it there will be a weird compilation error: "overloaded :anonymous leads to ambiguous calls"
+                    # if p[1].kind == nnkDo:
+                    #     p[1] = convertDoToProc(p[1])
                     result.add(newAssignment(newDotExpr(ids[i], p[0]), p[1]))
             elif p.isConstraintNode():
                 var op = $p[0]
