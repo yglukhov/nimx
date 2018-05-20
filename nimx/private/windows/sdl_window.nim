@@ -411,8 +411,9 @@ method startTextInput*(w: SdlWindow, r: Rect) =
 method stopTextInput*(w: SdlWindow) =
     stopTextInput()
 
-when defined(macosx):
+when defined(macosx): # Most likely should be enabled for linux and windows...
     # Handle live resize on macos
+    {.push stackTrace: off.} # This can be called on background thread
     proc resizeEventWatch(userdata: pointer; event: ptr sdl2.Event): Bool32 {.cdecl.} =
         if event.kind == WindowEvent:
             let wndEv = cast[WindowEventPtr](event)
@@ -426,6 +427,7 @@ when defined(macosx):
                 discard mainApplication().handleEvent(evt)
             else:
                 discard
+    {.pop.}
 
 proc runUntilQuit*() =
     # Initialize fist dummy event. The kind should be any unused kind.
@@ -452,4 +454,3 @@ template runApplication*(body: typed): typed =
 
     body
     runUntilQuit()
-
