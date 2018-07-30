@@ -1,9 +1,9 @@
 import json
 
-import nimx.undo_manager
-import nimx.view
-import nimx.serializers
-import nimx.resource
+import nimx/undo_manager
+import nimx/view
+import nimx/serializers
+import nimx/resource
 
 const savingAndLoadingEnabled* = not defined(js) and not defined(emscripten) and
         not defined(ios) and not defined(android)

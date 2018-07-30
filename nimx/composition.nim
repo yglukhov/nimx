@@ -1,7 +1,7 @@
 import context, types, portable_gl, image
-import private.helper_macros
+import private/helper_macros
 import strutils, tables, hashes
-import nimsl.nimsl
+import nimsl/nimsl
 
 export portable_gl
 export context

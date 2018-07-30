@@ -9,13 +9,13 @@ import sequtils
 import oswalkdir
 import variant
 
-import nimx.assets.asset_loading
-import nimx.assets.url_stream
-import nimx.assets.json_loading
+import nimx/assets/asset_loading
+import nimx/assets/url_stream
+import nimx/assets/json_loading
 
 const debugResCache = false
 
-{.deprecated.} # this file is deprecated. Use the nimx.assets stuff instead.
+{.deprecated.} # this file is deprecated. Use the nimx/assets stuff instead.
 
 const jsEnv = defined(js) or defined(emscripten)
 

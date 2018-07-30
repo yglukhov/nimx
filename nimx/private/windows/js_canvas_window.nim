@@ -4,12 +4,12 @@ import jsbind
 
 import nimx/[ abstract_window, system_logger, view, context, matrixes, app,
             portable_gl, event ]
-import nimx.private.js_vk_map
+import nimx/private/js_vk_map
 
 type JSCanvasWindow* = ref object of Window
     renderingContext: GraphicsContext
     canvas: Element
-    
+
 method fullscreenAvailable*(w: JSCanvasWindow): bool =
     var res = false
 

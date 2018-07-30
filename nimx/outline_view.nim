@@ -1,9 +1,9 @@
-import nimx.view
-import nimx.context
-import nimx.font
-import nimx.types
-import nimx.table_view_cell
-import nimx.view_event_handling
+import nimx/view
+import nimx/context
+import nimx/font
+import nimx/types
+import nimx/table_view_cell
+import nimx/view_event_handling
 
 import scroll_view
 

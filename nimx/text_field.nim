@@ -11,7 +11,7 @@ import table_view_cell
 import window_event_handling
 import property_visitor
 import serializers
-import pasteboard.pasteboard
+import pasteboard/pasteboard
 import key_commands
 import formatted_text
 import scroll_view

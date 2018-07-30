@@ -2,7 +2,7 @@ import sdl2 except Event, Rect
 
 import nimx/[ abstract_window, system_logger, view, context, event, app, screen,
                 linkage_details, portable_gl ]
-import nimx.private.sdl_vk_map
+import nimx/private/sdl_vk_map
 import opengl
 import times, logging
 
@@ -44,7 +44,7 @@ else:
             w.isFullscreen = v
 
 when defined(macosx) and not defined(ios):
-    import darwin.app_kit.nswindow
+    import darwin/app_kit/nswindow
     proc scaleFactor(w: SdlWindow): float32 =
         var wminfo: WMInfo
         discard w.impl.getWMInfo(wminfo)

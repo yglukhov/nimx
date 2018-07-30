@@ -12,7 +12,7 @@ type UITestSuite* = ref object
 
 when defined(js) or defined(emscripten):
     when defined(emscripten):
-        import jsbind.emscripten
+        import jsbind/emscripten
 
     # When testing on Firefox, we have to use window.dump instead of console.log
     type FirefoxAutotestLogger = ref object of Logger
@@ -163,10 +163,10 @@ when false:
 var gTestsToRun: seq[string] # Test names which user wants to run
 
 when defined(js) or defined(emscripten):
-    import nimx.pathutils
+    import nimx/pathutils
 elif defined(android):
     import jnim
-    import android.app.activity, android.content.intent, android.os.base_bundle
+    import android/app/activity, android/content/intent, android/os/base_bundle
 else:
     import os
 

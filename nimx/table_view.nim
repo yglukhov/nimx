@@ -181,7 +181,7 @@ proc createRow(v: TableView): TableRow =
 #        result.addConstraint(result.layout.vars.height == height)
         result.addConstraint(result.layout.vars.leading == superPHS.leading)
         result.addConstraint(result.layout.vars.trailing == superPHS.trailing)
-        for i in 0..< v.numberOfColumns:
+        for i in 0 ..< v.numberOfColumns:
             let c = v.mCreateCell(i)
             c.col = i
 
@@ -199,7 +199,7 @@ proc createRow(v: TableView): TableRow =
         result = TableRow.new(newRect(0, 0, if v.numberOfColumns == 1: v.bounds.width else: (v.numberOfColumns.Coord * v.defaultColWidth).Coord, v.defaultRowHeight))
         result.setFrame(newRect(0, 0, v.bounds.width, 50))
 
-        for i in 0..< v.numberOfColumns:
+        for i in 0 ..< v.numberOfColumns:
             let c = v.mCreateCell(i)
             c.col = i
             c.resizingMask = "rh"

@@ -6,7 +6,7 @@ import font
 import image
 import math
 import portable_gl
-import nimsl.nimsl
+import nimsl/nimsl
 
 export matrixes
 
@@ -537,5 +537,5 @@ template withClippingRect*(c: GraphicsContext, r: Rect, body: typed) =
     body
     c.applyClippingRect(r, false)
 
-import private.text_drawing
+import private/text_drawing
 export text_drawing

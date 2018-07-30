@@ -3,9 +3,9 @@ const appKit = defined(macosx) and not defined(ios)
 when defined(js) or defined(emscripten):
     import jsbind
     when defined(emscripten):
-        import jsbind.emscripten
+        import jsbind/emscripten
 elif appKit:
-    import darwin.app_kit as apkt
+    import darwin/app_kit as apkt
 else:
     import sdl2
 

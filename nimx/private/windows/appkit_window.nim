@@ -1,6 +1,6 @@
 import nimx/[ abstract_window, system_logger, view, context, event, app,
              linkage_details, portable_gl, screen ]
-import nimx.private.objc_appkit
+import nimx/private/objc_appkit
 import opengl
 import unicode, times
 

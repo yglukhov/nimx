@@ -1,5 +1,5 @@
 import unicode, algorithm, strutils, sequtils
-import nimx.font, nimx.types, nimx.unistring, nimx.utils.lower_bound
+import nimx/font, nimx/types, nimx/unistring, nimx/utils/lower_bound
 
 
 type
@@ -545,7 +545,7 @@ proc trackingOfRuneAtPos*(t: FormattedText, pos: int): float32 =
 ################################################################################
 # Drawing
 ################################################################################
-import nimx.context, nimx.composition
+import nimx/context, nimx/composition
 
 
 const GRADIENT_ENABLED = (1 shl 0) # OPTION_1

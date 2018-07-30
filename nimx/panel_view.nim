@@ -1,12 +1,12 @@
 import math
-import nimx.view
-import nimx.app
-import nimx.event
-import nimx.context
-import nimx.types
-import nimx.composition
-import nimx.gesture_detector
-import nimx.view
+import nimx/view
+import nimx/app
+import nimx/event
+import nimx/context
+import nimx/types
+import nimx/composition
+import nimx/gesture_detector
+import nimx/view
 import view_dragging_listener
 
 type PanelView* = ref object of View

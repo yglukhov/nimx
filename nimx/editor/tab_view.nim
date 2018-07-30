@@ -1,8 +1,8 @@
 import math, strutils
-import nimx.view
-import nimx.context, nimx.matrixes
-import nimx.font
-import nimx.linear_layout, nimx.button, nimx.menu
+import nimx/view
+import nimx/context, nimx/matrixes
+import nimx/font
+import nimx/linear_layout, nimx/button, nimx/menu
 import nimx / [ view_event_handling, window_event_handling ]
 
 type

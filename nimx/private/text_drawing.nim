@@ -1,5 +1,5 @@
 import unicode
-import nimx.font, nimx.composition, nimx.context, nimx.types
+import nimx/font, nimx/composition, nimx/context, nimx/types
 
 var textSubpixelDrawing = true
 proc enableTextSubpixelDrawing*(state: bool) =

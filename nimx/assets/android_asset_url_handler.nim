@@ -1,9 +1,9 @@
 import url_stream
 import jnim
-import android.ndk.aasset_manager
-import android.app.activity
-import android.content.res.asset_manager
-import android.content.context
+import android/ndk/aasset_manager
+import android/app/activity
+import android/content/res/asset_manager
+import android/content/context
 
 proc getAssetManager(): AAssetManager =
     result = currentActivity().getApplication().getAssets().getNative()

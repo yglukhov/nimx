@@ -3,7 +3,7 @@ when not defined(android):
 
 {.deprecated.} # Use android.app.activity module instead
 
-import android.app.activity
+import android/app/activity
 
 proc mainActivity*(): Activity {.deprecated.} =
     # Use android.app.activity.currentActivity()

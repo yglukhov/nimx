@@ -1,4 +1,4 @@
-import nimx.naketools
+import nimx/naketools
 import osproc
 
 beforeBuild = proc(b: Builder) =

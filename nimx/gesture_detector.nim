@@ -133,7 +133,7 @@ proc getPointersCenter(arr : openarray[Event]) : Point =
     result = newPoint(0,0)
     if  arr.len > 0:
         var r = newRect(arr[0].position)
-        for i in 1..< arr.len:
+        for i in 1 ..< arr.len:
             r.union(arr[i].position)
         result = r.centerPoint()
 
@@ -164,7 +164,7 @@ method onGestEvent*(d: ScrollDetector, e: var Event) : bool =
         d.pointers.add(e)
         d.checkScroll(e)
     elif e.buttonState == bsUp:
-        for p in 0..< d.pointers.len:
+        for p in 0 ..< d.pointers.len:
             if d.pointers[p].pointerId == e.pointerId:
                 d.pointers.delete(p)
                 break
@@ -172,7 +172,7 @@ method onGestEvent*(d: ScrollDetector, e: var Event) : bool =
             result = false
         d.checkScroll(e)
     elif e.buttonState == bsUnknown:
-        for p in 0..< d.pointers.len:
+        for p in 0 ..< d.pointers.len:
             if d.pointers[p].pointerId == e.pointerId:
                 d.pointers.delete(p)
                 d.pointers.insert(e, p)
@@ -229,7 +229,7 @@ method onGestEvent*(d: ZoomGestureDetector, e: var Event) : bool =
         d.pointers.add(e)
         d.checkZoom()
     if e.buttonState == bsUp:
-        for p in 0..< d.pointers.len:
+        for p in 0 ..< d.pointers.len:
             if d.pointers[p].pointerId == e.pointerId:
                 d.pointers.delete(p)
                 break
@@ -237,7 +237,7 @@ method onGestEvent*(d: ZoomGestureDetector, e: var Event) : bool =
             result = false
         d.checkZoom()
     if e.buttonState == bsUnknown:
-        for p in 0..< d.pointers.len:
+        for p in 0 ..< d.pointers.len:
             if d.pointers[p].pointerId == e.pointerId:
                 d.pointers.delete(p)
                 d.pointers.insert(e, p)
@@ -272,7 +272,7 @@ method onGestEvent*(d: RotateGestureDetector, e: var Event) : bool =
         d.pointers.add(e)
         d.checkRotate()
     if e.buttonState == bsUp:
-        for p in 0..< d.pointers.len:
+        for p in 0 ..< d.pointers.len:
             if d.pointers[p].pointerId == e.pointerId:
                 d.pointers.delete(p)
                 break
@@ -280,7 +280,7 @@ method onGestEvent*(d: RotateGestureDetector, e: var Event) : bool =
             result = false
         d.checkRotate()
     if e.buttonState == bsUnknown:
-        for p in 0..< d.pointers.len:
+        for p in 0 ..< d.pointers.len:
             if d.pointers[p].pointerId == e.pointerId:
                 d.pointers.delete(p)
                 d.pointers.insert(e, p)

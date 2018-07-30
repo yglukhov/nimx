@@ -1,9 +1,9 @@
-import nimx.property_visitor
-import nimx.numeric_text_field
-import nimx.popup_button
-import nimx.linear_layout
+import nimx/property_visitor
+import nimx/numeric_text_field
+import nimx/popup_button
+import nimx/linear_layout
 
-import nimx.property_editors.propedit_registry
+import nimx/property_editors/propedit_registry
 
 import variant
 

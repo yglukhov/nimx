@@ -8,15 +8,15 @@ import pathutils
 import variant
 import typetraits
 
-{.deprecated.} # this file is deprecated. Use the nimx.assets stuff instead.
+{.deprecated.} # this file is deprecated. Use the nimx/assets stuff instead.
 
 when defined(js) or defined(emscripten):
     import ospaths
 
     # Deprecated stuff
-    import nimx.assets.web_asset_bundle
-    export web_asset_bundle.resourceUrlMapper
-    export web_asset_bundle.urlForResourcePath
+    import nimx/assets/web_asset_bundle
+    export web_asset_bundle/resourceUrlMapper
+    export web_asset_bundle/urlForResourcePath
 else:
     import os
     when defined(android):
@@ -128,7 +128,7 @@ proc resourceNameForPath*(path: string): string =
     result = resourceNameForPathAux(path)
 
 when defined(js):
-    import private.js_data_view_stream
+    import private/js_data_view_stream
 else:
     when defined(android):
         type
@@ -221,7 +221,7 @@ when defined(js) or defined(emscripten):
         oReq.send()
 
 when defined(emscripten):
-    import jsbind.emscripten
+    import jsbind/emscripten
 
 proc loadResourceAsync*(resourceName: string, handler: proc(s: Stream)) =
     when defined(js):

@@ -1,8 +1,8 @@
 import tables
-import nimx.view
-import nimx.text_field
-import nimx.font
-import nimx.property_visitor
+import nimx/view
+import nimx/text_field
+import nimx/font
+import nimx/property_visitor
 
 import variant
 

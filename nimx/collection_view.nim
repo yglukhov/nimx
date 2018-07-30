@@ -1,9 +1,9 @@
 import math
 
-import nimx.event
-import nimx.gesture_detector
-import nimx.types
-import nimx.view
+import nimx/event
+import nimx/gesture_detector
+import nimx/types
+import nimx/view
 
 type
     LayoutDirection* {.pure.} = enum

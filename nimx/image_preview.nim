@@ -1,13 +1,13 @@
 import math
 
-import nimx.font
-import nimx.image
-import nimx.button
-import nimx.view
-import nimx.event
-import nimx.panel_view
-import nimx.context
-import nimx.types
+import nimx/font
+import nimx/image
+import nimx/button
+import nimx/view
+import nimx/event
+import nimx/panel_view
+import nimx/context
+import nimx/types
 
 const titleSize = 20.0
 const bottomSize = 30.0
