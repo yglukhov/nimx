@@ -4,7 +4,7 @@ template sdlMain*() =
         when not compileOption("noMain"):
             {.error: "Please run Nim with --noMain flag.".}
 
-        import nimx.system_logger
+        import nimx/system_logger
         {.push stackTrace: off.}
         proc setupLogger() {.cdecl.} =
             errorMessageWriter = proc(msg: string) =

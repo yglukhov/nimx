@@ -5,7 +5,7 @@
 ## on those keys places (so that e.g. 'k' and 'K' share same scan code).
 
 import tables
-import private.js_platform_detector
+import private/js_platform_detector
 
 type VirtualKey* {.pure.} = enum
     Unknown = 0

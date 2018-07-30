@@ -2,7 +2,7 @@ import abstract_pasteboard
 export abstract_pasteboard
 import pasteboard_item
 
-import darwin.app_kit
+import darwin/app_kit
 
 type MacPasteboard = ref object of Pasteboard
     p: NSPasteboard

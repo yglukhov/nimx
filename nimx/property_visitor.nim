@@ -1,4 +1,4 @@
-import nimx.types
+import nimx/types
 
 import tables
 import variant

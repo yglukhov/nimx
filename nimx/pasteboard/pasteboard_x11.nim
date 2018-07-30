@@ -3,7 +3,7 @@ export abstract_pasteboard
 import pasteboard_item
 import os, times
 import xlib, x, xatom, xutil
-import nimx.app, nimx.private.windows.sdl_window
+import nimx/app, nimx/private/windows/sdl_window
 import sdl2
 
 type X11Pasteboard = ref object of Pasteboard

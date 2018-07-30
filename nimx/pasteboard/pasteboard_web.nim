@@ -27,7 +27,7 @@ document.body.removeChild(textArea);
 when defined(js):
     const jsCode = webCode.format("`cdata`")
 else:
-    import jsbind.emscripten
+    import jsbind/emscripten
     const emCode = webCode.format("UTF8ToString($0)")
 
 proc pbWrite(p: Pasteboard, pi_ar: varargs[PasteboardItem]) =

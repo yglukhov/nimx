@@ -1,7 +1,7 @@
-import nimx.linear_layout
-import nimx.property_visitor
-import nimx.property_editors.propedit_registry
-import nimx.property_editors.standard_editors
+import nimx/linear_layout
+import nimx/property_visitor
+import nimx/property_editors/propedit_registry
+import nimx/property_editors/standard_editors
 
 import variant
 

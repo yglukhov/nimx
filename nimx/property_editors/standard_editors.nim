@@ -2,30 +2,30 @@ import strutils
 import tables
 import algorithm
 
-import nimx.view
-import nimx.text_field
-import nimx.matrixes
-import nimx.image
-import nimx.button
-import nimx.color_picker
-import nimx.context
-import nimx.portable_gl
-import nimx.popup_button
-import nimx.font
-import nimx.linear_layout
-import nimx.property_visitor
-import nimx.numeric_text_field
-import nimx.system_logger
-import nimx.image_preview
+import nimx/view
+import nimx/text_field
+import nimx/matrixes
+import nimx/image
+import nimx/button
+import nimx/color_picker
+import nimx/context
+import nimx/portable_gl
+import nimx/popup_button
+import nimx/font
+import nimx/linear_layout
+import nimx/property_visitor
+import nimx/numeric_text_field
+import nimx/system_logger
+import nimx/image_preview
 
-import nimx.property_editors.propedit_registry
+import nimx/property_editors/propedit_registry
 
 import variant
 
 when defined(js):
     from dom import alert
 elif not defined(android) and not defined(ios) and not defined(emscripten):
-    import os_files.dialog
+    import os_files/dialog
 
 template toStr(v: SomeReal, precision: uint): string = formatFloat(v, ffDecimal, precision)
 template toStr(v: SomeInteger): string = $v

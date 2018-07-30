@@ -7,7 +7,7 @@ when defined(js):
         """.}
     let isMacOs* = isMacOsAux()
 elif defined(emscripten):
-    import jsbind.emscripten
+    import jsbind/emscripten
     proc isMacOsAux(): bool =
         let r = EM_ASM_INT("""
         try {

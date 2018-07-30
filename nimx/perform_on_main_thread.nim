@@ -1,6 +1,6 @@
 
 when (defined(macosx) or defined(ios)) and defined(nimxAvoidSDL):
-    import private.objc_appkit
+    import private/objc_appkit
 
     enableObjC()
 

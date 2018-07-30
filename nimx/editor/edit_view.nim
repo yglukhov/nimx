@@ -6,10 +6,10 @@ import inspector_panel
 import gesture_detector
 import window_event_handling
 
-import nimx.property_editors.autoresizing_mask_editor # Imported here to be registered in the propedit registry
-import nimx.serializers
-import nimx.key_commands
-import nimx.pasteboard.pasteboard
+import nimx/property_editors/autoresizing_mask_editor # Imported here to be registered in the propedit registry
+import nimx/serializers
+import nimx/key_commands
+import nimx/pasteboard/pasteboard
 
 import ui_document
 import grid_drawing

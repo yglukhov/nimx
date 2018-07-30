@@ -45,7 +45,7 @@ template setupTexParams(gl: GL) =
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST)
 
 when not web:
-    include private.image_pvr
+    include private/image_pvr
 
 method setFilePath*(i: Image, path: string) {.base.} = discard
 method setFilePath*(i: SelfContainedImage, path: string) =
@@ -386,7 +386,7 @@ when asyncResourceLoad:
     const loadAsyncTextureInMainThread = defined(android) or defined(ios)
 
     import threadpool, perform_on_main_thread, sdl2
-    import private.worker_queue
+    import private/worker_queue
 
     var threadCtx : GlContextPtr
     var loadingQueue: WorkerQueue
@@ -473,7 +473,7 @@ when asyncResourceLoad:
             performOnMainThread(cast[proc(data: pointer){.cdecl, gcsafe.}](p), ctx)
 
 when defined(emscripten):
-    import jsbind.emscripten
+    import jsbind/emscripten
 
     type ImageLoadingCtx = ref object
         path: string
@@ -588,7 +588,7 @@ elif defined(js):
         """.}
 
 else:
-    import nimx.http_request
+    import nimx/http_request
     proc loadImageFromURL*(url: string, callback: proc(i: Image)) =
         sendRequest("GET", url, nil, []) do(r: Response):
             if r.statusCode >= 200 and r.statusCode < 300:

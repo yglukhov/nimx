@@ -1,15 +1,15 @@
 when defined(ios):
-    import darwin.ui_kit
+    import darwin/ui_kit
 elif defined(macosx):
-    import darwin.app_kit
+    import darwin/app_kit
 elif defined(android):
-    import android.util.display_metrics
-    import android.view.display
-    import android.view.window_manager
-    import android.app.activity
+    import android/util/display_metrics
+    import android/view/display
+    import android/view/window_manager
+    import android/app/activity
 
 elif defined(emscripten):
-    import jsbind.emscripten
+    import jsbind/emscripten
 
 proc screenScaleFactor*(): float =
     when defined(macosx) or defined(ios):

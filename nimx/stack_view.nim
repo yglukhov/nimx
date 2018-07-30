@@ -1,12 +1,12 @@
 import math
 
-import nimx.font
-import nimx.image
-import nimx.button
-import nimx.view
-import nimx.context
-import nimx.types
-import nimx.color
+import nimx/font
+import nimx/image
+import nimx/button
+import nimx/view
+import nimx/context
+import nimx/types
+import nimx/color
 
 
 type StackView* = ref object of View

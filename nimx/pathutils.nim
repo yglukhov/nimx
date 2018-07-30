@@ -86,7 +86,7 @@ when defined(js):
         """.}
         result = $s
 elif defined(emscripten):
-    import jsbind.emscripten
+    import jsbind/emscripten
 
     proc getCurrentHref*(): string =
         let r = EM_ASM_INT """

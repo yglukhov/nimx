@@ -1,23 +1,23 @@
 import unicode, streams, logging
 
 import nimx / [ types, timer, portable_gl ]
-import nimx.private.font.font_data
+import nimx/private/font/font_data
 
 when defined(js):
-    import private.font.js_glyph_provider
+    import private/font/js_glyph_provider
     type GlyphProvider = JsGlyphProvider
 else:
-    import private.font.stb_ttf_glyph_provider
+    import private/font/stb_ttf_glyph_provider
     type GlyphProvider = StbTtfGlyphProvider
 
     import os
     import write_image_impl
 
-import private.edtaa3func # From ttf library
-import private.simple_table
+import private/edtaa3func # From ttf library
+import private/simple_table
 
 when defined(android):
-    import nimx.assets.url_stream
+    import nimx/assets/url_stream
 
 type Baseline* = enum
     bTop

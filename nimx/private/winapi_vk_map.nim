@@ -1,4 +1,4 @@
-import nimx.keyboard
+import nimx/keyboard
 import tables
 import windows
 

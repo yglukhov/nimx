@@ -1,16 +1,16 @@
 import math
 
-import nimx.font
-import nimx.image
-import nimx.button
-import nimx.view
-import nimx.event
-import nimx.context
-import nimx.types
-import nimx.color
+import nimx/font
+import nimx/image
+import nimx/button
+import nimx/view
+import nimx/event
+import nimx/context
+import nimx/types
+import nimx/color
 
-import nimx.stack_view
-import nimx.common.expand_button
+import nimx/stack_view
+import nimx/common/expand_button
 
 const titleSize = 20.0
 const expandButtonSize = 20.0

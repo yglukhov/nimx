@@ -1,5 +1,5 @@
-import nimx.context
-import nimx.types
+import nimx/context
+import nimx/types
 
 proc drawGrid*(bounds: Rect, gridSize: Size, shift = zeroSize) =
     let c = currentContext()

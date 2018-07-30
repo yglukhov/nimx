@@ -2,7 +2,7 @@ import url_stream
 import async_http_request except Handler
 import logging
 
-import nimx.http_request except Handler
+import nimx/http_request except Handler
 
 const web = defined(js) or defined(emscripten)
 
@@ -13,7 +13,7 @@ when web:
     import jsbind
 
     when defined(js):
-        import nimx.private.js_data_view_stream
+        import nimx/private/js_data_view_stream
 
     proc errorDesc(r: XMLHTTPRequest, url: string): URLLoadingError =
         var statusText = r.statusText
@@ -53,7 +53,7 @@ when web:
         oReq.send()
 
     when defined(emscripten):
-        import jsbind.emscripten
+        import jsbind/emscripten
 
         proc arrayBufferToString(arrayBuffer: JSObj): string {.inline.} =
             let r = EM_ASM_INT("""

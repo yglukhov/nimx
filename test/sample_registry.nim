@@ -1,5 +1,5 @@
 import typetraits
-import nimx.view
+import nimx/view
 
 type SampleInfo = tuple[name: string, className: string]
 
