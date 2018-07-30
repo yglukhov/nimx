@@ -12,7 +12,7 @@ skipDirs    = @["test/build", "build"]
 # Dependencies
 
 requires "sdl2"
-requires "opengl >= 1.1"
+requires "opengl#head"
 requires "nimsl >= 0.3"
 requires "jnim" # For android target
 requires "nake"

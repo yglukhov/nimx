@@ -1,6 +1,8 @@
-import nimx.keyboard
-import tables
+import nimx/keyboard
+import tables, hashes
 import sdl2
+
+proc hash(s: Scancode): Hash {.inline.} = hash(int(s))
 
 const virtualKeyMapping: Table[Scancode, VirtualKey] = {
     SDL_SCANCODE_UNKNOWN:          VirtualKey.Unknown,
