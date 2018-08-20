@@ -228,7 +228,7 @@ proc newJsonDeserializer*(n: JsonNode): JsonDeserializer =
 proc deserializeJsonNode(s: JsonDeserializer): JsonNode =
     let ln = s.nodeStack[^1]
     if ln.kind == JObject:
-        assert(s.curKey != nil)
+        assert(s.curKey.len != 0)
 
         result = ln{s.curKey}
     elif ln.kind == JArray:

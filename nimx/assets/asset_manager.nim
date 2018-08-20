@@ -143,15 +143,15 @@ proc getAssetAtPathAux(am: AssetManager, path: string, putToCache: bool, handler
             if v.isEmpty:
                 handler(v, "Could not load asset " & path)
             else:
-                handler(v, nil)
+                handler(v, "")
     else:
-        handler(v, nil)
+        handler(v, "")
 
 proc getAssetAtPath*[T](am: AssetManager, path: string, putToCache: bool, handler: proc(res: T, err: string)) =
     am.getAssetAtPathAux(path, putToCache) do(res: Variant, err: string):
         if err.isNil:
             if res.ofType(T):
-                handler(res.get(T), nil)
+                handler(res.get(T), "")
             else:
                 var v: T
                 handler(v, "Wrong asset type")

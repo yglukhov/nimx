@@ -25,30 +25,11 @@ elif defined(android):
 else:
     template native_log(a: string) = echo a
 
-proc nimxPrivateStringify*[T](v: T): string {.inline.} = $v
-proc nimxPrivateStringify*(v: string): string {.inline.} =
-    result = v
-    if result.isNil: result = "(nil)"
-
 var currentOffset {.threadvar.}: string
 
-proc join*(a: openArray[string], sep: string = "", nilSubstitute: string = nil): string {.
-  noSideEffect.} =
-  ## Concatenates all strings in `a` separating them with `sep`.
-  if len(a) > 0:
-    var L = sep.len * (a.len-1)
-    for i in 0..high(a): inc(L, if a[i].isNil: nilSubstitute.len else: a[i].len)
-    result = newStringOfCap(L)
-    add(result, a[0])
-    for i in 1..high(a):
-      add(result, sep)
-      add(result, if a[i].isNil: nilSubstitute else: a[i])
-  else:
-    result = ""
-
-proc logi*(a: varargs[string, nimxPrivateStringify]) {.gcsafe.} =
+proc logi*(a: varargs[string, `$`]) {.gcsafe.} =
     if currentOffset.isNil: currentOffset = ""
-    native_log(currentOffset & a.join(nilSubstitute = "(nil)"))
+    native_log(currentOffset & a.join())
 
 proc increaseOffset() =
     if currentOffset.isNil: currentOffset = "  "
@@ -65,7 +46,7 @@ type SystemLogger = ref object of Logger
 
 method log*(logger: SystemLogger, level: Level, args: varargs[string, `$`]) =
     if currentOffset.isNil: currentOffset = ""
-    native_log(currentOffset & args.join(nilSubstitute = "(nil)"))
+    native_log(currentOffset & args.join())
 
 proc registerLogger() =
     var lg: SystemLogger

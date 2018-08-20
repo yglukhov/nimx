@@ -590,7 +590,7 @@ elif defined(js):
 else:
     import nimx/http_request
     proc loadImageFromURL*(url: string, callback: proc(i: Image)) =
-        sendRequest("GET", url, nil, []) do(r: Response):
+        sendRequest("GET", url, "", []) do(r: Response):
             if r.statusCode >= 200 and r.statusCode < 300:
                 let i = newSelfContainedImage()
                 var x, y, comp: cint

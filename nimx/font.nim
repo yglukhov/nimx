@@ -238,9 +238,8 @@ proc newFontWithFace*(face: string, size: float): Font =
         result.glyphMargin = 8
     else:
         let path = findFontFileForFace(face)
-        if path != nil:
+        if path.len != 0:
             result = newFontWithFile(path, size)
-
         else:
             when defined(android):
                 let path = face & ".ttf"
@@ -320,8 +319,8 @@ proc generateDistanceFields() =
                 generateDistanceFieldForGlyph(ch, i, true)
                 return
     chunksToGen.setLen(chunksToGen.len - 1)
-    ch.data.bitmap = nil
-    ch.data.dfDoneForGlyph = nil
+    ch.data.bitmap.setLen(0)
+    ch.data.dfDoneForGlyph.setLen(0)
     if chunksToGen.len == 0:
         glyphGenerationTimer.clear()
         glyphGenerationTimer = nil

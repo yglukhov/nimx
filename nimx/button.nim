@@ -88,7 +88,7 @@ method init*(b: Radiobox, frame: Rect) =
     b.behavior = bbToggle
 
 proc drawTitle(b: Button, xOffset: Coord) =
-    if b.title != nil:
+    if b.title.len != 0:
         let c = currentContext()
         c.fillColor = if b.state == bsDown and b.style == bsRegular:
                 whiteColor()
@@ -332,7 +332,7 @@ method serializeFields*(v: Button, s: Serializer) =
     s.serialize("enabled", v.enabled)
     s.serialize("hasBezel", v.hasBezel)
     s.serialize("behavior", v.behavior)
-    let imagePath = if v.image.isNil: nil else: v.image.filePath
+    let imagePath = if v.image.isNil: "" else: v.image.filePath
     s.serialize("image", imagePath)
     s.serialize("marginLeft", v.imageMarginLeft)
     s.serialize("marginRight", v.imageMarginRight)

@@ -160,11 +160,11 @@ proc findEnvPaths(b: Builder) =
                     ndk_path = "~/Library/Android/sdk/ndk-bundle"
                     if not fileExists(expandTilde(ndk_path / "ndk-stack")):
                         echo "NDK DOESNT EXIST"
-                        ndk_path = nil
+                        ndk_path = ""
                 if sdk_path.len == 0:
                     sdk_path = "~/Library/Android/sdk"
                     if not fileExists(expandTilde(sdk_path / "platform-tools/adb")):
-                        sdk_path = nil
+                        sdk_path = ""
 
             if sdk_path.len == 0: error_msg &= getEnvErrorMsg("ANDROID_SDK_HOME")
             if ndk_path.len == 0: error_msg &= getEnvErrorMsg("ANDROID_NDK_HOME")

@@ -339,7 +339,7 @@ proc newComposition*(vsDef, fsDef: static[string], requiresPrequel: bool = true,
     result.id = hash(preprocessedDefinition)
 
 template newComposition*(definition: static[string], requiresPrequel: bool = true): Composition =
-    newComposition(nil, definition, requiresPrequel)
+    newComposition("", definition, requiresPrequel)
 
 template newCompositionWithNimsl*(mainProc: typed): Composition =
     newComposition(getGLSLFragmentShader(mainProc, "compose"), false)

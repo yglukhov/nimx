@@ -51,4 +51,4 @@ when not defined(js) and not defined(emscripten):
         if s.isNil:
             handler(nil, "Could not open file: " & p)
         else:
-            handler(s, nil)
+            handler(s, "")

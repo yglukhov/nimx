@@ -18,7 +18,7 @@ template setSize*(p: StbTtfGlyphProvider, sz: float32) =
     p.size = sz
 
 proc loadFontData(p: StbTtfGlyphProvider) =
-    if not p.fontData.isNil: return
+    if p.fontData.len != 0: return
     if p.path.startsWith("res://"):
         var s: Stream
         openStreamForUrl(p.path) do(st: Stream, err: string):
@@ -35,7 +35,7 @@ proc loadFontData(p: StbTtfGlyphProvider) =
         raise newException(Exception, "Could not init font")
 
 proc clearCache*(p: StbTtfGlyphProvider) =
-    p.fontData = nil
+    p.fontData = ""
 
 proc getFontMetrics*(p: StbTtfGlyphProvider, oAscent, oDescent: var float32) =
     p.loadFontData()

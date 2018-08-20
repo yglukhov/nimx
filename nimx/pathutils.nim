@@ -102,7 +102,7 @@ iterator uriParamsPairs*(s: string): (string, string) =
         i += s.parseUntil(v, '&', i) + 1
         yield (k, v)
 
-proc uriParam*(url, key: string, default: string = nil): string =
+proc uriParam*(url, key: string, default: string = ""): string =
     for k, v in url.uriParamsPairs:
         if k == key: return v
     return default
