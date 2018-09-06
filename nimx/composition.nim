@@ -581,8 +581,7 @@ template draw*(comp: var Composition, r: Rect, code: untyped): typed =
 
     setupPosteffectUniforms(cc)
 
-    block:
-        code
+    code
     gl.drawArrays(gl.TRIANGLE_FAN, 0, vertexCount)
     gl.bindBuffer(gl.ARRAY_BUFFER, invalidBuffer)
 
