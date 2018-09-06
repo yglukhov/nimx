@@ -264,7 +264,7 @@ proc nimblePath(package: string): string =
 
 proc nimbleNimxPath(): string =
     result = nimblePath("nimx")
-    doAssert(not result.isNil, "Error: nimx does not seem to be installed with nimble!")
+    doAssert(result.len != 0, "Error: nimx does not seem to be installed with nimble!")
 
 proc emccWrapperPath(): string =
     when defined(windows):
@@ -369,7 +369,7 @@ proc makeWindowsResource(b: Builder) =
         rcO = b.nimcachePath / (b.appName & "_res.o")
     var createResource = false
 
-    if not isNil(b.appIconName):
+    if b.appIconName.len != 0:
         let appIconPath = b.resourcePath / b.appIconName
 
         if fileExists(absPath(appIconPath)):
@@ -478,7 +478,7 @@ proc makeAndroidBuildDir(b: Builder): string =
             debuggable = "android:debuggable=\"true\""
 
         var screenOrientation = ""
-        if not b.screenOrientation.isNil:
+        if b.screenOrientation.len != 0:
             screenOrientation = "android:screenOrientation=\"" & b.screenOrientation & "\""
 
         let vars = {
@@ -518,7 +518,7 @@ proc curPackageNameAndPath(): tuple[name, path: string] =
     var d = getCurrentDir()
     while d.len > 1:
         result.name = packageNameAtPath(d)
-        if not result.name.isNil:
+        if result.name.len != 0:
             result.path = d
             return
         d = d.parentDir()
@@ -526,9 +526,9 @@ proc curPackageNameAndPath(): tuple[name, path: string] =
 proc nimbleOverrideFlags(b: Builder): seq[string] =
     result = @[]
     let cp = curPackageNameAndPath()
-    if not cp.name.isNil:
+    if cp.name.len != 0:
         let origNimblePath = nimblePath(cp.name)
-        if not origNimblePath.isNil: result.add("--excludePath:" & origNimblePath)
+        if origNimblePath.len != 0: result.add("--excludePath:" & origNimblePath)
         result.add("--path:" & cp.path)
 
 proc postprocessWebTarget(b: Builder) =
@@ -797,7 +797,7 @@ proc build*(b: Builder) =
     if b.platform in ["emscripten", "wasm", "js"]:
         b.postprocessWebTarget()
     elif b.platform == "ios":
-        if not b.codesignIdentity.isNil:
+        if b.codesignIdentity.len != 0:
             b.signIosBundle()
             direShell "ios-deploy", "--debug", "--bundle", b.buildRoot / b.bundleName, "--no-wifi"
 
