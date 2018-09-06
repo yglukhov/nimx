@@ -72,10 +72,7 @@ proc defaultAttributes(): Attributes =
     result.textColor = blackColor()
 
 proc `text=`*(t: FormattedText, s: string) =
-    if s.isNil:
-        t.mText = ""
-    else:
-        t.mText = s
+    t.mText = s
     t.cacheValid = false
 
 template text*(t: FormattedText): string = t.mText

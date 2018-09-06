@@ -313,7 +313,7 @@ var chunksToGen = newSeq[CharInfo]()
 
 proc generateDistanceFields() =
     let ch = chunksToGen[^1]
-    if not ch.data.dfDoneForGlyph.isNil:
+    if ch.data.dfDoneForGlyph.len != 0:
         for i in 0 ..< charChunkLength:
             if not ch.data.dfDoneForGlyph[i]:
                 generateDistanceFieldForGlyph(ch, i, true)
@@ -361,7 +361,7 @@ proc chunkAndCharIndexForRune(f: Font, r: Rune): tuple[ch: CharInfo, index: int]
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
             #gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST)
             #gl.generateMipmap(gl.TEXTURE_2D)
-        elif not ch.data.dfDoneForGlyph.isNil and not ch.data.dfDoneForGlyph[result.index]:
+        elif ch.data.dfDoneForGlyph.len != 0 and not ch.data.dfDoneForGlyph[result.index]:
             generateDistanceFieldForGlyph(ch, result.index, true)
 
 proc getQuadDataForRune*(f: Font, r: Rune, quad: var openarray[Coord], offset: int, texture: var TextureRef, pt: var Point) =

@@ -24,8 +24,7 @@ template menuItemOnAction(m: MenuItem, body: untyped) =
         body
 
 proc menuItemAddSubmenu(m, s: MenuItem) =
-    if m.children.isNil: m.children = @[s]
-    else: m.children.add(s)
+    m.children.add(s)
 
 proc makeMenuAux(parentSym, b, res: NimNode) =
     for i in b:

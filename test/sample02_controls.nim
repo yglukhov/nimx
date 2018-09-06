@@ -19,7 +19,6 @@ method init(v: ControlsSampleView, r: Rect) =
     let button = newButton(newRect(10, 40, 100, 22))
     button.title = "Button"
     button.onAction do():
-        if textField.text.isNil: textField.text = ""
         textField.text = "Click! "
     v.addSubview(button)
 
@@ -27,7 +26,6 @@ method init(v: ControlsSampleView, r: Rect) =
     sc.segments = @["This", "is", "a", "segmented", "control"]
     sc.autoresizingMask = { afFlexibleWidth, afFlexibleMaxY }
     sc.onAction do():
-        if textField.text.isNil: textField.text = ""
         textField.text = "Seg " & $sc.selectedSegment & "! "
 
     v.addSubview(sc)
@@ -73,9 +71,9 @@ method init(v: ControlsSampleView, r: Rect) =
     let tf1 = newTextField(newRect(10, 150, 150, 20))
     let tf2 = newTextField(newRect(170, 150, 150, 20))
     tf1.onAction do():
-        tfLabel.text = "Left textfield: " & (if tf1.text.isNil: "nil" else: tf1.text)
+        tfLabel.text = "Left textfield: " & tf1.text
     tf2.onAction do():
-        tfLabel.text = "Right textfield: " & (if tf2.text.isNil: "nil" else: tf2.text)
+        tfLabel.text = "Right textfield: " & tf2.text
 
     v.addSubview(tfLabel)
     v.addSubview(tf1)

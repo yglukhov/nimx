@@ -364,7 +364,7 @@ proc postEffectUniformName(postEffectIndex, argIndex: int): string =
 proc compileComposition*(gl: GL, comp: Composition, cchash: Hash): CompiledComposition =
     var fragmentShaderCode = ""
 
-    if (not comp.definition.isNil and comp.definition.find("GL_OES_standard_derivatives") < 0) or comp.requiresPrequel:
+    if (comp.definition.len != 0 and comp.definition.find("GL_OES_standard_derivatives") < 0) or comp.requiresPrequel:
         fragmentShaderCode &= """
             #ifdef GL_ES
             #extension GL_OES_standard_derivatives : enable
@@ -423,7 +423,7 @@ proc compileComposition*(gl: GL, comp: Composition, cchash: Hash): CompiledCompo
     fragmentShaderCode &= "}"
 
     result.new()
-    let vsCode = if comp.vsDefinition.isNil:
+    let vsCode = if comp.vsDefinition.len == 0:
             options & vertexShaderCode
         else:
             options & comp.vsDefinition

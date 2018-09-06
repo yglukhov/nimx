@@ -241,7 +241,7 @@ when defined(js):
 
         let err = gl.getError()
         if err != 0.GLenum:
-            logi "GL error in texture load: ", err.int.toHex(), ": ", if i.mFilePath.isNil: "nil" else: i.mFilePath
+            logi "GL error in texture load: ", err.int.toHex(), ": ", i.mFilePath
 
 method getTextureQuad*(i: SelfContainedImage, gl: GL, texCoords: var array[4, GLfloat]): TextureRef =
     when defined js:
@@ -433,7 +433,7 @@ when asyncResourceLoad:
     proc loadResourceThreaded(ctx: pointer) {.cdecl.} =
         var url = cast[ImageLoadingCtx](ctx).url
         openStreamForUrl(url) do(s: Stream, err: string):
-            if not err.isNil:
+            if err.len != 0:
                 logi "Could not load url: ", url
                 logi "Error: ", err
             var data = s.readAll()

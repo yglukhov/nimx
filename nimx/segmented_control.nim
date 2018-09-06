@@ -57,10 +57,7 @@ method updateLayout*(s: SegmentedControl) =
     s.widthsValid = false
 
 proc recalculateSegmentWidths(s: SegmentedControl) =
-    if s.widths.isNil:
-        s.widths = newSeq[Coord](s.mSegments.len)
-    else:
-        s.widths.setLen(s.mSegments.len)
+    s.widths.setLen(s.mSegments.len)
 
     let font = systemFont()
     var totalWidth = 0.Coord

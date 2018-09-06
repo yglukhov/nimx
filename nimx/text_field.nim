@@ -458,13 +458,13 @@ method onKeyDown*(t: TextField, e: var Event): bool =
             if cmd == kcPaste:
                 if t.editable:
                     let s = pasteboardWithName(PboardGeneral).readString()
-                    if not s.isNil:
+                    if s.len != 0:
                         t.insertText(s)
 
         when defined(macosx) or defined(windows) or defined(linux) or defined(emscripten) or defined(js):
             if cmd in { kcCopy, kcCut, kcUseSelectionForFind }:
                 let s = t.selectedText()
-                if not s.isNil:
+                if s.len != 0:
                     if cmd == kcUseSelectionForFind:
                         pasteboardWithName(PboardFind).writeString(s)
                     else:

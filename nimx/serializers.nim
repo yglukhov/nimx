@@ -108,8 +108,6 @@ template deserialize*(s: Deserializer, v: var int) =
 
 method deserializeFields*(o: RootRef, s: Deserializer) {.base.} = discard
 
-proc makeSeq*[T](v: var seq[T], len: int) = v = newSeq[T](len)
-
 template typeOfSetElem[T](s: set[T]): typedesc = T
 
 proc deserialize*[T](s: Deserializer, o: var T) =
@@ -127,10 +125,7 @@ proc deserialize*[T](s: Deserializer, o: var T) =
         s.endObjectOrArray()
     elif o is seq:
         let ln = s.beginArray()
-        if o.isNil:
-            o.makeSeq(ln)
-        else:
-            o.setLen(ln)
+        o.setLen(ln)
         for i in 0 ..< ln:
             s.curIndex = i
             s.deserialize(o[i])
@@ -192,8 +187,6 @@ proc pushJsonNode(s: JsonSerializer, n: JsonNode) =
     if s.nodeStack.len > 0:
         s.serializeJsonNode(n)
         s.nodeStack.add(n)
-    elif s.nodeStack.isNil:
-        s.nodeStack = @[n]
     else:
         s.nodeStack.add(n)
 

@@ -33,8 +33,6 @@ proc clear*(p: var PropertyVisitor) =
     p.setterAndGetter = newVariant()
 
 proc pushQualifier*(p: var PropertyVisitor, q: string) =
-    if p.qualifiers.isNil:
-        p.qualifiers = newSeq[string]()
     p.qualifiers.add(q)
 
 proc popQualifier*(p: var PropertyVisitor) =

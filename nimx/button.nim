@@ -350,7 +350,7 @@ method deserializeFields*(v: Button, s: Deserializer) =
     s.deserialize("behavior", v.behavior)
     var imgName : string
     s.deserialize("image", imgName)
-    if not imgName.isNil:
+    if imgName.len != 0:
         v.image = imageWithResource(imgName)
     s.deserialize("marginLeft", v.imageMarginLeft)
     s.deserialize("marginRight", v.imageMarginRight)

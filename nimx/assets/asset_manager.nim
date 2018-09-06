@@ -149,7 +149,7 @@ proc getAssetAtPathAux(am: AssetManager, path: string, putToCache: bool, handler
 
 proc getAssetAtPath*[T](am: AssetManager, path: string, putToCache: bool, handler: proc(res: T, err: string)) =
     am.getAssetAtPathAux(path, putToCache) do(res: Variant, err: string):
-        if err.isNil:
+        if err.len == 0:
             if res.ofType(T):
                 handler(res.get(T), "")
             else:

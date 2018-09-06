@@ -74,7 +74,6 @@ proc newAnimation*(): Animation =
     result.init()
 
 proc addHandler(s: var seq[ProgressHandler], ph: ProgressHandler) =
-    if s.isNil: s = newSeq[ProgressHandler]()
     s.insert(ph,
         s.lowerBound(ph, proc (a, b: ProgressHandler): int = cmp(a.progress, b.progress)))
 
@@ -89,10 +88,10 @@ proc addTotalProgressHandler*(a: Animation, progress: float, callIfCancelled: bo
         callIfCancelled: callIfCancelled))
 
 proc removeTotalProgressHandlers*(a: Animation) =
-    if not a.totalProgressHandlers.isNil: a.totalProgressHandlers.setLen(0)
+    a.totalProgressHandlers.setLen(0)
 
 proc removeLoopProgressHandlers*(a: Animation) =
-    if not a.loopProgressHandlers.isNil: a.loopProgressHandlers.setLen(0)
+    a.loopProgressHandlers.setLen(0)
 
 proc `continueUntilEndOfLoopOnCancel=`*(a: Animation, bval: bool)=
     if bval:
@@ -163,17 +162,17 @@ proc totalProgress(a: Animation, t: float): float=
 
 method checkHandlers(a: Animation, oldLoop: int, lp, tp: float) {.base.} =
     if a.curLoop > oldLoop:
-        if not a.loopProgressHandlers.isNil:
+        if a.loopProgressHandlers.len != 0:
             processRemainingHandlersInLoop(a.loopProgressHandlers, a.lphIt, stopped=false)
 
     if not a.finished:
-        if not a.loopProgressHandlers.isNil: processHandlers(a.loopProgressHandlers, a.lphIt, lp)
-        if not a.totalProgressHandlers.isNil: processHandlers(a.totalProgressHandlers, a.tphIt, tp)
+        if a.loopProgressHandlers.len != 0: processHandlers(a.loopProgressHandlers, a.lphIt, lp)
+        if a.totalProgressHandlers.len != 0: processHandlers(a.totalProgressHandlers, a.tphIt, tp)
 
     if a.finished:
-        if a.curLoop == oldLoop and not a.loopProgressHandlers.isNil and a.lphIt < a.loopProgressHandlers.len:
+        if a.curLoop == oldLoop and a.loopProgressHandlers.len != 0 and a.lphIt < a.loopProgressHandlers.len:
             processRemainingHandlersInLoop(a.loopProgressHandlers, a.lphIt, stopped=true)
-        if not a.totalProgressHandlers.isNil and a.tphIt < a.totalProgressHandlers.len:
+        if a.totalProgressHandlers.len != 0 and a.tphIt < a.totalProgressHandlers.len:
             processRemainingHandlersInLoop(a.totalProgressHandlers, a.tphIt, stopped=true)
 
 proc loopFinishCheck(a: Animation, lp, tp: var float)=
@@ -518,7 +517,7 @@ method tick*(a: MetaAnimation, t: float) =
 
     if a.pauseTime != 0 : return
 
-    if a.animations.isNil or a.animations.len == 0:
+    if a.animations.len == 0:
         a.finished = true
         return
 
@@ -565,7 +564,7 @@ method tick*(a: MetaAnimation, t: float) =
             a.curIndex = -1
             inc a.curLoop
 
-            if not a.loopProgressHandlers.isNil:
+            if a.loopProgressHandlers.len != 0:
                 processRemainingHandlersInLoop(a.loopProgressHandlers, a.lphIt, stopped=false)
 
         elif ((a.loopPattern == lpEndToStartToEnd or a.loopPattern == lpStartToEndToStart) and
@@ -574,13 +573,13 @@ method tick*(a: MetaAnimation, t: float) =
             a.curIndex = -1
             inc a.curLoop
 
-            if not a.loopProgressHandlers.isNil:
+            if a.loopProgressHandlers.len != 0:
                 processRemainingHandlersInLoop(a.loopProgressHandlers, a.lphIt, stopped=false)
         else:
             a.finished = true
-            if not a.loopProgressHandlers.isNil and a.lphIt < a.loopProgressHandlers.len:
+            if a.loopProgressHandlers.len != 0 and a.lphIt < a.loopProgressHandlers.len:
                 processRemainingHandlersInLoop(a.loopProgressHandlers, a.lphIt, stopped=true)
-            if not a.totalProgressHandlers.isNil and a.tphIt < a.totalProgressHandlers.len:
+            if a.totalProgressHandlers.len != 0 and a.tphIt < a.totalProgressHandlers.len:
                 processRemainingHandlersInLoop(a.totalProgressHandlers, a.tphIt, stopped=true)
 
 

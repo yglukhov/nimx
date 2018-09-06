@@ -34,7 +34,7 @@ proc registerAssetLoader*[T](fileExtensions: openarray[string], loader: SimpleUr
 proc registerAssetLoader*(fileExtensions: openarray[string], streamLoader: StreamLoaderProc) =
     let loader = proc(url, path: string, cache: AssetCache, handler: proc()) =
         openStreamForUrl(url) do(s: Stream, err: string):
-            if err.isNil:
+            if err.len == 0:
                 streamLoader(s, path, cache, handler)
             else:
                 handler()
@@ -43,7 +43,7 @@ proc registerAssetLoader*(fileExtensions: openarray[string], streamLoader: Strea
 proc registerAssetLoader*[T](fileExtensions: openarray[string], streamLoader: SimpleStreamLoaderProc[T]) =
     let loader = proc(url, path: string, cache: AssetCache, handler: proc()) =
         openStreamForUrl(url) do(s: Stream, err: string):
-            if err.isNil:
+            if err.len == 0:
                 streamLoader(s) do(v: T):
                     s.close()
                     cache.registerAsset(path, v)
@@ -64,7 +64,7 @@ proc loadAsset*(url, path: string, cache: AssetCache, handler: proc()) =
     let scheme = url.urlScheme()
     if scheme == "res":
         hackyResUrlLoader(url, path, cache) do(err: string):
-            if not err.isNil:
+            if err.len != 0:
                 error "loading asset ", url, ": ", err
             handler()
         return

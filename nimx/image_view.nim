@@ -106,7 +106,7 @@ method deserializeFields*(v: ImageView, s: Deserializer) =
     s.deserialize("fillRule", v.fillRule)
     var imgName : string
     s.deserialize("image", imgName)
-    if not imgName.isNil:
+    if imgName.len != 0:
         v.image = imageWithResource(imgName)
     s.deserialize("marginLeft", v.imageMarginLeft)
     s.deserialize("marginRight", v.imageMarginRight)

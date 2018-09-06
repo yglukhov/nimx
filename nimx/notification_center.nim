@@ -58,7 +58,6 @@ proc removeObserverAux(nc: NotificationCenter, observer: ObserverId) =
     for k, v in nc.notificationsMap:
         v.del(observer)
         if v.len == 0:
-            if removedKeys.isNil: removedKeys = @[]
             removedKeys.add(k)
 
     for k in removedKeys: nc.notificationsMap.del(k)

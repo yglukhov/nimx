@@ -28,12 +28,10 @@ else:
 var currentOffset {.threadvar.}: string
 
 proc logi*(a: varargs[string, `$`]) {.gcsafe.} =
-    if currentOffset.isNil: currentOffset = ""
     native_log(currentOffset & a.join())
 
 proc increaseOffset() =
-    if currentOffset.isNil: currentOffset = "  "
-    else: currentOffset &= "  "
+    currentOffset &= "  "
 
 template decreaseOffset() =
     currentOffset.setLen(currentOffset.len - 2)
@@ -45,7 +43,6 @@ template enterLog*() =
 type SystemLogger = ref object of Logger
 
 method log*(logger: SystemLogger, level: Level, args: varargs[string, `$`]) =
-    if currentOffset.isNil: currentOffset = ""
     native_log(currentOffset & args.join())
 
 proc registerLogger() =

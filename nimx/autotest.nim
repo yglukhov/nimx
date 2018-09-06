@@ -64,10 +64,7 @@ proc makeStep(code: proc(), astrepr, lineinfo: string): UITestSuiteStep {.inline
     result.lineinfo = lineinfo
 
 proc registerTest*(ts: UITestSuite) =
-    if registeredTests.isNil:
-        registeredTests = @[ts]
-    else:
-        registeredTests.add(ts)
+    registeredTests.add(ts)
 
 proc registeredTest*(name: string): UITestSuite =
     for t in registeredTests:
@@ -175,7 +172,7 @@ proc getAllTestNames(): seq[string] =
     for i, t in registeredTests: result[i] = t.name
 
 proc initTestsToRunIfNeeded() =
-    if gTestsToRun.isNil:
+    if gTestsToRun.len != 0:
         when defined(js) or defined(emscripten):
             let testsStr = getCurrentHref().uriParam("nimxAutoTest")
             if testsStr.len == 0:
