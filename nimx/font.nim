@@ -13,7 +13,7 @@ else:
     import os
     import write_image_impl
 
-import private/edtaa3func # From ttf library
+import ttf/edtaa3func
 import private/simple_table
 
 when defined(android):
