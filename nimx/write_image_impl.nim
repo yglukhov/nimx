@@ -1,13 +1,10 @@
 
 
-proc stbi_write_png*(filename: cstring, w, h, comp: cint, data: pointer, stride_in_bytes: cint): cint {.importc.}
-proc stbi_write_bmp*(filename: cstring, w, h, comp: cint, data: pointer): cint {.importc.}
-proc stbi_write_tga*(filename: cstring, w, h, comp: cint, data: pointer): cint {.importc.}
-proc stbi_write_hdr*(filename: cstring, w, h, comp: cint, data: pointer): cint {.importc.}
 
 {.emit: """
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
+#define STB_IMAGE_WRITE_STATIC 1
 
 /* stb_image_write - v1.09 - public domain - http://nothings.org/stb/stb_image_write.h
    writes out PNG/BMP/TGA/JPEG/HDR images to C stdio - Sean Barrett 2010-2015
@@ -1543,4 +1540,23 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ------------------------------------------------------------------------------
 */
 """.}
+
+
+proc stbi_write_png_impl(filename: cstring, w, h, comp: cint, data: pointer, stride_in_bytes: cint): cint {.importc: "stbi_write_png", nodecl.}
+proc stbi_write_bmp_impl(filename: cstring, w, h, comp: cint, data: pointer): cint {.importc: "stbi_write_bmp", nodecl.}
+proc stbi_write_tga_impl(filename: cstring, w, h, comp: cint, data: pointer): cint {.importc: "stbi_write_tga", nodecl.}
+proc stbi_write_hdr_impl(filename: cstring, w, h, comp: cint, data: pointer): cint {.importc: "stbi_write_hdr", nodecl.}
+
+
+proc stbi_write_png*(filename: cstring, w, h, comp: cint, data: pointer, stride_in_bytes: cint): cint =
+  stbi_write_png_impl(filename, w, h, comp, data, stride_in_bytes)
+
+proc stbi_write_bmp*(filename: cstring, w, h, comp: cint, data: pointer): cint =
+  stbi_write_bmp_impl(filename, w, h, comp, data)
+
+proc stbi_write_tga*(filename: cstring, w, h, comp: cint, data: pointer): cint =
+  stbi_write_tga_impl(filename, w, h, comp, data)
+
+proc stbi_write_hdr*(filename: cstring, w, h, comp: cint, data: pointer): cint =
+  stbi_write_hdr_impl(filename, w, h, comp, data)
 
