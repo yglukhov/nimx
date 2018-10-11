@@ -248,7 +248,7 @@ proc newBuilder*(platform: string): Builder =
         b.iOSMinVersion = b.iOSSDKVersion
     elif b.platform == "macosx":
         b.macOSSDKVersion = "10.12"
-        for v in ["10.7", "10.8", "10.9", "10.10", "10.11", "10.12", "10.13"]:
+        for v in ["10.7", "10.8", "10.9", "10.10", "10.11", "10.12", "10.13", "10.14"]:
             if dirExists(macOSSDKPath(v)):
                 b.macOSSDKVersion = v
                 break
