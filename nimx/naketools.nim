@@ -405,18 +405,39 @@ proc replaceVarsInFile(file: string, vars: Table[string, string]) =
         content = content.replace("$(" & k & ")", v)
     writeFile(file, content)
 
+proc chomp(s: string): string =
+    ## see https://dlang.org/library/std/string/chomp.html
+    if s.endsWith "\n":
+        result = s[0 ..< ^1]
+    else:
+        result = s
+
 proc buildSDLForDesktop(b: Builder): string =
     when defined(linux):
         result = "/usr/lib"
     elif defined(macosx):
-        if fileExists("/usr/local/lib/libSDL2.a") or fileExists("/usr/local/lib/libSDL2.dylib"):
-            result = "/usr/local/lib"
-        else:
-            let xcodeProjDir = expandTilde(b.sdlRoot)/"Xcode/SDL"
-            let libDir = xcodeProjDir/"build/Release"
-            if not fileExists libDir/"libSDL2.a":
-                direShell "xcodebuild", "-project", xcodeProjDir/"SDL.xcodeproj", "-target", "Static\\ Library", "-configuration", "Release", "-sdk", "macosx"&b.macOSSDKVersion, "SYMROOT=build"
-            result = libDir
+        proc isValid(dir: string): bool =
+            fileExists(dir / "libSDL2.a") or fileExists(dir / "libSDL2.dylib")
+        result = "/usr/local/lib"
+        if isValid(result): return result
+
+        if "brew --version".execCmdEx().exitCode == 0:
+            # user has homebrew
+            let ret = "brew --prefix sdl2".execCmdEx()
+            if ret.exitCode == 0:
+                result = ret.output.string.chomp / "lib"
+                echo (result,)
+                doAssert isValid(result), result
+                return result
+            else:
+                echo "consider running: `brew install sdl2`; trying xcodebuild fallback"
+
+        let xcodeProjDir = expandTilde(b.sdlRoot)/"Xcode/SDL"
+        result = xcodeProjDir/"build/Release"
+        if isValid(result): return result
+        # would be cleaner with try/catch, see https://github.com/fowlmouth/nake/issues/63, to give better diagnostics
+        direShell "xcodebuild", "-project", xcodeProjDir/"SDL.xcodeproj", "-target", "Static\\ Library", "-configuration", "Release", "-sdk", "macosx"&b.macOSSDKVersion, "SYMROOT=build"
+        return result
     else:
         assert(false, "Don't know where to find SDL")
 
