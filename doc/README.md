@@ -4,7 +4,8 @@ TOC
 - Getting started
     - [What is nimx](what-is-nimx.md)
     - [Hello world app](hello-world-app.md)
-
+    - [Building for different platforms](building-for-different-platforms.md)
+    
 - Layout
     - [Layout DSL](layout-dsl.md)
     - Constraint system
