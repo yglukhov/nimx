@@ -405,13 +405,6 @@ proc replaceVarsInFile(file: string, vars: Table[string, string]) =
         content = content.replace("$(" & k & ")", v)
     writeFile(file, content)
 
-proc chomp(s: string): string =
-    ## see https://dlang.org/library/std/string/chomp.html
-    if s.endsWith "\n":
-        result = s[0 ..< ^1]
-    else:
-        result = s
-
 proc buildSDLForDesktop(b: Builder): string =
     when defined(linux):
         result = "/usr/lib"
@@ -425,8 +418,9 @@ proc buildSDLForDesktop(b: Builder): string =
             # user has homebrew
             let ret = "brew --prefix sdl2".execCmdEx()
             if ret.exitCode == 0:
-                result = ret.output.string.chomp / "lib"
-                echo (result,)
+                result = ret.output.string
+                stripLineEnd(result)
+                result = result / "lib"
                 doAssert isValid(result), result
                 return result
             else:
