@@ -22,7 +22,7 @@ requires "variant >= 0.2 & < 0.3"
 requires "kiwi"
 
 requires "jester#head" # required to run a web server from the nakefile to serve WebGL variant
-requires "https://github.com/yglukhov/ttf >= 0.2.3 & < 0.3"
+requires "https://github.com/yglukhov/ttf >= 0.2.9 & < 0.3"
 requires "https://github.com/yglukhov/async_http_request"
 requires "jsbind"
 requires "oldwinapi"
