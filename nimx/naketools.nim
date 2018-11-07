@@ -754,7 +754,7 @@ proc build*(b: Builder) =
                 "--parallelBuild:" & $b.nimParallelBuild, "--out:" & b.executablePath,
                 "--nimcache:" & b.nimcachePath])
 
-    if b.platform in ["android", "ios"] and not b.avoidSDL:
+    if b.platform in ["android", "ios", "ios-sim"] and not b.avoidSDL:
         b.nimFlags.add("--noMain")
 
     if b.avoidSDL: b.nimFlags.add("-d:nimxAvoidSDL")
