@@ -569,10 +569,13 @@ proc postprocessWebTarget(b: Builder) =
     copyFile(mainHTML, b.buildRoot / "main.html")
     if b.runAfterBuild:
         let settings = newSettings(staticDir = b.buildRoot)
+        when not defined(windows):
+            proc doOpen() {.async.} =
+                await sleepAsync(1)
+                openDefaultBrowser "http://localhost:5000"
+            asyncCheck doOpen()
         routes:
             get "/": redirect "main.html"
-        when not defined(windows):
-            openDefaultBrowser "http://localhost:5000"
         runForever()
 
 proc signIosBundle(b: Builder) =
