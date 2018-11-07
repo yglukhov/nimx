@@ -214,7 +214,7 @@ proc newBuilder*(platform: string): Builder =
     # Simulator device identifier should be set to run the simulator.
     # Available simulators can be listed with the command:
     # $ xcrun simctl list
-    b.iOSSimulatorDeviceId = "18BE8493-7EFB-4570-BF2B-5F5ACBCCB82B"
+    b.iOSSimulatorDeviceId = "booted"
 
     b.nimVerbosity = 0
     b.nimParallelBuild = 0
