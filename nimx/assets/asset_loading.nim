@@ -89,7 +89,7 @@ proc loadAsset*[T](url: string, handler: proc(a: T, err: string)) =
     loadAsset(url, "k", c) do():
         let v = c.getOrDefault("k")
         if v.ofType(T):
-            handler(v.get(T), nil)
+            handler(v.get(T), "")
         else:
             var b: T
             handler(b, "Wrong  asset type")

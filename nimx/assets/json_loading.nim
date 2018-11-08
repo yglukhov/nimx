@@ -11,7 +11,7 @@ proc loadJsonFromURL*(url: string, handler: proc(j: JsonNode)) =
         loadJSURL(url, "text", nil, nil, reqListener)
     else:
         openStreamForUrl(url) do(s: Stream, err: string):
-            if err.isNil:
+            if err.len == 0:
                 handler(parseJson(s, url))
                 s.close()
             else:

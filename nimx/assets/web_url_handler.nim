@@ -80,13 +80,13 @@ proc getHttpStream(url: string, handler: Handler) =
 
         loadJSURL(url, "arraybuffer", nil, errorListener, reqListener)
     else:
-        sendRequest("GET", url, nil, []) do(r: Response):
+        sendRequest("GET", url, "", []) do(r: Response):
             if r.statusCode >= 200 and r.statusCode < 300:
                 var b: string
                 shallowCopy(b, r.body)
                 shallow(b)
                 let s = newStringStream(r.body)
-                handler(s, nil)
+                handler(s, "")
             else:
                 handler(nil, "Error downloading url " & url & ": " & $r.statusCode)
 
