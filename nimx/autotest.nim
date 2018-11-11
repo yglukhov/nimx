@@ -187,7 +187,7 @@ proc getTestsToRun*(): seq[string] =
         while i < paramCount():
             if paramStr(i) == "--nimxAutoTest":
                 inc i
-                gTestsToRun.add(paramStr(i).split(','))
+                result.add(paramStr(i).split(','))
             inc i
     if "all" in result:
         result = getAllTestNames()
