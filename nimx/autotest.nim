@@ -157,8 +157,6 @@ when false:
 
     registerTest(myTest)
 
-var gTestsToRun: seq[string] # Test names which user wants to run
-
 when defined(js) or defined(emscripten):
     import nimx/pathutils
 elif defined(android):
@@ -171,41 +169,31 @@ proc getAllTestNames(): seq[string] =
     result = newSeq[string](registeredTests.len)
     for i, t in registeredTests: result[i] = t.name
 
-proc initTestsToRunIfNeeded() =
-    if gTestsToRun.len != 0:
-        when defined(js) or defined(emscripten):
-            let testsStr = getCurrentHref().uriParam("nimxAutoTest")
-            if testsStr.len == 0:
-                gTestsToRun = @[]
-            else:
-                gTestsToRun = testsStr.split(',')
-        elif defined(android):
-            let act = currentActivity()
-            assert(not act.isNil)
-            let extras = act.getIntent().getExtras()
-            if not extras.isNil:
-                let r = extras.getString("nimxAutoTest")
-                if not r.isNil:
-                    gTestsToRun = r.split(',')
-            if gTestsToRun.isNil: gTestsToRun = @[]
-        else:
-            gTestsToRun = @[]
-            var i = 0
-            while i < paramCount():
-                if paramStr(i) == "--nimxAutoTest":
-                    inc i
-                    gTestsToRun.add(paramStr(i).split(','))
-                inc i
-        if "all" in gTestsToRun:
-            gTestsToRun = getAllTestNames()
-
 proc getTestsToRun*(): seq[string] =
-    initTestsToRunIfNeeded()
-    gTestsToRun
+    when defined(js) or defined(emscripten):
+        let testsStr = getCurrentHref().uriParam("nimxAutoTest")
+        if testsStr.len != 0:
+            result = testsStr.split(',')
+    elif defined(android):
+        let act = currentActivity()
+        assert(not act.isNil)
+        let extras = act.getIntent().getExtras()
+        if not extras.isNil:
+            let r = extras.getString("nimxAutoTest")
+            if r.len != 0:
+                result = r.split(',')
+    else:
+        var i = 0
+        while i < paramCount():
+            if paramStr(i) == "--nimxAutoTest":
+                inc i
+                gTestsToRun.add(paramStr(i).split(','))
+            inc i
+    if "all" in result:
+        result = getAllTestNames()
 
 proc haveTestsToRun*(): bool =
-    initTestsToRunIfNeeded()
-    gTestsToRun.len != 0
+    getTestsToRun().len != 0
 
 proc startTest*(t: UITestSuite, onComplete: proc() = nil) =
     when defined(js) or defined(emscripten): setupLogger()
