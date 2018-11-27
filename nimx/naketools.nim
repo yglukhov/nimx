@@ -185,7 +185,7 @@ proc findEnvPaths(b: Builder) =
 
         b.sdlRoot = sdlHome
 
-proc versionCodeWithTime*(t: TimeInfo): int =
+proc versionCodeWithTime*(t: DateTime): int =
     let month = (t.year - 2016) * 12 + (t.month.int + 1)
     result = t.minute + t.hour * 100 + t.monthday * 10000 + month * 1000000
 
