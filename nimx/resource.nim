@@ -112,12 +112,12 @@ proc pathForResourceAux(name: string): string =
         if fileExists(result): return
         result = appDir / "resources" / name
         if fileExists(result): return
-        result = nil
+        result = ""
 
 proc pathForResource*(name: string): string =
     result = pathForResourceAux(name)
-    if not result.isNil:
-        result.normalizePath()
+    if result.len != 0:
+        pathutils.normalizePath(result)
 
 proc resourceNameForPathAux(path: string): string =
     if parentResources.len > 0:
@@ -183,7 +183,7 @@ else:
 
     proc streamForResourceWithName*(name: string): Stream =
         let p = pathForResource(name)
-        if p.isNil:
+        if p.len == 0:
             raise newException(Exception, "Resource not found: " & name)
         streamForResourceWithPath(p)
 

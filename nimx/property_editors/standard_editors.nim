@@ -27,10 +27,10 @@ when defined(js):
 elif not defined(android) and not defined(ios) and not defined(emscripten):
     import os_files/dialog
 
-template toStr(v: SomeReal, precision: uint): string = formatFloat(v, ffDecimal, precision)
+template toStr(v: SomeFloat, precision: uint): string = formatFloat(v, ffDecimal, precision)
 template toStr(v: SomeInteger): string = $v
 
-template fromStr(v: string, t: var SomeReal) = t = v.parseFloat()
+template fromStr(v: string, t: var SomeFloat) = t = v.parseFloat()
 template fromStr(v: string, t: var SomeInteger) = t = type(t)(v.parseInt())
 
 proc newScalarPropertyView[T](setter: proc(s: T), getter: proc(): T): PropertyEditorView =
@@ -38,7 +38,7 @@ proc newScalarPropertyView[T](setter: proc(s: T), getter: proc(): T): PropertyEd
     let tf = newNumericTextField(newRect(0, 0, 208, editorRowHeight))
     tf.autoresizingMask = {afFlexibleWidth, afFlexibleMaxY}
     tf.font = editorFont()
-    when T is SomeReal:
+    when T is SomeFloat:
         tf.text = toStr(getter(), tf.precision)
     else:
         tf.text = toStr(getter())
