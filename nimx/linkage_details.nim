@@ -103,6 +103,10 @@ extern char** gEnv;
 N_CDECL(void, NimMain)(void);
 
 int main(int argc, char** args) {
+    static int runCount = 0;   // to prevent restart from SDL
+    if (runCount++ > 0)
+        return 0;
+
     cmdLine = args;
     cmdCount = argc;
     gEnv = NULL;

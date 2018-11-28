@@ -53,6 +53,14 @@ template `y=`*[I: static[int], T](v: var TVector[I, T], val: T) = v[1] = val
 template `z=`*[I: static[int], T](v: var TVector[I, T], val: T) = v[2] = val
 template `w=`*[I: static[int], T](v: var TVector[I, T], val: T) = v[3] = val
 
+template width*[I: static[int], T](v: TVector[I, T]): T = v[0]
+template height*[I: static[int], T](v: TVector[I, T]): T = v[1]
+template depth*[I: static[int], T](v: TVector[I, T]): T = v[2]
+    
+template `width=`*[I: static[int], T](v: var TVector[I, T], val: T) = v[0] = val
+template `height=`*[I: static[int], T](v: var TVector[I, T], val: T)= v[1] = val
+template `depth=`*[I: static[int], T](v: var TVector[I, T], val: T)= v[2] = val
+
 # proc `.`*[I: static[int], T](v: TVector[I, T], field: static[string]): TVector[field.len, T] =
 #     for i, c in field:
 #         case c

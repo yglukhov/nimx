@@ -25,7 +25,6 @@ requires "jester#head" # required to run a web server from the nakefile to serve
 requires "https://github.com/yglukhov/ttf >= 0.2.9 & < 0.3"
 requires "https://github.com/yglukhov/async_http_request"
 requires "jsbind"
-requires "oldwinapi"
 requires "rect_packer"
 requires "https://github.com/yglukhov/android"
 requires "https://github.com/yglukhov/darwin"

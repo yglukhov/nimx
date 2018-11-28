@@ -8,6 +8,7 @@ import sample01_welcome
 import sample02_controls
 import sample03_image
 import sample04_animation
+import sample15_animation_easings
 import sample05_fonts
 import sample06_timers
 import sample07_collections
@@ -18,6 +19,7 @@ import sample11_expanded_views
 import sample12_menus
 import sample13_drag_and_drop
 import sample14_layout
+
 
 const isMobile = defined(ios) or defined(android)
 

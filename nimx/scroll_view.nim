@@ -242,6 +242,7 @@ method subviewDidChangeDesiredSize*(v: ScrollView, sub: View, desiredSize: Size)
             size.height = cvBounds.height
             boundsOrigin.y = 0
 
+        echo "sv subviewDidChangeDesiredSize ", size, " ", cvBounds, " ds ", desiredSize
         v.clipView.setBoundsOrigin(boundsOrigin)
         v.contentView().setFrameSize(size)
         v.recalcScrollKnobSizes()

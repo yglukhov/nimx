@@ -34,6 +34,7 @@ proc knobRect(s: ScrollBar): Rect =
         result = inset(result, 2, 0)
 
 method draw*(s: ScrollBar, r: Rect) =
+    if s.hidden: return
     let bezelRect = s.bounds.inset(1, 1)
     var radius = min(bezelRect.width, bezelRect.height) / 2
     let c = currentContext()

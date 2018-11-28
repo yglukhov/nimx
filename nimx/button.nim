@@ -1,5 +1,5 @@
 import control, context, image, types, event, font, app, composition
-import view_event_handling
+import view_event_handling, timer
 
 import property_visitor, serializers
 
@@ -17,6 +17,7 @@ type ButtonStyle* = enum
 type ButtonBehavior* = enum
     bbMomentaryLight
     bbToggle
+    bbHold
 
 type
     Button* = ref object of Control
@@ -32,6 +33,8 @@ type
         hasBezel*: bool
         style*: ButtonStyle
         behavior*: ButtonBehavior
+        holdDuration*: float
+        holdTimer: Timer
 
     Checkbox* = ref object of Button
     Radiobox* = ref object of Button
@@ -302,6 +305,38 @@ proc handleToggleTouchEv(b: Button, e: var Event): bool =
         b.setState(if b.value == 1: bsDown else: bsUp)
     result = true
 
+proc clearHold(b: Button): bool {.discardable.} =
+    if not b.holdTimer.isNil:
+        b.value = 0
+        b.holdTimer.clear()
+        b.holdTimer = nil
+        result = true
+
+proc handleHoldTouchEv(b: Button, e: var Event): bool =
+    case e.buttonState
+    of bsDown:
+        b.value = 0
+        if b.holdDuration > 0.01:
+            let e = e
+            b.holdTimer = setTimeout(b.holdDuration) do():
+                b.value = 1
+                b.sendAction(e)
+                b.holdTimer = nil
+        b.setState(bsDown)
+    of bsUnknown:
+        if e.localPosition.inRect(b.bounds):
+            b.setState(bsDown)
+        else:
+            b.clearHold()
+            b.setState(bsUp)
+    of bsUp:
+        b.setState(bsUp)
+        # b.value = 0
+        if e.localPosition.inRect(b.bounds):
+            if b.clearHold():
+                b.sendAction(e)
+    result = true
+
 method onTouchEv*(b: Button, e: var Event): bool =
     discard procCall b.View.onTouchEv(e)
     case b.behavior
@@ -309,6 +344,8 @@ method onTouchEv*(b: Button, e: var Event): bool =
         result = b.handleMomentaryTouchEv(e)
     of bbToggle:
         result = b.handleToggleTouchEv(e)
+    of bbHold:
+        result = b.handleHoldTouchEv(e)
 
 method visitProperties*(v: Button, pv: var PropertyVisitor) =
     procCall v.Control.visitProperties(pv)

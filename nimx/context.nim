@@ -400,6 +400,67 @@ proc drawNinePartImage*(c: GraphicsContext, i: Image, toRect: Rect, ml, mt, mr, 
         gl.vertexAttribPointer(saPosition.GLuint, componentsCount, gl.FLOAT, false, 0, 0)
         gl.drawElements(gl.TRIANGLE_STRIP, vertexCount, gl.UNSIGNED_SHORT)
 
+
+let simpleComposition = newComposition("""
+attribute vec4 aPosition;
+uniform mat4 uModelViewProjectionMatrix;
+
+void main() {
+    gl_Position = uModelViewProjectionMatrix * vec4(aPosition.xy, 0, 1);
+}
+""",
+"""
+#ifdef GL_ES
+#extension GL_OES_standard_derivatives : enable
+precision mediump float;
+#endif
+uniform vec4 uStrokeColor;
+
+void compose() {
+    gl_FragColor = uStrokeColor;
+}
+""", false)
+
+proc bezierPoint(p0, p1, p2, p3, t: float32): float32 =
+  result = (pow((1-t), 3.0) * p0) +
+    (3 * pow((1-t),2) * t * p1) +
+    (3 * (1-t) * t * t * p2) +
+    (pow(t, 3) * p3)
+
+proc drawBezier*(c: GraphicsContext, p0, p1, p2, p3: Point) =
+    let gl = c.gl
+    var cc = gl.getCompiledComposition(simpleComposition)
+
+    template setVertex(index: int, p: Point) =
+        c.vertexes[index * 2 + 0] = p.x.GLfloat
+        c.vertexes[index * 2 + 1] = p.y.GLfloat
+
+    let vertexCount = 300
+    for i in 0..<vertexCount:
+        let t = i / (vertexCount - 1)
+        let p = newPoint(bezierPoint(p0.x, p1.x, p2.x, p3.x, t), bezierPoint(p0.y, p1.y, p2.y, p3.y, t))
+        setVertex(i, p)
+
+    gl.useProgram(cc.program)
+    compositionDrawingDefinitions(cc, c, gl)
+
+    gl.uniformMatrix4fv(uniformLocation("uModelViewProjectionMatrix"), false, c.transform)
+    setUniform("uStrokeColor", c.strokeColor)
+    setupPosteffectUniforms(cc)
+
+    const componentsCount = 2
+    gl.enableVertexAttribArray(saPosition.GLuint)
+    c.bindVertexData(componentsCount * vertexCount)
+    gl.vertexAttribPointer(saPosition.GLuint, componentsCount, gl.FLOAT, false, 0, 0)
+
+    gl.enable(GL_LINE_SMOOTH)
+    glHint(GL_LINE_SMOOTH_HINT, GL_NICEST)
+
+    glLineWidth(c.strokeWidth)
+    gl.drawArrays(GL_LINE_STRIP, 0.GLint, vertexCount.GLsizei)
+    glLineWidth(1.0)
+
+
 var lineComposition = newComposition """
 uniform float uStrokeWidth;
 uniform vec4  uStrokeColor;

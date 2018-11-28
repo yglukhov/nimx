@@ -185,6 +185,14 @@ method onGestEvent*(d: ScrollDetector, e: var Event) : bool =
             d.last_fired_dy = d.last_active_point.y - d.tap_down.y + d.dy_offset
             d.listener.onScrollProgress(d.last_fired_dx, d.last_fired_dy, e)
 
+method onTouchCancel*(d: ScrollDetector, e: var Event): bool =
+    for p in 0..< d.pointers.len:
+        if d.pointers[p].pointerId == e.pointerId:
+            d.pointers.delete(p)
+            break
+    if d.pointers.len < 1:
+        result = false
+    d.checkScroll(e)
 
 method onGestEvent*(d: TapGestureDetector, e: var Event) : bool =
     result = true
@@ -247,6 +255,15 @@ method onGestEvent*(d: ZoomGestureDetector, e: var Event) : bool =
         d.last_zoom = dist / d.last_distance
         if not d.listener.isNil:
             d.listener.onZoomProgress(d.lastZoom)
+
+method onTouchCancel*(d: ZoomGestureDetector, e: var Event): bool =
+    for p in 0..< d.pointers.len:
+        if d.pointers[p].pointerId == e.pointerId:
+            d.pointers.delete(p)
+            break
+    if d.pointers.len < 1:
+        result = false
+    d.checkZoom()
 
 proc checkRotate(d : RotateGestureDetector) =
     if d.pointers.len > 1:
@@ -322,7 +339,7 @@ method onGestEvent*(d: FlingGestureDetector, e: var Event) : bool =
 
 # method handleGesEvent*(d: GestureDetector, e: var Event, c: var EventFilterControl) : bool {.base, deprecated.} = discard
 
-# template registerDetector*(d: GestureDetector, ev: var Event): stmt {.immediate, deprecated.} =
+# template registerDetector*(d: GestureDetector, ev: var Event): untyped {.immediate, deprecated.} =
 #     mainApplication().pushEventFilter do(e: var Event, c: var EventFilterControl) -> bool:
 #         if e.kind == etTouch or e.kind == etMouse:
 #             result = d.handleGesEvent(e, c)

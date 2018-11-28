@@ -75,6 +75,13 @@ proc `text=`*(t: FormattedText, s: string) =
     t.mText = s
     t.cacheValid = false
 
+    if t.mAttributes.len > 0:
+        var attr = t.mAttributes[0]
+        attr.startByte = 0
+        attr.startRune = 0
+        t.mAttributes.setLen(0)
+        t.mAttributes.add(attr)
+
 template text*(t: FormattedText): string = t.mText
 
 proc `lineSpacing=`*(t: FormattedText, s: float32) =
@@ -317,6 +324,11 @@ proc setTrackingInRange*(t: FormattedText, a, b: int, v: float32) =
 proc setTextColorInRange*(t: FormattedText, a, b: int, c: Color) =
     for i in t.attrsInRange(a, b):
         t.mAttributes[i].textColor = c
+        t.mAttributes[i].isTextGradient = false
+
+proc setTextAlphaInRange*(t: FormattedText, a, b: int, alpha: float32) =
+    for i in t.attrsInRange(a, b):
+        t.mAttributes[i].textColor.a = alpha
         t.mAttributes[i].isTextGradient = false
 
 proc setTextColorInRange*(t: FormattedText, a, b: int, color1, color2: Color) =

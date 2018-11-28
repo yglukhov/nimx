@@ -436,7 +436,7 @@ proc mainLoopPreload() {.cdecl.} =
             initFunc = nil
             initDone = true
 
-template runApplication*(initCode: typed): stmt =
+template runApplication*(initCode: typed): untyped =
     initFunc = proc() =
         initCode
     emscripten_set_main_loop(mainLoopPreload, 0, 1)

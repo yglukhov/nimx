@@ -482,7 +482,7 @@ proc runUntilQuit(d: AppDelegate) =
 
     # discard quit(evt)
 
-template runApplication*(body: typed): stmt =
+template runApplication*(body: typed): untyped =
     try:
         let appDelegate = AppDelegate.new()
         appDelegate.init = proc() =

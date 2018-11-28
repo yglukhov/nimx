@@ -91,7 +91,7 @@ proc drawNode(v: OutlineView, n: ItemNode, y: var Coord, indexPath: var IndexPat
         const circleRadius = 3
         c.drawEllipseInRect(newRect(offset - circleRadius, y - circleRadius, circleRadius * 2, circleRadius * 2))
 
-    if n.expanded and not n.children.isNil:
+    if n.expanded and n.children.len != 0:
         let lastIndex = indexPath.len
         indexPath.add(0)
         for i, c in n.children:
@@ -101,7 +101,7 @@ proc drawNode(v: OutlineView, n: ItemNode, y: var Coord, indexPath: var IndexPat
 
 method draw*(v: OutlineView, r: Rect) =
     var y = 0.Coord
-    if not v.rootItem.children.isNil:
+    if v.rootItem.children.len != 0:
         v.tempIndexPath.setLen(1)
         for i, c in v.rootItem.children:
             v.tempIndexPath[0] = i
@@ -179,7 +179,7 @@ proc collapseBranch*(v: OutlineView, indexPath: openarray[int]) =
 proc itemAtPos(v: OutlineView, n: ItemNode, p: Point, y: var Coord, indexPath: var IndexPath): ItemNode =
     y += rowHeight
     if p.y < y: return n
-    if n.expanded and not n.children.isNil:
+    if n.expanded and n.children.len != 0:
         let lastIndex = indexPath.len
         indexPath.add(0)
         for i, c in n.children:
@@ -191,20 +191,19 @@ proc itemAtPos(v: OutlineView, n: ItemNode, p: Point, y: var Coord, indexPath: v
 
 proc itemAtPos(v: OutlineView, p: Point, indexPath: var IndexPath, y: var Coord): ItemNode =
     indexPath.setLen(1)
-    if not v.rootItem.children.isNil:
-        for i, c in v.rootItem.children:
-            indexPath[0] = i
-            if c.filtered: continue
-            result = v.itemAtPos(c, p, y, indexPath)
-            if not result.isNil:
-                y -= rowHeight
-                break
+    for i, c in v.rootItem.children:
+        indexPath[0] = i
+        if c.filtered: continue
+        result = v.itemAtPos(c, p, y, indexPath)
+        if not result.isNil:
+            y -= rowHeight
+            break
 
 proc reloadDataForNode(v: OutlineView, n: ItemNode, indexPath: var IndexPath) =
     let childrenCount = v.numberOfChildrenInItem(n.item, indexPath)
-    if childrenCount > 0 and n.children.isNil:
+    if childrenCount > 0 and n.children.len == 0:
         n.children = newSeq[ItemNode](childrenCount)
-    elif not n.children.isNil:
+    elif n.children.len != 0:
         when defined(js):
             let oldLen = n.children.len
         n.children.setLen(childrenCount)

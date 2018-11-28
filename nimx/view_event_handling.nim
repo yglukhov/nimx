@@ -6,6 +6,7 @@ method onKeyDown*(v: View, e: var Event): bool {.base.} = discard
 method onKeyUp*(v: View, e: var Event): bool {.base.} = discard
 method onTextInput*(v: View, s: string): bool {.base.} = discard
 method onGestEvent*(d: GestureDetector, e: var Event) : bool {.base.} = discard
+method onTouchCancel*(d: GestureDetector, e: var Event) : bool {.base.} = discard
 method onScroll*(v: View, e: var Event): bool {.base.} = discard
 
 method name*(v: View): string {.base.} =
@@ -19,6 +20,21 @@ method onTouchEv*(v: View, e: var Event): bool {.base.} =
     if e.buttonState == bsDown:
         if v.acceptsFirstResponder:
             result = v.makeFirstResponder()
+
+method onTouchCancel*(v: View, e: var Event): bool {.base.} =
+    if v.gestureDetectors.len > 0:
+        for d in v.gestureDetectors:
+            let r = d.onTouchCancel(e)
+            result = result or r
+
+proc cancelAllTouches*(v: View) =
+    if not v.window.isNil:
+        for touch, view in v.window.mCurrentTouches:
+            var ev = newEvent(etCancel, pointerId = touch)
+            discard view.onTouchCancel(ev)
+
+        v.window.mCurrentTouches.clear()
+
 
 method onInterceptTouchEv*(v: View, e: var Event): bool {.base.} =
     discard
@@ -164,6 +180,8 @@ proc processTouchEvent*(v: View, e : var Event): bool =
                         else:
                             if not v.isMainWindow(e):
                                 result = v.onTouchEv(e)
+
+            v.window.handleMouseOverEvent(e)
         else:
             if v.isMainWindow(e):
                 v.handleMouseOverEvent(e)

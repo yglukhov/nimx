@@ -338,6 +338,10 @@ template setNeedsLayout*(v: View) =
 method didAddSubview*(v, s: View) {.base.} = discard
 method didRemoveSubview*(v, s: View) {.base.} = discard
 
+proc clearAllTouches*(v: View) =
+    if not v.window.isNil:
+        v.window.mCurrentTouches.clear()
+
 proc removeSubview(v: View, s: View) =
     let i = v.subviews.find(s)
     if i != -1:

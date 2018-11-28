@@ -63,8 +63,9 @@ elif appKit:
         of ckNotAllowed: operationNotAllowedCursor()
         of ckHand: pointingHandCursor()
 
-    proc finalizeCursor(c: Cursor) =
-        cast[NSCursor](c.c).release()
+    proc finalizeCursor(c: Cursor) = discard
+        # if c.isNil: return
+        # cast[NSCursor](c.c).release()
 else:
     proc cursorKindToSdl(c: CursorKind): SystemCursor =
         case c
@@ -91,7 +92,7 @@ proc newCursor*(k: CursorKind): Cursor =
     else:
         result.new(finalizeCursor)
         when appKit:
-            result.c = NSCursorOfKind(k).retain()
+            result.c = NSCursorOfKind(k)#.retain()
         else:
             result.c = createSystemCursor(cursorKindToSdl(k))
 
