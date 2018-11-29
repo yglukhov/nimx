@@ -212,7 +212,6 @@ when not defined(js):
             yield getAppDir() / "res" / face & ".ttf"
             yield getAppDir() /../ "Resources" / face & ".ttf"
             yield getAppDir() / face & ".ttf"
-            yield getCurrentDir() / face & ".ttf"
 
     proc findFontFileForFace(face: string): string =
         for f in potentialFontFilesForFace(face):
@@ -227,8 +226,6 @@ proc getAvailableFonts*(isSystem: bool = false): seq[string] =
         for f in walkFiles(getAppDir() / "res/*.ttf"):
             result.add(splitFile(f).name)
         for f in walkFiles(getAppDir() / "*.ttf"):
-            result.add(splitFile(f).name)
-        for f in walkFiles(getCurrentDir() / "*.ttf"):
             result.add(splitFile(f).name)
 
 proc newFontWithFace*(face: string, size: float): Font =
