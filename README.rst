@@ -15,15 +15,6 @@ Cross-platform GUI framework in `Nim <https://github.com/nim-lang/nim>`_.
 
 .. image:: ./doc/sample-screenshot.png
 
-Quick start
-===========
-
-Installation
-------------
-.. code-block:: sh
-
-    nimble install nimx
-
 Usage
 ------------
 .. code-block:: nim
@@ -54,7 +45,7 @@ Running
 
 Supported target platforms
 ------------
-Nimx officially supports Linux, MacOS, Windows, Android, iOS, Javascript (with Nim JS backend) and Asm.js (with Nim C backend and `Emscripten <http://emscripten.org>`_).
+Nimx officially supports Linux, MacOS, Windows, Android, iOS, Javascript (with Nim JS backend) and Asm.js/WebAssembly (with Nim C backend and `Emscripten <http://emscripten.org>`_).
 
 Troubleshooting
 ------------
