@@ -64,7 +64,9 @@ Running nimx samples
 ====================
 .. code-block:: sh
 
-    cd $(nimble path nimx | tail -n 1)/test
+    git clone https://github.com/yglukhov/nimx
+    cd nimx
+    nimble install -dy
     nake # Build and run on the current platform
     # or
     nake js # Build and run in default web browser
