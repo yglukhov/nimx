@@ -129,7 +129,8 @@ proc findEnvPaths(b: Builder) =
         var error_msg = ""
         ## try find binary for android sdk, ndk, and nim
         if b.platform == "android":
-            var ndk_path, sdk_path: string
+            var ndk_path: string
+            var sdk_path = findExe("adb")
             var nim_path = findExe("nim")
 
             if existsEnv("ANDROID_NDK_HOME"):
@@ -139,15 +140,13 @@ proc findEnvPaths(b: Builder) =
                 if ndk_path.len > 0:
                     ndk_path = replaceInStr(ndk_path, "ndk-stack")
 
-            if existsEnv("ANDROID_HOME") or existsEnv("ANDROID_SDK_HOME"):
+            if sdk_path.len > 0:
+                sdk_path = replaceInStr(sdk_path, "platform")
+            elif existsEnv("ANDROID_HOME") or existsEnv("ANDROID_SDK_HOME"):
                 if existsEnv("ANDROID_HOME"):
                     sdk_path = getEnv("ANDROID_HOME")
                 else:
                     sdk_path = getEnv("ANDROID_SDK_HOME")
-            else:
-                sdk_path = findExe("adb")
-                if sdk_path.len > 0:
-                    sdk_path = replaceInStr(sdk_path, "platform")
 
             if nim_path.len > 0:
                 if symlinkExists(nim_path):
@@ -190,7 +189,7 @@ proc versionCodeWithTime*(t: DateTime): int =
     result = t.minute + t.hour * 100 + t.monthday * 10000 + month * 1000000
 
 proc versionCodeWithTime*(t: Time): int =
-    versionCodeWithTime(getLocalTime(t))
+    versionCodeWithTime(t.local)
 
 proc versionCodeWithTime*(): int =
     versionCodeWithTime(getTime())
