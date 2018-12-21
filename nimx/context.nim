@@ -454,11 +454,14 @@ proc drawBezier*(c: GraphicsContext, p0, p1, p2, p3: Point) =
     gl.vertexAttribPointer(saPosition.GLuint, componentsCount, gl.FLOAT, false, 0, 0)
 
     gl.enable(GL_LINE_SMOOTH)
-    glHint(GL_LINE_SMOOTH_HINT, GL_NICEST)
+    when not defined(js):
+      glHint(GL_LINE_SMOOTH_HINT, GL_NICEST)
 
-    glLineWidth(c.strokeWidth)
+      glLineWidth(c.strokeWidth)
+
     gl.drawArrays(GL_LINE_STRIP, 0.GLint, vertexCount.GLsizei)
-    glLineWidth(1.0)
+    when not defined(js):
+      glLineWidth(1.0)
 
 
 var lineComposition = newComposition """

@@ -1,4 +1,4 @@
-import ospaths, strutils
+import os, strutils
 import abstract_asset_bundle, url_stream
 
 import nimx/pathutils

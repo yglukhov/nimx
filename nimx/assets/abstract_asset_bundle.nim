@@ -1,4 +1,4 @@
-import tables, ospaths
+import tables, os
 import variant
 
 type

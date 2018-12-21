@@ -1,4 +1,4 @@
-import ospaths, os
+import os
 import abstract_asset_bundle
 
 type NativeAssetBundle* = ref object of AssetBundle

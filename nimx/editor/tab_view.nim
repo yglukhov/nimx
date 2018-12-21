@@ -74,8 +74,6 @@ proc updateConfigurationButtonLayout(v: TabView) =
         of TabBarOrientation.right:
             b.setFrameOrigin(newPoint(v.bounds.maxX - 25, v.bounds.maxY - 20))
             b.resizingMask = "lt"
-        else:
-            assert(false)
 
 template tabBarOrientation*(v: TabView): TabBarOrientation = v.mTabBarOrientation
 proc `tabBarOrientation=`*(v: TabView, o: TabBarOrientation) =

@@ -1,4 +1,4 @@
-import strutils
+import strutils, os
 import system_logger
 import streams
 import json
@@ -11,14 +11,11 @@ import typetraits
 {.deprecated.} # this file is deprecated. Use the nimx/assets stuff instead.
 
 when defined(js) or defined(emscripten):
-    import ospaths
-
     # Deprecated stuff
     import nimx/assets/web_asset_bundle
     export web_asset_bundle/resourceUrlMapper
     export web_asset_bundle/urlForResourcePath
 else:
-    import os
     when defined(android):
         import sdl2
 

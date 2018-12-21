@@ -1,4 +1,4 @@
-import strutils, ospaths, parseutils
+import strutils, os, parseutils
 
 proc relativePathToPath*(path, toPath: string): string =
     # Returns a relative path to `toPath` which is equivalent of absolute `path`

@@ -1,4 +1,4 @@
-import tables, ospaths, streams, variant, logging
+import tables, os, streams, variant, logging
 import asset_cache, url_stream
 
 type UrlLoaderProc* = proc(url, path: string, cache: AssetCache, handler: proc())
