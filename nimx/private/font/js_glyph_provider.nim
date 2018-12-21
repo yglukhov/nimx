@@ -104,7 +104,7 @@ proc bakeChars*(p: JsGlyphProvider, start: int32, data: var GlyphData) =
     var ctx = `canvas`.__nimx_ctx;
     """.}
 
-    for i in startChar .. < endChar:
+    for i in startChar ..< endChar:
         if isPrintableCodePoint(i):
             var w: int32
             {.emit: """
@@ -135,7 +135,7 @@ proc bakeChars*(p: JsGlyphProvider, start: int32, data: var GlyphData) =
     ctx.font = `fName`;
     """
 
-    for i in startChar .. < endChar:
+    for i in startChar ..< endChar:
         let indexOfGlyphInRange = i - startChar
         data.dfDoneForGlyph[indexOfGlyphInRange] = true
         if isPrintableCodePoint(i) and i != ord(' '):

@@ -19,12 +19,12 @@ type WebAssetBundle* = ref object of AssetBundle
 proc newWebAssetBundle*(): WebAssetBundle =
     result.new()
     result.mHref = getCurrentHref().parentDir()
-    result.mBaseUrl = result.mHref / "res"
+    result.mBaseUrl = result.mHref & "/res"
 
 method urlForPath*(ab: WebAssetBundle, path: string): string =
     if resourceUrlMapper.isNil:
-        result = ab.mBaseUrl / path
+        result = ab.mBaseUrl & "/" & path
     else:
-        result = resourceUrlMapper("res" / path)
+        result = resourceUrlMapper("res/" & path)
         if not result.startsWith("http"):
-            result = ab.mHref / result
+            result = ab.mHref & "/" & result
