@@ -5,6 +5,7 @@ beforeBuild = proc(b: Builder) =
     b.disableClosureCompiler = false
     b.mainFile = "test/main"
     b.originalResourcePath = "test/res"
+    b.screenOrientation = "sensorLandscape"
 
 task "samples", "Build and run samples":
     newBuilder().build()
