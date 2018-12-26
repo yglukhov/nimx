@@ -1,10 +1,10 @@
 import times, json, math
 
-import view, panel_view, context, undo_manager, toolbar, button, menu, resource
-import inspector_panel
+import nimx / [ view, panel_view, context, undo_manager, toolbar, button, menu, resource]
+import nimx / inspector_panel
 
-import gesture_detector
-import window_event_handling
+import nimx / gesture_detector
+import nimx / [ window_event_handling, event, view_event_handling ]
 
 import nimx/property_editors/autoresizing_mask_editor # Imported here to be registered in the propedit registry
 import nimx/serializers
@@ -47,7 +47,8 @@ type
 
 proc `selectedView=`(e: Editor, v: View) =
     e.mSelectedView = v
-    e.inspector.setInspectedObject(v)
+    if not v.isNil:
+        e.inspector.setInspectedObject(v)
 
 template selectedView(e: Editor): View = e.mSelectedView
 

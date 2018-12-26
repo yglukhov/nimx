@@ -11,7 +11,7 @@ const savingAndLoadingEnabled* = not defined(js) and not defined(emscripten) and
 const ViewPboardKind* = "io.github.yglukhov.nimx"
 
 when savingAndLoadingEnabled:
-    import native_dialogs
+    import os_files / dialog
 
 type UIDocument* = ref object
     view*: View
@@ -24,10 +24,15 @@ proc newUIDocument*(): UIDocument =
 
 when savingAndLoadingEnabled:
     proc save*(d: UIDocument) =
-        if d.path.isNil:
-            d.path = callDialogFileSave("Save")
+        if d.path.len == 0:
+            var di: DialogInfo
+            di.extension = "nimx"
+            di.kind = dkSaveFile
+            di.filters = @[(name:"Nimx", ext:"*.nimx")]
+            di.title = "Save document"
+            d.path = di.show()
 
-        if not d.path.isNil:
+        if d.path.len > 0:
             let s = newJsonSerializer()
             pushParentResource(d.path)
             s.serialize(d.view)
@@ -35,14 +40,20 @@ when savingAndLoadingEnabled:
             writeFile(d.path, $s.jsonNode())
 
     proc saveAs*(d: UIDocument) =
-        let path = callDialogFileSave("Save")
-        if not path.isNil:
+        var di: DialogInfo
+        di.extension = "nimx"
+        di.kind = dkSaveFile
+        di.filters = @[(name:"Nimx", ext:"*.nimx")]
+        di.title = "Save document as"
+
+        var path = di.show()
+        if path.len > 0:
             d.path = path
             d.save()
 
     proc loadFromPath*(d: UIDocument, path: string) =
         d.path = path
-        if not d.path.isNil:
+        if d.path.len > 0:
             let j = try: parseFile(path) except: nil
             if not j.isNil:
                 let superview = d.view.superview
@@ -57,6 +68,12 @@ when savingAndLoadingEnabled:
                     superview.addSubview(d.view)
 
     proc open*(d: UIDocument) =
-        let path = callDialogFileOpen("Open")
-        if not path.isNil:
+        var di: DialogInfo
+        di.extension = "nimx"
+        di.kind = dkOpenFile
+        di.filters = @[(name:"Nimx", ext:"*.nimx")]
+        di.title = "Open document"
+
+        var path = di.show()
+        if path.len > 0:
             d.loadFromPath(path)
