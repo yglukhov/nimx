@@ -142,11 +142,13 @@ proc findEnvPaths(b: Builder) =
 
             if sdk_path.len > 0:
                 sdk_path = replaceInStr(sdk_path, "platform")
-            elif existsEnv("ANDROID_HOME") or existsEnv("ANDROID_SDK_HOME"):
-                if existsEnv("ANDROID_HOME"):
-                    sdk_path = getEnv("ANDROID_HOME")
-                else:
-                    sdk_path = getEnv("ANDROID_SDK_HOME")
+
+            if sdk_path.len == 0:
+              if existsEnv("ANDROID_HOME") or existsEnv("ANDROID_SDK_HOME"):
+                  if existsEnv("ANDROID_HOME"):
+                      sdk_path = getEnv("ANDROID_HOME")
+                  else:
+                      sdk_path = getEnv("ANDROID_SDK_HOME")
 
             if nim_path.len > 0:
                 if symlinkExists(nim_path):
@@ -384,13 +386,6 @@ proc makeWindowsResource(b: Builder) =
     if createResource:
         b.additionalLinkerFlags.add(absPath(rcO))
 
-proc trySymLink(src, dest: string) =
-    try:
-        createSymlink(expandTilde(src), dest)
-    except:
-        echo "ERROR: Could not create symlink from ", src, " to ", dest
-        discard
-
 proc runAppInSimulator(b: Builder) =
     var waitForDebugger = "--wait-for-debugger"
     waitForDebugger = ""
@@ -450,7 +445,7 @@ proc buildSDLForIOS(b: Builder, forSimulator: bool = false): string =
 proc makeAndroidBuildDir(b: Builder): string =
     let buildDir = b.buildRoot / b.javaPackageId
     if not dirExists buildDir:
-        let nimxTemplateDir = nimbleNimxPath() / "test" / "android/template"
+        let nimxTemplateDir = nimbleNimxPath() / "assets" / "android/template"
         let sdlDefaultAndroidProjectTemplate =  b.sdlRoot/"android-project"
         createDir(buildDir)
         copyDirWithPermissions(nimxTemplateDir, buildDir)
@@ -459,12 +454,8 @@ proc makeAndroidBuildDir(b: Builder): string =
         let sdlJni = buildDir/"jni"/"SDL"
         createDir(sdlJni)
 
-        when defined(windows):
-            copyDir b.sdlRoot/"src", sdlJni/"src"
-            copyDir b.sdlRoot/"include", sdlJni/"include"
-        else:
-            trySymLink(b.sdlRoot/"src", sdlJni/"src")
-            trySymLink(b.sdlRoot/"include", sdlJni/"include")
+        copyDir b.sdlRoot/"src", sdlJni/"src"
+        copyDir b.sdlRoot/"include", sdlJni/"include"
 
         let sdlmk = sdlJni/"Android.mk"
         copyFile(b.sdlRoot/"Android.mk", sdlmk)
@@ -557,7 +548,7 @@ proc postprocessWebTarget(b: Builder) =
     let sf = splitFile(b.mainFile)
     var mainHTML = sf.dir / sf.name & ".html"
     if not fileExists(mainHTML):
-        mainHTML = nimbleNimxPath() / "test" / "main.html"
+        mainHTML = nimbleNimxPath() / "assets" / "main.html"
     copyFile(mainHTML, b.buildRoot / "main.html")
     if b.runAfterBuild:
         let settings = newSettings(staticDir = b.buildRoot)
