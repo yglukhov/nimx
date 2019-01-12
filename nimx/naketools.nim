@@ -131,7 +131,7 @@ proc findEnvPaths(b: Builder) =
         if b.platform == "android":
             var ndk_path: string
             var sdk_path = findExe("adb")
-            var nim_path = findExe("nim")
+            var nim_path = ""
 
             if existsEnv("ANDROID_NDK_HOME"):
                 ndk_path = getEnv("ANDROID_NDK_HOME")
@@ -150,12 +150,14 @@ proc findEnvPaths(b: Builder) =
                   else:
                       sdk_path = getEnv("ANDROID_SDK_HOME")
 
-            if nim_path.len > 0:
+            nim_path = getEnv("NIM_HOME")
+            if nim_path.len == 0:
+                nim_path = findExe("nim")
                 if symlinkExists(nim_path):
                     nim_path = expandSymlink(nim_path)
                 nim_path = replaceInStr(nim_path, "bin", "/lib")
-            elif existsEnv("NIM_HOME"):
-                nim_path = getEnv("NIM_HOME")
+                if not fileExists(nim_path / "nimbase.h"):
+                  nim_path = ""
 
             when not defined(windows):
                 if ndk_path.len == 0:
