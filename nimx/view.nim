@@ -601,4 +601,34 @@ method deserializeFields*(v: View, s: Deserializer) =
     s.deserialize("arMask", v.autoresizingMask)
     s.deserialize("color", v.backgroundColor)
 
+proc isLastInTreeBranch(d: View): bool =
+    d.superview.subviews[^1] == d
+
+proc dump(d, root: View, indent, output: var string, printer: proc(v: View): string) =
+    let oldIndentLen = indent.len
+    if d != root:
+        var p = d.superview
+        if p != root:
+            indent &= (if p.isLastInTreeBranch(): "   " else: "│  ")
+
+        output &= indent
+        output &= (if d.isLastInTreeBranch(): "└─ " else: "├─ ")
+
+    output &= printer(d)
+    output &= '\n'
+
+    for c in d.subviews:
+        dump(c, root, indent, output, printer)
+
+    indent.setLen(oldIndentLen)
+
+proc dump*(v: View, printer: proc(v: View): string): string =
+    var indent = newStringOfCap(256)
+    result = newStringOfCap(2048)
+    v.dump(v, indent, result, printer)
+
+proc dump*(v: View): string =
+    v.dump() do(v: View) -> string:
+        v.className
+
 registerClass(View)
