@@ -8,7 +8,7 @@ use-case layout definitions. Here's an example:
 import nimx / [ window, button, layout ]
 
 let w = newWindow(newRect(50, 50, 400, 200))
-let margin = 5
+let margin = 5.0
 
 w.makeLayout:
     - Button:
