@@ -1,5 +1,4 @@
 import json
-
 type Serializer* = ref object of RootObj
     curKey*: string
 
@@ -8,25 +7,35 @@ template abstractCall() = raise newException(Exception, "Abstract method called"
 # Methods to override
 method serializeNil*(s: Serializer) {.base.} = abstractCall()
 method serialize*(s: Serializer, v: bool) {.base.} = abstractCall()
-method serialize*(s: Serializer, v: int32) {.base.} = abstractCall()
-method serialize*(s: Serializer, v: int64) {.base.} = abstractCall()
-method serialize*(s: Serializer, v: float32) {.base.} = abstractCall()
-method serialize*(s: Serializer, v: float64) {.base.} = abstractCall()
+
+method serialize(s: Serializer, v: int8) {.base.} = abstractCall()
+method serialize(s: Serializer, v: int16) {.base.} = abstractCall()
+method serialize(s: Serializer, v: int32) {.base.} = abstractCall()
+method serialize(s: Serializer, v: int64) {.base.} = abstractCall()
+
+method serialize(s: Serializer, v: uint8) {.base.} = abstractCall()
+method serialize(s: Serializer, v: uint16) {.base.} = abstractCall()
+method serialize(s: Serializer, v: uint32) {.base.} = abstractCall()
+method serialize(s: Serializer, v: uint64) {.base.} = abstractCall()
+
+method serialize(s: Serializer, v: float32) {.base.} = abstractCall()
+method serialize(s: Serializer, v: float64) {.base.} = abstractCall()
+
 method serialize*(s: Serializer, v: string) {.base.} = abstractCall()
 
 method beginObject*(s: Serializer) {.base.} = abstractCall()
 method beginArray*(s: Serializer) {.base.} = abstractCall()
 method endObjectOrArray*(s: Serializer) {.base.} = abstractCall()
 
-proc serialize*[T](s: Serializer, k: string, v: T) {.inline.} =
-    s.curKey = k
-    s.serialize(v)
-
 template serialize*(s: Serializer, v: int) =
     when sizeof(int) <= 4:
         s.serialize(int32(v))
     else:
         s.serialize(int64(v))
+
+proc serialize*[T](s: Serializer, k: string, v: T) {.inline.} =
+    s.curKey = k
+    s.serialize(v)
 
 method serializeFields*(o: RootRef, s: Serializer) {.base.} = discard
 
@@ -82,10 +91,20 @@ type Deserializer* = ref object of RootObj
 
 # Methods to override
 method deserialize*(s: Deserializer, v: var bool) {.base.} = abstractCall()
-method deserialize*(s: Deserializer, v: var int32) {.base.} = abstractCall()
-method deserialize*(s: Deserializer, v: var int64) {.base.} = abstractCall()
-method deserialize*(s: Deserializer, v: var float32) {.base.} = abstractCall()
-method deserialize*(s: Deserializer, v: var float64) {.base.} = abstractCall()
+
+method deserialize(s: Deserializer, v: var int8) {.base.} = abstractCall()
+method deserialize(s: Deserializer, v: var int16) {.base.} = abstractCall()
+method deserialize(s: Deserializer, v: var int32) {.base.} = abstractCall()
+method deserialize(s: Deserializer, v: var int64) {.base.} = abstractCall()
+
+method deserialize(s: Deserializer, v: var uint8) {.base.} = abstractCall()
+method deserialize(s: Deserializer, v: var uint16) {.base.} = abstractCall()
+method deserialize(s: Deserializer, v: var uint32) {.base.} = abstractCall()
+method deserialize(s: Deserializer, v: var uint64) {.base.} = abstractCall()
+
+method deserialize(s: Deserializer, v: var float32) {.base.} = abstractCall()
+method deserialize(s: Deserializer, v: var float64) {.base.} = abstractCall()
+
 method deserialize*(s: Deserializer, v: var string) {.base.} = abstractCall()
 
 method beginObject*(s: Deserializer) {.base.} = abstractCall()
@@ -192,10 +211,20 @@ proc pushJsonNode(s: JsonSerializer, n: JsonNode) =
 
 method serializeNil*(s: JsonSerializer) = s.serializeJsonNode(newJNull())
 method serialize(s: JsonSerializer, v: bool) = s.serializeJsonNode(%v)
+
+method serialize(s: JsonSerializer, v: int8) = s.serializeJsonNode(%v)
+method serialize(s: JsonSerializer, v: int16) = s.serializeJsonNode(%v)
 method serialize(s: JsonSerializer, v: int32) = s.serializeJsonNode(%v)
 method serialize(s: JsonSerializer, v: int64) = s.serializeJsonNode(%v)
+
+method serialize(s: JsonSerializer, v: uint8) = s.serializeJsonNode(%(v.int8))
+method serialize(s: JsonSerializer, v: uint16) = s.serializeJsonNode(%(v.int16))
+method serialize(s: JsonSerializer, v: uint32) = s.serializeJsonNode(%(v.int32))
+method serialize(s: JsonSerializer, v: uint64) = s.serializeJsonNode(%(v.int64))
+
 method serialize(s: JsonSerializer, v: float32) = s.serializeJsonNode(%v)
 method serialize(s: JsonSerializer, v: float64) = s.serializeJsonNode(%v)
+
 method serialize(s: JsonSerializer, v: string) = s.serializeJsonNode(%v)
 
 method beginObject*(s: JsonSerializer) = s.pushJsonNode(newJObject())
@@ -237,11 +266,29 @@ proc pushJsonNode(s: JsonDeserializer) =
         s.nodeStack.add(n)
 
 method deserialize(s: JsonDeserializer, v: var bool) = v = s.deserializeJsonNode().getBool()
-method deserialize(s: JsonDeserializer, v: var int32) = v = int32(s.deserializeJsonNode().getInt())
-method deserialize(s: JsonDeserializer, v: var int64) = v = int64(s.deserializeJsonNode().getInt())
 
-method deserialize(s: JsonDeserializer, v: var float32) = v = s.deserializeJsonNode().getFloat()
-method deserialize(s: JsonDeserializer, v: var float64) = v = s.deserializeJsonNode().getFloat()
+method deserialize(s: JsonDeserializer, v: var int8) =
+    v = s.deserializeJsonNode.getInt().int8
+method deserialize(s: JsonDeserializer, v: var int16) =
+    v = s.deserializeJsonNode.getInt().int16
+method deserialize(s: JsonDeserializer, v: var int32) =
+    v = s.deserializeJsonNode.getint().int32
+method deserialize(s: JsonDeserializer, v: var int64) =
+    v = s.deserializeJsonNode.getBiggestInt().int64
+
+method deserialize(s: JsonDeserializer, v: var uint8) =
+    v = s.deserializeJsonNode.getint().uint8
+method deserialize(s: JsonDeserializer, v: var uint16) =
+    v = s.deserializeJsonNode.getInt().uint16
+method deserialize(s: JsonDeserializer, v: var uint32) =
+    v = s.deserializeJsonNode.getInt().uint32
+method deserialize(s: JsonDeserializer, v: var uint64) =
+    v = s.deserializeJsonNode.getBiggestInt().uint64
+
+method deserialize(s: JsonDeserializer, v: var float32) =
+    v = s.deserializeJsonNode.getFNum().float32
+method deserialize(s: JsonDeserializer, v: var float64) =
+    v = s.deserializeJsonNode.getFNum().float64
 
 method deserialize(s: JsonDeserializer, v: var string) =
     let n = s.deserializeJsonNode()

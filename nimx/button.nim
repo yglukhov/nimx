@@ -3,6 +3,8 @@ import view_event_handling
 
 import property_visitor, serializers
 
+import nimx / meta_extensions / [ property_desc, visitors_gen, serializers_gen ]
+
 export control
 
 const selectionColor = newColor(0.40, 0.59, 0.95)
@@ -35,6 +37,20 @@ type
 
     Checkbox* = ref object of Button
     Radiobox* = ref object of Button
+
+Button.properties:
+    title
+    style
+    behavior
+    hasBezel
+    enabled
+    value
+    state
+    imageMarginBottom
+    imageMarginTop
+    imageMarginRight
+    imageMarginLeft
+    image
 
 proc newButton*(r: Rect): Button =
     result.new()
@@ -310,51 +326,18 @@ method onTouchEv*(b: Button, e: var Event): bool =
     of bbToggle:
         result = b.handleToggleTouchEv(e)
 
-method visitProperties*(v: Button, pv: var PropertyVisitor) =
-    procCall v.Control.visitProperties(pv)
-    pv.visitProperty("title", v.title)
-    pv.visitProperty("state", v.state)
-    pv.visitProperty("style", v.style)
-    pv.visitProperty("enabled", v.enabled)
-    pv.visitProperty("hasBezel", v.hasBezel)
-    pv.visitProperty("behavior", v.behavior)
-    pv.visitProperty("image", v.image)
-    pv.visitProperty("marginLeft", v.imageMarginLeft)
-    pv.visitProperty("marginRight", v.imageMarginRight)
-    pv.visitProperty("marginTop", v.imageMarginTop)
-    pv.visitProperty("marginBottom", v.imageMarginBottom)
-
-method serializeFields*(v: Button, s: Serializer) =
-    procCall v.Control.serializeFields(s)
-    s.serialize("title", v.title)
-    s.serialize("state", v.state)
-    s.serialize("style", v.style)
-    s.serialize("enabled", v.enabled)
-    s.serialize("hasBezel", v.hasBezel)
-    s.serialize("behavior", v.behavior)
-    let imagePath = if v.image.isNil: "" else: v.image.filePath
-    s.serialize("image", imagePath)
-    s.serialize("marginLeft", v.imageMarginLeft)
-    s.serialize("marginRight", v.imageMarginRight)
-    s.serialize("marginTop", v.imageMarginTop)
-    s.serialize("marginBottom", v.imageMarginBottom)
-
-
-method deserializeFields*(v: Button, s: Deserializer) =
-    procCall v.Control.deserializeFields(s)
-    s.deserialize("title", v.title)
-    s.deserialize("state", v.state)
-    s.deserialize("style", v.style)
-    s.deserialize("enabled", v.enabled)
-    s.deserialize("hasBezel", v.hasBezel)
-    s.deserialize("behavior", v.behavior)
-    var imgName : string
-    s.deserialize("image", imgName)
-    if imgName.len != 0:
-        v.image = imageWithResource(imgName)
-    s.deserialize("marginLeft", v.imageMarginLeft)
-    s.deserialize("marginRight", v.imageMarginRight)
-    s.deserialize("marginTop", v.imageMarginTop)
-    s.deserialize("marginBottom", v.imageMarginBottom)
-
 registerClass(Button)
+
+const checkBox = proc(): RootRef= newCheckbox(zeroRect)
+registerClass(Checkbox, checkBox)
+
+const radiButton = proc(): RootRef = newRadiobox(zeroRect)
+registerClass(Radiobox, radiButton)
+
+genVisitorCodeForView(Button)
+genVisitorCodeForView(Checkbox)
+genVisitorCodeForView(Radiobox)
+
+genSerializeCodeForView(Button)
+genSerializeCodeForView(Checkbox)
+genSerializeCodeForView(Radiobox)

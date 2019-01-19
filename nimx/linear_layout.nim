@@ -1,6 +1,8 @@
 import nimx / [ view, cursor, view_event_handling, view_dragging_listener ]
 export view
 
+import nimx / meta_extensions / [ property_desc, visitors_gen, serializers_gen ]
+
 type
     LinearLayout* = ref object of View
         mPadding: Coord
@@ -248,3 +250,18 @@ method replaceSubview*(v: LinearLayout, s, withView: View) =
     let pos = v.dividerPositions
     procCall v.View.replaceSubview(s, withView)
     v.dividerPositions = pos
+
+LinearLayout.properties:
+    mPadding
+    mTopMargin
+    mBottomMargin
+    mRightMargin
+    mLeftMargin
+    mHorizontal
+    mUserResizeable
+    hoveredDivider
+    initialDragPos
+
+registerClass(LinearLayout)
+genVisitorCodeForView(LinearLayout)
+genSerializeCodeForView(LinearLayout)

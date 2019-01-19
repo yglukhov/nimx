@@ -3,6 +3,7 @@ import types, portable_gl, mini_profiler, system_logger
 import opengl
 
 import nimx / assets / [ asset_loading, url_stream, asset_manager ]
+import nimx / serializers
 
 const web = defined(js) or defined(emscripten)
 
@@ -203,6 +204,18 @@ method isLoaded*(i: FixedTexCoordSpriteImage): bool = i.spriteSheet.isLoaded
 
 method getTextureQuad*(i: Image, gl: GL, texCoords: var array[4, GLfloat]): TextureRef {.base.} =
     raise newException(Exception, "Abstract method called!")
+
+method serialize*(s: Serializer, v: Image) =
+    var path = ""
+    if v of SelfContainedImage:
+        path = v.SelfContainedImage.mFilePath
+    s.serialize("imagePath", path)
+
+method deserialize*(s: Deserializer, v: var Image) =
+    var imagePath: string
+    s.deserialize("imagePath", imagePath)
+    if imagePath.len > 0:
+        v = imageWithResource(imagePath)
 
 when defined(js):
     proc initWithJSImage(i: SelfContainedImage, gl: GL, jsImg: RootRef) =

@@ -15,6 +15,8 @@ import view_dragging_listener
 import button
 import app
 
+import nimx / meta_extensions / [ property_desc, visitors_gen, serializers_gen ]
+
 const
     margin = 6
 
@@ -517,3 +519,68 @@ proc popupAtPoint*(c: ColorPickerView, v: View, p: Point) =
     c.removeFromSuperview()
     c.setFrameOrigin(v.convertPointToWindow(p))
     v.window.addSubview(c)
+
+
+#[
+    type
+    ColorPickerPalette* {.pure.} = enum
+        HSV
+
+    ColorComponent* {.pure.} = enum
+        H
+        S
+        V
+
+    ColorView* = ref object of View
+        ## Color quad that reacts to outer world
+        main: bool    ## Defines if view is main or from history
+
+    ColorPickerCircle* = ref object of View
+        radius: Coord
+        palette: ColorPickerPalette
+
+    ColorPickerH* = ref object of View
+        ## Hue tuning widget
+
+    ColorPickerS* = ref object of View
+        ## Saturation tuning widget
+
+    ColorPickerV* = ref object of View
+        ## Value tuning widget
+
+    ColorComponentTextField = ref object of TextField
+        cComponent: ColorComponent
+
+    ColorPickerView* = ref object of View
+        ## Complex Widget that allows to pick color using HSV palette
+        palette:         ColorPickerPalette  ## Palette (RGB, HSV, HSL, etc.)
+        colorHistory:    seq[ColorView]      ## History of chosen colors
+        lastInHistory:   int                 ## Last item index added to history
+
+        currentColor: tuple[h: float, s: float, v: float]
+        circle*:         ColorPickerCircle   ## Color picking circle
+        paletteChooser:  PopupButton         ## Palette choser popup
+        chosenColorView: View                ## Quad that shows current color
+
+        cpH: ColorPickerH                    ## Hue tuning widget
+        cpS: ColorPickerS                    ## Saturation tuning widget
+        cpV: ColorPickerV                    ## Value tuning widget
+
+        tfH: TextField                       ## Hue numerical widget
+        tfS: TextField                       ## Saturation numerical widget
+        tfV: TextField                       ## Value numerical widget
+
+        # Graphics metrics
+        rightMargin:     Coord               ## Circle offset (layout-helper)
+
+        # Callbacks
+        onColorSelected*: proc(c: Color)
+]#
+
+ColorPickerView.properties:
+    rightMargin
+
+const colorCreat = proc(): RootRef = newColorPickerView(zeroRect)
+registerClass(ColorPickerView, colorCreat)
+genVisitorCodeForView(ColorPickerView)
+genSerializeCodeForView(ColorPickerView)
