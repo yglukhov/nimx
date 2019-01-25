@@ -215,7 +215,10 @@ method deserialize*(s: Deserializer, v: var Image) =
     var imagePath: string
     s.deserialize("imagePath", imagePath)
     if imagePath.len > 0:
-        v = imageWithResource(imagePath)
+        when not web:
+            v = imageWithContentsOfFile(imagePath)
+        else:
+            v = imageWithResource(imagePath)
 
 when defined(js):
     proc initWithJSImage(i: SelfContainedImage, gl: GL, jsImg: RootRef) =

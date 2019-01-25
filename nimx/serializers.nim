@@ -111,10 +111,6 @@ method beginObject*(s: Deserializer) {.base.} = abstractCall()
 method beginArray*(s: Deserializer): int {.base.} = -1
 method endObjectOrArray*(s: Deserializer) {.base.} = abstractCall()
 
-proc deserialize*[T](s: Deserializer, k: string, v: var T) {.inline.} =
-    s.curKey = k
-    s.deserialize(v)
-
 template deserialize*(s: Deserializer, v: var int) =
     when sizeof(int) <= 4:
         var t: int32
@@ -124,6 +120,15 @@ template deserialize*(s: Deserializer, v: var int) =
         var t: int64
         s.deserialize(t)
         v = int(t)
+
+template deserialize*(s: Deserializer, k: string,  v: untyped) =
+    var desv: type(v)
+    s.deserialize(k, desv)
+    v = desv
+
+proc deserialize*[T](s: Deserializer, k: string, v: var T) {.inline.} =
+    s.curKey = k
+    s.deserialize(v)
 
 method deserializeFields*(o: RootRef, s: Deserializer) {.base.} = discard
 
@@ -265,7 +270,8 @@ proc pushJsonNode(s: JsonDeserializer) =
         let n = s.deserializeJsonNode()
         s.nodeStack.add(n)
 
-method deserialize(s: JsonDeserializer, v: var bool) = v = s.deserializeJsonNode().getBool()
+method deserialize(s: JsonDeserializer, v: var bool) =
+    v = s.deserializeJsonNode().getBool()
 
 method deserialize(s: JsonDeserializer, v: var int8) =
     v = s.deserializeJsonNode.getInt().int8
@@ -277,6 +283,7 @@ method deserialize(s: JsonDeserializer, v: var int64) =
     v = s.deserializeJsonNode.getBiggestInt().int64
 
 method deserialize(s: JsonDeserializer, v: var uint8) =
+
     v = s.deserializeJsonNode.getint().uint8
 method deserialize(s: JsonDeserializer, v: var uint16) =
     v = s.deserializeJsonNode.getInt().uint16
@@ -335,7 +342,7 @@ when isMainModule:
     o.o = newMyObj(5)
     o.o.children.add(newMyObj(3))
     o.o.children.add(newMyObj(4))
-    o.o.children = nil
+    o.o.children = @[]
 
     o.o.yo = 5
 
