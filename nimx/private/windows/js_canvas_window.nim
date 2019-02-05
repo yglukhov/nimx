@@ -104,6 +104,8 @@ proc setupWebGL() =
     """.}
 
     proc onkey(evt: dom.Event) =
+        when declared(KeyboardEvent):
+          let evt = cast[KeyboardEvent](evt)
         var wnd : JSCanvasWindow
         var repeat = false
         let bs = buttonStateFromKeyEvent(evt)
@@ -137,6 +139,8 @@ proc setupWebGL() =
 setupWebGL()
 
 proc buttonCodeFromJSEvent(e: dom.Event): VirtualKey =
+    when declared(MouseEvent):
+      let e = cast[MouseEvent](e)
     case e.button:
         of 1: VirtualKey.MouseButtonPrimary
         of 2: VirtualKey.MouseButtonSecondary
@@ -150,6 +154,8 @@ proc eventLocationFromJSEvent(e: dom.Event, c: Element): Point =
     `offx` = r.left;
     `offy` = r.top;
     """.}
+    when declared(MouseEvent):
+      let e = cast[MouseEvent](e)
     result.x = e.clientX.Coord - offx
     result.y = e.clientY.Coord - offy
 
