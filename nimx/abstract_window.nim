@@ -58,7 +58,7 @@ proc shouldUseConstraintSystem(w: Window): bool {.inline.} =
     # its edit variables.
     w.layoutSolver.constraintsCount > 4
 
-proc updateLayout*(w: Window) =
+proc updateWindowLayout*(w: Window) =
     w.needsLayout = false
     if w.shouldUseConstraintSystem:
         w.layoutSolver.updateVariables()
@@ -72,13 +72,13 @@ method onResize*(w: Window, newSize: Size) {.base.} =
     if w.shouldUseConstraintSystem:
         w.layoutSolver.suggestValue(w.layout.vars.width, newSize.width)
         w.layoutSolver.suggestValue(w.layout.vars.height, newSize.height)
-        w.updateLayout()
+        w.updateWindowLayout()
     else:
         procCall w.View.setFrameSize(newSize)
 
 method drawWindow*(w: Window) {.base.} =
     if w.needsLayout:
-        w.updateLayout()
+        w.updateWindowLayout()
 
     w.needsDisplay = false
 

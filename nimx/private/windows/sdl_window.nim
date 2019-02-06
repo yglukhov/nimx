@@ -12,12 +12,12 @@ proc initSDLIfNeeded() =
     var sdlInitialized {.global.} = false
     if not sdlInitialized:
         if sdl2.init(INIT_VIDEO) != SdlSuccess:
-            logi "Error: sdl2.init(INIT_VIDEO): ", getError()
+            error "sdl2.init(INIT_VIDEO): ", getError()
 
         sdlInitialized = true
 
         if glSetAttribute(SDL_GL_STENCIL_SIZE, 8) != 0:
-            logi "Error: could not set stencil size: ", getError()
+            error "could not set stencil size: ", getError()
 
         when defined(ios) or defined(android):
             if glSetAttribute(SDL_GL_RED_SIZE, 8) == 0 and
@@ -86,7 +86,7 @@ var defaultWindow: SdlWindow
 
 proc initCommon(w: SdlWindow) =
     if w.impl == nil:
-        logi "Could not create window!"
+        error "Could not create window!"
         quit 1
     if defaultWindow.isNil:
         defaultWindow = w
@@ -94,7 +94,7 @@ proc initCommon(w: SdlWindow) =
     discard glSetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 1)
     w.sdlGlContext = w.impl.glCreateContext()
     if w.sdlGlContext == nil:
-        logi "Could not create context!"
+        error "Could not create context!"
     discard glMakeCurrent(w.impl, w.sdlGlContext)
     w.renderingContext = newGraphicsContext()
 
@@ -123,6 +123,10 @@ proc initSdlWindow(w: SdlWindow, r: view.Rect)=
 method init*(w: SdlWindow, r: view.Rect) =
     w.initSdlWindow(r)
 
+    var rx, ry, rw, rh: cint
+    w.impl.getPosition(rx, ry)
+    w.impl.getSize(rw, rh)
+    let r = newRect(rx.float32, ry.float32, rw.float32, rh.float32)
     procCall w.Window.init(r)
     w.onResize(r.size)
 
@@ -269,7 +273,6 @@ proc eventWithSDLEvent(event: ptr sdl2.Event): Event =
         of MouseMotion:
             let mouseEv = cast[MouseMotionEventPtr](event)
             if mouseEv.which != SDL_TOUCH_MOUSEID:
-                #logi("which: " & $mouseEv.which)
                 let wnd = windowFromSDLEvent(mouseEv)
                 if wnd != nil:
                     let pos = positionFromSDLEvent(mouseEv)
@@ -316,7 +319,7 @@ proc eventWithSDLEvent(event: ptr sdl2.Event): Event =
             result = newEvent(etAppWillEnterForeground)
 
         else:
-            #echo "Unknown event: ", event.kind
+            info "Unknown event: ", event.kind
             discard
 
 proc handleEvent(event: ptr sdl2.Event): Bool32 =
@@ -324,7 +327,7 @@ proc handleEvent(event: ptr sdl2.Event): Bool32 =
         let evt = cast[UserEventPtr](event)
         let p = cast[proc (data: pointer) {.cdecl.}](evt.data1)
         if p.isNil:
-            logi "WARNING: UserEvent5 with nil proc"
+            warn "UserEvent5 with nil proc"
         else:
             p(evt.data2)
     else:
