@@ -1,0 +1,106 @@
+{
+    "_c": "View",
+    "name": "",
+    "frame": {
+        "origin": {
+            "x": 0,
+            "y": 0
+        },
+        "size": {
+            "width": 1200,
+            "height": 600
+        }
+    },
+    "bounds": {
+        "origin": {
+            "x": 0,
+            "y": 0
+        },
+        "size": {
+            "width": 1200,
+            "height": 600
+        }
+    },
+    "subviews": [
+        {
+            "_c": "View",
+            "name": "background",
+            "frame": {
+                "origin": {
+                    "x": 0,
+                    "y": 74
+                },
+                "size": {
+                    "width": 1211,
+                    "height": 500
+                }
+            },
+            "bounds": {
+                "origin": {
+                    "x": 0,
+                    "y": 0
+                },
+                "size": {
+                    "width": 1211,
+                    "height": 500
+                }
+            },
+            "subviews": [],
+            "arMask": [
+                3,
+                4
+            ],
+            "color": {
+                "r": 0.8700000047683716,
+                "g": 0.8700000047683716,
+                "b": 0.699999988079071,
+                "a": 1
+            }
+        },
+        {
+            "_c": "View",
+            "name": "status_bar",
+            "frame": {
+                "origin": {
+                    "x": -2,
+                    "y": 573
+                },
+                "size": {
+                    "width": 1209,
+                    "height": 28
+                }
+            },
+            "bounds": {
+                "origin": {
+                    "x": 0,
+                    "y": 0
+                },
+                "size": {
+                    "width": 1209,
+                    "height": 28
+                }
+            },
+            "subviews": [],
+            "arMask": [
+                3,
+                4
+            ],
+            "color": {
+                "r": 0,
+                "g": 0,
+                "b": 0,
+                "a": 0
+            }
+        }
+    ],
+    "arMask": [
+        4,
+        5
+    ],
+    "color": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "a": 0
+    }
+}

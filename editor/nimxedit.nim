@@ -9,6 +9,7 @@ import nimx/autotest
 import nimx/button, nimx/text_field
 import nimx/all_views
 import nimx/editor/edit_view
+import async
 
 const isMobile = defined(ios) or defined(android)
 
@@ -29,20 +30,20 @@ proc startApplication() =
 
     mainWindow.title = "nimx"
 
-    let editedViewWrapper = View.new(mainWindow.bounds)
-    editedViewWrapper.autoresizingMask = {afFlexibleWidth, afFlexibleHeight}
-    let editedView = View.new(mainWindow.bounds)
-    editedView.autoresizingMask = {afFlexibleWidth, afFlexibleHeight}
-    editedViewWrapper.addSubview(editedView)
-    mainWindow.addSubview(editedViewWrapper)
+    # let editedViewWrapper = View.new(mainWindow.bounds)
+    # editedViewWrapper.autoresizingMask = {afFlexibleWidth, afFlexibleHeight}
+    # let editedView = View.new(mainWindow.bounds)
+    # editedView.autoresizingMask = {afFlexibleWidth, afFlexibleHeight}
+    # editedViewWrapper.addSubview(editedView)
+    # mainWindow.addSubview(editedViewWrapper)
 
-    let dummyButton = Button.new(newRect(100, 100, 60, 25))
-    dummyButton.title = "Hello!"
-    editedView.addSubview(dummyButton)
+    # let dummyButton = Button.new(newRect(100, 100, 60, 25))
+    # dummyButton.title = "Hello!"
+    # editedView.addSubview(dummyButton)
 
-    discard editedView.newTextField(newPoint(180, 100), newSize(60, 25), "World!")
+    # discard editedView.newTextField(newPoint(180, 100), newSize(60, 25), "World!")
 
-    discard editedView.startEditingInView(mainWindow)
+    asyncCheck startNimxEditor(mainWindow)
 
     runAutoTestsIfNeeded()
 

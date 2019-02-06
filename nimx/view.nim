@@ -398,6 +398,15 @@ method replaceSubview*(v, s, withView: View) {.base.} =
     s.removeFromSuperview()
     v.insertSubview(withView, i)
 
+proc findSubview*(v: View, n: string): View=
+    for s in v.subviews:
+        if s.name == n:
+            return s
+        return s.findSubview(n)
+
+proc getSubview*[T](v: View, n: string): T =
+    result = v.findSubviewWithName(n).T
+
 method clipType*(v: View): ClipType {.base.} = ctNone
 
 proc recursiveDrawSubviews*(view: View)
@@ -602,3 +611,31 @@ method deserializeFields*(v: View, s: Deserializer) =
     s.deserialize("color", v.backgroundColor)
 
 registerClass(View)
+
+
+#[
+    View loading from resources
+]#
+
+import nimx / serializers
+import nimx / resource_cache
+import nimx / assets / [asset_manager, asset_loading]
+import json
+
+proc deserializeView*(jn: JsonNode): View = newJsonDeserializer(jn).deserialize(result)
+proc deserializeView*(data: string): View = deserializeView(parseJson(data))
+
+proc loadView*(path: string, onLoad: proc(v: View))=
+    loadAsset[JsonNode]( "file://" & path) do(jn: JsonNode, err: string):
+        var v = deserializeView(jn)
+        onLoad(v)
+
+import async
+
+proc loadViewAsync*(path: string): Future[View]=
+    let resf = newFuture[View]()
+    loadAsset[JsonNode]("file://" & path) do(jn: JsonNode, err: string):
+        var v = deserializeView(jn)
+        resf.complete(v)
+
+    return resf

@@ -69,7 +69,7 @@ proc startPreloadingResource(ld: ResourceLoader, name: string) =
                 ld.onResourceLoaded(name)
             return
 
-    ld.onResourceLoaded(nil)
+    ld.onResourceLoaded("")
     logi "WARNING: Unknown resource type: ", name
     #raise newException(Exception, "Unknown resource type: " & name)
 
@@ -90,7 +90,7 @@ registerResourcePreloader(["json", "zsm"]) do(name: string, callback: proc(j: Js
     loadJsonResourceAsync(name) do(j: JsonNode):
         callback(j)
 
-registerAssetLoader(["json", "zsm"]) do(url: string, callback: proc(j: JsonNode)):
+registerAssetLoader(["json", "zsm", "nimx"]) do(url: string, callback: proc(j: JsonNode)):
     loadJsonFromURL(url, callback)
 
 when defined(js) or defined(emscripten):
@@ -138,7 +138,6 @@ proc getEnvCt(k: string): string {.compileTime.} =
     else:
         result = staticExec("echo $" & k)
     result.removeSuffix()
-    if result == "": result = nil
 
 proc getResourceNames*(path: string = ""): seq[string] {.compileTime.} =
     ## Collects file names inside resource folder in compile time.
@@ -150,7 +149,7 @@ proc getResourceNames*(path: string = ""): seq[string] {.compileTime.} =
     result = newSeq[string]()
 
     var prefix = getEnvCt("NIMX_RES_PATH")
-    if prefix.isNil:
+    if prefix.len == 0:
         prefix = "res/"
         echo "WARNING: NIMX_RES_PATH environment variable not set"
     else:

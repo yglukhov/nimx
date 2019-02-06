@@ -438,3 +438,16 @@ registerPropertyEditor(newScalarSeqPropertyView[float])
 registerPropertyEditor(newSeqPropertyView[TVector[4, Coord]])
 registerPropertyEditor(newSeqPropertyView[TVector[5, Coord]])
 registerPropertyEditor(newFontPropertyView)
+
+
+template initPropertyEditor*(v: View, eo: untyped, propName: string, property: untyped)=
+    var o = newVariant(eo)
+    var visitor : PropertyVisitor
+    visitor.requireName = true
+    visitor.requireSetter = true
+    visitor.requireGetter = true
+    visitor.flags = { pfEditable }
+    visitor.commit = proc() =
+        v.addSubview(propertyEditorForProperty(o, visitor.name, visitor.setterAndGetter))
+
+    visitor.visitProperty(propName, property)

@@ -57,3 +57,6 @@ proc propertyEditorForProperty*(editedObject: Variant, title: string, v: Variant
         result.setFrameSize(sz)
 
         editor.changeInspector = changeInspectorCallback
+
+
+
