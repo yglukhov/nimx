@@ -1,7 +1,7 @@
 import locks, os
 
 type TaskListNode = object
-    p: proc(data: pointer) {.cdecl.}
+    p: proc(data: pointer) {.cdecl, gcsafe.}
     data: pointer
     next: ptr TaskListNode
 
@@ -45,7 +45,7 @@ proc newWorkerQueue*(maxThreads : int = 0): WorkerQueue =
     for i in 0 ..< mt:
         result.threads[i].createThread(threadWorker, cast[pointer](result))
 
-proc addTask*(q: WorkerQueue, p: proc(data: pointer) {.cdecl.}, data: pointer) =
+proc addTask*(q: WorkerQueue, p: proc(data: pointer) {.cdecl, gcsafe.}, data: pointer) =
     let task = cast[ptr TaskListNode](allocShared(sizeof(TaskListNode)))
     task.p = p
     task.data = data
