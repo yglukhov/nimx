@@ -22,9 +22,10 @@ proc newWebAssetBundle*(): WebAssetBundle =
     result.mBaseUrl = result.mHref & "/res"
 
 method urlForPath*(ab: WebAssetBundle, path: string): string =
-    if resourceUrlMapper.isNil:
-        result = ab.mBaseUrl & "/" & path
-    else:
-        result = resourceUrlMapper("res/" & path)
-        if not result.startsWith("http"):
-            result = ab.mHref & "/" & result
+    {.gcsafe.}:
+        if resourceUrlMapper.isNil:
+            result = ab.mBaseUrl & "/" & path
+        else:
+            result = resourceUrlMapper("res/" & path)
+            if not result.startsWith("http"):
+                result = ab.mHref & "/" & result
