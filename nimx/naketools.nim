@@ -100,10 +100,11 @@ proc setBuilderSettingsFromCmdLine(b: Builder) =
 proc replaceInStr(in_str, wh_str : string, by_str: string = ""): string =
     result = in_str
     if in_str.len > 0:
-        var pos = in_str.rfind(wh_str)
-        result.delete(pos, result.len)
-        if by_str.len > 0:
-            result &= by_str
+        let pos = in_str.rfind(wh_str)
+        if pos >= 0:
+            result.delete(pos, result.high)
+            if by_str.len > 0:
+                result &= by_str
 
 proc getEnvErrorMsg(env: string): string =
     result = "\n Environment variable [ " & env & " ] is not set."
