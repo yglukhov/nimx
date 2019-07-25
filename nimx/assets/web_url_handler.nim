@@ -66,29 +66,30 @@ when web:
             shallow(result)
 
 proc getHttpStream(url: string, handler: Handler) =
-    when web:
-        let reqListener = proc(data: JSObj) =
-            when defined(js):
-                var dataView : ref RootObj
-                {.emit: "`dataView` = new DataView(`data`);".}
-                handler(newStreamWithDataView(dataView), nil)
-            else:
-                handler(newStringStream(arrayBufferToString(data)), nil)
+    {.gcsafe.}:
+        when web:
+            let reqListener = proc(data: JSObj) =
+                when defined(js):
+                    var dataView : ref RootObj
+                    {.emit: "`dataView` = new DataView(`data`);".}
+                    handler(newStreamWithDataView(dataView), nil)
+                else:
+                    handler(newStringStream(arrayBufferToString(data)), nil)
 
-        let errorListener = proc(e: URLLoadingError) =
-            handler(nil, e.description)
+            let errorListener = proc(e: URLLoadingError) =
+                handler(nil, e.description)
 
-        loadJSURL(url, "arraybuffer", nil, errorListener, reqListener)
-    else:
-        sendRequest("GET", url, "", []) do(r: Response):
-            if r.statusCode >= 200 and r.statusCode < 300:
-                var b: string
-                shallowCopy(b, r.body)
-                shallow(b)
-                let s = newStringStream(r.body)
-                handler(s, "")
-            else:
-                handler(nil, "Error downloading url " & url & ": " & $r.statusCode)
+            loadJSURL(url, "arraybuffer", nil, errorListener, reqListener)
+        else:
+            sendRequest("GET", url, "", []) do(r: Response):
+                if r.statusCode >= 200 and r.statusCode < 300:
+                    var b: string
+                    shallowCopy(b, r.body)
+                    shallow(b)
+                    let s = newStringStream(r.body)
+                    handler(s, "")
+                else:
+                    handler(nil, "Error downloading url " & url & ": " & $r.statusCode)
 
 registerUrlHandler("http", getHttpStream)
 registerUrlHandler("https", getHttpStream)
