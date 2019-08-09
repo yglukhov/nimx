@@ -1,7 +1,7 @@
 import tables, typetraits, macros, variant, strutils
 
 proc skipPtrRef(n: NimNode): NimNode =
-    let ty = getImpl(n.symbol)
+    let ty = getImpl(n)
     result = n
     if ty[2].kind in {nnkRefTy, nnkPtrTy} and ty[2][0].kind == nnkSym:
         result = ty[2][0].skipPtrRef()
@@ -31,7 +31,7 @@ proc superTypeAux(t: NimNode, indent: int): NimNode =
         log "TypeKind: ", ty.typeKind
         result = superTypeAux(ty)
     of nnkBracketExpr:
-        result = superTypeAux(getImpl(t[1].symbol))
+        result = superTypeAux(getImpl(t[1]))
     of nnkTypeDef:
         result = nodeTypedefInheritsFrom(t)
         if result.isNil:
