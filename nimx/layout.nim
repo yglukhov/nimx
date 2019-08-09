@@ -207,9 +207,9 @@ proc layoutAux(rootView: NimNode, body: NimNode): NimNode =
                 echo repr(p)
                 assert(false)
 
-    echo "result: ", repr(result)
+    # echo "result: ", repr(result)
     # echo "ids: ", ids
 
 macro makeLayout*(v: View, e: untyped): untyped = # Experimental
-    echo treeRepr(e)
+    # echo treeRepr(e)
     layoutAux(v, e)
