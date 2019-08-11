@@ -9,8 +9,8 @@ import times, logging
 export abstract_window
 
 const
-    x11Platform = defined(linux) and not defined(emscripten)
-    waylandPlatform = defined(linux) and not defined(emscripten)
+    x11Platform = defined(linux) and not defined(emscripten) and not defined(android)
+    waylandPlatform = defined(linux) and not defined(emscripten) and not defined(android)
     appkitPlatform = defined(macosx) and not defined(ios)
 
 proc initSDLIfNeeded() =
@@ -112,7 +112,7 @@ var defaultWindow: SdlWindow
 proc flags(w: SdlWindow): cuint=
     result = SDL_WINDOW_OPENGL or SDL_WINDOW_RESIZABLE or SDL_WINDOW_ALLOW_HIGHDPI or SDL_WINDOW_HIDDEN
     if w.isFullscreen:
-        result = result or SDL_WINDOW_FULLSCREEN
+        result = result or SDL_WINDOW_FULLSCREEN_DESKTOP
     # else:
         # result = result or SDL_WINDOW_HIDDEN
 
@@ -321,7 +321,7 @@ proc eventWithSDLEvent(event: ptr sdl2.Event): Event =
             let wndEv = cast[WindowEventPtr](event)
             let wnd = windowFromSDLEvent(wndEv)
             case wndEv.event:
-                of WindowEvent_Resized:
+                of WindowEvent_Resized, WindowEvent_SizeChanged:
                     result = newEvent(etWindowResized)
                     result.window = wnd
                     result.position = newPoint(wndEv.data1.Coord, wndEv.data2.Coord) / wnd.pixelRatio
@@ -337,7 +337,7 @@ proc eventWithSDLEvent(event: ptr sdl2.Event): Event =
                     else:
                         wnd.onClose()
                 else:
-                    discard
+                    info "Unknown event: ", wndEv.event
 
         of MouseButtonDown, MouseButtonUp:
             when not defined(ios) and not defined(android):
@@ -408,6 +408,11 @@ proc eventWithSDLEvent(event: ptr sdl2.Event): Event =
         of AppWillEnterForeground:
             result = newEvent(etAppWillEnterForeground)
 
+        of DisplayEvent:
+            # Sometimes happens on android resulting in black screen, so we need to
+            # redraw.
+            if not defaultWindow.isNil:
+                defaultWindow.setNeedsDisplay()
         else:
             info "Unknown event: ", event.kind
             discard
@@ -436,7 +441,7 @@ method onResize*(w: SdlWindow, newSize: Size) =
     if constrainedSize != newSize:
         # Here we attempt to prevent window resizing (initiated externally)
         # On linux this doesn't work reliably, more research needed.
-        when not x11Platform:
+        when not x11Platform and not defined(android) and not defined(ios):
             w.setOSWindowSize(constrainedSize)
 
     glViewport(0, 0, GLSizei(constrainedSize.width * w.pixelRatio), GLsizei(constrainedSize.height * w.pixelRatio))
@@ -473,8 +478,6 @@ proc nextEvent(evt: var sdl2.Event) =
             gcRequested = false
 
     when defined(ios):
-        proc iPhoneSetEventPump(enabled: Bool32) {.importc: "SDL_iPhoneSetEventPump".}
-
         iPhoneSetEventPump(true)
         pumpEvents()
         iPhoneSetEventPump(false)
@@ -549,8 +552,6 @@ proc runUntilQuit*() =
         nextEvent(evt)
         if evt.kind == QuitEvent:
             break
-
-    discard quit(evt)
 
 template runApplication*(body: typed): typed =
     when defined(useRealtimeGC):
