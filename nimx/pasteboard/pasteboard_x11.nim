@@ -37,8 +37,8 @@ proc displayConnection(): (PDisplay, TWindow, TWindow) =
     let wi = cast[ptr WMinfoX11](addr winInfo)
     let diplay = wi.display
 
-    if res == False32 or diplay.isNil:
-        raise newException(Exception, "Can't retreive SDLWindow info")
+    if res == False32 or winInfo.subsystem != SysWM_X11 or diplay.isNil:
+        return
 
     (diplay, wi.window, DefaultRootWindow(diplay))
 
