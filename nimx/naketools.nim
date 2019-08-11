@@ -878,7 +878,6 @@ proc getConnectedAndroidDevices*(b: Builder): seq[string] =
     let so = logcat.outputStream
     var line = ""
     var i = 0
-    result = @[]
     while so.readLine(line):
         if i > 0:
             let ln = line.split('\t')
@@ -957,7 +956,7 @@ task "droid-debug", "Start application on Android device and connect with debugg
                 if fileExists(p):
                     copyFile(p, "libs/gdb.setup")
                     break
-        direShell(b.androidNdk / "ndk-gdb", "--adb=" & expandTilde(b.androidSdk) / "platform-tools" / "adb", "--force", "--launch")
+        direShell(b.androidNdk / "ndk-gdb", "--adb=" & b.adbExe, "--force", "--launch")
 
 task "js", "Create Javascript version and run in browser.":
     newBuilder("js").build()
