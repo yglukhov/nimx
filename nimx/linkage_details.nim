@@ -96,6 +96,8 @@ template sdlMain*() =
 
 //#include <SDL2/SDL_main.h>
 
+#include <stdlib.h>
+
 extern int cmdCount;
 extern char** cmdLine;
 extern char** gEnv;
@@ -108,6 +110,12 @@ int main(int argc, char** args) {
     gEnv = NULL;
     `setupLogger`();
     NimMain();
+#ifdef __ANDROID__
+    /* Prevent SDLActivity from calling main() again until the main lib
+    *  is reloaded
+    */
+    exit(nim_program_result);
+#endif
     return nim_program_result;
 }
 
