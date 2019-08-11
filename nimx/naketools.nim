@@ -379,8 +379,10 @@ proc makeWindowsResource(b: Builder) =
 
         if fileExists(absPath(appIconPath)):
             writeFile(rcPath, "AppIcon ICON \"$#\"" % [b.appIconName])
-            shell "windres", "-i", rcPath, "-o", rcO
-            createResource = true
+            if shell("windres", "-i", rcPath, "-o", rcO):
+                createResource = true
+            else:
+                echo "Warning: could not create resource for icon $#" % [appIconPath]
         else:
             echo "Warning: icon was not found: $#" % [appIconPath]
     else:
