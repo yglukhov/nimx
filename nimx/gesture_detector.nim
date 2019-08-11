@@ -1,7 +1,4 @@
-import view
-import event
-import system_logger
-import app
+import view, event
 
 type
     BaseGestureDetector* = ref object of GestureDetector

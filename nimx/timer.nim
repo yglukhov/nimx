@@ -1,4 +1,4 @@
-import times, system_logger, mini_profiler
+import times, mini_profiler
 
 when defined(js) or defined(emscripten):
     import jsbind
@@ -166,8 +166,7 @@ proc newTimer*(interval: float, repeat: bool, callback: proc()): Timer =
 
     when defined(js) or defined(emscripten):
         result.origCallback = proc() =
-            handleJSExceptions:
-                callback()
+            callback()
     else:
         result.origCallback = callback
 

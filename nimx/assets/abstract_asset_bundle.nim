@@ -1,6 +1,3 @@
-import tables, os
-import variant
-
 type
     AssetBundle* = ref object of RootObj
 

@@ -1,4 +1,4 @@
-import strutils, random
+import random
 import sample_registry
 import nimx / [ view, font, context, button, expanding_view, stack_view ]
 

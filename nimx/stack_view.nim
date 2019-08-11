@@ -1,10 +1,5 @@
-import math
-
-import nimx/font
-import nimx/image
-import nimx/button
+import nimx/[button, view, types, color]
 import nimx/view
-import nimx/context
 import nimx/types
 import nimx/color
 

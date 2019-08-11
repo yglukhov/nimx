@@ -1,8 +1,7 @@
 import abstract_pasteboard
 export abstract_pasteboard
 import pasteboard_item
-import os, times
-import x11/[xlib, x, xatom, xutil]
+import x11/[xlib, x, xatom]
 import nimx/app, nimx/private/windows/sdl_window
 import sdl2
 

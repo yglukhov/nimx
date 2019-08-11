@@ -553,7 +553,7 @@ proc runUntilQuit*() =
         if evt.kind == QuitEvent:
             break
 
-template runApplication*(body: typed): typed =
+template runApplication*(body: typed) =
     when defined(useRealtimeGC):
         GC_disable() # We disable the GC to manually call it close to stack bottom.
 

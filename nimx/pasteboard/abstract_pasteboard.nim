@@ -10,7 +10,7 @@ import pasteboard_item
 export pasteboard_item
 
 type
-    Pasteboard* = ref object {.inheritable.}
+    Pasteboard* {.inheritable.} = ref object
         writeImpl*: proc(pb: Pasteboard, pi: varargs[PasteboardItem] ) {.nimcall.}
         readImpl*: proc(pb: Pasteboard, kind: string): PasteboardItem {.nimcall.}
 

@@ -1,11 +1,7 @@
 import slider
 export slider
 
-import composition
-import context
-import font
-import view_event_handling
-import app
+import composition, context, view_event_handling
 
 type ScrollBar* = ref object of Slider
     mKnobSize: float # Knob size should vary between 0.0 and 1.0 depending on

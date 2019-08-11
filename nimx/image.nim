@@ -1,4 +1,4 @@
-import math, strutils, tables, json, streams, logging
+import math, strutils, tables, streams, logging
 import types, portable_gl, mini_profiler, system_logger
 import opengl
 
@@ -385,7 +385,7 @@ const asyncResourceLoad = not defined(js) and not defined(emscripten) and not de
 when asyncResourceLoad:
     const loadAsyncTextureInMainThread = defined(android) or defined(ios)
 
-    import threadpool, perform_on_main_thread, sdl2
+    import perform_on_main_thread, sdl2
     import private/worker_queue
 
     var threadCtx : GlContextPtr
@@ -481,38 +481,35 @@ when defined(emscripten):
         image: SelfContainedImage
 
     proc nimxImagePrepareTexture(c: pointer, x, y, texWidth, texHeight: cint) {.EMSCRIPTEN_KEEPALIVE.} =
-        handleJSExceptions:
-            let ctx = cast[ImageLoadingCtx](c)
-            ctx.image = newSelfContainedImage()
-            glGenTextures(1, addr ctx.image.texture)
-            glBindTexture(GL_TEXTURE_2D, ctx.image.texture)
-            ctx.image.mSize = newSize(x.Coord, y.Coord)
-            ctx.image.texWidth = texWidth.int16
-            ctx.image.texHeight = texHeight.int16
+        let ctx = cast[ImageLoadingCtx](c)
+        ctx.image = newSelfContainedImage()
+        glGenTextures(1, addr ctx.image.texture)
+        glBindTexture(GL_TEXTURE_2D, ctx.image.texture)
+        ctx.image.mSize = newSize(x.Coord, y.Coord)
+        ctx.image.texWidth = texWidth.int16
+        ctx.image.texHeight = texHeight.int16
 
-            ctx.image.texCoords[2] = 1.0
-            ctx.image.texCoords[3] = 1.0
+        ctx.image.texCoords[2] = 1.0
+        ctx.image.texCoords[3] = 1.0
 
-            if texWidth != x or texHeight != y:
-                ctx.image.texCoords[2] = x.Coord / texWidth.Coord
-                ctx.image.texCoords[3] = y.Coord / texHeight.Coord
+        if texWidth != x or texHeight != y:
+            ctx.image.texCoords[2] = x.Coord / texWidth.Coord
+            ctx.image.texCoords[3] = y.Coord / texHeight.Coord
 
     proc nimxImageLoaded(c: pointer) {.EMSCRIPTEN_KEEPALIVE.} =
-        handleJSExceptions:
-            let ctx = cast[ImageLoadingCtx](c)
-            setupTexParams(nil)
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
-            GC_unref(ctx)
-            ctx.image.setFilePath(ctx.path)
-            ctx.callback(ctx.image)
+        let ctx = cast[ImageLoadingCtx](c)
+        setupTexParams(nil)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
+        GC_unref(ctx)
+        ctx.image.setFilePath(ctx.path)
+        ctx.callback(ctx.image)
 
     proc nimxImageLoadError(c: pointer) {.EMSCRIPTEN_KEEPALIVE.} =
-        handleJSExceptions:
-            let ctx = cast[ImageLoadingCtx](c)
-            GC_unref(ctx)
-            logi "Error loading image: ", ctx.path
-            ctx.callback(nil)
+        let ctx = cast[ImageLoadingCtx](c)
+        GC_unref(ctx)
+        logi "Error loading image: ", ctx.path
+        ctx.callback(nil)
 
     proc nimxNextPowerOf2(x: cint): cint {.EMSCRIPTEN_KEEPALIVE,} =
         nextPowerOfTwo(x).cint

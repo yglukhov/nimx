@@ -1,5 +1,4 @@
 import image, types, context, portable_gl
-import math
 import opengl
 
 type GlFrameState* = tuple
