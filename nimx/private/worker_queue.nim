@@ -1,4 +1,4 @@
-import locks, os
+import locks
 
 type TaskListNode = object
     p: proc(data: pointer) {.cdecl, gcsafe.}

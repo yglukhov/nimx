@@ -4,7 +4,6 @@ export control
 import composition
 import context
 import view_event_handling
-import app
 
 type Slider* = ref object of Control
     mValue: Coord

@@ -89,7 +89,7 @@ proc testSuiteDefinitionWithNameAndBody(name, body: NimNode): NimNode =
 macro uiTest*(name: untyped, body: typed): untyped =
     result = testSuiteDefinitionWithNameAndBody(name, body)
 
-macro registeredUiTest*(name: untyped, body: typed): typed =
+macro registeredUiTest*(name: untyped, body: typed): untyped =
     result = newStmtList()
     result.add(testSuiteDefinitionWithNameAndBody(name, body))
     result.add(newCall(bindSym"registerTest", name))

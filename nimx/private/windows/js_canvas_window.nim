@@ -161,69 +161,62 @@ proc eventLocationFromJSEvent(e: dom.Event, c: Element): Point =
 
 proc setupEventHandlersForCanvas(w: JSCanvasWindow, c: Element) =
     let onmousedown = proc (e: dom.Event) =
-        handleJSExceptions:
-            var evt = newMouseDownEvent(eventLocationFromJSEvent(e, c), buttonCodeFromJSEvent(e))
-            evt.window = w
-            discard mainApplication().handleEvent(evt)
+        var evt = newMouseDownEvent(eventLocationFromJSEvent(e, c), buttonCodeFromJSEvent(e))
+        evt.window = w
+        discard mainApplication().handleEvent(evt)
 
     let onmouseup = proc (e: dom.Event) =
-        handleJSExceptions:
-            var evt = newMouseUpEvent(eventLocationFromJSEvent(e, c), buttonCodeFromJSEvent(e))
-            evt.window = w
-            discard mainApplication().handleEvent(evt)
+        var evt = newMouseUpEvent(eventLocationFromJSEvent(e, c), buttonCodeFromJSEvent(e))
+        evt.window = w
+        discard mainApplication().handleEvent(evt)
 
     let onmousemove = proc (e: dom.Event) =
-        handleJSExceptions:
-            var evt = newMouseMoveEvent(eventLocationFromJSEvent(e, c))
-            evt.window = w
-            discard mainApplication().handleEvent(evt)
+        var evt = newMouseMoveEvent(eventLocationFromJSEvent(e, c))
+        evt.window = w
+        discard mainApplication().handleEvent(evt)
 
     let onscroll = proc (e: dom.Event): bool =
-        handleJSExceptions:
-            var evt = newEvent(etScroll, eventLocationFromJSEvent(e, c))
-            var x, y: Coord
-            {.emit: """
-            `x` = `e`.deltaX;
-            `y` = `e`.deltaY;
-            """.}
-            evt.offset.x = x
-            evt.offset.y = y
-            evt.window = w
-            result = not mainApplication().handleEvent(evt)
+        var evt = newEvent(etScroll, eventLocationFromJSEvent(e, c))
+        var x, y: Coord
+        {.emit: """
+        `x` = `e`.deltaX;
+        `y` = `e`.deltaY;
+        """.}
+        evt.offset.x = x
+        evt.offset.y = y
+        evt.window = w
+        result = not mainApplication().handleEvent(evt)
 
     let onresize = proc (e: dom.Event): bool =
-        handleJSExceptions:
-            var sizeChanged = false
-            var newWidth, newHeight : Coord
-            {.emit: """
-            `newWidth` = `c`.width;
-            `newHeight` = `c`.height;
-            var r = `c`.getBoundingClientRect();
-            if (r.width !== `c`.width) {
-                `newWidth` = r.width;
-                `c`.width = r.width;
-                `sizeChanged` = true;
-            }
-            if (r.height !== `c`.height) {
-                `newHeight` = r.height
-                `c`.height = r.height;
-                `sizeChanged` = true;
-            }
-            """.}
-            if sizeChanged:
-                var evt = newEvent(etWindowResized)
-                evt.window = w
-                evt.position.x = newWidth
-                evt.position.y = newHeight
-                discard mainApplication().handleEvent(evt)
+        var sizeChanged = false
+        var newWidth, newHeight : Coord
+        {.emit: """
+        `newWidth` = `c`.width;
+        `newHeight` = `c`.height;
+        var r = `c`.getBoundingClientRect();
+        if (r.width !== `c`.width) {
+            `newWidth` = r.width;
+            `c`.width = r.width;
+            `sizeChanged` = true;
+        }
+        if (r.height !== `c`.height) {
+            `newHeight` = r.height
+            `c`.height = r.height;
+            `sizeChanged` = true;
+        }
+        """.}
+        if sizeChanged:
+            var evt = newEvent(etWindowResized)
+            evt.window = w
+            evt.position.x = newWidth
+            evt.position.y = newHeight
+            discard mainApplication().handleEvent(evt)
 
     let onfocus = proc()=
-        handleJSExceptions:
-            w.onFocusChange(true)
+        w.onFocusChange(true)
 
     let onblur = proc()=
-        handleJSExceptions:
-            w.onFocusChange(false)
+        w.onFocusChange(false)
 
     # TODO: Remove this hack, when handlers definition in dom.nim fixed.
     {.emit: """
@@ -240,9 +233,8 @@ proc setupEventHandlersForCanvas(w: JSCanvasWindow, c: Element) =
 proc requestAnimFrame(w: dom.Window, p: proc() {.nimcall.}) {.importcpp.}
 
 proc animFrame() =
-    handleJSExceptions:
-        mainApplication().runAnimations()
-        mainApplication().drawWindows()
+    mainApplication().runAnimations()
+    mainApplication().drawWindows()
     dom.window.requestAnimFrame(animFrame)
 
 proc initWithCanvas*(w: JSCanvasWindow, canvas: Element) =
@@ -343,8 +335,7 @@ proc sendInputEvent(wnd: JSCanvasWindow, evt: dom.Event) =
 
 method startTextInput*(wnd: JSCanvasWindow, r: Rect) =
     let oninput = proc(evt: dom.Event) =
-        handleJSExceptions:
-            wnd.sendInputEvent(evt)
+        wnd.sendInputEvent(evt)
 
     {.emit: """
     if (window.__nimx_textinput === undefined) {
@@ -366,7 +357,6 @@ method stopTextInput*(w: JSCanvasWindow) =
     }
     """.}
 
-template runApplication*(code: typed): typed =
+template runApplication*(code: typed) =
     dom.window.onload = proc (e: dom.Event) =
-        handleJSExceptions:
-            code
+        code

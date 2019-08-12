@@ -1,4 +1,3 @@
-import strutils
 import variant
 import sample_registry
 import nimx / [ view, view_event_handling, drag_and_drop, text_field, expanding_view,

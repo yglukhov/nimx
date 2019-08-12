@@ -1,4 +1,4 @@
-import tables, typetraits, macros, variant, strutils
+import tables, typetraits, macros, variant
 
 proc skipPtrRef(n: NimNode): NimNode =
     let ty = getImpl(n)

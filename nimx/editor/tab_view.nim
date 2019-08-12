@@ -1,4 +1,4 @@
-import math, strutils
+import math
 import nimx/view
 import nimx/context, nimx/matrixes
 import nimx/font

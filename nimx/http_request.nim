@@ -2,7 +2,7 @@ import async_http_request
 export async_http_request
 
 when not defined(js) and not defined(emscripten):
-    import sdl2, perform_on_main_thread, marshal, streams
+    import perform_on_main_thread, marshal, streams
 
     proc storeToSharedBuffer*[T](a: T): pointer =
         let s = newStringStream()

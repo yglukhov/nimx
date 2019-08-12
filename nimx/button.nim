@@ -1,4 +1,4 @@
-import control, context, image, types, event, font, app, composition
+import control, context, image, types, event, font, composition
 import view_event_handling
 
 import property_visitor, serializers

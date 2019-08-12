@@ -13,7 +13,6 @@ import text_field
 import view_event_handling
 import view_dragging_listener
 import button
-import app
 
 const
     margin = 6
