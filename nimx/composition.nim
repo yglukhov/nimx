@@ -244,7 +244,7 @@ proc sdEllipseInRect*(pos: Vec2, rect: Vec4): float32 =
     let center = rect.xy + ab
     let p = pos - center
     result = dot(p * p, 1.0 / (ab * ab)) - 1.0
-    result *= min(ab.x, ab.y)
+    result *= nimsl.min(ab.x, ab.y)
 
 proc insetRect*(r: Vec4, by: float32): Vec4 = newVec4(r.xy + by, r.zw - by * 2.0)
 
