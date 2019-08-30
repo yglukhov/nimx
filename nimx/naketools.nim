@@ -24,6 +24,7 @@ type Builder* = ref object
 
     nimIncludeDir* : string
 
+    macOSSDKPath* : string
     macOSSDKVersion* : string
     macOSMinVersion* : string
 
@@ -111,8 +112,6 @@ proc getEnvErrorMsg(env: string): string =
 
 const xCodeApp = "/Applications/Xcode.app"
 
-proc macOSSDKPath*(version: string): string =
-    result = xCodeApp/"Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX" & version & ".sdk"
 proc iOSSDKPath*(version: string): string =
     result = xCodeApp/"Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS" & version & ".sdk"
 proc iOSSimulatorSDKPath*(version: string): string =
@@ -252,12 +251,12 @@ proc newBuilder*(platform: string): Builder =
         b.iOSSDKVersion = getiOSSDKVersion()
         b.iOSMinVersion = b.iOSSDKVersion
     elif b.platform == "macosx":
-        b.macOSSDKVersion = "10.12"
-        for v in ["10.7", "10.8", "10.9", "10.10", "10.11", "10.12", "10.13", "10.14"]:
-            if dirExists(macOSSDKPath(v)):
-                b.macOSSDKVersion = v
-                break
+        var macosxDevRoot = execProcess("xcode-select", args=["--print-path"], options={poUsePath})
+        macosxDevRoot.removeSuffix
+        b.macOSSDKPath = macosxDevRoot & "/SDKs/MacOSX.sdk"
+        let macOSSDKSettings = loadPlist(b.macOSSDKPath & "/SDKSettings.plist")
         b.macOSMinVersion = "10.7"
+        b.macOSSDKVersion = macOSSDKSettings["Version"].str
 
 proc nimblePath(package: string): string =
     var nimblecmd = "nimble"
@@ -628,7 +627,7 @@ proc build*(b: Builder) =
 
     case b.platform
     of "macosx":
-        let macOSSDK = macOSSDKPath(b.macOSSDKVersion)
+        let macOSSDK = b.macOSSDKPath
         b.makeMacOsBundle()
         b.executablePath = b.buildRoot / b.bundleName / "Contents" / "MacOS" / b.appName
         b.resourcePath = b.buildRoot / b.bundleName / "Contents" / "Resources"
