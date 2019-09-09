@@ -434,7 +434,15 @@ proc buildSDLForDesktop(b: Builder): string =
     else:
         assert(false, "Don't know where to find SDL")
 
+proc checkSdlRoot(b: Builder) =
+    let r = expandTilde(b.sdlRoot)
+    if not (dirExists(r / "android-project") and dirExists(r / "Xcode-iOS")):
+        echo "Wrong SDL_HOME. The SDL_HOME environment variable must point to SDL2 source code."
+        echo "SDL2 source code can be downloaded from https://www.libsdl.org/download-2.0.php"
+        raise newException(Exception, "Wrong SDL_HOME")
+
 proc buildSDLForIOS(b: Builder, forSimulator: bool = false): string =
+    b.checkSdlRoot()
     let entity = if forSimulator: "iphonesimulator" else: "iphoneos"
     let xcodeProjDir = expandTilde(b.sdlRoot)/"Xcode-iOS/SDL"
     result = xcodeProjDir/"build/Release-" & entity
@@ -449,8 +457,11 @@ proc buildSDLForIOS(b: Builder, forSimulator: bool = false): string =
 proc makeAndroidBuildDir(b: Builder): string =
     let buildDir = b.buildRoot / b.javaPackageId
     if not dirExists buildDir:
+        b.checkSdlRoot()
+        let sdlRoot = expandTilde(b.sdlRoot)
         let nimxTemplateDir = nimbleNimxPath() / "assets" / "android/template"
-        let sdlDefaultAndroidProjectTemplate =  b.sdlRoot/"android-project"
+        let sdlDefaultAndroidProjectTemplate =  sdlRoot/"android-project"
+
         createDir(buildDir)
         copyDirWithPermissions(nimxTemplateDir, buildDir)
         copyDir(sdlDefaultAndroidProjectTemplate / "app/src/main/java", buildDir / "src/main/java")
@@ -458,11 +469,11 @@ proc makeAndroidBuildDir(b: Builder): string =
         let sdlJni = buildDir/"jni"/"SDL"
         createDir(sdlJni)
 
-        copyDir b.sdlRoot/"src", sdlJni/"src"
-        copyDir b.sdlRoot/"include", sdlJni/"include"
+        copyDir sdlRoot/"src", sdlJni/"src"
+        copyDir sdlRoot/"include", sdlJni/"include"
 
         let sdlmk = sdlJni/"Android.mk"
-        copyFile(b.sdlRoot/"Android.mk", sdlmk)
+        copyFile(sdlRoot/"Android.mk", sdlmk)
 
         var sdlmkData = readFile(sdlmk)
         block cutSDLDLLBuild:
