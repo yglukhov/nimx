@@ -244,7 +244,7 @@ proc sdEllipseInRect*(pos: Vec2, rect: Vec4): float32 =
     let center = rect.xy + ab
     let p = pos - center
     result = dot(p * p, 1.0 / (ab * ab)) - 1.0
-    result *= nimsl.min(ab.x, ab.y)
+    result *= min(ab.x, ab.y)
 
 proc insetRect*(r: Vec4, by: float32): Vec4 = newVec4(r.xy + by, r.zw - by * 2.0)
 
@@ -558,32 +558,33 @@ template ResetDIPValue*() =
     DIPValue = 0
 
 template draw*(comp: var Composition, r: Rect, code: untyped) =
-    let ctx = currentContext()
-    let gl = ctx.gl
-    let cc = gl.getCompiledComposition(comp)
-    gl.useProgram(cc.program)
+    block:
+        let ctx = currentContext()
+        let gl = ctx.gl
+        let cc = gl.getCompiledComposition(comp)
+        gl.useProgram(cc.program)
 
-    overdrawValue += r.size.width * r.size.height
-    DIPValue += 1
+        overdrawValue += r.size.width * r.size.height
+        DIPValue += 1
 
-    const componentCount = 2
-    const vertexCount = 4
-    gl.bindBuffer(gl.ARRAY_BUFFER, ctx.singleQuadBuffer)
-    gl.enableVertexAttribArray(posAttr)
-    gl.vertexAttribPointer(posAttr, componentCount, gl.FLOAT, false, 0, 0)
+        const componentCount = 2
+        const vertexCount = 4
+        gl.bindBuffer(gl.ARRAY_BUFFER, ctx.singleQuadBuffer)
+        gl.enableVertexAttribArray(posAttr)
+        gl.vertexAttribPointer(posAttr, componentCount, gl.FLOAT, false, 0, 0)
 
-    compositionDrawingDefinitions(cc, ctx, gl)
+        compositionDrawingDefinitions(cc, ctx, gl)
 
-    gl.uniformMatrix4fv(uniformLocation("uModelViewProjectionMatrix"), false, ctx.transform)
+        gl.uniformMatrix4fv(uniformLocation("uModelViewProjectionMatrix"), false, ctx.transform)
 
-    setUniform("bounds", r) # This is for fragment shader
-    setUniform("uBounds", r) # This is for vertex shader
+        setUniform("bounds", r) # This is for fragment shader
+        setUniform("uBounds", r) # This is for vertex shader
 
-    setupPosteffectUniforms(cc)
+        setupPosteffectUniforms(cc)
 
-    code
-    gl.drawArrays(gl.TRIANGLE_FAN, 0, vertexCount)
-    gl.bindBuffer(gl.ARRAY_BUFFER, invalidBuffer)
+        code
+        gl.drawArrays(gl.TRIANGLE_FAN, 0, vertexCount)
+        gl.bindBuffer(gl.ARRAY_BUFFER, invalidBuffer)
 
 template draw*(comp: var Composition, r: Rect) =
     comp.draw r:
