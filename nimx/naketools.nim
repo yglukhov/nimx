@@ -3,7 +3,7 @@ import nake
 export nake
 
 import tables, osproc, strutils, times, parseopt2, streams, os, pegs
-import jester, asyncdispatch, browsers, closure_compiler # Stuff needed for JS target
+import nester, asyncdispatch, browsers, closure_compiler # Stuff needed for JS target
 import plists
 
 type Builder* = ref object
@@ -566,15 +566,16 @@ proc postprocessWebTarget(b: Builder) =
         mainHTML = nimbleNimxPath() / "assets" / "main.html"
     copyFile(mainHTML, b.buildRoot / "main.html")
     if b.runAfterBuild:
-        let settings = newSettings(staticDir = b.buildRoot)
         when not defined(windows):
             proc doOpen() {.async.} =
                 await sleepAsync(1)
                 openDefaultBrowser "http://localhost:5000"
             asyncCheck doOpen()
-        routes:
+
+        let router = newRouter()
+        router.routes:
             get "/": redirect "main.html"
-        runForever()
+        router.serve(staticPath = b.buildRoot)
 
 proc signIosBundle(b: Builder) =
     let e = newJObject() # Entitlements
