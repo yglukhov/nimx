@@ -10,7 +10,6 @@ type ScrollView* = ref object of View
     clipView: ClipView # [Deprecated old layout]
     mHorizontalScrollBar, mVerticalScrollBar: ScrollBar
     mOnScrollCallback: proc()
-    usesNewLayout: bool
     constraints: seq[Constraint]
     xPos, yPos: Variable # Scroll positions
 
@@ -19,9 +18,8 @@ const scrollBarWidth = 12.Coord
 method init*(v: ScrollView, r: Rect) =
     procCall v.View.init(r)
 
-    if r == zeroRect:
+    if v.usesNewLayout:
         # Assume new layout
-        v.usesNewLayout = true
         v.xPos = newVariable()
         v.yPos = newVariable()
         v.addSubview(ScrollBar.new(newRect(0, 0, 10, 0)))
@@ -405,3 +403,5 @@ method clipType*(v: ScrollView): ClipType =
         ctDefaultClip
     else:
         ctNone
+
+registerClass(ScrollView)

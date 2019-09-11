@@ -32,7 +32,6 @@ type TableView* = ref object of View
     selectedRows*: IntSet
 
     initiallyClickedRow: int
-    usesNewLayout: bool
     constraints: seq[Constraint]
 
 proc `createCell=`*(v: TableView, p: proc(): TableViewCell) =
@@ -57,8 +56,7 @@ method init*(v: TableView, r: Rect) =
     v.selectionMode = smSingleSelection
     v.selectedRows = initIntSet()
 
-    if r == zeroRect:
-        v.usesNewLayout = true
+    if v.usesNewLayout:
         v.rebuildConstraints()
 
 proc heightOfRowUsingDelegate(v: TableView, row: int): Coord {.inline.} =

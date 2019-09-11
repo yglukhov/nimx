@@ -7,6 +7,10 @@ type TableViewCell* = ref object of View
     row*, col*: int
     selected*: bool
 
+proc newTableViewCell*(): TableViewCell =
+    result.new()
+    result.init(zeroRect)
+
 proc newTableViewCell*(r: Rect): TableViewCell =
     result.new()
     result.init(r)
@@ -39,3 +43,5 @@ method draw(c: TableViewCell, r: Rect) =
         ctx.strokeWidth = 0
         ctx.drawRect(c.bounds)
     procCall c.View.draw(r)
+
+registerClass(TableViewCell)

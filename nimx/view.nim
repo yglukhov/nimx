@@ -51,6 +51,7 @@ type
         mouseInside*: bool
         handleMouseOver: bool
         hidden*: bool
+        usesNewLayout*: bool
         dragDestination*: DragDestinationDelegate
         layout*: LayoutInfo
 
@@ -106,7 +107,6 @@ init(selfPHS)
 
 proc init(i: var LayoutInfo) =
     i.vars.init()
-    i.constraints = @[]
 
 proc replacePlaceholderVar(view: View, indexOfViewInSuper: int, v: var Variable) =
     var prevView, nextView: View
@@ -171,23 +171,35 @@ proc instantiateConstraint(v: View, c: var ConstraintWithPrototype) =
     assert(not v.window.isNil, "Internal error")
     v.window.layoutSolver.addConstraint(ic)
 
+proc findConstraint(v: View, c: Constraint): int {.inline.} =
+    for i, cc in v.layout.constraints:
+        if cc.proto == c:
+            return i
+    return -1
+
 proc addConstraint*(v: View, c: Constraint) =
     v.layout.constraints.add(ConstraintWithPrototype(proto: c))
     if not v.window.isNil:
         v.instantiateConstraint(v.layout.constraints[^1])
 
+proc addConstraints*(v: View, cc: openarray[Constraint]) =
+    for c in cc: v.addConstraint(c)
+
 proc removeConstraint*(v: View, c: Constraint) =
-    var idx = -1
-    for i in 0 ..< v.layout.constraints.len:
-        if v.layout.constraints[i].proto == c:
-            idx = i
-            break
+    let idx = v.findConstraint(c)
     assert(idx != -1)
     let inst = v.layout.constraints[idx].inst
     v.layout.constraints.del(idx)
     if not v.window.isNil:
         assert(not inst.isNil)
         v.window.layoutSolver.removeConstraint(inst)
+
+proc removeConstraints*(v: View, cc: openarray[Constraint]) =
+    for c in cc: v.removeConstraint(c)
+
+proc constraints*(v: View): seq[Constraint] =
+    result = newSeqOfCap[Constraint](v.layout.constraints.len)
+    for c in v.layout.constraints: result.add(c.proto)
 
 method init*(v: View, frame: Rect) {.base.} =
     v.frame = frame
@@ -196,6 +208,7 @@ method init*(v: View, frame: Rect) {.base.} =
     v.subviews = @[]
     v.gestureDetectors = @[]
     v.autoresizingMask = { afFlexibleMaxX, afFlexibleMaxY }
+    v.usesNewLayout = frame == zeroRect
 
 proc addMouseOverListener(w: Window, v: View) =
     let i = w.mouseOverListeners.find(v)
@@ -389,11 +402,14 @@ proc insertSubviewAfter*(v, s, a: View) = v.insertSubview(s, v.subviews.find(a) 
 proc insertSubviewBefore*(v, s, a: View) = v.insertSubview(s, v.subviews.find(a))
 proc addSubview*(v: View, s: View) = v.insertSubview(s, v.subviews.len)
 
-method replaceSubview*(v, s, withView: View) {.base.} =
+method replaceSubview*(v: View, subviewIndex: int, withView: View) {.base.} =
+    v.subviews[subviewIndex].removeFromSuperview()
+    v.insertSubview(withView, subviewIndex)
+
+proc replaceSubview*(v, s, withView: View) =
     assert(s.superview == v)
     let i = v.subviews.find(s)
-    s.removeFromSuperview()
-    v.insertSubview(withView, i)
+    v.replaceSubview(i, withView)
 
 method clipType*(v: View): ClipType {.base.} = ctNone
 
