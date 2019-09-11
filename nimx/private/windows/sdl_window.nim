@@ -337,7 +337,7 @@ proc eventWithSDLEvent(event: ptr sdl2.Event): Event =
                     else:
                         wnd.onClose()
                 else:
-                    info "Unknown event: ", wndEv.event
+                    discard
 
         of MouseButtonDown, MouseButtonUp:
             when not defined(ios) and not defined(android):
