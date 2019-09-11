@@ -14,8 +14,6 @@ type SplitView* = ref object of View
 
 method init*(v: SplitView, r: Rect) =
     procCall v.View.init(r)
-    v.constraints = @[]
-    v.separatorPositions = @[]
     v.hoveredDivider = -1
     v.trackMouseOver(true)
 
@@ -151,3 +149,8 @@ method onTouchEv*(v: SplitView, e: var Event): bool =
 method onInterceptTouchEv*(v: SplitView, e: var Event): bool =
     if v.hoveredDivider != -1:
         result = true
+
+method replaceSubview*(v: SplitView, subviewIndex: int, withView: View) =
+    let pos = v.dividerPositions
+    procCall v.View.replaceSubview(subviewIndex, withView)
+    v.dividerPositions = pos
