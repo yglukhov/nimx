@@ -1,8 +1,6 @@
 import math
-import nimx/view
-import nimx/context, nimx/matrixes
-import nimx/font
-import nimx/linear_layout, nimx/button, nimx/menu
+import kiwi
+import nimx / [view, context, matrixes, font, linear_layout, button, menu, split_view]
 import nimx / [ view_event_handling, window_event_handling ]
 
 type
@@ -24,6 +22,7 @@ type TabView* = ref object of View
     onSplit*: proc(v: TabView)
     onRemove*: proc(v: TabView)
     onClose*: proc(v: View)
+    subviewConstraintProtos: seq[Constraint]
 
 proc contentFrame(v: TabView): Rect =
     result = v.bounds
@@ -38,6 +37,18 @@ proc contentFrame(v: TabView): Rect =
         result.size.width -= v.tabBarThickness
     of TabBarOrientation.right:
         result.size.width -= v.tabBarThickness
+
+proc updateSubviewConstraintProtos(v: TabView) =
+    v.subviewConstraintProtos.setLen(0)
+    template orientationOption(id, value: untyped) =
+        if v.mTabBarOrientation == TabBarOrientation.id:
+            v.subviewConstraintProtos.add(selfPHS.id == superPHS.id + value)
+        else:
+            v.subviewConstraintProtos.add(selfPHS.id == superPHS.id)
+    orientationOption(top, v.tabBarThickness)
+    orientationOption(bottom, -v.tabBarThickness)
+    orientationOption(left, v.tabBarThickness)
+    orientationOption(right, -v.tabBarThickness)
 
 method init*(v: TabView, r: Rect) =
     procCall v.View.init(r)
@@ -56,24 +67,48 @@ proc selectedView*(v: TabView): View =
 proc updateSelectedViewFrame(v: TabView) =
     let sv = v.selectedView
     if not sv.isNil:
-        sv.setFrame(v.contentFrame)
+        if v.usesNewLayout:
+            sv.removeConstraints(v.subviewConstraintProtos)
+            v.updateSubviewConstraintProtos()
+            sv.addConstraints(v.subviewConstraintProtos)
+        else:
+            sv.setFrame(v.contentFrame)
 
 proc updateConfigurationButtonLayout(v: TabView) =
     let b = v.configurationButton
     if not b.isNil:
-        case v.mTabBarOrientation
-        of TabBarOrientation.top:
-            b.setFrameOrigin(newPoint(v.bounds.maxX - 25, 2))
-            b.resizingMask = "lb"
-        of TabBarOrientation.bottom:
-            b.setFrameOrigin(newPoint(v.bounds.maxX - 25, v.bounds.maxY - 20))
-            b.resizingMask = "lt"
-        of TabBarOrientation.left:
-            b.setFrameOrigin(newPoint(v.bounds.minX + 2, v.bounds.maxY - 20))
-            b.resizingMask = "rt"
-        of TabBarOrientation.right:
-            b.setFrameOrigin(newPoint(v.bounds.maxX - 25, v.bounds.maxY - 20))
-            b.resizingMask = "lt"
+        if v.usesNewLayout:
+            b.removeConstraints(b.constraints)
+            b.addConstraint(selfPHS.width == 15)
+            b.addConstraint(selfPHS.height == 15)
+            const offs = 5
+            case v.mTabBarOrientation
+            of TabBarOrientation.top:
+                b.addConstraint(selfPHS.trailing == superPHS.trailing - offs)
+                b.addConstraint(selfPHS.top == offs)
+            of TabBarOrientation.bottom:
+                b.addConstraint(selfPHS.trailing == superPHS.trailing - offs)
+                b.addConstraint(selfPHS.bottom == superPHS.bottom - offs)
+            of TabBarOrientation.left:
+                b.addConstraint(selfPHS.leading == superPHS.leading + offs)
+                b.addConstraint(selfPHS.bottom == superPHS.bottom - offs)
+            of TabBarOrientation.right:
+                b.addConstraint(selfPHS.trailing == superPHS.trailing - offs)
+                b.addConstraint(selfPHS.bottom == superPHS.bottom - offs)
+        else:
+            case v.mTabBarOrientation
+            of TabBarOrientation.top:
+                b.setFrameOrigin(newPoint(v.bounds.maxX - 25, 2))
+                b.resizingMask = "lb"
+            of TabBarOrientation.bottom:
+                b.setFrameOrigin(newPoint(v.bounds.maxX - 25, v.bounds.maxY - 20))
+                b.resizingMask = "lt"
+            of TabBarOrientation.left:
+                b.setFrameOrigin(newPoint(v.bounds.minX + 2, v.bounds.maxY - 20))
+                b.resizingMask = "rt"
+            of TabBarOrientation.right:
+                b.setFrameOrigin(newPoint(v.bounds.maxX - 25, v.bounds.maxY - 20))
+                b.resizingMask = "lt"
 
 template tabBarOrientation*(v: TabView): TabBarOrientation = v.mTabBarOrientation
 proc `tabBarOrientation=`*(v: TabView, o: TabBarOrientation) =
@@ -82,22 +117,37 @@ proc `tabBarOrientation=`*(v: TabView, o: TabBarOrientation) =
     v.updateSelectedViewFrame()
     v.updateConfigurationButtonLayout()
 
-proc selectTab*(v: TabView, i: int) =
+proc selectTabAux(v: TabView, i: int) =
+    assert(i >= -1 and i < v.tabs.len)
+    if i == v.selectedTab: return
+    assert(v.selectedTab != i)
     var sv = v.selectedView
     if not sv.isNil:
+        sv.removeConstraints(v.subviewConstraintProtos)
         sv.removeFromSuperview()
     v.selectedTab = i
     sv = v.selectedView
-    sv.setFrame(v.contentFrame)
-    v.addSubview(sv)
-    discard sv.makeFirstResponder()
+    if not sv.isNil:
+        if v.usesNewLayout:
+            if v.subviewConstraintProtos.len == 0:
+                v.updateSubviewConstraintProtos()
+            sv.addConstraints(v.subviewConstraintProtos)
+        else:
+            sv.setFrame(v.contentFrame)
+        v.addSubview(sv)
+        discard sv.makeFirstResponder()
+
+proc selectTab*(v: TabView, i: int) =
+    selectTabAux(v, i)
 
 proc insertTab*(v: TabView, i: int, title: string, view: View) =
     var t: Tab
     t.title = title
     t.view = view
+    view.removeFromSuperview()
     view.autoresizingMask = {afFlexibleWidth, afFlexibleHeight}
     v.tabs.insert(t, i)
+    if i <= v.selectedTab: inc v.selectedTab
     v.tabFramesValid = false
     if v.tabs.len == 1:
         v.selectTab(0)
@@ -118,12 +168,14 @@ proc addTab*(v: TabView, title: string, view: View) {.inline.} =
     v.insertTab(v.tabs.len, title, view)
 
 proc removeTab*(v: TabView, i: int) =
-    v.tabs[i].view.removeFromSuperview()
-    v.tabs.delete(i)
     if i == v.selectedTab:
-        if i > 0: v.selectTab(i - 1)
-        elif i == 0 and v.tabs.len > 0: v.selectTab(0)
-        else: v.selectedTab = -1
+        var nextSelectedTab = i + 1
+        if nextSelectedTab == v.tabs.len:
+            nextSelectedTab = i - 1
+        v.selectTab(nextSelectedTab)
+
+    if i < v.selectedTab: dec v.selectedTab
+    v.tabs.delete(i)
     v.tabFramesValid = false
 
 proc removeFromSplitViewSystem*(v: View)
@@ -259,11 +311,11 @@ proc findSubviewOfTypeAtPoint[T](v: View, p: Point): T =
     result = findSubviewOfTypeAtPointAux[T](v, p)
     if not result.isNil and View(result) == v: result = nil
 
-proc newDraggingView(title: string, v: View): TabDraggingView =
+proc newDraggingView(tab: Tab): TabDraggingView =
     result = TabDraggingView.new(newRect(0, 0, 400, 400))
-    result.title = title
-    v.setFrame(newRect(0, 25, 400, 400 - 25))
-    result.addSubview(v)
+    result.title = tab.title
+    tab.view.setFrame(newRect(0, 25, 400, 400 - 25))
+    result.addSubview(tab.view)
 
 method draw(v: TabDraggingView, r: Rect) =
     procCall v.View.draw(r)
@@ -277,9 +329,9 @@ method draw(v: TabDraggingView, r: Rect) =
     c.fillColor = newColor(1, 0, 0)
     c.drawText(f, newPoint(5, 0), v.title)
 
-proc newTabViewForSplit(sz: Size, title: string, view: View, prototype: TabView): TabView =
+proc newTabViewForSplit(sz: Size, tab: Tab, prototype: TabView): TabView =
     result = TabView.new(newRect(zeroPoint, sz))
-    result.addTab(title, view)
+    result.addTab(tab.title, tab.view)
     result.dockingTabs = prototype.dockingTabs
     result.tabBarOrientation = prototype.tabBarOrientation
     result.userConfigurable = prototype.userConfigurable
@@ -290,7 +342,50 @@ proc newSplitView(r: Rect, horizontal: bool): LinearLayout =
     result.autoresizingMask = {afFlexibleWidth, afFlexibleHeight}
     result.userResizeable = true
 
-proc split*(v: TabView, horizontally, before: bool, title: string, view: View) =
+proc onlyTabViewsInSplitView(sv: View): bool =
+    for v in sv.subviews:
+        if not (v of TabView): return false
+    return true
+
+proc splitNew(v: TabView, horizontally, before: bool, tab: Tab) =
+    let s = v.superview
+    var sz = v.frame.size
+    var dividerPos: Coord
+    if horizontally:
+        sz.width /= 2
+        dividerPos = sz.width
+    else:
+        sz.height /= 2
+        dividerPos = sz.height
+
+    let ntv = newTabViewForSplit(zeroSize, tab, v)
+    ntv.onSplit = v.onSplit
+    ntv.onRemove = v.onRemove
+    ntv.onClose = v.onClose
+    if not ntv.onSplit.isNil:
+        ntv.onSplit(ntv)
+
+    if (s of SplitView) and SplitView(s).vertical != horizontally and onlyTabViewsInSplitView(s):
+        if before:
+            s.insertSubviewBefore(ntv, v)
+        else:
+            s.insertSubviewAfter(ntv, v)
+
+    else:
+        let vl = SplitView.new(zeroRect)
+        vl.vertical = not horizontally
+        vl.addConstraints(v.constraints)
+        s.replaceSubview(v, vl)
+        v.removeConstraints(v.constraints)
+        if before:
+            vl.addSubview(ntv)
+            vl.addSubview(v)
+        else:
+            vl.addSubview(v)
+            vl.addSubview(ntv)
+        vl.setDividerPosition(dividerPos, 0)
+
+proc splitOld(v: TabView, horizontally, before: bool, tab: Tab) =
     let s = v.superview
 
     var sz = v.frame.size
@@ -299,14 +394,14 @@ proc split*(v: TabView, horizontally, before: bool, title: string, view: View) =
     else:
         sz.height /= 2
 
-    let ntv = newTabViewForSplit(sz, title, view, v)
+    let ntv = newTabViewForSplit(sz, tab, v)
     ntv.onSplit = v.onSplit
     ntv.onRemove = v.onRemove
     ntv.onClose = v.onClose
     if not ntv.onSplit.isNil:
         ntv.onSplit(ntv)
 
-    if (s of LinearLayout) and LinearLayout(s).horizontal == horizontally:
+    if (s of LinearLayout) and LinearLayout(s).horizontal == horizontally and onlyTabViewsInSplitView(s):
         v.setFrameSize(sz)
         if before:
             s.insertSubviewBefore(ntv, v)
@@ -325,9 +420,16 @@ proc split*(v: TabView, horizontally, before: bool, title: string, view: View) =
             vl.addSubview(ntv)
         vl.setFrame(fr)
 
+proc split*(v: TabView, horizontally, before: bool, tab: Tab) =
+    if v.usesNewLayout:
+        v.splitNew(horizontally, before, tab)
+    else:
+        v.splitOld(horizontally, before, tab)
+
 proc removeFromSplitViewSystem*(v: View) =
+    let newLayout = v.usesNewLayout
     var s = v
-    while not s.isNil and s.superview of LinearLayout and s.superview.subviews.len == 1:
+    while not s.isNil and ((not newLayout and s.superview of LinearLayout) or (newLayout and s.superview of SplitView)) and s.superview.subviews.len == 1:
         s = s.superview
     s.removeFromSuperview()
 
@@ -380,7 +482,11 @@ proc trackDocking(v: TabView, tab: int): proc(e: Event): bool =
                             overlayRect = newRect(htv.bounds.maxX - margin, 0, margin, htv.bounds.height)
                     if overlayRect != zeroRect:
                         overlayRect = htv.convertRectToWindow(overlayRect)
-                        dropOverlayView.setFrame(overlayRect)
+                        if v.usesNewLayout:
+                            dropOverlayView.removeConstraints(dropOverlayView.constraints)
+                            dropOverlayView.addConstraints(constraintsForFixedFrame(overlayRect, v.window.bounds.size, {afFlexibleHeight, afFlexibleWidth}))
+                        else:
+                            dropOverlayView.setFrame(overlayRect)
                         v.window.addSubview(dropOverlayView)
                     else:
                         dropOverlayView.removeFromSuperview()
@@ -390,7 +496,7 @@ proc trackDocking(v: TabView, tab: int): proc(e: Event): bool =
                 draggingView = nil
             elif tabOwner.isNil and draggingView.isNil:
                 # Create dragging view
-                draggingView = newDraggingView(trackedTab.title, trackedTab.view)
+                draggingView = newDraggingView(trackedTab)
                 e.window.addSubview(draggingView)
 
             if not draggingView.isNil:
@@ -408,17 +514,17 @@ proc trackDocking(v: TabView, tab: int): proc(e: Event): bool =
                     let htvp = htv.convertPointFromWindow(e.position)
                     if htvp.x > margin and htvp.x < htv.bounds.maxX - margin:
                         if htvp.y > htv.tabBarThickness and htvp.y < margin:
-                            htv.split(false, true, trackedTab.title, trackedTab.view)
+                            htv.split(false, true, trackedTab)
                             done = true
                         elif htvp.y > htv.bounds.maxY - margin:
-                            htv.split(false, false, trackedTab.title, trackedTab.view)
+                            htv.split(false, false, trackedTab)
                             done = true
                     elif htvp.y > margin and htvp.y < htv.bounds.maxY - margin:
                         if htvp.x < margin:
-                            htv.split(true, true, trackedTab.title, trackedTab.view)
+                            htv.split(true, true, trackedTab)
                             done = true
                         elif htvp.x > htv.bounds.maxX - margin:
-                            htv.split(true, false, trackedTab.title, trackedTab.view)
+                            htv.split(true, false, trackedTab)
                             done = true
                 if not done:
                     v.insertTab(tab, trackedTab.title, trackedTab.view)
@@ -445,3 +551,5 @@ method onTouchEv*(v: TabView, e: var Event): bool =
         result = v.mouseTracker(e)
         if not result:
             v.mouseTracker = nil
+
+registerClass(TabView)

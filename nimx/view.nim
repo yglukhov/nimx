@@ -617,6 +617,28 @@ method deserializeFields*(v: View, s: Deserializer) =
 proc isLastInTreeBranch(d: View): bool =
     d.superview.subviews[^1] == d
 
+proc constraintsForFixedFrame*(f: Rect, superSize: Size, m: set[AutoresizingFlag]): seq[Constraint] =
+    # Don't use!
+    if afFlexibleMinX in m:
+        result.add(selfPHS.width == f.width)
+        result.add(selfPHS.right == superPHS.right - (superSize.width - f.maxX))
+    elif afFlexibleWidth in m:
+        result.add(selfPHS.left == superPHS.left + f.x)
+        result.add(selfPHS.right == superPHS.right - (superSize.width - f.maxX))
+    else:
+        result.add(selfPHS.left == superPHS.left + f.x)
+        result.add(selfPHS.width == f.width)
+
+    if afFlexibleMinY in m:
+        result.add(selfPHS.height == f.height)
+        result.add(selfPHS.bottom == superPHS.bottom - (superSize.height - f.maxY))
+    elif afFlexibleHeight in m:
+        result.add(selfPHS.top == superPHS.top + f.y)
+        result.add(selfPHS.bottom == superPHS.bottom - (superSize.height - f.maxY))
+    else:
+        result.add(selfPHS.top == superPHS.top + f.y)
+        result.add(selfPHS.height == f.height)
+
 proc dump(d, root: View, indent, output: var string, printer: proc(v: View): string) =
     let oldIndentLen = indent.len
     if d != root:
