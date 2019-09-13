@@ -10,12 +10,14 @@ export superPHS, selfPHS, prevPHS, nextPHS
 proc isViewDescNodeAux(n: NimNode): bool =
     n.kind == nnkPrefix and $n[0] == "-"
 
+proc identOrSym(n: NimNode): bool = n.kind in {nnkIdent, nnkSym}
+
 proc isViewDescNode(n: NimNode): bool =
     isViewDescNodeAux(n) or
-        (n.kind == nnkInfix and n.len == 4 and n[0].kind == nnkIdent and $n[0] == "as" and isViewDescNodeAux(n[1]) and n[2].kind == nnkIdent)
+        (n.kind == nnkInfix and n.len == 4 and n[0].identOrSym and $n[0] == "as" and isViewDescNodeAux(n[1]) and n[2].identOrSym)
 
 proc isPropertyNode(n: NimNode): bool =
-    n.kind == nnkCall and n.len == 2 and n[0].kind == nnkIdent
+    n.kind == nnkCall and n.len == 2# and n[0].identOrSym
 
 proc isConstraintNode(n: NimNode): bool =
     if n.kind == nnkInfix:
@@ -31,7 +33,7 @@ proc getIdFromViewDesc(n: NimNode): NimNode =
     if n.kind == nnkInfix: # - View as v:
         result = n[2]
     # let header = viewDesc[1]
-    # if header.kind == nnkCommand and header.len == 2 and header[1].kind == nnkIdent:
+    # if header.kind == nnkCommand and header.len == 2 and header[1].identOrSym:
     #     result = header[1]
 
 proc getInitializerFromViewDesc(n: NimNode): NimNode =
@@ -76,14 +78,14 @@ const attributeNames = [
 proc transformConstraintNode(cn, subject: NimNode): NimNode =
     result = cn
     case cn.kind
-    of nnkIdent:
+    of nnkIdent, nnkSym:
         let n = $cn
         if n in attributeNames:
             result = newDotExpr(bindSym"selfPHS", cn)
         elif not subject.isNil and n in placeholderNames:
             result = newDotExpr(newIdentNode(n & "PHS"), subject)
     of nnkDotExpr:
-        if cn.len == 2 and cn[0].kind == nnkIdent and cn[1].kind == nnkIdent:
+        if cn.len == 2 and cn[0].identOrSym and cn[1].identOrSym:
             let a = $cn[0]
             var done = false
             if a in placeholderNames:
@@ -135,11 +137,11 @@ proc layoutAux(rootView: NimNode, body: NimNode): NimNode =
     ids[0] = rootView
     for i in 1 ..< numViews:
         let id = getIdFromViewDesc(views[i])
-        if id.kind == nnkIdent:
+        if id.identOrSym:
             ids[i] = id
         else:
             var typeName = ""
-            if initializers[i].kind == nnkIdent:
+            if initializers[i].identOrSym:
                 typeName = "_" & $initializers[i]
 
             ids[i] = newIdentNode("layout" & typeName & "_" & $i & "_" & $uniqueIdCounter)
@@ -149,7 +151,7 @@ proc layoutAux(rootView: NimNode, body: NimNode): NimNode =
     let idDefinitions = newNimNode(nnkLetSection)
 
     for i in 1 ..< numViews:
-        if initializers[i].kind == nnkIdent:
+        if initializers[i].identOrSym:
             # Explicit type. Need to create with new(). init() is called later.
             idDefinitions.add(newIdentDefs(ids[i], newEmptyNode(), newCall("new", initializers[i])))
         else:
@@ -157,7 +159,7 @@ proc layoutAux(rootView: NimNode, body: NimNode): NimNode =
     result.add(idDefinitions)
 
     for i in 1 ..< numViews:
-        if initializers[i].kind == nnkIdent: # Explicit type. Need to cal init()
+        if initializers[i].identOrSym: # Explicit type. Need to cal init()
             result.add(newCall("init", ids[i], newIdentNode("zeroRect")))
 
     for i in 1 ..< numViews:
@@ -194,7 +196,7 @@ proc layoutAux(rootView: NimNode, body: NimNode): NimNode =
                 assert(op in ["==", ">=", "<="])
 
                 var subject: NimNode
-                if expression[1].kind == nnkIdent:
+                if expression[1].identOrSym:
                     subject = expression[1]
 
                 result.add(newCall(bindSym"addConstraintWithStrength", ids[i], transformConstraintNode(expression, subject), strength))
