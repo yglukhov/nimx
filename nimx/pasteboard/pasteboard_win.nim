@@ -121,7 +121,7 @@ proc pbWrite(p: Pasteboard, pi_ar: varargs[PasteboardItem])=
         for pi in pi_ar:
             let fKind = getClipboardFormatByString(pi.kind)
             let cwstr = newWideCString(pi.data)
-            let size = csize(cwstr.len + 1) * sizeof(Utf16Char)
+            let size = csize((cwstr.len + 1) * sizeof(Utf16Char))
             var allmem = globalAlloc(GMEM_MOVEABLE, size)
             let pBuf = globalLock(allmem)
             if not pBuf.isNil:
