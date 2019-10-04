@@ -101,7 +101,7 @@ type WindowsPasteboard = ref object of Pasteboard
 proc getPasteboardItem(k: UINT, lpstr: LPVOID, lpdat: Handle): PasteboardItem =
     var lpdatLen = globalSize(lpdat)
     if not *lpdatLen: error()
-    var str = newWideCString("",lpdatLen)
+    var str = newWideCString("",int(lpdatLen))
     copyMem(addr(str[0]), lpstr, csize(lpdatLen) )
 
     var data = str$lpdatLen.int32
