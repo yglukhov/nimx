@@ -325,6 +325,11 @@ proc setTextColorInRange*(t: FormattedText, a, b: int, color1, color2: Color) =
         t.mAttributes[i].textColor2 = color2
         t.mAttributes[i].isTextGradient = true
 
+proc setTextAlphaInRange*(t: FormattedText, a, b: int, alpha: float32) =
+    for i in t.attrsInRange(a, b):
+        t.mAttributes[i].textColor.a = alpha
+        t.mAttributes[i].textColor2.a = alpha
+
 proc setShadowInRange*(t: FormattedText, a, b: int, color: Color, offset: Size, radius, spread: float32) =
     for i in t.attrsInRange(a, b):
         t.mAttributes[i].shadowColor = color
