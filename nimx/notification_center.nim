@@ -261,15 +261,18 @@ proc addObserver*(nc: NotificationCenter, ev: string, observerId: ref | SomeOrdi
         nc.observers[ev] = o
     o[obsId] = cb
 
-template postNotification*(nc: NotificationCenter, ev: string, args: Variant) =
+proc postNotification*(nc: NotificationCenter, ev: string, args: Variant) =
     let o = nc.observers.getOrDefault(ev)
     if not o.isNil:
-        for v in o.values:
+        # Prevent reentrancy
+        var s = newSeqOfCap[NCCallback](o.len)
+        for v in o.values: s.add(v)
+        for v in s:
             when defined(debugNC):
                 warn "NC postNotification ", ev, " from ", instantiationInfo(), " with args ", args.typeId
             v(args)
 
-template postNotification*(nc: NotificationCenter, ev: string)=
+proc postNotification*(nc: NotificationCenter, ev: string) {.inline.} =
     when defined(debugNC):
         warn "NC postNotification ", ev, " from ", instantiationInfo()
     nc.postNotification(ev, newVariant())
