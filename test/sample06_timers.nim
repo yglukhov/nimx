@@ -1,6 +1,6 @@
 import strutils
 import sample_registry
-import nimx / [ view, timer, text_field, button ]
+import nimx / [ view, timer, text_field, button, layout ]
 
 type TimersSampleView = ref object of View
     timer: Timer
@@ -8,48 +8,81 @@ type TimersSampleView = ref object of View
 
 method init(t: TimersSampleView, r: Rect) =
     procCall t.View.init(r)
+    t.makeLayout:
+        - Label:
+            text: "interval:"
+            leading == super + 20
+            top == super + 20
+            width == 120
+            height == 20
+        - TextField as intervalTextField:
+            text: "5"
+            leading == prev.trailing + 20
+            top == prev
+            width == 120
+            height == prev
 
-    discard t.newLabel(newPoint(20, 20), newSize(120, 20), "interval: ")
-    let intervalTextField = t.newTextField(newPoint(150, 20), newSize(120, 20), "5")
+        - CheckBox as periodicButton:
+            title: "periodic"
+            leading == super + 20
+            top == prev.bottom + 20
+            width == 120
+            height == 20
 
-    discard t.newLabel(newPoint(20, 50), newSize(120, 20), "periodic: ")
+        - Button:
+            title: "Start"
+            leading == super + 20
+            top == prev.bottom + 20
+            width == 100
+            height == 20
+            onAction:
+                t.timer.clear()
+                firesLabel.text = "fires: "
+                t.timer = newTimer(parseFloat(intervalTextField.text), periodicButton.boolValue, proc() =
+                    firesLabel.text = firesLabel.text & "O"
+                    )
 
-    let periodicButton = newCheckbox(newRect(150, 50, 20, 20))
-    t.addSubview(periodicButton)
+        - Button:
+            title: "Clear"
+            leading == prev
+            top == prev.bottom + 10
+            size == prev
+            onAction:
+                t.timer.clear()
 
-    var firesLabel: TextField
+        - Button:
+            title: "Pause"
+            leading == prev
+            top == prev.bottom + 10
+            size == prev
+            onAction:
+                if not t.timer.isNil:
+                    t.timer.pause()
 
-    let startButton = newButton(newRect(20, 80, 100, 20))
-    startButton.title = "Start"
-    startButton.onAction do():
-        t.timer.clear()
-        firesLabel.text = "fires: "
-        t.timer = newTimer(parseFloat(intervalTextField.text), periodicButton.boolValue, proc() =
-            firesLabel.text = firesLabel.text & "O"
-            )
-    t.addSubview(startButton)
+        - Button:
+            title: "Resume"
+            leading == prev
+            top == prev.bottom + 10
+            size == prev
+            onAction:
+                if not t.timer.isNil:
+                    t.timer.resume()
 
-    let clearButton = newButton(newRect(20, 110, 100, 20))
-    clearButton.title = "Clear"
-    clearButton.onAction do():
-        t.timer.clear()
-    t.addSubview(clearButton)
 
-    let pauseButton = newButton(newRect(20, 140, 100, 20))
-    pauseButton.title = "Pause"
-    pauseButton.onAction do():
-        if not t.timer.isNil:
-            t.timer.pause()
-    t.addSubview(pauseButton)
 
-    let resumeButton = newButton(newRect(20, 170, 100, 20))
-    resumeButton.title = "Resume"
-    resumeButton.onAction do():
-        if not t.timer.isNil:
-            t.timer.resume()
-    t.addSubview(resumeButton)
+        - Label as secondsLabel:
+            text: "seconds: "
+            leading == prev
+            top == prev.bottom + 10
+            width == 120
+            height == 20
 
-    let secondsLabel = t.newLabel(newPoint(20, 200), newSize(120, 20), "seconds: ")
+        - Label as firesLabel:
+            text: "fires: "
+            leading == prev
+            top == prev.bottom + 10
+            size == prev
+
     var secs = 0
     setInterval 1.0, proc() =
         inc secs
@@ -58,7 +91,5 @@ method init(t: TimersSampleView, r: Rect) =
         secondsLabel.text = "seconds: "
         for i in 0 ..< secs:
             secondsLabel.text = secondsLabel.text & "O"
-
-    firesLabel = t.newLabel(newPoint(20, 230), newSize(120, 20), "fires: ")
 
 registerSample(TimersSampleView, "Timers")

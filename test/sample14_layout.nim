@@ -220,14 +220,26 @@ method init(v: LayoutSampleView, r: Rect) =
     procCall v.View.init(r)
     var by = 5'f32
     template reg(name: string, t: proc(w: Window)) =
-        let b = Button.new(newRect(5, by, 150, 25))
-        b.title = name
+        v.makeLayout:
+            - Button:
+                title: name
+                top == super + by
+                leading == super + 5
+                width == 150
+                height == 25
+                onAction:
+                    let wnd = newWindow(newRect(80, 80, 800, 600))
+                    wnd.title = name
+                    t(wnd)
+        
+        # let b = Button.new(newRect(5, by, 150, 25))
+        # b.title = name
         by += 30
-        b.onAction do():
-            let wnd = newWindow(newRect(80, 80, 800, 600))
-            wnd.title = name
-            t(wnd)
-        v.addSubview(b)
+        # b.onAction do():
+        #     let wnd = newWindow(newRect(80, 80, 800, 600))
+        #     wnd.title = name
+        #     t(wnd)
+        # v.addSubview(b)
 
     reg "Hello world", createLayout1
     reg "Some layout", createLayout2

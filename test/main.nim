@@ -1,7 +1,7 @@
 #!/usr/local/bin/nim c -r --threads:on
 import sample_registry
 
-import nimx / [ view, scroll_view, table_view, text_field, autotest, window, linear_layout ]
+import nimx / [ view, scroll_view, table_view2, text_field, layout, autotest, window, split_view ]
 import sequtils, intsets
 
 import sample01_welcome
@@ -29,35 +29,45 @@ proc startApplication() =
         else:
             newWindow(newRect(40, 40, 800, 600))
 
-    mainWindow.title = "NimX Sample"
+    mainWindow.makeLayout:
+        title: "NimX Sample"
 
-    var currentView = View.new(newRect(0, 0, mainWindow.bounds.width - 100, mainWindow.bounds.height))
+        - SplitView as splitView:
+            origin == super
+            size == super
 
-    let splitView = newHorizontalLayout(mainWindow.bounds)
-    splitView.resizingMask = "wh"
-    splitView.userResizeable = true
-    mainWindow.addSubview(splitView)
+            - ScrollView:
+                width >= 80
+                width <= super / 3 @ MEDIUM
+                - TableView as tableView:
 
-    let tableView = newTableView(newRect(0, 0, 120, mainWindow.bounds.height))
-    tableView.resizingMask = "rh"
-    splitView.addSubview(newScrollView(tableView))
-    splitView.addSubview(currentView)
-    splitView.setDividerPosition(120, 0)
+                    # width == 120
+                    numberOfRows do() -> int:
+                        allSamples.len
 
-    tableView.numberOfRows = proc: int = allSamples.len
-    tableView.createCell = proc (): TableViewCell =
-        result = newTableViewCell(newLabel(newRect(0, 0, 120, 20)))
-    tableView.configureCell = proc (c: TableViewCell) =
-        TextField(c.subviews[0]).text = allSamples[c.row].name
-    tableView.onSelectionChange = proc() =
-        let selectedRows = toSeq(items(tableView.selectedRows))
-        if selectedRows.len > 0:
-            let firstSelectedRow = selectedRows[0]
-            let nv = View(newObjectOfClass(allSamples[firstSelectedRow].className))
-            nv.init(currentView.frame)
-            nv.resizingMask = "wh"
-            splitView.replaceSubview(currentView, nv)
-            currentView = nv
+                    createCell do() -> TableViewCell:
+                        result = newTableViewCell()
+                        result.makeLayout:
+                            - Label:
+                                origin == super
+                                width == 120
+                                height == 20
+                                height <= super
+                                width <= super
+
+                    configureCell do(c: TableViewCell):
+                        TextField(c.subviews[0]).text = allSamples[c.row].name
+
+                    onSelectionChange do():
+                        let selectedRows = toSeq(items(tableView.selectedRows))
+                        if selectedRows.len > 0:
+                            let firstSelectedRow = selectedRows[0]
+                            let nv = View(newObjectOfClass(allSamples[firstSelectedRow].className))
+                            nv.init(zeroRect)
+                            splitView.replaceSubview(1, nv)
+
+            - View: # Placeholder
+                discard
 
     tableView.reloadData()
     tableView.selectRow(0)

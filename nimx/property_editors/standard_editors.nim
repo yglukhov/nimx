@@ -1,6 +1,4 @@
-import strutils
-import tables
-import algorithm
+import strutils, tables, algorithm
 
 import nimx/view
 import nimx/text_field
@@ -106,7 +104,7 @@ proc newColorPropertyView(setter: proc(s: Color), getter: proc(): Color): Proper
     const vecLen = 3 + 1
 
     var beginColorPicker: proc()
-    var colorInColorPickerSelected: proc(pc: Color)
+    var colorInColorPickerSelected: proc()
 
     let colorView = Button.new(newRect(0, 0, editorRowHeight, editorRowHeight))
     colorView.backgroundColor = getter()
@@ -129,30 +127,26 @@ proc newColorPropertyView(setter: proc(s: Color), getter: proc(): Color): Proper
                 )
             setter(c)
             colorView.backgroundColor = c
-
-            if colorPicker.onColorSelected == colorInColorPickerSelected:
-                colorPicker.color = c
+            colorPicker.color = c
         except ValueError:
             discard
 
-    colorInColorPickerSelected = proc(pc: Color) =
-        TextField(horLayout.subviews[0]).text = toStr(pc.r, 2)
-        TextField(horLayout.subviews[1]).text = toStr(pc.g, 2)
-        TextField(horLayout.subviews[2]).text = toStr(pc.b, 2)
-        var c = pc
+    colorInColorPickerSelected = proc() =
+        var c = colorPicker.color
+        TextField(horLayout.subviews[0]).text = toStr(c.r, 2)
+        TextField(horLayout.subviews[1]).text = toStr(c.g, 2)
+        TextField(horLayout.subviews[2]).text = toStr(c.b, 2)
         c.a = try: TextField(horLayout.subviews[3]).text.parseFloat() except: 1.0
         setter(c)
         colorView.backgroundColor = c
 
     beginColorPicker = proc() =
         colorPicker.color = getter()
-        colorPicker.onColorSelected = colorInColorPickerSelected
+        colorPicker.onAction colorInColorPickerSelected
         colorPicker.popupAtPoint(colorView, newPoint(0, colorView.bounds.maxY))
 
     proc endColorPicker() =
-        if colorPicker.onColorSelected == colorInColorPickerSelected:
-            colorPicker.onColorSelected = nil
-            colorPicker.removeFromSuperview()
+        colorPicker.removeFromSuperview()
 
     template toVector(c: Color): Vector4 = newVector4(c.r, c.g, c.b, c.a)
 

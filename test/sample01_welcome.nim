@@ -1,7 +1,7 @@
 import sample_registry
 
 import nimx / [ view, font, context, composition, button, autotest,
-                gesture_detector, view_event_handling ]
+                gesture_detector, view_event_handling, layout ]
 
 const welcomeMessage = "Welcome to nimX"
 
@@ -16,20 +16,29 @@ method onScroll*(v: CustomControl, e: var Event): bool =
 
 method init(v: WelcomeView, r: Rect) =
     procCall v.View.init(r)
-    let autoTestButton = newButton(newRect(20, 20, 150, 20))
-    let secondTestButton = newButton(newRect(20, 50, 150, 20))
-    autoTestButton.title = "Start Auto Tests"
-    secondTestButton.title = "Second button"
+    v.makeLayout:
+        - Button:
+            title: "Start Auto Tests"
+            top == super + 20
+            leading == super + 20
+            width == 150
+            height == 20
+            onAction:
+                startRegisteredTests()
+
+        - Button as secondTestButton:
+            title: "Second button"
+            top == prev.bottom + 10
+            leading == prev
+            size == prev
+            onAction:
+                echo "second click"
+
     let tapd = newTapGestureDetector do(tapPoint : Point):
         echo "tap on second button"
         discard
     secondTestButton.addGestureDetector(tapd)
-    autoTestButton.onAction do():
-        startRegisteredTests()
-    secondTestButton.onAction do():
-        echo "second click"
-    v.addSubview(autoTestButton)
-    v.addSubview(secondTestButton)
+
     let vtapd = newTapGestureDetector do(tapPoint : Point):
         echo "tap on welcome view"
         discard

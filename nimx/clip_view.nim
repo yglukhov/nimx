@@ -13,3 +13,5 @@ method subviewDidChangeDesiredSize*(v: ClipView, sub: View, desiredSize: Size) =
 method clipType*(v: ClipView): ClipType = ctDefaultClip
 
 proc enclosingClipView*(v: View): ClipView = v.enclosingViewOfType(ClipView)
+
+registerClass(ClipView)

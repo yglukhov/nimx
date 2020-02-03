@@ -1,7 +1,7 @@
 import strutils
 import sample_registry
 import nimx / [ view, font, context, button, text_field, slider, popup_button,
-                formatted_text, segmented_control, scroll_view ]
+                formatted_text, segmented_control, scroll_view, layout ]
 
 type TextView = ref object of View
     text: FormattedText
@@ -29,12 +29,34 @@ iterator rangesOfSubstring(haystack, needle: string): (int, int) =
 
 method init(v: TextSampleView, r: Rect) =
     procCall v.View.init(r)
+    v.makeLayout:
+        - ScrollView:
+            leading == super + 50
+            trailing == super - 50
+            top == super + 50
+            bottom == super - 50
 
-    let tv = TextField.new(v.bounds.inset(50, 50))
-    tv.resizingMask = "wh"
-    tv.text = textSample
-    tv.backgroundColor = newColor(0.5, 0, 0, 0.5)
-    tv.multiline = true
+            - TextField as tv:
+                backgroundColor: newColor(0.5, 0, 0, 0.5)
+                multiline: true
+                text: textSample
+
+        - SegmentedControl as hAlignChooser:
+            leading == super + 5
+            top == super + 5
+            height == 25
+            segments: @[$haLeft, $haCenter, $haRight]
+            onAction:
+                tv.formattedText.horizontalAlignment = parseEnum[HorizontalTextAlignment](hAlignChooser.segments[hAlignChooser.selectedSegment])
+
+        - SegmentedControl as vAlignChooser:
+            leading == prev.trailing + 5
+            trailing == super - 5
+            top == prev
+            size == prev
+            segments: @[$vaTop, $vaCenter, $vaBottom]
+            onAction:
+                tv.formattedText.verticalAlignment = parseEnum[VerticalAlignment](vAlignChooser.segments[vAlignChooser.selectedSegment])
 
     for a, b in tv.text.rangesOfSubstring("Nim"):
         tv.formattedText.setFontInRange(a, b, systemFontOfSize(40))
@@ -51,21 +73,6 @@ method init(v: TextSampleView, r: Rect) =
         tv.formattedText.setFontInRange(a, b, systemFontOfSize(40))
         tv.formattedText.setShadowInRange(a, b, newColor(0.0, 0.0, 1.0, 1.0), newSize(2, 3), 5.0, 0.8)
 
-    let sv = newScrollView(tv)
-    v.addSubview(sv)
-
-    let hAlignChooser = SegmentedControl.new(newRect(5, 5, 200, 25))
-    hAlignChooser.segments = @[$haLeft, $haCenter, $haRight]
-    v.addSubview(hAlignChooser)
-    hAlignChooser.onAction do():
-        tv.formattedText.horizontalAlignment = parseEnum[HorizontalTextAlignment](hAlignChooser.segments[hAlignChooser.selectedSegment])
-
-    let vAlignChooser = SegmentedControl.new(newRect(hAlignChooser.frame.maxX + 5, 5, 200, 25))
-    vAlignChooser.segments = @[$vaTop, $vaCenter, $vaBottom]
-    vAlignChooser.selectedSegment = 0
-    v.addSubview(vAlignChooser)
-    vAlignChooser.onAction do():
-        tv.formattedText.verticalAlignment = parseEnum[VerticalAlignment](vAlignChooser.segments[vAlignChooser.selectedSegment])
     tv.formattedText.verticalAlignment = vaTop
 
 method draw(v: TextView, r: Rect) =

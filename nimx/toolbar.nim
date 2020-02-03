@@ -1,17 +1,16 @@
-import nimx/context
-import nimx/view_dragging_listener
-import nimx/linear_layout
+import nimx/[context, view_dragging_listener, split_view]
 
-type Toolbar* = ref object of LinearLayout
+type Toolbar* = ref object of SplitView
 
 method init*(v: Toolbar, r: Rect) =
-    procCall v.LinearLayout.init(r)
-    v.horizontal = true
-    v.leftMargin = 10
-    v.padding = 3
-    v.topMargin = 3
-    v.bottomMargin = 3
-    v.rightMargin = 3
+    procCall v.SplitView.init(r)
+    v.vertical = false
+    v.resizable = false
+    # v.leftMargin = 10
+    # v.padding = 3
+    # v.topMargin = 3
+    # v.bottomMargin = 3
+    # v.rightMargin = 3
     v.enableDraggingByBackground()
 
 method draw*(view: Toolbar, rect: Rect) =

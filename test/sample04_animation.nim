@@ -1,6 +1,6 @@
 import math # for PI
 import sample_registry
-import nimx / [ view, context, animation, window, button, progress_indicator ]
+import nimx / [ view, context, animation, window, button, progress_indicator, layout ]
 
 type AnimationSampleView = ref object of View
     rotation: Coord
@@ -10,16 +10,37 @@ method init*(v: AnimationSampleView, r: Rect) =
     procCall v.View.init(r)
     v.animation = newAnimation()
 
-    # Start/Stop button
-    let startStopButton = newButton(newRect(20, 20, 50, 50))
-    startStopButton.title = "Stop"
-    startStopButton.onAction do():
-        if v.animation.finished:
-            v.window.addAnimation(v.animation)
-            startStopButton.title = "Stop"
-        else:
-            v.animation.cancel()
-    v.addSubview(startStopButton)
+    v.makeLayout:
+        - Button as startStopButton:
+            title: "Stop"
+            leading == super + 20
+            top == super + 20
+            width == 70
+            height == 50
+            onAction:
+                if v.animation.finished:
+                    v.window.addAnimation(v.animation)
+                    startStopButton.title = "Stop"
+                else:
+                    v.animation.cancel()
+        - Button as playPauseButton:
+            title: "Pause"
+            leading == prev.trailing + 20
+            top == prev
+            size == prev
+            onAction:
+                if playPauseButton.title == "Pause":
+                    v.animation.pause()
+                    playPauseButton.title = "Resume"
+                else:
+                    v.animation.resume()
+                    playPauseButton.title = "Pause"
+
+        - ProgressIndicator as progressBar:
+            leading == prev.trailing + 20
+            top == prev
+            width == 90
+            height == 20
 
     v.animation.timingFunction = bezierTimingFunction(0.53,-0.53,0.38,1.52)
     v.animation.onAnimate = proc(p: float) =
@@ -28,21 +49,6 @@ method init*(v: AnimationSampleView, r: Rect) =
     v.animation.onComplete do():
         startStopButton.title = "Start"
     #v.animation.numberOfLoops = 2
-
-    let playPauseButton = newButton(newRect(80, 20, 70, 50))
-    playPauseButton.title = "Pause"
-    playPauseButton.onAction do():
-        if playPauseButton.title == "Pause":
-            v.animation.pause()
-            playPauseButton.title = "Resume"
-        else:
-            v.animation.resume()
-            playPauseButton.title = "Pause"
-    v.addSubview(playPauseButton)
-
-
-    let progressBar = ProgressIndicator.new(newRect(160, 20, 90, 20))
-    v.addSubview(progressBar)
 
     # Loop progress handlers are called when animation reaches specified loop progress.
     v.animation.addLoopProgressHandler 1.0, false, proc() =

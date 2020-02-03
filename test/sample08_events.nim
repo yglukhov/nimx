@@ -8,7 +8,6 @@ var draggedbttnHandleEvent = false
 type EventsPriorityView = ref object of View
     welcomeFont: Font
 
-type CustomControl* = ref object of Control
 type MyScrollListener = ref object of OnScrollListener
     updatedView: View
     curr_pos_y: float
@@ -19,32 +18,9 @@ type MyDragListener = ref object of OnScrollListener
 
 type ContentView = ref object of View
 type ScissorView = ref object of View
-type DraggedButton = ref object of Button
-
 
 ########################
-method init(v: ContentView, r: Rect) =
-    procCall v.View.init(r)
-
-proc newContentView*(frame: Rect): ContentView =
-    result.new()
-    result.init(frame)
-
-method init(v: ScissorView, r: Rect) =
-    procCall v.View.init(r)
-
-proc newScissorView*(frame: Rect): ScissorView =
-    result.new()
-    result.init(frame)
-
 method clipType*(v: ScissorView): ClipType = ctDefaultClip
-
-method init(b: DraggedButton, r: Rect) =
-    procCall b.Button.init(r)
-
-proc newDraggedButton*(r: Rect): DraggedButton =
-    result.new()
-    result.init(r)
 
 ########################
 
@@ -99,11 +75,9 @@ method onTapUp*(lis: MyDragListener, dx, dy : float32, e : var Event) =
 method init(v: EventsPriorityView, r: Rect) =
     procCall v.View.init(r)
 
-    var scissorView = newScissorView(newRect(0, 25 , 360, 250))
-    var contentView = newContentView(newRect(0, 25 , 360, 250))
-    var sl : MyScrollListener
-    new(sl)
-    sl.updatedView = contentView
+    let scissorView = ScissorView.new(newRect(0, 25 , 360, 250))
+    let contentView = ContentView.new(newRect(0, 25 , 360, 250))
+    let sl = MyScrollListener(updatedView: contentView)
     contentView.addGestureDetector(newScrollGestureDetector(sl))
 
     v.addSubview(scissorView)
@@ -125,9 +99,7 @@ method init(v: EventsPriorityView, r: Rect) =
         bttnMesage = "Click " & button.title
     contentView.addSubview(button)
 
-    var dl : MyDragListener
-    new(dl)
-    dl.updatedView = button
+    let dl = MyDragListener(updatedView: button)
     button.addGestureDetector(newScrollGestureDetector(dl))
 
 
