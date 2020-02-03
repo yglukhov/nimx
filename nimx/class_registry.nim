@@ -1,4 +1,5 @@
-import tables, typetraits, macros, variant
+import tables, macros, variant
+import typetraits except getTypeId # see https://github.com/nim-lang/Nim/pull/13305
 
 proc skipPtrRef(n: NimNode): NimNode =
     let ty = getImpl(n)
