@@ -4,17 +4,21 @@ import kiwi
 import nimx / [ view, cursor, view_event_handling ]
 import view_dragging_listener
 
+export view
+
 
 type SplitView* = ref object of View
     constraints: seq[Constraint]
     separatorPositions: seq[Variable]
     mVertical: bool
+    mResizable: bool
     hoveredDivider: int
     initialDragPos: Point
 
 method init*(v: SplitView, r: Rect) =
     procCall v.View.init(r)
     v.hoveredDivider = -1
+    v.mResizable = true
     v.trackMouseOver(true)
 
 # method updateLayout*(v: SplitView) =
@@ -109,6 +113,11 @@ proc `vertical=`*(v: SplitView, flag: bool) =
 
 proc vertical*(v: SplitView): bool {.inline.} = v.mVertical
 
+proc `resizable=`*(v: SplitView, flag: bool) =
+    v.mResizable = flag
+
+proc resizable*(v: SplitView): bool {.inline.} = v.mResizable
+
 proc dividerAtPoint(v: SplitView, p: Point): int =
     let p = v.convertPointToWindow(p)
     if v.mVertical:
@@ -127,19 +136,22 @@ proc dividerAtPoint(v: SplitView, p: Point): int =
     result = -1
 
 method onMouseOver*(v: SplitView, e: var Event) =
-    var nhv = v.dividerAtPoint(e.localPosition)
-    if nhv == -1 and v.hoveredDivider != -1:
-        newCursor(ckArrow).setCurrent()
-    elif nhv != v.hoveredDivider:
-        if v.mVertical:
-            newCursor(ckSizeVertical).setCurrent()
-        else:
-            newCursor(ckSizeHorizontal).setCurrent()
-    v.hoveredDivider = nhv
+    if v.resizable:
+        var nhv = v.dividerAtPoint(e.localPosition)
+        if nhv == -1 and v.hoveredDivider != -1:
+            newCursor(ckArrow).setCurrent()
+        elif nhv != v.hoveredDivider:
+            if v.mVertical:
+                newCursor(ckSizeVertical).setCurrent()
+            else:
+                newCursor(ckSizeHorizontal).setCurrent()
+        v.hoveredDivider = nhv
+
+# TODO: We also need to reset the resizing mouse cursor onMouseOut.
 
 method onTouchEv*(v: SplitView, e: var Event): bool =
     result = procCall v.View.onTouchEv(e)
-    if v.hoveredDivider != -1:
+    if v.resizable and v.hoveredDivider != -1:
         result = true
         case e.buttonState
         of bsDown:

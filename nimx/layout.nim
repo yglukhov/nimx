@@ -72,7 +72,9 @@ const attributeNames = [
     "centerX", "centerY",
     "origin",
     "center",
-    "size"
+    "size",
+    "topLeading",
+    "bottomTrailing"
     ]
 
 proc transformConstraintNode(cn, subject: NimNode): NimNode =

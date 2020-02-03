@@ -89,21 +89,22 @@ proc loadPVRDataToTexture(data: ptr uint8, texture: var TextureRef, size: var Si
     let filter = GLint(if header.numMipmaps == 1: GL_LINEAR else: GL_LINEAR_MIPMAP_LINEAR)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
-    var offset = sizeof(PVRTextureHeaderV3) + header.metaDataSize.int
+    var offset = sizeof(PVRTextureHeaderV3).uint + header.metaDataSize.uint
     let nm = header.numMipmaps
     var i = 0'u32
     while i < nm:
         let mipmapWidth = GLsizei(width shr i)
         let mipmapHeight = GLsizei(height shr i)
         var pixelBytes = GLsizei(mipmapWidth * mipmapHeight * bpp / 8)
+        let pImageData = cast[pointer](cast[uint](data) + offset)
         if compressed:
             pixelBytes = max(32, pixelBytes);
             glCompressedTexImage2D(GL_TEXTURE_2D, i.GLint, format, mipmapWidth, mipmapHeight, 0,
-                                   pixelBytes, cast[pointer](cast[csize](data) + csize(offset)))
+                                   pixelBytes, pImageData)
         else:
             glTexImage2D(GL_TEXTURE_2D, i.GLint, format.GLint, mipmapWidth, mipmapHeight,
-                         0, format, typ, cast[pointer](cast[csize](data) + csize(offset)))
-        offset += pixelBytes
+                         0, format, typ, pImageData)
+        offset += pixelBytes.uint
         inc i
 
 

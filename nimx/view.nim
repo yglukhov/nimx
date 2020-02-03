@@ -92,6 +92,9 @@ proc origin*(phs: ViewLayoutVars): array[2, Expression] = [newExpression(newTerm
 proc center*(phs: ViewLayoutVars): array[2, Expression] = [phs.centerX, phs.centerY]
 proc size*(phs: ViewLayoutVars): array[2, Expression] = [newExpression(newTerm(phs.width)), newExpression(newTerm(phs.height))]
 
+proc topLeading*(phs: ViewLayoutVars): array[2, Expression] = [phs.leading, newExpression(newTerm(phs.y))]
+proc bottomTrailing*(phs: ViewLayoutVars): array[2, Expression] = [phs.trailing, phs.bottom]
+
 var prevPHS*, nextPHS*, superPHS*, selfPHS*: ViewLayoutVars
 
 proc init(phs: var ViewLayoutVars) =
