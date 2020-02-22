@@ -769,6 +769,7 @@ proc build*(b: Builder) =
     args.add(b.nimFlags)
     args.add(b.nimbleOverrideFlags())
     args.add b.mainFile
+
     direShell args
 
     if b.platform in ["emscripten", "wasm", "js"]:
