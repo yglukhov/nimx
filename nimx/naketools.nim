@@ -129,16 +129,9 @@ proc findEnvPaths(b: Builder) =
         var error_msg = ""
         ## try find binary for android sdk, ndk, and nim
         if b.platform == "android":
-            var ndk_path: string
             var sdk_path = findExe("adb")
             var nim_path = ""
 
-            if existsEnv("ANDROID_NDK_HOME"):
-                ndk_path = getEnv("ANDROID_NDK_HOME")
-            else:
-                ndk_path = findExe("ndk-stack")
-                if ndk_path.len > 0:
-                    ndk_path = replaceInStr(ndk_path, "ndk-stack")
 
             if sdk_path.len > 0:
                 sdk_path = replaceInStr(sdk_path, "platform")
@@ -160,22 +153,15 @@ proc findEnvPaths(b: Builder) =
                   nim_path = ""
 
             when not defined(windows):
-                if ndk_path.len == 0:
-                    ndk_path = "~/Library/Android/sdk/ndk-bundle"
-                    if not fileExists(expandTilde(ndk_path / "ndk-stack")):
-                        echo "NDK DOESNT EXIST"
-                        ndk_path = ""
                 if sdk_path.len == 0:
                     sdk_path = "~/Library/Android/sdk"
                     if not fileExists(expandTilde(sdk_path / "platform-tools/adb")):
                         sdk_path = ""
 
             if sdk_path.len == 0: error_msg &= getEnvErrorMsg("ANDROID_SDK_HOME")
-            if ndk_path.len == 0: error_msg &= getEnvErrorMsg("ANDROID_NDK_HOME")
             if nim_path.len == 0: error_msg &= getEnvErrorMsg("NIM_HOME")
 
             b.androidSdk = sdk_path
-            b.androidNdk = ndk_path
             b.nimIncludeDir = nim_path
 
         var sdlHome : string
@@ -595,7 +581,6 @@ proc ndkBuild(b: Builder) =
         putEnv "NIM_INCLUDE_DIR", expandTilde(b.nimIncludeDir).replace('\\','/')
         putEnv "ANDROID_SDK_HOME", expandTilde(b.androidSdk)
         putEnv "ANDROID_HOME", expandTilde(b.androidSdk)
-        putEnv "ANDROID_NDK_HOME", expandTilde(b.androidNdk)
         var args = @[getCurrentDir() / "gradlew"]
         if b.debugMode:
             args.add("assembleDebug")
