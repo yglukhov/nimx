@@ -23,6 +23,8 @@ proc initSDLIfNeeded() =
 
         if glSetAttribute(SDL_GL_STENCIL_SIZE, 8) != 0:
             error "could not set stencil size: ", getError()
+        if glSetAttribute(SDL_GL_DEPTH_SIZE, 8) != 0:
+            error "could not set depth size: ", getError()
 
         when defined(ios) or defined(android):
             if glSetAttribute(SDL_GL_RED_SIZE, 8) == 0 and
@@ -152,7 +154,7 @@ proc scaleFactor(w: SdlWindow): float =
                                 let db = XrmGetStringDatabase(resourceString)
                                 if not db.isNil:
                                     var value: TXrmValue
-                                    var typ: cstring    
+                                    var typ: cstring
                                     if XrmGetResource(db, "Xft.dpi", "String", addr typ, addr value) != 0:
                                         if not value.address.isNil:
                                             discard parseFloat($cstring(value.address), dpi, 0)

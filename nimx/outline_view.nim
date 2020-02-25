@@ -110,7 +110,8 @@ method draw*(v: OutlineView, r: Rect) =
 iterator nodesOnPath(v: OutlineView, indexPath: openarray[int]): ItemNode =
     var n = v.rootItem
     for i in indexPath:
-        n = n.children[i]
+        if i < n.children.len:
+            n = n.children[i]
         yield n
 
 proc nodeAtIndexPath(v: OutlineView, indexPath: openarray[int]): ItemNode =
