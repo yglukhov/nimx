@@ -219,7 +219,7 @@ proc newBuilder*(platform: string): Builder =
     b.mainFile = "main"
 
     b.runAfterBuild = true
-    b.targetArchitectures = @["armeabi", "armeabi-v7a", "x86"]
+    b.targetArchitectures = @["arm64-v8a"]
     b.androidPermissions = @[]
     b.androidStaticLibraries = @[]
     b.additionalAndroidResources = @[]
@@ -663,7 +663,7 @@ proc build*(b: Builder) =
         let buildDir = b.makeAndroidBuildDir()
         b.nimcachePath = buildDir / "jni/src"
         b.resourcePath = buildDir / "src/main/assets"
-        b.nimFlags.add(["--compileOnly", "--cpu:arm", "--os:linux", "-d:android", "--dynlibOverride:SDL2"])
+        b.nimFlags.add(["--compileOnly", "--cpu:arm64", "--os:linux", "-d:android", "--dynlibOverride:SDL2"])
 
     of "js":
         b.executablePath = b.buildRoot / "main.js"
