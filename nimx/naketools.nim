@@ -631,6 +631,8 @@ proc build*(b: Builder) =
         addCAndLFlags(["-isysroot", macOSSDK, "-mmacosx-version-min=" & b.macOSMinVersion])
         b.linkerFlags.add(["-fobjc-link-runtime", "-L" & b.buildSDLForDesktop()])
         b.nimFlags.add("--dynlibOverride:SDL2")
+        b.linkerFlags.add("-lpthread")
+        
 
     of "ios", "ios-sim":
         b.makeIosBundle()
