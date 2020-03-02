@@ -3,13 +3,12 @@ import types, portable_gl, mini_profiler, system_logger
 import opengl
 
 import nimx / assets / [ asset_loading, url_stream, asset_manager ]
-import nimwebp / decoder
-
 const web = defined(js) or defined(emscripten)
 
 when web:
     import jsbind
 else:
+    import nimwebp / decoder
     import load_image_impl
     import write_image_impl
 
