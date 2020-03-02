@@ -3,12 +3,12 @@ import types, portable_gl, mini_profiler, system_logger
 import opengl
 
 import nimx / assets / [ asset_loading, url_stream, asset_manager ]
-
 const web = defined(js) or defined(emscripten)
 
 when web:
     import jsbind
 else:
+    import nimwebp / decoder
     import load_image_impl
     import write_image_impl
 
@@ -165,14 +165,25 @@ when not web:
         result.initWithContentsOfFile(path)
 
 when not web:
+    template isWebPData(data: string):bool =
+        var w,h: cint
+        webpInfo(cast[ptr uint8](addr data[0]), data.len.cint, addr w, addr h) != 0.cint
+
+
     proc initWithStream(i: SelfContainedImage, s: Stream) {.used.}=
         var data = s.readAll()
         s.close()
+
         if isPVRData(data):
             i.initWithPVR(cast[ptr uint8](addr data[0]))
+        elif isWebPData(data):
+            var w, h: cint
+            let comp = 4.cint
+            let bitmap = webpDecodeRGBA(cast[ptr uint8](addr data[0]), data.len.cint, addr w, addr h)
+            i.initWithBitmap(bitmap, w, h, comp)
+            webpFree(bitmap)
         else:
             var x, y, comp: cint
-
             var bitmap = stbi_load_from_memory(cast[ptr uint8](addr data[0]),
                 data.len.cint, addr x, addr y, addr comp, 0)
             i.initWithBitmap(bitmap, x, y, comp)
@@ -400,6 +411,7 @@ when asyncResourceLoad:
             height: cint
             comp: cint
             compressed: bool
+            isWebp: bool
         else:
             texCoords: array[4, GLfloat]
             size: Size
@@ -416,6 +428,9 @@ when asyncResourceLoad:
             if c.compressed:
                 i.initWithPVR(c.data)
                 deallocShared(c.data)
+            if c.isWebp:
+                i.initWithBitmap(c.data, c.width, c.height, c.comp)
+                webpFree(c.data)
             else:
                 i.initWithBitmap(c.data, c.width, c.height, c.comp)
                 stbi_image_free(c.data)
@@ -430,7 +445,7 @@ when asyncResourceLoad:
 
     var ctxIsCurrent = false
 
-    proc loadResourceThreaded(ctx: pointer) {.cdecl.} =
+    proc loadResourceThreaded(ctx: pointer) {.cdecl, used.} =
         var url = cast[ImageLoadingCtx](ctx).url
         openStreamForUrl(url) do(s: Stream, err: string):
             if err.len != 0:
@@ -446,6 +461,10 @@ when asyncResourceLoad:
                     c.data = cast[ptr uint8](allocShared(data.len))
                     copyMem(c.data, addr data[0], data.len)
                     c.compressed = true
+                elif url.endsWith(".webp"):
+                    c.comp = 4
+                    c.data = webpDecodeRGBA(cast[ptr uint8](addr data[0]), data.len.cint, addr c.width, addr c.height)
+                    c.isWebp = true
                 else:
                     c.data = stbi_load_from_memory(cast[ptr uint8](addr data[0]),
                         data.len.cint, addr c.width, addr c.height, addr c.comp, 0)
@@ -456,6 +475,12 @@ when asyncResourceLoad:
                     ctxIsCurrent = true
                 if url.endsWith(".pvr"):
                     loadPVRDataToTexture(cast[ptr uint8](addr data[0]), c.texture, c.size, c.texCoords)
+                elif url.endsWith(".webp"):
+                    var w, h: cint
+                    let comp = 4.cint
+                    let bitmap = webpDecodeRGBA(cast[ptr uint8](addr data[0]), data.len.cint, addr w, addr h)
+                    loadBitmapToTexture(bitmap, w, h, comp, c.texture, c.size, c.texCoords, c.texWidth, c.texHeight)
+                    webpFree(bitmap)
                 else:
                     var x, y, comp: cint
                     var bitmap = stbi_load_from_memory(cast[ptr uint8](addr data[0]),
@@ -611,7 +636,7 @@ when defined(js) or defined(emscripten):
     registerAssetLoader(["file", "http", "https"], ["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga"]) do(url: string, handler: proc(i: Image)):
         loadImageFromURL(url, handler)
 else:
-    registerAssetLoader(["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga", "pvr"]) do(url: string, handler: proc(i: Image)):
+    registerAssetLoader(["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga", "pvr", "webp"]) do(url: string, handler: proc(i: Image)):
         when asyncResourceLoad:
             var ctx: ImageLoadingCtx
             ctx.new()
