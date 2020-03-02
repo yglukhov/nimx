@@ -456,13 +456,6 @@ when asyncResourceLoad:
             s.close()
 
             let c = cast[ImageLoadingCtx](ctx)
-            #[
-                var w, h: cint
-                let comp = 4.cint
-                let bitmap = webpDecodeRGBA(cast[ptr uint8](addr data[0]), data.len.cint, addr w, addr h)
-                i.initWithBitmap(bitmap, w, h, comp)
-                webpFree(bitmap)
-            ]#
 
             when loadAsyncTextureInMainThread:
                 if url.endsWith(".pvr"):
