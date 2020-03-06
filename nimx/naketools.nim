@@ -75,6 +75,7 @@ type Builder* = ref object
     linkerFlags: seq[string]
 
     avoidSDL*: bool # Experimental feature.
+    rebuild: bool
     useGradle* {.deprecated.}: bool # Experimental
 
 proc setBuilderSettingsFromCmdLine(b: Builder) =
@@ -91,6 +92,8 @@ proc setBuilderSettingsFromCmdLine(b: Builder) =
                     b.additionalNimFlags.add("-d:" & val)
             of "norun":
                 b.runAfterBuild = false
+            of "rebuild":
+                b.rebuild = true
             of "parallelBuild":
                 b.nimParallelBuild = parseInt(val)
             of "compileOnly", "c":
@@ -603,6 +606,9 @@ proc makeEmscriptenPreloadData(b: Builder): string =
 
 proc configure*(b: Builder) =
     b.buildRoot = b.buildRoot / b.platform
+    if b.rebuild and existsDir(b.buildRoot):
+        removeDir(b.buildRoot)
+
     b.nimcachePath = b.buildRoot / "nimcache"
     b.resourcePath = b.buildRoot / "res"
 
@@ -632,7 +638,7 @@ proc build*(b: Builder) =
         b.linkerFlags.add(["-fobjc-link-runtime", "-L" & b.buildSDLForDesktop()])
         b.nimFlags.add("--dynlibOverride:SDL2")
         b.linkerFlags.add("-lpthread")
-        
+
 
     of "ios", "ios-sim":
         b.makeIosBundle()
@@ -890,11 +896,9 @@ proc installAppOnConnectedDevice(b: Builder, devId: string) =
     var apkPath = b.buildRoot / b.javaPackageId / "build" / "outputs" / "apk" / conf / b.javaPackageId & "-" & conf & ".apk"
 
     direShell b.adbExe, "-H", b.adbServerName, "-s", devId, "install", "-r", apkPath
-    #[
-        # start activity, TODO: prevent this on CI's
+    if b.runAfterBuild:
         var activityName =  b.javaPackageId & "/" & b.activityClassName
         direShell b.adbExe, "shell", "am", "start", "-n", activityName
-    ]#
 
 proc runAutotestsOnAndroidDevice*(b: Builder, devId: string, install: bool = true, extraArgs: StringTableRef = nil) =
     echo "Running on device: ", devId
