@@ -826,7 +826,7 @@ proc drawText*(c: GraphicsContext, origP: Point, t: FormattedText) =
 
             compositionDrawingDefinitions(cc, c, gl)
 
-            setUniform("point_y", p.y)
+            setUniform("point_y", p.y - t.lines[curLine].baseline)
             setUniform("size_y", t.lines[curLine].height)
             setUniform("colorFrom", t.mAttributes[curAttrIndex].textColor)
             setUniform("colorTo", t.mAttributes[curAttrIndex].textColor2)
