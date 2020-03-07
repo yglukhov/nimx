@@ -240,12 +240,13 @@ proc newBuilder*(platform: string): Builder =
         b.iOSSDKVersion = getiOSSDKVersion()
         b.iOSMinVersion = b.iOSSDKVersion
     elif b.platform == "macosx":
-        var macosxDevRoot = execProcess("xcode-select", args=["--print-path"], options={poUsePath})
-        macosxDevRoot.removeSuffix
-        b.macOSSDKPath = macosxDevRoot & "/SDKs/MacOSX.sdk"
-        let macOSSDKSettings = loadPlist(b.macOSSDKPath & "/SDKSettings.plist")
+        var macosxSDK = execProcess("xcrun", args=["--show-sdk-path"], options={poUsePath})
+        macosxSDK.removeSuffix()
+        b.macOSSDKPath = macosxSDK
+        var ver = execProcess("xcrun", args=["--show-sdk-version"], options={poUsePath})
+        ver.removeSuffix()
         b.macOSMinVersion = "10.7"
-        b.macOSSDKVersion = macOSSDKSettings["Version"].str
+        b.macOSSDKVersion = ver
 
 proc nimblePath(package: string): string =
     var nimblecmd = "nimble"
