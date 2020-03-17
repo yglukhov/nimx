@@ -511,6 +511,10 @@ proc makeAndroidBuildDir(b: Builder): string =
         replaceVarsInFile buildDir/"jni/Application.mk", vars
         replaceVarsInFile buildDir/"src/main/AndroidManifest.xml", vars
         replaceVarsInFile buildDir/"src/main/res/values/strings.xml", vars
+
+        for a in b.targetArchitectures:
+            createDir(buildDir/"jni/src"/a)
+
     buildDir
 
 proc packageNameAtPath(d: string): string =
@@ -605,6 +609,12 @@ proc makeEmscriptenPreloadData(b: Builder): string =
         args.add(["--preload", p])
     direShell(args)
 
+proc targetArchToCpuType(arch: string): string =
+    case arch
+    of "armeabi", "armeabi-v7a": "arm"
+    of "arm64-v8a": "arm64"
+    else: raise newException(Exception, "Unknown target architecture: " & arch)
+
 proc configure*(b: Builder) =
     b.buildRoot = b.buildRoot / b.platform
     if b.rebuild and existsDir(b.buildRoot):
@@ -646,7 +656,7 @@ proc build*(b: Builder) =
         b.executablePath = b.buildRoot / b.bundleName / b.appName
         b.resourcePath = b.buildRoot / b.bundleName
 
-        b.nimFlags.add(["--os:macosx", "-d:ios", "-d:iPhone", "-d:SDL_Static"])
+        b.nimFlags.add(["--os:macosx", "-d:ios", "-d:iPhone", "--dynlibOverride:SDL2"])
 
         var sdkPath : string
         var sdlLibDir : string
@@ -738,8 +748,7 @@ proc build*(b: Builder) =
 
     b.nimFlags.add(["--warning[LockLevel]:off", "--verbosity:" & $b.nimVerbosity,
                 "--hint[Pattern]:off",
-                "--parallelBuild:" & $b.nimParallelBuild, "--out:" & b.executablePath,
-                "--nimcache:" & b.nimcachePath])
+                "--parallelBuild:" & $b.nimParallelBuild, "--out:" & b.executablePath])
 
     if b.platform in ["android", "ios", "ios-sim"] and not b.avoidSDL:
         b.nimFlags.add("--noMain")
@@ -777,9 +786,19 @@ proc build*(b: Builder) =
     var args = @[nimExe, command]
     args.add(b.nimFlags)
     args.add(b.nimbleOverrideFlags())
-    args.add b.mainFile
 
-    direShell args
+    if b.platform in ["android"]: # multiarch
+        for a in b.targetArchitectures:
+            echo "Running nim for architecture: ", a
+            var aargs = args
+            aargs.add("--cpu:" & targetArchToCpuType(a))
+            aargs.add("--nimcache:" & b.nimcachePath / a)
+            aargs.add b.mainFile
+            direShell aargs
+    else:
+        args.add("--nimcache:" & b.nimcachePath)
+        args.add b.mainFile
+        direShell args
 
     if b.platform in ["emscripten", "wasm", "js"]:
         b.postprocessWebTarget()
