@@ -110,15 +110,13 @@ template removeObserver*(nc: NotificationCenter, observerId: ref | SomeOrdinal) 
 macro appendTupleToCall(c: untyped, e: typed): untyped =
     let typ = getTypeInst(e)
     result = c
-    if typ.kind == nnkTupleTy:
-        let ln = typ.len
-        for i in 0 ..< ln:
-            result.add(newNimNode(nnkBracketExpr).add(e, newLit(i)))
-    else:
-        result.add(e)
+    typ.expectKind(nnkTupleConstr)
+    let ln = typ.len
+    for i in 0 ..< ln:
+        result.add(newNimNode(nnkBracketExpr).add(e, newLit(i)))
 
 proc newTupleAux(args: NimNode): NimNode =
-    result = newNimNode(nnkPar)
+    result = newNimNode(nnkTupleConstr)
     for c in args: result.add(c)
 
 macro newTuple(args: varargs[typed]): untyped =
@@ -134,7 +132,7 @@ proc dispatchNotification(nc: NotificationCenter, notificationId: int, ctx: poin
     let obsMap = nc.notificationsMap.getOrDefault(notificationId)
     if not obsMap.isNil:
         # dispatch is reentrant!
-        let vals = toSeq(values(obsMap))
+        let vals = toSeq(obsMap.values)
         for p in vals: dispatch(p, ctx)
 
 proc dispatchForwarder[TProc, TTuple](prc: proc(), ctx: pointer) =

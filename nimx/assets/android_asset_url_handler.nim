@@ -1,9 +1,13 @@
 import url_stream
 import jnim
+import sdl2
 import android/ndk/aasset_manager
 import android/app/activity
 import android/content/res/asset_manager
 import android/content/context
+
+# set jnim jniEnv from sdl
+theEnv = cast[JNIEnvPtr](androidGetJNIEnv())
 
 proc getAssetManager(): AAssetManager =
     result = currentActivity().getApplication().getAssets().getNative()

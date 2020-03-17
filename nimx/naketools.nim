@@ -75,6 +75,7 @@ type Builder* = ref object
     linkerFlags: seq[string]
 
     avoidSDL*: bool # Experimental feature.
+    rebuild: bool
     useGradle* {.deprecated.}: bool # Experimental
 
 proc setBuilderSettingsFromCmdLine(b: Builder) =
@@ -91,6 +92,8 @@ proc setBuilderSettingsFromCmdLine(b: Builder) =
                     b.additionalNimFlags.add("-d:" & val)
             of "norun":
                 b.runAfterBuild = false
+            of "rebuild":
+                b.rebuild = true
             of "parallelBuild":
                 b.nimParallelBuild = parseInt(val)
             of "compileOnly", "c":
@@ -129,16 +132,9 @@ proc findEnvPaths(b: Builder) =
         var error_msg = ""
         ## try find binary for android sdk, ndk, and nim
         if b.platform == "android":
-            var ndk_path: string
             var sdk_path = findExe("adb")
             var nim_path = ""
 
-            if existsEnv("ANDROID_NDK_HOME"):
-                ndk_path = getEnv("ANDROID_NDK_HOME")
-            else:
-                ndk_path = findExe("ndk-stack")
-                if ndk_path.len > 0:
-                    ndk_path = replaceInStr(ndk_path, "ndk-stack")
 
             if sdk_path.len > 0:
                 sdk_path = replaceInStr(sdk_path, "platform")
@@ -160,22 +156,15 @@ proc findEnvPaths(b: Builder) =
                   nim_path = ""
 
             when not defined(windows):
-                if ndk_path.len == 0:
-                    ndk_path = "~/Library/Android/sdk/ndk-bundle"
-                    if not fileExists(expandTilde(ndk_path / "ndk-stack")):
-                        echo "NDK DOESNT EXIST"
-                        ndk_path = ""
                 if sdk_path.len == 0:
                     sdk_path = "~/Library/Android/sdk"
                     if not fileExists(expandTilde(sdk_path / "platform-tools/adb")):
                         sdk_path = ""
 
             if sdk_path.len == 0: error_msg &= getEnvErrorMsg("ANDROID_SDK_HOME")
-            if ndk_path.len == 0: error_msg &= getEnvErrorMsg("ANDROID_NDK_HOME")
             if nim_path.len == 0: error_msg &= getEnvErrorMsg("NIM_HOME")
 
             b.androidSdk = sdk_path
-            b.androidNdk = ndk_path
             b.nimIncludeDir = nim_path
 
         var sdlHome : string
@@ -233,7 +222,7 @@ proc newBuilder*(platform: string): Builder =
     b.mainFile = "main"
 
     b.runAfterBuild = true
-    b.targetArchitectures = @["armeabi", "armeabi-v7a", "x86"]
+    b.targetArchitectures = @["arm64-v8a"]
     b.androidPermissions = @[]
     b.androidStaticLibraries = @[]
     b.additionalAndroidResources = @[]
@@ -251,12 +240,13 @@ proc newBuilder*(platform: string): Builder =
         b.iOSSDKVersion = getiOSSDKVersion()
         b.iOSMinVersion = b.iOSSDKVersion
     elif b.platform == "macosx":
-        var macosxDevRoot = execProcess("xcode-select", args=["--print-path"], options={poUsePath})
-        macosxDevRoot.removeSuffix
-        b.macOSSDKPath = macosxDevRoot & "/SDKs/MacOSX.sdk"
-        let macOSSDKSettings = loadPlist(b.macOSSDKPath & "/SDKSettings.plist")
+        var macosxSDK = execProcess("xcrun", args=["--show-sdk-path"], options={poUsePath})
+        macosxSDK.removeSuffix()
+        b.macOSSDKPath = macosxSDK
+        var ver = execProcess("xcrun", args=["--show-sdk-version"], options={poUsePath})
+        ver.removeSuffix()
         b.macOSMinVersion = "10.7"
-        b.macOSSDKVersion = macOSSDKSettings["Version"].str
+        b.macOSSDKVersion = ver
 
 proc nimblePath(package: string): string =
     var nimblecmd = "nimble"
@@ -521,6 +511,10 @@ proc makeAndroidBuildDir(b: Builder): string =
         replaceVarsInFile buildDir/"jni/Application.mk", vars
         replaceVarsInFile buildDir/"src/main/AndroidManifest.xml", vars
         replaceVarsInFile buildDir/"src/main/res/values/strings.xml", vars
+
+        for a in b.targetArchitectures:
+            createDir(buildDir/"jni/src"/a)
+
     buildDir
 
 proc packageNameAtPath(d: string): string =
@@ -595,7 +589,6 @@ proc ndkBuild(b: Builder) =
         putEnv "NIM_INCLUDE_DIR", expandTilde(b.nimIncludeDir).replace('\\','/')
         putEnv "ANDROID_SDK_HOME", expandTilde(b.androidSdk)
         putEnv "ANDROID_HOME", expandTilde(b.androidSdk)
-        putEnv "ANDROID_NDK_HOME", expandTilde(b.androidNdk)
         var args = @[getCurrentDir() / "gradlew"]
         if b.debugMode:
             args.add("assembleDebug")
@@ -616,8 +609,17 @@ proc makeEmscriptenPreloadData(b: Builder): string =
         args.add(["--preload", p])
     direShell(args)
 
+proc targetArchToCpuType(arch: string): string =
+    case arch
+    of "armeabi", "armeabi-v7a": "arm"
+    of "arm64-v8a": "arm64"
+    else: raise newException(Exception, "Unknown target architecture: " & arch)
+
 proc configure*(b: Builder) =
     b.buildRoot = b.buildRoot / b.platform
+    if b.rebuild and existsDir(b.buildRoot):
+        removeDir(b.buildRoot)
+
     b.nimcachePath = b.buildRoot / "nimcache"
     b.resourcePath = b.buildRoot / "res"
 
@@ -646,13 +648,15 @@ proc build*(b: Builder) =
         addCAndLFlags(["-isysroot", macOSSDK, "-mmacosx-version-min=" & b.macOSMinVersion])
         b.linkerFlags.add(["-fobjc-link-runtime", "-L" & b.buildSDLForDesktop()])
         b.nimFlags.add("--dynlibOverride:SDL2")
+        b.linkerFlags.add("-lpthread")
+
 
     of "ios", "ios-sim":
         b.makeIosBundle()
         b.executablePath = b.buildRoot / b.bundleName / b.appName
         b.resourcePath = b.buildRoot / b.bundleName
 
-        b.nimFlags.add(["--os:macosx", "-d:ios", "-d:iPhone", "-d:SDL_Static"])
+        b.nimFlags.add(["--os:macosx", "-d:ios", "-d:iPhone", "--dynlibOverride:SDL2"])
 
         var sdkPath : string
         var sdlLibDir : string
@@ -678,7 +682,7 @@ proc build*(b: Builder) =
         let buildDir = b.makeAndroidBuildDir()
         b.nimcachePath = buildDir / "jni/src"
         b.resourcePath = buildDir / "src/main/assets"
-        b.nimFlags.add(["--compileOnly", "--cpu:arm", "--os:linux", "-d:android", "--dynlibOverride:SDL2"])
+        b.nimFlags.add(["--compileOnly", "--cpu:arm64", "--os:linux", "-d:android", "--dynlibOverride:SDL2"])
 
     of "js":
         b.executablePath = b.buildRoot / "main.js"
@@ -744,8 +748,7 @@ proc build*(b: Builder) =
 
     b.nimFlags.add(["--warning[LockLevel]:off", "--verbosity:" & $b.nimVerbosity,
                 "--hint[Pattern]:off",
-                "--parallelBuild:" & $b.nimParallelBuild, "--out:" & b.executablePath,
-                "--nimcache:" & b.nimcachePath])
+                "--parallelBuild:" & $b.nimParallelBuild, "--out:" & b.executablePath])
 
     if b.platform in ["android", "ios", "ios-sim"] and not b.avoidSDL:
         b.nimFlags.add("--noMain")
@@ -783,9 +786,19 @@ proc build*(b: Builder) =
     var args = @[nimExe, command]
     args.add(b.nimFlags)
     args.add(b.nimbleOverrideFlags())
-    args.add b.mainFile
 
-    direShell args
+    if b.platform in ["android"]: # multiarch
+        for a in b.targetArchitectures:
+            echo "Running nim for architecture: ", a
+            var aargs = args
+            aargs.add("--cpu:" & targetArchToCpuType(a))
+            aargs.add("--nimcache:" & b.nimcachePath / a)
+            aargs.add b.mainFile
+            direShell aargs
+    else:
+        args.add("--nimcache:" & b.nimcachePath)
+        args.add b.mainFile
+        direShell args
 
     if b.platform in ["emscripten", "wasm", "js"]:
         b.postprocessWebTarget()
@@ -903,11 +916,9 @@ proc installAppOnConnectedDevice(b: Builder, devId: string) =
     var apkPath = b.buildRoot / b.javaPackageId / "build" / "outputs" / "apk" / conf / b.javaPackageId & "-" & conf & ".apk"
 
     direShell b.adbExe, "-H", b.adbServerName, "-s", devId, "install", "-r", apkPath
-    #[
-        # start activity, TODO: prevent this on CI's
+    if b.runAfterBuild:
         var activityName =  b.javaPackageId & "/" & b.activityClassName
         direShell b.adbExe, "shell", "am", "start", "-n", activityName
-    ]#
 
 proc runAutotestsOnAndroidDevice*(b: Builder, devId: string, install: bool = true, extraArgs: StringTableRef = nil) =
     echo "Running on device: ", devId

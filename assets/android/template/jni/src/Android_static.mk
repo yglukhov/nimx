@@ -1,3 +1,5 @@
+# TODO: This file likely doesn't work. And shouldn't be used
+
 LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
