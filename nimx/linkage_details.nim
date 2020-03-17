@@ -122,9 +122,8 @@ int main(int argc, char** args) {
 """.}
 
 when not defined(emscripten):
-    import macros
-
     when defined(macosx) or defined(ios):
+        import macros
         macro passToCAndL(s: string): typed =
             result = newNimNode(nnkStmtList)
             result.add parseStmt("{.passL: \"" & s.strVal & "\".}\n")
