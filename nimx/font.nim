@@ -178,45 +178,7 @@ const preferredFonts = when defined(js) or defined(windows) or defined(emscripte
         ]
 
 when not defined(js):
-    const fontSearchPaths = when defined(macosx):
-            [
-                "/Library/Fonts"
-            ]
-        elif defined(android):
-            [
-                "/system/fonts"
-            ]
-        elif defined(windows):
-            [
-                r"c:\Windows\Fonts" #todo: system will not always in the c disk
-            ]
-        elif defined(emscripten):
-            [
-                "res"
-            ]
-        else:
-            [
-                "/usr/share/fonts/truetype",
-                "/usr/share/fonts/truetype/ubuntu-font-family",
-                "/usr/share/fonts/TTF",
-                "/usr/share/fonts/truetype/dejavu",
-                "/usr/share/fonts/dejavu",
-                "/usr/share/fonts"
-            ]
-
-when not defined(js):
-    iterator potentialFontFilesForFace(face: string): string =
-        for sp in fontSearchPaths:
-            yield sp / face & ".ttf"
-        when not defined(emscripten):
-            yield getAppDir() / "res" / face & ".ttf"
-            yield getAppDir() /../ "Resources" / face & ".ttf"
-            yield getAppDir() / face & ".ttf"
-
-    proc findFontFileForFace(face: string): string =
-        for f in potentialFontFilesForFace(face):
-            if fileExists(f):
-                return f
+    import nimx/private/font/fontconfig
 
 proc getAvailableFonts*(isSystem: bool = false): seq[string] =
     result = newSeq[string]()
