@@ -477,6 +477,10 @@ method onTextInput*(t: TextField, s: string): bool =
     result = true
     t.insertText(s)
 
+method hideKeyboard*(t: TextField) =
+    if t.selectable == true:             
+        t.window.stopTextInput()
+
 method viewShouldResignFirstResponder*(v: TextField, newFirstResponder: View): bool =
     result = true
     cursorUpdateTimer.clear()
