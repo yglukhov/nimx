@@ -784,7 +784,7 @@ proc drawStroke(c: GraphicsContext, origP: Point, t: FormattedText) =
             setUniform("strokeSize", min(t.mAttributes[curAttrIndex].strokeSize / 15, magicStrokeMaxSizeCoof))
 
             if t.mAttributes[curAttrIndex].isStrokeGradient:
-                setUniform("point_y", p.y)
+                setUniform("point_y", p.y - t.lines[curLine].baseline)
                 setUniform("size_y", t.lines[curLine].height)
                 setUniform("colorFrom", t.mAttributes[curAttrIndex].strokeColor1)
                 setUniform("colorTo", t.mAttributes[curAttrIndex].strokeColor2)
@@ -826,7 +826,7 @@ proc drawText*(c: GraphicsContext, origP: Point, t: FormattedText) =
 
             compositionDrawingDefinitions(cc, c, gl)
 
-            setUniform("point_y", p.y)
+            setUniform("point_y", p.y - t.lines[curLine].baseline)
             setUniform("size_y", t.lines[curLine].height)
             setUniform("colorFrom", t.mAttributes[curAttrIndex].textColor)
             setUniform("colorTo", t.mAttributes[curAttrIndex].textColor2)

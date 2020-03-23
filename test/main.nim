@@ -4,6 +4,8 @@ import sample_registry
 import nimx / [ view, scroll_view, table_view, text_field, autotest, window, linear_layout ]
 import sequtils, intsets
 
+{.warning[UnusedImport]: off.}
+
 import sample01_welcome
 import sample02_controls
 import sample03_image

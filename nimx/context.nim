@@ -2,7 +2,6 @@ import types
 import opengl
 import system_logger
 import matrixes
-import font
 import image
 import math
 import portable_gl

@@ -28,7 +28,9 @@ android {
 
     defaultConfig {
         ndk {
-            abiFilter 'arm64-v8a'
+            // We get targetArchitectures from names of dirs in $projectDir/jni/src, as that's where naketools put nimcache
+            def targetArchitectures = file("$projectDir/jni/src").listFiles().findAll { it.isDirectory() }.collect { it.name }
+            abiFilters = targetArchitectures
         }
 
         externalNativeBuild {
