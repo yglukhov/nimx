@@ -150,6 +150,7 @@ proc findEnvPaths(b: Builder) =
             if sdkPath.len == 0:
                 errorMsg &= getEnvErrorMsg("ANDROID_HOME")
             else:
+                sdkPath = expandTilde(sdkPath)
                 var ndk = sdkPath / "ndk-bundle"
                 if dirExists(ndk):
                     b.androidNdk = ndk
