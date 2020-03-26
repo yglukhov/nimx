@@ -7,8 +7,6 @@ public class NimxActivity extends SDLActivity {
 	// For disabling include of dynamic SDL library file.
 	// It's statically linked now.
 	protected String[] getLibraries() {
-        return new String[] {"main"};
+        return new String[] {"hidapi", "main"};
     }
 }
-
-
