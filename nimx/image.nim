@@ -91,6 +91,92 @@ proc `renderbuffer=`*(i: SelfContainedImage, b: RenderbufferRef) {.inline, depre
         rt.depthbuffer = b
 
 when not web:
+    type DecodedImageData = object
+        data: pointer
+        freeDataProc: proc(b: var DecodedImageData) {.nimcall, gcsafe.}
+        width, height: uint32 # in pixels
+        componenens: uint32
+        compressed: bool
+
+    proc decodeWebpStream(s: Stream, b: var DecodedImageData) =
+        var x, y: cint
+        var data: ptr uint8
+        if s of StringStream:
+            let ss = StringStream(s)
+            let pos = ss.getPosition()
+            data = webpDecodeRGBA(cast[ptr uint8](addr ss.data[pos]), (ss.data.len - pos).cint, addr x, addr y)
+        else:
+            var s = s.readAll()
+            data = webpDecodeRGBA(cast[ptr uint8](addr s[0]), s.len.cint, addr x, addr y)
+        b.data = data
+        b.width = x.uint32
+        b.height = y.uint32
+        b.componenens = 4
+        b.freeDataProc = proc(b: var DecodedImageData) {.nimcall.} =
+            webpFree(cast[ptr uint8](b.data))
+
+    proc decodePVRStream(s: Stream, b: var DecodedImageData) =
+        if s of StringStream:
+            let ss = StringStream(s)
+            let pos = ss.getPosition()
+            let sz = ss.data.len - pos
+            b.data = allocShared(sz)
+            copyMem(b.data, addr ss.data[pos], sz)
+        else:
+            var data = s.readAll()
+            b.data = allocShared(data.len)
+            copyMem(b.data, addr data[0], data.len)
+
+        b.compressed = true
+        b.freeDataProc = proc(b: var DecodedImageData) {.nimcall.} =
+            deallocShared(b.data)
+
+    proc decodeMiscStream(s: Stream, b: var DecodedImageData) =
+        # Use stb_image
+        var x, y, comp: cint
+        var data: ptr uint8
+        if s of StringStream:
+            let ss = StringStream(s)
+            let pos = ss.getPosition()
+            data = stbi_load_from_memory(cast[ptr uint8](addr ss.data[pos]),
+                (ss.data.len - pos).cint, addr x, addr y, addr comp, 0)
+        else:
+            # TODO: This should be optimized by providing IO callbacks to stbi
+            var s = s.readAll()
+            data = stbi_load_from_memory(cast[ptr uint8](addr s[0]),
+                s.len.cint, addr x, addr y, addr comp, 0)
+        b.data = data
+        b.width = x.uint32
+        b.height = y.uint32
+        b.componenens = comp.uint32
+        b.freeDataProc = proc(b: var DecodedImageData) {.nimcall.} =
+            stbi_image_free(cast[ptr uint8](b.data))
+
+    proc isWebpHeader(data: openarray[byte]): bool =
+        assert(data.len >= 16)
+        let firstFCC = cast[ptr uint32](unsafeAddr data[0])[] # RIFF Fourcharcode
+        let thirdFCC = cast[ptr uint32](unsafeAddr data[8])[] # WEBP Fourcharcode
+        (firstFCC == 0x46464952 and thirdFCC == 0x50424557) or  # Little endian
+            (firstFCC == 0x52494646 and thirdFCC == 0x57454250) # Big endian
+
+    proc decodeImageDataFromStream(s: Stream, b: var DecodedImageData) =
+        var header: array[16, byte] # 16 first bytes should be enough to determine file type
+        s.peek(header)
+        if isWebpHeader(header):
+            decodeWebpStream(s, b)
+        elif isPVRHeader(header):
+            decodePVRStream(s, b)
+        else:
+            decodeMiscStream(s, b)
+
+        # If b.data is set, b.freeDataProc should be set as well
+        assert(b.data.isNil or not b.freeDataProc.isNil)
+
+    proc free(b: var DecodedImageData) {.inline.} =
+        if not b.data.isNil:
+            b.freeDataProc(b)
+            b.data = nil
+
     template offset(p: pointer, off: int): pointer =
         cast[pointer](cast[int](p) + off)
 
@@ -121,7 +207,7 @@ when not web:
 
             for row in 0 ..< y:
                 copyMem(offset(newData, row * texRowWidth), offset(data, row * rowWidth), rowWidth)
-                let lastRowPixel = offset(data, row * rowWidth - comp)
+                let lastRowPixel = offset(data, (row + 1) * rowWidth)
                 for i in 0 ..< xExtrusion:
                     copyMem(offset(newData, row * texRowWidth + rowWidth + i * comp), lastRowPixel, comp)
 
@@ -143,51 +229,41 @@ when not web:
         if data != pixelData:
             dealloc(pixelData)
 
+    proc loadDecodedImageDataToTexture(b: DecodedImageData, texture: var TextureRef, size: var Size, texCoords: var array[4, GLfloat], texWidth, texHeight: var int16) =
+        if b.compressed:
+            loadPVRDataToTexture(cast[ptr uint8](b.data), texture, size, texCoords)
+        else:
+            loadBitmapToTexture(cast[ptr uint8](b.data), b.width.int, b.height.int, b.componenens.int, texture, size, texCoords, texWidth, texHeight)
+
     proc initWithBitmap*(i: SelfContainedImage, data: ptr uint8, x, y, comp: int) =
         loadBitmapToTexture(data, x, y, comp, i.texture, i.mSize, i.texCoords, i.texWidth, i.texHeight)
-
-    proc initWithContentsOfFile*(i: SelfContainedImage, path: string) =
-        var x, y, comp: cint
-        var data = stbi_load(path, addr x, addr y, addr comp, 0)
-        if data.isNil:
-            raise newException(Exception, "Could not load image from: " & path)
-
-        i.initWithBitmap(data, x, y, comp)
-        stbi_image_free(data)
-        i.setFilePath(path)
 
     proc imageWithBitmap*(data: ptr uint8, x, y, comp: int): SelfContainedImage =
         result = newSelfContainedImage()
         result.initWithBitmap(data, x, y, comp)
 
+    proc initWithDecodedData(i: SelfContainedImage, b: var DecodedImageData) =
+        # Frees `b`
+        if b.data.isNil:
+            raise newException(ValueError, "Invalid image data")
+        loadDecodedImageDataToTexture(b, i.texture, i.mSize, i.texCoords, i.texWidth, i.texHeight)
+        b.free()
+
+    proc initWithStream(i: SelfContainedImage, s: Stream) {.used.} =
+        # Closes `s`
+        var decoded: DecodedImageData
+        decodeImageDataFromStream(s, decoded)
+        s.close()
+        i.initWithDecodedData(decoded)
+
+    proc initWithContentsOfFile*(i: SelfContainedImage, path: string) =
+        let s = openFileStream(path)
+        i.initWithStream(s)
+        i.setFilePath(path)
+
     proc imageWithContentsOfFile*(path: string): SelfContainedImage =
         result = newSelfContainedImage()
         result.initWithContentsOfFile(path)
-
-when not web:
-    template isWebPData(data: string):bool =
-        var w,h: cint
-        webpInfo(cast[ptr uint8](addr data[0]), data.len.cint, addr w, addr h) != 0.cint
-
-
-    proc initWithStream(i: SelfContainedImage, s: Stream) {.used.}=
-        var data = s.readAll()
-        s.close()
-
-        if isPVRData(data):
-            i.initWithPVR(cast[ptr uint8](addr data[0]))
-        elif isWebPData(data):
-            var w, h: cint
-            let comp = 4.cint
-            let bitmap = webpDecodeRGBA(cast[ptr uint8](addr data[0]), data.len.cint, addr w, addr h)
-            i.initWithBitmap(bitmap, w, h, comp)
-            webpFree(bitmap)
-        else:
-            var x, y, comp: cint
-            var bitmap = stbi_load_from_memory(cast[ptr uint8](addr data[0]),
-                data.len.cint, addr x, addr y, addr comp, 0)
-            i.initWithBitmap(bitmap, x, y, comp)
-            stbi_image_free(bitmap)
 
 proc imageWithResource*(name: string): Image =
     result = sharedAssetManager().cachedAsset(Image, name)
@@ -268,20 +344,14 @@ method getTextureQuad*(i: SelfContainedImage, gl: GL, texCoords: var array[4, GL
             if loadingComplete:
                 i.initWithJSImage(gl, jsImg)
 
-    texCoords[0] = i.texCoords[0]
-    texCoords[1] = i.texCoords[1]
-    texCoords[2] = i.texCoords[2]
-    texCoords[3] = i.texCoords[3]
+    texCoords = i.texCoords
     result = i.texture
 
 proc size*(i: Image): Size {.inline.} = i.mSize
 
 method getTextureQuad*(i: FixedTexCoordSpriteImage, gl: GL, texCoords: var array[4, GLfloat]): TextureRef =
     result = i.spriteSheet.getTextureQuad(gl, texCoords)
-    texCoords[0] = i.texCoords[0]
-    texCoords[1] = i.texCoords[1]
-    texCoords[2] = i.texCoords[2]
-    texCoords[3] = i.texCoords[3]
+    texCoords = i.texCoords
 
 proc subimageWithTexCoords*(i: Image, s: Size, texCoords: array[4, GLfloat]): FixedTexCoordSpriteImage =
     result.new()
@@ -391,7 +461,7 @@ when not web:
     proc writeToTGAFile*(i: Image, path: string) = i.writeToFile(path, tga)
     #proc writeToHDRFile*(i: Image, path: string) = i.writeToFile(path, hdr) # Crashes...
 
-const asyncResourceLoad = not defined(js) and not defined(emscripten) and not defined(nimxAvoidSDL)
+const asyncResourceLoad = not web and not defined(nimxAvoidSDL)
 
 when asyncResourceLoad:
     const loadAsyncTextureInMainThread = defined(android) or defined(ios)
@@ -406,12 +476,7 @@ when asyncResourceLoad:
         url: string
         completionCallback: proc(i: Image)
         when loadAsyncTextureInMainThread:
-            data: ptr uint8
-            width: cint
-            height: cint
-            comp: cint
-            compressed: bool
-            isWebp: bool
+            decodedData: DecodedImageData
         else:
             texCoords: array[4, GLfloat]
             size: Size
@@ -425,15 +490,7 @@ when asyncResourceLoad:
         GC_unref(c)
         var i = newSelfContainedImage()
         when loadAsyncTextureInMainThread:
-            if c.compressed:
-                i.initWithPVR(c.data)
-                deallocShared(c.data)
-            if c.isWebp:
-                i.initWithBitmap(c.data, c.width, c.height, c.comp)
-                webpFree(c.data)
-            else:
-                i.initWithBitmap(c.data, c.width, c.height, c.comp)
-                stbi_image_free(c.data)
+            i.initWithDecodedData(c.decodedData)
         else:
             i.texture = c.texture
             i.texCoords = c.texCoords
@@ -445,48 +502,29 @@ when asyncResourceLoad:
 
     var ctxIsCurrent = false
 
-    proc loadResourceThreaded(ctx: pointer) {.cdecl, used.} =
+    proc loadResourceThreaded(ctx: pointer) {.cdecl.} =
         var url = cast[ImageLoadingCtx](ctx).url
         openStreamForUrl(url) do(s: Stream, err: string):
             if err.len != 0:
                 logi "Could not load url: ", url
                 logi "Error: ", err
-            var data = s.readAll()
-            s.close()
 
             let c = cast[ImageLoadingCtx](ctx)
 
             when loadAsyncTextureInMainThread:
-                if url.endsWith(".pvr"):
-                    c.data = cast[ptr uint8](allocShared(data.len))
-                    copyMem(c.data, addr data[0], data.len)
-                    c.compressed = true
-                elif url.endsWith(".webp"):
-                    c.comp = 4
-                    c.data = webpDecodeRGBA(cast[ptr uint8](addr data[0]), data.len.cint, addr c.width, addr c.height)
-                    c.isWebp = true
-                else:
-                    c.data = stbi_load_from_memory(cast[ptr uint8](addr data[0]),
-                        data.len.cint, addr c.width, addr c.height, addr c.comp, 0)
+                decodeImageDataFromStream(s, c.decodedData)
+                s.close()
             else:
+                var decoded: DecodedImageData
+                decodeImageDataFromStream(s, decoded)
+
                 if not ctxIsCurrent:
                     if glMakeCurrent(c.wnd, c.glCtx) != 0:
                         logi "Error in glMakeCurrent: ", getError()
                     ctxIsCurrent = true
-                if url.endsWith(".pvr"):
-                    loadPVRDataToTexture(cast[ptr uint8](addr data[0]), c.texture, c.size, c.texCoords)
-                elif url.endsWith(".webp"):
-                    var w, h: cint
-                    let comp = 4.cint
-                    let bitmap = webpDecodeRGBA(cast[ptr uint8](addr data[0]), data.len.cint, addr w, addr h)
-                    loadBitmapToTexture(bitmap, w, h, comp, c.texture, c.size, c.texCoords, c.texWidth, c.texHeight)
-                    webpFree(bitmap)
-                else:
-                    var x, y, comp: cint
-                    var bitmap = stbi_load_from_memory(cast[ptr uint8](addr data[0]),
-                        data.len.cint, addr x, addr y, addr comp, 0)
-                    loadBitmapToTexture(bitmap, x, y, comp, c.texture, c.size, c.texCoords, c.texWidth, c.texHeight)
-                    stbi_image_free(bitmap)
+
+                loadDecodedImageDataToTexture(decoded, c.texture, c.size, c.texCoords, c.texWidth, c.texHeight)
+                decoded.free()
 
                 let fenceId = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, GLbitfield(0))
                 while true:
@@ -614,12 +652,12 @@ else:
     proc loadImageFromURL*(url: string, callback: proc(i: Image)) =
         sendRequest("GET", url, "", []) do(r: Response):
             if r.statusCode >= 200 and r.statusCode < 300:
+                var data: string
+                shallowCopy(data, r.body)
+                shallow(data)
+                let s = newStringStream(data)
                 let i = newSelfContainedImage()
-                var x, y, comp: cint
-                var bitmap = stbi_load_from_memory(cast[ptr uint8](unsafeAddr r.body[0]),
-                        r.body.len.cint, addr x, addr y, addr comp, 0)
-                i.initWithBitmap(bitmap, x, y, comp)
-                stbi_image_free(bitmap)
+                i.initWithStream(s)
                 i.setFilePath(url)
                 callback(i)
             else:
@@ -632,7 +670,7 @@ proc loadImageFromURL*(url: string, callback: proc(i: SelfContainedImage)) {.dep
         else:
             callback(SelfContainedImage(i))
 
-when defined(js) or defined(emscripten):
+when web:
     registerAssetLoader(["file", "http", "https"], ["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga"]) do(url: string, handler: proc(i: Image)):
         loadImageFromURL(url, handler)
 else:
