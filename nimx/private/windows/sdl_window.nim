@@ -70,7 +70,8 @@ proc checkImpl(wnd: SdlWindow) = assert(not wnd.impl.isNil) # internal error
 
 proc setOSWindowSize(wnd: SdlWindow, sz: Size) =
     wnd.checkImpl()
-    wnd.impl.setSize(cint(sz.width * wnd.pixelRatio), cint(sz.height * wnd.pixelRatio))
+    let sz = sz * wnd.pixelRatio
+    wnd.impl.setSize(cint(sz.width), cint(sz.height))
 
 proc setOSWindowPos(wnd: SdlWindow, p: Point) =
     wnd.checkImpl()
@@ -187,7 +188,12 @@ proc scaleFactor(w: SdlWindow): float =
         result = screenScaleFactor()
 
 proc updatePixelRatio(w: SdlWindow) {.inline.} =
-    w.pixelRatio = w.scaleFactor()
+    when defined(ios):
+        w.pixelRatio = 1
+        w.viewportPixelRatio = w.scaleFactor()
+    else:
+        w.pixelRatio = w.scaleFactor()
+        w.viewportPixelRatio = w.pixelRatio
 
 proc initSdlWindow(w: SdlWindow, r: view.Rect) =
     initSDLIfNeeded()
@@ -446,7 +452,8 @@ method onResize*(w: SdlWindow, newSize: Size) =
         when not x11Platform and not defined(android) and not defined(ios):
             w.setOSWindowSize(constrainedSize)
 
-    glViewport(0, 0, GLSizei(constrainedSize.width * w.pixelRatio), GLsizei(constrainedSize.height * w.pixelRatio))
+    let vp = constrainedSize * w.viewportPixelRatio
+    glViewport(0, 0, GLSizei(vp.width), GLsizei(vp.height))
 
 when false:
     # Framerate limiter

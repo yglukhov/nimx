@@ -62,6 +62,7 @@ type
         needsLayout*: bool
         mouseOverListeners*: seq[View]
         pixelRatio*: float32
+        viewportPixelRatio*: float32
         mActiveBgColor*: Color
         layoutSolver*: Solver
         onClose*: proc()
