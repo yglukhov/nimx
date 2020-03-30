@@ -671,7 +671,6 @@ proc build*(b: Builder) =
 
 
     of "ios", "ios-sim":
-        b.makeIosBundle()
         b.executablePath = b.buildRoot / b.bundleName / b.appName
         b.resourcePath = b.buildRoot / b.bundleName
 
@@ -802,6 +801,9 @@ proc build*(b: Builder) =
     for f in b.additionalCompilerFlags: b.nimFlags.add("--passC:" & f)
 
     preprocessResourcesAux(b)
+
+    if b.platform in ["ios", "ios-sim"]:
+        b.makeIosBundle()
 
     createDir(parentDir(b.executablePath))
 
