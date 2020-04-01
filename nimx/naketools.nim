@@ -260,6 +260,13 @@ proc emccWrapperPath(): string =
         result = jsbindPath / "jsbind/emcc_wrapper_win32.exe"
     else:
         result = findExe("emcc")
+        if result.len == 0:
+            let p = "/usr/lib/emscripten/emcc"
+            if fileExists(p):
+                result = p
+
+    if result.len == 0:
+        raise newException(Exception, "emcc not found")
 
 proc findEmcc(): string {.tags: [ReadDirEffect, ReadEnvEffect, ReadIOEffect].} =
     result = addFileExt("emcc", ScriptExt)

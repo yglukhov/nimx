@@ -17,7 +17,6 @@ when web:
 
     proc errorDesc(r: XMLHTTPRequest, url: string): URLLoadingError =
         var statusText = r.statusText
-        if statusText.isNil: statusText = "(nil)"
         result.description = "XMLHTTPRequest error(" & url & "): " & $r.status & ": " & $statusText
         warn "XMLHTTPRequest failure: ", result.description
 
@@ -72,9 +71,9 @@ proc getHttpStream(url: string, handler: Handler) =
                 when defined(js):
                     var dataView : ref RootObj
                     {.emit: "`dataView` = new DataView(`data`);".}
-                    handler(newStreamWithDataView(dataView), nil)
+                    handler(newStreamWithDataView(dataView), "")
                 else:
-                    handler(newStringStream(arrayBufferToString(data)), nil)
+                    handler(newStringStream(arrayBufferToString(data)), "")
 
             let errorListener = proc(e: URLLoadingError) =
                 handler(nil, e.description)
@@ -105,4 +104,4 @@ when web:
             if s.isNil:
                 handler(nil, "Could not open file: " & url)
             else:
-                handler(s, nil)
+                handler(s, "")
