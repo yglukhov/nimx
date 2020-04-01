@@ -517,6 +517,7 @@ when asyncResourceLoad:
             else:
                 var decoded: DecodedImageData
                 decodeImageDataFromStream(s, decoded)
+                s.close()
 
                 if not ctxIsCurrent:
                     if glMakeCurrent(c.wnd, c.glCtx) != 0:
