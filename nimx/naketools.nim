@@ -757,11 +757,12 @@ proc build*(b: Builder) =
         if b.platform == "emscripten":
             if not b.disableClosureCompiler:
                 b.additionalLinkerFlags.add("-Oz")
+            else:
+                b.additionalCompilerFlags.add("-g")
+                b.additionalLinkerFlags.add("-g4")
+                if not b.debugMode:
+                    b.additionalLinkerFlags.add("-gseparate-dwarf")
 
-                # Emscripten creates step-by-step optimization if env EMCC_DEBUG=2. One of the steps will be used later in closure compiler.
-                # In this case we can receive source map and size of the output file will be the smallest.
-                if b.enableClosureCompilerSourceMap:
-                    putEnv("EMCC_DEBUG", "2")
             if not b.debugMode:
                 b.additionalLinkerFlags.add(["-s", "ELIMINATE_DUPLICATE_FUNCTIONS=1"])
         elif b.platform == "wasm":

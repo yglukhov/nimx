@@ -49,7 +49,7 @@ method `fullscreen=`*(w: EmscriptenWindow, v: bool) =
 
     if not isFullscreen and v:
         discard EM_ASM_INT("""
-            var c = document.getElementById(Pointer_stringify($0));
+            var c = document.getElementById(UTF8ToString($0));
             if (c.requestFullscreen) {
                 c.requestFullscreen();
             } else if (c.webkitRequestFullscreen) {
@@ -78,7 +78,7 @@ method animationStateChanged*(w: EmscriptenWindow, flag: bool) =
 
 proc getCanvasDimensions(id: cstring, cssRect: var Rect, virtualSize: var Size) {.inline.} =
     discard EM_ASM_INT("""
-        var c = document.getElementById(Pointer_stringify($0));
+        var c = document.getElementById(UTF8ToString($0));
         var r = c.getBoundingClientRect();
         setValue($1, r.left, 'float');
         setValue($1 + 4, r.top, 'float');
@@ -210,7 +210,7 @@ template getDocumentSize(width, height: var float32) =
 
 template setElementWidthHeight(elementName: cstring, w, h: float32) =
     discard EM_ASM_INT("""
-    var c = document.getElementById(Pointer_stringify($0));
+    var c = document.getElementById(UTF8ToString($0));
     c.width = $1;
     c.height = $2;
     """, cstring(elementName), float32(w), float32(h))

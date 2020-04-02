@@ -26,7 +26,7 @@ when defined(js) or defined(emscripten):
             """.}
         else:
             discard EM_ASM_INT("""
-            window['dump'](Pointer_stringify($0) + '\n');
+            window['dump'](UTF8ToString($0) + '\n');
             """, a)
 
     var loggerSetupDone = false

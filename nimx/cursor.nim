@@ -110,7 +110,7 @@ proc setCurrent*(c: Cursor) =
         """.}
     elif defined(emscripten):
         discard EM_ASM_INT("""
-        document.body.style.cursor = Pointer_stringify($0);
+        document.body.style.cursor = UTF8ToString($0);
         """, cstring(c.c))
     elif appKit:
         cast[NSCursor](c.c).setCurrent()
