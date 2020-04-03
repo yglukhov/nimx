@@ -37,7 +37,7 @@ iterator potentialFontFilesForFace*(face: string): string =
     yield getAppDir() / face & ".ttf"
 
 
-const useLibfontconfig = defined(posix) and not defined(android) and not defined(ios)
+const useLibfontconfig = defined(posix) and not defined(android) and not defined(ios) and not defined(emscripten)
 
 
 when useLibfontconfig:
