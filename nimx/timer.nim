@@ -196,9 +196,7 @@ proc setInterval*(interval: float, callback: proc()): Timer {.discardable.} =
 
 proc timeLeftUntilNextFire(t: Timer): float =
     let curTime = epochTime()
-    let firedTimes = int((curTime - t.scheduleTime) / t.interval) + 1
-    result = t.scheduleTime + float(firedTimes) * t.interval
-    result = result - curTime
+    result = max(t.scheduleTime + t.interval - curTime, 0.0)
 
 proc pause*(t: Timer) =
     if t.state == tsRunning:
