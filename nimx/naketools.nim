@@ -64,7 +64,7 @@ type Builder* = ref object
     emscriptenPreloadFiles*: seq[string]
     emscriptenPreJS*: seq[string]
 
-    buildRoot : string
+    buildRoot* : string
     executablePath : string
     nimcachePath : string
     resourcePath* : string
