@@ -9,7 +9,8 @@ type
         bStencil: bool
         rt: ImageRenderTarget
 
-    ImageRenderTarget* = ref object
+    ImageRenderTarget* = ref ImageRenderTargetObj
+    ImageRenderTargetObj = object
         framebuffer*: FramebufferRef
         depthbuffer*: RenderbufferRef
         stencilbuffer*: RenderbufferRef
@@ -18,7 +19,7 @@ type
         texWidth*, texHeight*: int16
         needsDepthStencil*: bool
 
-proc dispose*(r: ImageRenderTarget) =
+proc disposeObj(r: var ImageRenderTargetObj) =
     let gl = sharedGL()
     if r.framebuffer != invalidFrameBuffer:
         gl.deleteFramebuffer(r.framebuffer)
@@ -30,11 +31,19 @@ proc dispose*(r: ImageRenderTarget) =
         gl.deleteRenderbuffer(r.stencilbuffer)
         r.stencilbuffer = invalidRenderbuffer
 
+proc dispose*(r: ImageRenderTarget) = disposeObj(r[])
+
+when defined(gcDestructors):
+    proc `=destroy`(r: var ImageRenderTargetObj) = disposeObj(r)
+
 proc newImageRenderTarget*(needsDepthStencil: bool = true): ImageRenderTarget {.inline.} =
     when defined(js):
         result.new()
     else:
-        result.new(dispose)
+        when defined(gcDestructors):
+            result.new()
+        else:
+            result.new(dispose)
     result.needsDepthStencil = needsDepthStencil
 
 proc init(rt: ImageRenderTarget, texWidth, texHeight: int16) =
