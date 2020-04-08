@@ -213,6 +213,12 @@ template setElementWidthHeight(elementName: cstring, w, h: float32) =
     var c = document.getElementById(UTF8ToString($0));
     c.width = $1;
     c.height = $2;
+    c.style.width = '100%';
+    c.style.height = '100%';
+    c.style.overflow = 'hidden';
+    c.style.position = 'absolute';
+    c.style.left = '0px';
+    c.style.top = '0px';
     """, cstring(elementName), float32(w), float32(h))
 
 proc updateCanvasSize(w: EmscriptenWindow) =
@@ -247,9 +253,10 @@ proc updateCanvasSize(w: EmscriptenWindow) =
 
     setElementWidthHeight(w.canvasId, w.pixelRatio * canvWidth, w.pixelRatio * canvHeight)
 
-    discard emscripten_set_element_css_size(w.canvasId, width, height)
+    # discard emscripten_set_element_css_size(w.canvasId, width, height)
 
     w.onResize(newSize(canvWidth, canvHeight))
+    info "updateCanvasSize ", width, " ", height,  " >> ", newSize(canvWidth, canvHeight), " pr ", w.pixelRatio
 
 proc onResize(eventType: cint, uiEvent: ptr EmscriptenUiEvent, userData: pointer): EM_BOOL {.cdecl.} =
     let w = cast[EmscriptenWindow](userData)
@@ -361,6 +368,8 @@ method drawWindow(w: EmscriptenWindow) =
 method onResize*(w: EmscriptenWindow, newSize: Size) =
     w.pixelRatio = screenScaleFactor()
     glViewport(0, 0, GLSizei(newSize.width * w.pixelRatio), GLsizei(newSize.height * w.pixelRatio))
+
+    info "EmscriptenWindow onResize viewport ", newSize.width * w.pixelRatio, " ", newSize.height * w.pixelRatio
     procCall w.Window.onResize(newSize)
 
 proc nimx_OnTextInput(wnd: pointer, text: cstring) {.EMSCRIPTEN_KEEPALIVE.} =
