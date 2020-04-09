@@ -21,19 +21,9 @@ type
     SelfContainedImage* = ref object of Image
         texture*: TextureRef
         mFilePath: string
-        mRenderTarget*: ImageRenderTarget
 
     FixedTexCoordSpriteImage* = ref object of Image
         spriteSheet: Image
-
-    ImageRenderTarget* = ref object # This will be moved to render_to_image soon
-        framebuffer*: FramebufferRef
-        depthbuffer*: RenderbufferRef
-        stencilbuffer*: RenderbufferRef
-        vpX*, vpY*: GLint # Viewport geometry
-        vpW*, vpH*: GLsizei
-        texWidth*, texHeight*: int16
-        needsDepthStencil*: bool
 
 template setupTexParams(gl: GL) =
     when defined(android) or defined(ios):
@@ -67,28 +57,6 @@ proc newSelfContainedImage(): SelfContainedImage {.inline.} =
     else:
         inc totalImages
         result.new(finalize)
-
-proc framebuffer*(i: SelfContainedImage): FramebufferRef {.inline, deprecated.} =
-    let rt = i.mRenderTarget
-    if not rt.isNil:
-        result = rt.framebuffer
-
-proc `framebuffer=`*(i: SelfContainedImage, b: FramebufferRef) {.inline, deprecated.} =
-    let rt = i.mRenderTarget
-    assert(b == invalidFrameBuffer or not rt.isNil)
-    if not rt.isNil:
-        rt.framebuffer = b
-
-proc renderbuffer*(i: SelfContainedImage): RenderbufferRef {.inline, deprecated.} =
-    let rt = i.mRenderTarget
-    if not rt.isNil:
-        result = rt.depthbuffer
-
-proc `renderbuffer=`*(i: SelfContainedImage, b: RenderbufferRef) {.inline, deprecated.} =
-    let rt = i.mRenderTarget
-    assert(b == invalidRenderbuffer or not rt.isNil)
-    if not rt.isNil:
-        rt.depthbuffer = b
 
 when not web:
     type DecodedImageData = object
@@ -619,13 +587,6 @@ when defined(emscripten):
         i.src = url;
         """, cast[pointer](ctx), cstring(ctx.path))
 
-    proc nimxImageLoadFromURL*(url: string, name: string, callback: proc(i: SelfContainedImage)) {.deprecated.} =
-        loadImageFromURL(url) do(i: Image):
-            if i.isNil:
-                callback(nil)
-            else:
-                callback(SelfContainedImage(i))
-
 elif defined(js):
     proc loadImageFromURL*(url: string, callback: proc(i: Image)) =
         let nativeURL: cstring = url
@@ -663,13 +624,6 @@ else:
                 callback(i)
             else:
                 callback(nil)
-
-proc loadImageFromURL*(url: string, callback: proc(i: SelfContainedImage)) {.deprecated.} =
-    loadImageFromURL(url) do(i: Image):
-        if i.isNil:
-            callback(nil)
-        else:
-            callback(SelfContainedImage(i))
 
 when web:
     registerAssetLoader(["file", "http", "https"], ["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga"]) do(url: string, handler: proc(i: Image)):
