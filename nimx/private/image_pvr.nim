@@ -107,9 +107,7 @@ proc loadPVRDataToTexture(data: ptr uint8, texture: var TextureRef, size: var Si
         offset += pixelBytes.uint
         inc i
 
-
-proc initWithPVR(i: SelfContainedImage, data: ptr uint8) =
-    loadPVRDataToTexture(data, i.texture, i.mSize, i.texCoords)
-
-proc isPVRData*(data: string): bool =
-    discard # TODO: implement this
+proc isPVRHeader*(data: openarray[byte]): bool =
+    assert(data.len >= 4)
+    let u = cast[ptr uint32](unsafeAddr data[0])[]
+    u == 0x03525650 or u == 0x50565203

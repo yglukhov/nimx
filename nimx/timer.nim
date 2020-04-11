@@ -16,18 +16,38 @@ type TimerState = enum
 when defined(debugLeaks):
     var allTimers = newSeq[pointer]()
 
-type Timer* = ref object
-    callback: proc()
-    origCallback: proc()
-    timer: TimerID
-    interval: float
-    isPeriodic: bool
-    scheduleTime: float
-    state: TimerState
-    when (not defined(js) and not defined(emscripten)):
-        ready: bool
-    when defined(debugLeaks):
-        instantiationStackTrace*: string
+type
+    Timer* = ref TimerObj
+    TimerObj = object
+        callback: proc()
+        origCallback: proc()
+        timer: TimerID
+        interval: float
+        isPeriodic: bool
+        scheduleTime: float
+        state: TimerState
+        when (not defined(js) and not defined(emscripten)):
+            ready: bool
+        when defined(debugLeaks):
+            instantiationStackTrace*: string
+
+
+const profileTimers = not defined(js) and not defined(release)
+
+when profileTimers or defined(debugLeaks):
+    let totalTimers = sharedProfiler().newDataSource(int, "Timers")
+    proc destroyAux(t: var TimerObj) =
+        dec totalTimers
+        when defined(debugLeaks):
+            let p = cast[pointer](addr t)
+            let i = allTimers.find(p)
+            assert(i != -1)
+            allTimers.del(i)
+
+    when defined(gcDestructors):
+        proc `=destroy`(t: var TimerObj) = destroyAux(t)
+    else:
+        proc finalizeTimer(t: Timer) = destroyAux(t[])
 
 when defined(js) or defined(emscripten):
     proc setInterval(p: proc(), timeout: float): TimerID {.jsImportg.}
@@ -78,7 +98,7 @@ elif defined(macosx):
     proc CFRelease(o: CFTypeRef) {.importc.}
 
     proc cftimerCallback(cfTimer: CFRunLoopTimerRef, t: pointer) {.cdecl.} =
-        cast[Timer](t).callback()
+        cast[ptr TimerObj](t).callback()
 
     proc schedule(t: Timer) =
         var interval = t.interval
@@ -97,7 +117,7 @@ else:
     import perform_on_main_thread
 
     proc fireCallback(timer: pointer) {.cdecl.} =
-        var t = cast[Timer](timer)
+        var t = cast[ptr TimerObj](timer)
         if t.state == tsRunning:
             t.callback()
             t.ready = true
@@ -108,7 +128,7 @@ else:
     {.push stackTrace: off.}
     proc timeoutThreadCallback(interval: uint32, timer: pointer): uint32 {.cdecl.} =
         # This proc is run on a foreign thread!
-        let t = cast[ptr type(cast[Timer](timer)[])](timer)
+        let t = cast[ptr TimerObj](timer)
 
         if t.ready:
             t.ready = false
@@ -140,22 +160,13 @@ proc clear*(t: Timer) =
             when not defined(js):
                 GC_unref(t)
 
-const profileTimers = not defined(js) and not defined(release)
-
-when profileTimers or defined(debugLeaks):
-    let totalTimers = sharedProfiler().newDataSource(int, "Timers")
-    proc finalizeTimer(t: Timer) =
-        dec totalTimers
-        when defined(debugLeaks):
-            let p = cast[pointer](t)
-            let i = allTimers.find(p)
-            assert(i != -1)
-            allTimers.del(i)
-
 proc newTimer*(interval: float, repeat: bool, callback: proc()): Timer =
     assert(not callback.isNil)
     when profileTimers:
-        result.new(finalizeTimer)
+        when defined(gcDestructors):
+            result.new()
+        else:
+            result.new(finalizeTimer)
         inc totalTimers
     else:
         result.new()
@@ -196,9 +207,7 @@ proc setInterval*(interval: float, callback: proc()): Timer {.discardable.} =
 
 proc timeLeftUntilNextFire(t: Timer): float =
     let curTime = epochTime()
-    let firedTimes = int((curTime - t.scheduleTime) / t.interval) + 1
-    result = t.scheduleTime + float(firedTimes) * t.interval
-    result = result - curTime
+    result = max(t.scheduleTime + t.interval - curTime, 0.0)
 
 proc pause*(t: Timer) =
     if t.state == tsRunning:

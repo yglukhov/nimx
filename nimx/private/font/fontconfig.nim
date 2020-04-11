@@ -37,12 +37,23 @@ iterator potentialFontFilesForFace*(face: string): string =
     yield getAppDir() / face & ".ttf"
 
 
-const useLibfontconfig = defined(posix) and not defined(android) and not defined(ios)
+const useLibfontconfig = defined(posix) and not defined(android) and not defined(ios) and not defined(emscripten)
 
 
 when useLibfontconfig:
   proc loadFontconfigLib(): LibHandle =
     loadLib("libfontconfig.so")
+
+  proc getFcWeight(face: var string, weightSymbol: string): bool =
+    # face and weightSymbol must be lowercase!
+    # Find weightSymbol in face. e.g. face ends with "-Bold"
+    # and weightSymbol is "bold. If found modify modify face so
+    # that it doesn't contain weight, and return true. Return false
+    # otherwise.
+    let lSuffix = "-" & weightSymbol
+    result = face.endsWith(lSuffix)
+    if result:
+      face.delete(face.len - lSuffix.len, face.high)
 
   proc findFontFileForFaceAux(face: string): string =
     let m = loadFontconfigLib()
@@ -60,12 +71,14 @@ when useLibfontconfig:
 
     p FcPatternCreate, proc(): Pattern {.cdecl.}
     p FcPatternAddString, proc(p: Pattern, k, v: cstring): cint {.cdecl.}
+    p FcPatternAddInteger, proc(p: Pattern, k: cstring, v: cint): cint {.cdecl.}
     p FcConfigSubstitute, proc(c: Config, p: Pattern, kind: cint): cint {.cdecl.}
     p FcDefaultSubstitute, proc(p: Pattern) {.cdecl.}
     p FcFontMatch, proc(c: Config, p: Pattern, res: ptr cint): Pattern {.cdecl.}
     p FcPatternGetString, proc(p: Pattern, obj: cstring, n: cint, s: var cstring): cint {.cdecl.}
     p FcPatternGetInteger, proc(p: Pattern, obj: cstring, n: cint, s: var cint): cint {.cdecl.}
     p FcPatternDestroy, proc(p: Pattern) {.cdecl.}
+    p FcConfigAppFontAddDir, proc(c: Config, d: cstring): cint {.cdecl.}
 
 
     proc getString(p: Pattern, k: cstring, n: cint): string =
@@ -73,8 +86,25 @@ when useLibfontconfig:
       if FcPatternGetString(p, k, n, t) == 0:
         result = $t
 
+    when defined(linux):
+      discard FcConfigAppFontAddDir(nil, getAppDir() / "res")
+    elif defined(macosx):
+      discard FcConfigAppFontAddDir(nil, getAppDir() /../ "Resources")
+
     let pat = FcPatternCreate()
-    discard FcPatternAddString(pat, "family", face)
+    var face = face.toLowerAscii
+    if getFcWeight(face, "black"):
+      discard FcPatternAddString(pat, "family", face)
+      discard FcPatternAddInteger(pat, "weight", 210)
+    elif getFcWeight(face, "bold"):
+      discard FcPatternAddString(pat, "family", face)
+      discard FcPatternAddInteger(pat, "weight", 200)
+    elif getFcWeight(face, "regular"):
+      discard FcPatternAddString(pat, "family", face)
+      discard FcPatternAddInteger(pat, "weight", 80)
+    else:
+      discard FcPatternAddString(pat, "family", face)
+
     discard FcPatternAddString(pat, "fontformat", "TrueType")
 
     discard FcConfigSubstitute(nil, pat, 0)

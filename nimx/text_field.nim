@@ -297,6 +297,7 @@ method onTouchEv*(t: TextField, e: var Event): bool =
     of bsUp:
         if t.selectable and t.isSelecting:
             t.isSelecting = false
+            t.window.startTextInput(t.convertRectToWindow(t.bounds))
             if t.textSelection.len != 0:
                 let oldPos = cursorPos
                 t.mText.getClosestCursorPositionToPoint(pt, cursorPos, cursorOffset)
@@ -482,6 +483,10 @@ method viewShouldResignFirstResponder*(v: TextField, newFirstResponder: View): b
     cursorUpdateTimer.clear()
     cursorVisible = false
     v.textSelection = -1 .. -1
+
+    if not v.window.isNil:
+        v.window.stopTextInput()
+
     v.sendAction()
 
 method viewDidBecomeFirstResponder*(t: TextField) =
