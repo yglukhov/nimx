@@ -1,3 +1,4 @@
+import sugar
 import sample_registry
 import nimx / [ view, window, button, text_field, layout, scroll_view, table_view,
     split_view, context ]
@@ -217,33 +218,59 @@ reg "Table in SplitView":
 
     tv.reloadData()
 
+reg "Autoresizing Frame":
+  make:
+    wnd.makeLayout:
+      - TestView:
+        frame == autoresizingFrame(10, 100, NaN, 10, 100, NaN)
+        backgroundColor: red
+
+      - TestView:
+        frame == autoresizingFrame(110, NaN, 110, 10, 100, NaN)
+        backgroundColor: blue
+
+      - TestView:
+        frame == autoresizingFrame(NaN, 100, 10, 10, 100, NaN)
+        backgroundColor: yellow
+
+      - TestView:
+        frame == autoresizingFrame(10, 100, NaN, 110, NaN, 110)
+        backgroundColor: green
+
+      - TestView:
+        frame == autoresizingFrame(110, NaN, 110, 110, NaN, 110)
+        backgroundColor: red
+
+      - TestView:
+        frame == autoresizingFrame(NaN, 100, 10, 110, NaN, 110)
+        backgroundColor: blue
+
+      - TestView:
+        frame == autoresizingFrame(10, 100, NaN, NaN, 100, 10)
+        backgroundColor: yellow
+
+      - TestView:
+        frame == autoresizingFrame(110, NaN, 110, NaN, 100, 10)
+        backgroundColor: blue
+
+      - TestView:
+        frame == autoresizingFrame(NaN, 100, 10, NaN, 100, 10)
+        backgroundColor: green
 
 method init(v: LayoutSampleView, r: Rect) =
   procCall v.View.init(r)
   var by = 5'f32
-  template reg1(name: string, t: proc(w: Window)) =
-    v.makeLayout:
-      - Button:
-        title: name
-        top == super + by
-        leading == super + 5
-        width == 150
-        height == 25
-        onAction:
-          let wnd = newWindow(newRect(80, 80, 800, 600))
-          wnd.title = name
-          t(wnd)
-  
-    # let b = Button.new(newRect(5, by, 150, 25))
-    # b.title = name
-    by += 30
+  for i in testLayoutRegistry:
+    capture i:
+      v.makeLayout:
+        - Button:
+          title: i.name
+          frame == autoresizingFrame(10, 150, NaN, by, 25, NaN)
+          onAction:
+            let wnd = newWindow(newRect(80, 80, 800, 600))
+            wnd.title = i.name
+            i.createProc(wnd)
 
-  reg1 "Hello world", testLayoutRegistry[0].createProc
-  reg1 "Some layout", testLayoutRegistry[1].createProc
-  reg1 "Some layout 3", testLayoutRegistry[2].createProc
-  reg1 "Some layout 4", testLayoutRegistry[3].createProc
-  reg1 "Some layout 5", testLayoutRegistry[3].createProc
-  reg1 "SplitView", testLayoutRegistry[5].createProc
-  reg1 "Table in SplitView", testLayoutRegistry[6].createProc
+    by += 30
 
 registerSample(LayoutSampleView, "Layout")
