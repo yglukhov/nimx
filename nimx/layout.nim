@@ -1,11 +1,11 @@
 import macros, strutils
-import view
+import view, layout_vars
 import kiwi
 import private/kiwi_vector_symbolics
 
 import kiwi / [ symbolics, strength ]
 export symbolics, strength, kiwi_vector_symbolics
-export superPHS, selfPHS, prevPHS, nextPHS
+export layout_vars
 
 proc isViewDescNodeAux(n: NimNode): bool =
     n.kind == nnkPrefix and $n[0] == "-"
@@ -63,39 +63,42 @@ proc collectAllViewNodes(body: NimNode, allViews: var seq[NimNode], childParentR
             collectAllViewNodes(getBodyFromViewDesc(c), allViews, childParentRelations)
 
 const placeholderNames = ["super", "self", "prev", "next"]
-const attributeNames = [
-    "width", "height",
-    "left", "right",
-    "x", "y",
-    "top", "bottom",
-    "leading", "trailing",
-    "centerX", "centerY",
-    "origin",
-    "center",
-    "size",
-    "topLeading",
-    "bottomTrailing"
-    ]
 
-proc transformConstraintNode(cn, subject: NimNode): NimNode =
+proc fixupVectorOperand(n: NimNode) =
+    if n.kind == nnkBracket:
+        let newExpression = bindSym"newExpression"
+        for i, c in n:
+            n[i] = newCall(newExpression, c)
+
+proc addPlaceholderToLeftOperand(n: NimNode): NimNode =
+    result = n
+    if n.identOrSym:
+        result = newDotExpr(ident"selfPHS", n)
+
+proc transformConstraintNodeAux(cn, subject: NimNode): NimNode =
     result = cn
     case cn.kind
     of nnkIdent, nnkSym:
         let n = $cn
-        if n in attributeNames:
-            result = newDotExpr(bindSym"selfPHS", cn)
-        elif not subject.isNil and n in placeholderNames:
-            result = newDotExpr(newIdentNode(n & "PHS"), subject)
+        if not subject.isNil and n in placeholderNames:
+            result = newDotExpr(ident(n & "PHS"), subject)
     of nnkDotExpr:
-        if cn.len == 2 and cn[0].identOrSym and cn[1].identOrSym:
-            let a = $cn[0]
-            var done = false
-            if a in placeholderNames:
-                result[0] = newIdentNode(a & "PHS")
-                done = true
+        if cn.len == 2 and cn[0].identOrSym and $cn[0] in placeholderNames:
+            result[0] = ident($cn[0] & "PHS")
+        else:
+            result[0] = transformConstraintNodeAux(cn[0], subject)
+
+        for i in 1 ..< cn.len:
+            cn[i] = transformConstraintNodeAux(cn[i], subject)
     else:
         for i in 0 ..< cn.len:
-            cn[i] = transformConstraintNode(cn[i], subject)
+            cn[i] = transformConstraintNodeAux(cn[i], subject)
+
+proc transformConstraintNode(cn, subject: NimNode): NimNode =
+    result = transformConstraintNodeAux(cn, subject)
+    fixupVectorOperand(result[1])
+    fixupVectorOperand(result[2])
+    result[1] = addPlaceholderToLeftOperand(result[1])
 
 template setControlHandlerBlock(c: View, p: untyped, a: untyped) =
     when compiles(c.p(nil)):
