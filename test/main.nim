@@ -1,7 +1,7 @@
 #!/usr/local/bin/nim c -r --threads:on
 import sample_registry
 
-import nimx / [ view, scroll_view, table_view2, text_field, layout, autotest, window, split_view ]
+import nimx / [ view, scroll_view, table_view, text_field, layout, autotest, window, split_view ]
 import sequtils, intsets
 
 {.warning[UnusedImport]: off.}
@@ -48,17 +48,17 @@ proc startApplication() =
                         allSamples.len
 
                     createCell do() -> TableViewCell:
-                        result = newTableViewCell()
+                        result = TableViewCell.new(zeroRect)
                         result.makeLayout:
+                            top == super
+                            bottom == super
+
                             - Label:
-                                origin == super
-                                width == 120
-                                height == 20
-                                height <= super
-                                width <= super
+                                frame == super
+                                width == 200
 
                     configureCell do(c: TableViewCell):
-                        TextField(c.subviews[0]).text = allSamples[c.row].name
+                        Label(c.subviews[0]).text = allSamples[c.row].name
 
                     onSelectionChange do():
                         let selectedRows = toSeq(items(tableView.selectedRows))
