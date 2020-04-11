@@ -359,8 +359,7 @@ method init*(cpv: ColorPickerView, r: Rect) =
 
         - Label:
             leading == super + margin
-            height == 20
-            width == 20
+            size == [20, 20]
             bottom == labelS.layout.vars.top - margin
             text: "H: "
 
@@ -379,8 +378,7 @@ method init*(cpv: ColorPickerView, r: Rect) =
 
         - Label as labelS:
             leading == super + margin
-            height == 20
-            width == 20
+            size == [20, 20]
             bottom == labelV.layout.vars.top - margin
             text: "S: "
 
@@ -399,8 +397,7 @@ method init*(cpv: ColorPickerView, r: Rect) =
 
         - Label as labelV:
             leading == super + margin
-            height == 20
-            width == 20
+            size == [20, 20]
             bottom == super - margin
             text: "V: "
 
@@ -421,7 +418,7 @@ method init*(cpv: ColorPickerView, r: Rect) =
             leading == super + margin
             y == super + margin
             height == 50
-            width == height
+            width == self.height
 
     cpv.circle = circle
     cpv.chosenColorView = selectedColorView

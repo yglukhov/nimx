@@ -1,5 +1,5 @@
 import typetraits, tables
-import types, context, animation_runner
+import types, context, animation_runner, layout_vars
 import property_visitor
 import class_registry
 import serializers
@@ -33,7 +33,7 @@ type
         inst: Constraint
 
     LayoutInfo = object
-        vars*: ViewLayoutVars
+        vars*: LayoutVars
         constraints: seq[ConstraintWithPrototype]
 
     View* = ref object of RootRef
@@ -68,46 +68,6 @@ type
         onClose*: proc()
         mCurrentTouches*: TableRef[int, View]
         mAnimationEnabled*: bool
-
-    ViewLayoutVars = object
-        x*, y*, width*, height*: Variable
-
-proc centerX*(phs: ViewLayoutVars): Expression = phs.x + phs.width / 2
-proc centerY*(phs: ViewLayoutVars): Expression = phs.y + phs.height / 2
-
-proc left*(phs: ViewLayoutVars): Variable {.inline.} = phs.x
-proc right*(phs: ViewLayoutVars): Expression {.inline.} = phs.x + phs.width
-
-proc top*(phs: ViewLayoutVars): Variable {.inline.} = phs.y
-proc bottom*(phs: ViewLayoutVars): Expression = phs.y + phs.height
-
-const leftToRight = true
-
-proc leading*(phs: ViewLayoutVars): Expression =
-    if leftToRight: newExpression(newTerm(phs.left)) else: -phs.right
-
-proc trailing*(phs: ViewLayoutVars): Expression =
-    if leftToRight: phs.right else: -newExpression(newTerm(phs.left))
-
-proc origin*(phs: ViewLayoutVars): array[2, Expression] = [newExpression(newTerm(phs.x)), newExpression(newTerm(phs.y))]
-proc center*(phs: ViewLayoutVars): array[2, Expression] = [phs.centerX, phs.centerY]
-proc size*(phs: ViewLayoutVars): array[2, Expression] = [newExpression(newTerm(phs.width)), newExpression(newTerm(phs.height))]
-
-proc topLeading*(phs: ViewLayoutVars): array[2, Expression] = [phs.leading, newExpression(newTerm(phs.y))]
-proc bottomTrailing*(phs: ViewLayoutVars): array[2, Expression] = [phs.trailing, phs.bottom]
-
-var prevPHS*, nextPHS*, superPHS*, selfPHS*: ViewLayoutVars
-
-proc init(phs: var ViewLayoutVars) =
-    phs.x = newVariable("x", 0)
-    phs.y = newVariable("y", 0)
-    phs.width = newVariable("width", 0)
-    phs.height = newVariable("height", 0)
-
-init(prevPHS)
-init(nextPHS)
-init(superPHS)
-init(selfPHS)
 
 proc init(i: var LayoutInfo) =
     i.vars.init()
@@ -618,7 +578,7 @@ method deserializeFields*(v: View, s: Deserializer) =
     s.deserialize("arMask", v.autoresizingMask)
     s.deserialize("color", v.backgroundColor)
 
-proc isLastInTreeBranch(d: View): bool =
+proc isLastInSuperview(d: View): bool =
     d.superview.subviews[^1] == d
 
 proc constraintsForFixedFrame*(f: Rect, superSize: Size, m: set[AutoresizingFlag]): seq[Constraint] =
@@ -648,10 +608,10 @@ proc dump(d, root: View, indent, output: var string, printer: proc(v: View): str
     if d != root:
         var p = d.superview
         if p != root:
-            indent &= (if p.isLastInTreeBranch(): "   " else: "│  ")
+            indent &= (if p.isLastInSuperview(): "   " else: "│  ")
 
         output &= indent
-        output &= (if d.isLastInTreeBranch(): "└─ " else: "├─ ")
+        output &= (if d.isLastInSuperview(): "└─ " else: "├─ ")
 
     output &= printer(d)
     output &= '\n'
