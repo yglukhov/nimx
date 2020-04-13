@@ -64,7 +64,7 @@ type Builder* = ref object
     emscriptenPreloadFiles*: seq[string]
     emscriptenPreJS*: seq[string]
 
-    buildRoot* : string
+    buildRoot: string
     executablePath : string
     nimcachePath : string
     resourcePath* : string
@@ -255,15 +255,11 @@ proc nimbleNimxPath(): string =
     doAssert(result.len != 0, "Error: nimx does not seem to be installed with nimble!")
 
 proc emccWrapperPath(): string =
-    when defined(windows):
-        let jsbindPath = nimblePath("jsbind")
-        result = jsbindPath / "jsbind/emcc_wrapper_win32.exe"
-    else:
-        result = findExe("emcc")
-        if result.len == 0:
-            let p = "/usr/lib/emscripten/emcc"
-            if fileExists(p):
-                result = p
+    result = findExe("emcc")
+    if result.len == 0:
+        let p = "/usr/lib/emscripten/emcc"
+        if fileExists(p):
+            result = p
 
     if result.len == 0:
         raise newException(Exception, "emcc not found")
