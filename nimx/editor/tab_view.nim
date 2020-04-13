@@ -1,6 +1,6 @@
 import math
 import kiwi
-import nimx / [view, context, matrixes, font, linear_layout, button, menu, split_view]
+import nimx / [view, context, matrixes, font, linear_layout, button, menu, split_view, layout_vars]
 import nimx / [ view_event_handling, window_event_handling ]
 
 type

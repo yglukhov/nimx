@@ -1,14 +1,25 @@
 import image, types, context, portable_gl
 import opengl
 
-type GlFrameState* = tuple
-    clearColor: array[4, GLfloat]
-    viewportSize: array[4, GLint]
-    framebuffer: FramebufferRef
-    bStencil: bool
-    rt: ImageRenderTarget
+type
+    GlFrameState* = tuple
+        clearColor: array[4, GLfloat]
+        viewportSize: array[4, GLint]
+        framebuffer: FramebufferRef
+        bStencil: bool
+        rt: ImageRenderTarget
 
-proc dispose*(r: ImageRenderTarget) =
+    ImageRenderTarget* = ref ImageRenderTargetObj
+    ImageRenderTargetObj = object
+        framebuffer*: FramebufferRef
+        depthbuffer*: RenderbufferRef
+        stencilbuffer*: RenderbufferRef
+        vpX*, vpY*: GLint # Viewport geometry
+        vpW*, vpH*: GLsizei
+        texWidth*, texHeight*: int16
+        needsDepthStencil*: bool
+
+proc disposeObj(r: var ImageRenderTargetObj) =
     let gl = sharedGL()
     if r.framebuffer != invalidFrameBuffer:
         gl.deleteFramebuffer(r.framebuffer)
@@ -20,11 +31,19 @@ proc dispose*(r: ImageRenderTarget) =
         gl.deleteRenderbuffer(r.stencilbuffer)
         r.stencilbuffer = invalidRenderbuffer
 
+proc dispose*(r: ImageRenderTarget) = disposeObj(r[])
+
+when defined(gcDestructors):
+    proc `=destroy`(r: var ImageRenderTargetObj) = disposeObj(r)
+
 proc newImageRenderTarget*(needsDepthStencil: bool = true): ImageRenderTarget {.inline.} =
     when defined(js):
         result.new()
     else:
-        result.new(dispose)
+        when defined(gcDestructors):
+            result.new()
+        else:
+            result.new(dispose)
     result.needsDepthStencil = needsDepthStencil
 
 proc init(rt: ImageRenderTarget, texWidth, texHeight: int16) =
@@ -151,18 +170,6 @@ proc endDraw*(t: ImageRenderTarget, state: var GlFrameState) =
     gl.viewport(state.viewportSize)
     gl.bindFramebuffer(gl.FRAMEBUFFER, state.framebuffer)
 
-proc beginDraw*(sci: SelfContainedImage, gfs: var GlFrameState) {.deprecated.} =
-    var rt = sci.mRenderTarget
-    if rt.isNil:
-        rt = newImageRenderTarget()
-        sci.mRenderTarget = rt
-    rt.setImage(sci)
-    rt.beginDraw(gfs)
-
-proc endDraw*(sci: SelfContainedImage, gfs: var GlFrameState) {.deprecated.} =
-    assert(not sci.mRenderTarget.isNil)
-    sci.mRenderTarget.endDraw(gfs)
-
 proc draw*(sci: SelfContainedImage, drawProc: proc()) =
     var gfs: GlFrameState
     let rt = newImageRenderTarget()
@@ -179,9 +186,3 @@ proc draw*(sci: SelfContainedImage, drawProc: proc()) =
     # coords here.
     if not sci.flipped:
         sci.flipVertically()
-
-proc draw*(i: Image, drawProc: proc()) {.deprecated.} =
-    let sci = SelfContainedImage(i)
-    if sci.isNil:
-        raise newException(Exception, "Not implemented: Can draw only to SelfContainedImage")
-    sci.draw(drawProc)

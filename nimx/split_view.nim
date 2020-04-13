@@ -1,7 +1,6 @@
-import view, window
 import kiwi
 
-import nimx / [ view, cursor, view_event_handling ]
+import nimx / [ view, window, cursor, view_event_handling, layout_vars ]
 import view_dragging_listener
 
 export view

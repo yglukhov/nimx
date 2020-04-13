@@ -1,4 +1,4 @@
-import view, view_event_handling, table_view_cell, scroll_view
+import view, view_event_handling, table_view_cell, scroll_view, layout_vars
 
 import clip_view
 
