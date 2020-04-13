@@ -200,6 +200,8 @@ proc onFocusChange*(w: Window, inFocus: bool)=
 
 var newWindow*: proc(r: Rect): Window
 var newFullscreenWindow*: proc(): Window
+var newWindowWithNative*: proc(handle: pointer, r: Rect): Window
+var newFullscreenWindowWithNative*: proc(handle: pointer): Window
 
 method init*(w: Window, frame: Rect) =
     procCall w.View.init(frame)
