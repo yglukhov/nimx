@@ -10,7 +10,6 @@ import sample01_welcome
 import sample02_controls
 import sample03_image
 import sample04_animation
-# import sample15_animation_easings
 import sample05_fonts
 import sample06_timers
 import sample07_collections
@@ -21,6 +20,8 @@ import sample11_expanded_views
 import sample12_menus
 import sample13_drag_and_drop
 import sample14_layout
+# import sample15_animation_easings
+import sample16_outline_view
 
 
 const isMobile = defined(ios) or defined(android)
@@ -72,7 +73,7 @@ proc startApplication() =
                 discard
 
     tableView.reloadData()
-    tableView.selectRow(0)
+    tableView.selectRow(allSamples.high)
 
     uiTest generalUITest:
         sendMouseDownEvent(mainWindow, newPoint(50, 60))
