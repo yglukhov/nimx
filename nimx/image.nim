@@ -429,7 +429,7 @@ when not web:
     proc writeToTGAFile*(i: Image, path: string) = i.writeToFile(path, tga)
     #proc writeToHDRFile*(i: Image, path: string) = i.writeToFile(path, hdr) # Crashes...
 
-const asyncResourceLoad = not web and not defined(nimxAvoidSDL)
+const asyncResourceLoad = not web and not defined(nimxAvoidSDL) and compileOption("threads")
 
 when asyncResourceLoad:
     const loadAsyncTextureInMainThread = defined(android) or defined(ios)
