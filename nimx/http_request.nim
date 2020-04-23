@@ -43,4 +43,7 @@ when not defined(js) and not defined(emscripten):
             cast[SdlHandlerContext](ctx).data = storeToSharedBuffer(r)
             performOnMainThread(callHandler, ctx)
 
-        sendRequestThreaded(meth, url, body, headers, sdlThreadSafeHandler, cast[pointer](ctx))
+        when compileOption("threads"):
+            sendRequestThreaded(meth, url, body, headers, sdlThreadSafeHandler, cast[pointer](ctx))
+        else:
+            doAssert(false, "[Not implemented] Http requests only work with --threads:on")

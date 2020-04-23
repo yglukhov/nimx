@@ -166,7 +166,7 @@ proc scaleFactor(w: SdlWindow): float =
                 when appkitPlatform:
                     let nsWindow = cast[ptr NSWindow](addr winInfo.padding[0])[]
                     if not nsWindow.isNil:
-                        result = nsWindow.scaleFactor
+                        dpi *= nsWindow.scaleFactor
             of SysWM_Wayland:
                 when waylandPlatform:
                     discard
@@ -188,7 +188,7 @@ proc scaleFactor(w: SdlWindow): float =
         result = screenScaleFactor()
 
 proc updatePixelRatio(w: SdlWindow) {.inline.} =
-    when defined(ios):
+    when defined(macosx): # And ios too!
         w.pixelRatio = 1
         w.viewportPixelRatio = w.scaleFactor()
     else:

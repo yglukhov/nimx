@@ -429,7 +429,7 @@ when not web:
     proc writeToTGAFile*(i: Image, path: string) = i.writeToFile(path, tga)
     #proc writeToHDRFile*(i: Image, path: string) = i.writeToFile(path, hdr) # Crashes...
 
-const asyncResourceLoad = not web and not defined(nimxAvoidSDL)
+const asyncResourceLoad = not web and not defined(nimxAvoidSDL) and compileOption("threads")
 
 when asyncResourceLoad:
     const loadAsyncTextureInMainThread = defined(android) or defined(ios)
@@ -626,7 +626,7 @@ else:
                 callback(nil)
 
 when web:
-    registerAssetLoader(["file", "http", "https"], ["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga"]) do(url: string, handler: proc(i: Image)):
+    registerAssetLoader(["file", "http", "https"], ["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga", "webp"]) do(url: string, handler: proc(i: Image)):
         loadImageFromURL(url, handler)
 else:
     registerAssetLoader(["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga", "pvr", "webp"]) do(url: string, handler: proc(i: Image)):

@@ -246,12 +246,15 @@ proc updateCanvasSize(w: EmscriptenWindow) =
         let canvHeight = height
 
     setElementWidthHeight(w.canvasId, w.pixelRatio * canvWidth, w.pixelRatio * canvHeight)
-
     discard emscripten_set_element_css_size(w.canvasId, width, height)
-
     w.onResize(newSize(canvWidth, canvHeight))
 
 proc onResize(eventType: cint, uiEvent: ptr EmscriptenUiEvent, userData: pointer): EM_BOOL {.cdecl.} =
+    let w = cast[EmscriptenWindow](userData)
+    w.updateCanvasSize()
+    result = 0
+
+proc onOrientationChanged(eventType: cint, uiEvent: ptr EmscriptenOrientationChangeEvent, userData: pointer): EM_BOOL {.cdecl.} =
     let w = cast[EmscriptenWindow](userData)
     w.updateCanvasSize()
     result = 0
@@ -271,7 +274,19 @@ proc initCommon(w: EmscriptenWindow, r: view.Rect) =
     } else {
         ++window.__nimx_canvas_id;
     }
-    var canvas = document.createElement("canvas");
+    let canvasId = UTF8ToString($2);
+    var canvas;
+    if(canvasId.length > 0){
+        canvas = document.getElementById(canvasId);
+    }
+    else {
+        canvas = document.createElement("canvas");
+        canvas.width = $0;
+        canvas.height = $1;
+        canvas.id = "nimx_canvas" + window.__nimx_canvas_id;
+        document.body.appendChild(canvas);
+    }
+    
     canvas.onclick = function() {
         if (window.__nimx_textinput && window.__nimx_textinput.oninput)
             window.__nimx_textinput.focus();
@@ -283,14 +298,11 @@ proc initCommon(w: EmscriptenWindow, r: view.Rect) =
         return false;
     };
 
-    canvas.id = "nimx_canvas" + window.__nimx_canvas_id;
-    canvas.width = $0;
-    canvas.height = $1;
-    document.body.appendChild(canvas);
     return window.__nimx_canvas_id;
-    """, r.width, r.height)
+    """, r.width, r.height, w.canvasId.cstring)
 
-    w.canvasId = "nimx_canvas" & $id
+    if w.canvasId.len == 0:
+        w.canvasId = "nimx_canvas" & $id
 
     var attrs: EmscriptenWebGLContextAttributes
     emscripten_webgl_init_context_attributes(addr attrs)
@@ -327,21 +339,27 @@ proc initCommon(w: EmscriptenWindow, r: view.Rect) =
 
     discard emscripten_set_resize_callback(nil, cast[pointer](w), 0, onResize)
 
+    discard emscripten_set_orientationchange_callback(cast[pointer](w), 0, onOrientationChanged)
+
     mainApplication().addWindow(w)
     w.updateCanvasSize()
 
 proc initFullscreen*(w: EmscriptenWindow) =
-    w.initCommon(newRect(0, 0, 800, 600))
+    var iw, ih: float
+    getDocumentSize(iw, ih)
+    w.initCommon(newRect(0, 0, iw, ih))
 
 method init*(w: EmscriptenWindow, r: view.Rect) =
     w.initCommon(r)
 
-proc newFullscreenEmscriptenWindow*(): EmscriptenWindow =
+proc newFullscreenEmscriptenWindow*(canvasId = ""): EmscriptenWindow =
     result.new()
+    result.canvasId = canvasId
     result.initFullscreen()
 
-proc newEmscriptenWindow*(r: view.Rect): EmscriptenWindow =
+proc newEmscriptenWindow*(r: view.Rect, canvasId = ""): EmscriptenWindow =
     result.new()
+    result.canvasId = canvasId
     result.init(r)
 
 newWindow = proc(r: view.Rect): Window =
@@ -349,6 +367,14 @@ newWindow = proc(r: view.Rect): Window =
 
 newFullscreenWindow = proc(): Window =
     result = newFullscreenEmscriptenWindow()
+
+newWindowWithNative = proc(handle: pointer, r: Rect): Window =
+    let canvasId = $cast[cstring](handle)
+    result = newEmscriptenWindow(r, canvasId)
+
+newFullscreenWindowWithNative = proc(handle: pointer): Window =
+    let canvasId = $cast[cstring](handle)
+    result = newFullscreenEmscriptenWindow(canvasId)
 
 method drawWindow(w: EmscriptenWindow) =
     let c = w.renderingContext
@@ -361,6 +387,8 @@ method drawWindow(w: EmscriptenWindow) =
 method onResize*(w: EmscriptenWindow, newSize: Size) =
     w.pixelRatio = screenScaleFactor()
     glViewport(0, 0, GLSizei(newSize.width * w.pixelRatio), GLsizei(newSize.height * w.pixelRatio))
+
+    info "EmscriptenWindow onResize viewport ", newSize.width * w.pixelRatio, " ", newSize.height * w.pixelRatio
     procCall w.Window.onResize(newSize)
 
 proc nimx_OnTextInput(wnd: pointer, text: cstring) {.EMSCRIPTEN_KEEPALIVE.} =
