@@ -1,4 +1,3 @@
-import sugar
 import sample_registry
 import nimx / [ view, window, button, text_field, layout, scroll_view, table_view,
     split_view, context ]
@@ -261,7 +260,8 @@ method init(v: LayoutSampleView, r: Rect) =
   procCall v.View.init(r)
   var by = 5'f32
   for i in testLayoutRegistry:
-    capture i:
+    closureScope:
+      let i = i
       let b = Button.new(newRect(10, by, 150, 25))
       b.title = i.name
       by += 30
