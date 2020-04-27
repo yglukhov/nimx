@@ -5,8 +5,10 @@ when defined(js) or defined(emscripten):
     type TimerID = ref object of JSObj
 elif defined(macosx):
     type TimerID = pointer
-else:
+elif not defined(nimxAvoidSDL):
     import sdl2
+else:
+    type TimerID = bool
 
 type TimerState = enum
     tsInvalid
@@ -113,6 +115,23 @@ elif defined(macosx):
 
     proc cancel(t: Timer) {.inline.} =
         CFRunLoopTimerInvalidate(t.timer)
+
+elif defined(linux) and not defined(android) and defined(nimxAvoidSDL):
+    import asyncdispatch
+    proc runTimer(t: Timer) {.async.} =
+        while t.state == tsRunning:
+            await sleepAsync(t.interval * 1000)
+            if t.state == tsRunning:
+                t.callback()
+                if not t.isPeriodic:
+                    break
+
+    proc schedule(t: Timer) =
+        t.timer = true
+        asyncCheck runTimer(t)
+
+    proc cancel(t: Timer) {.inline.} = discard
+
 else:
     import perform_on_main_thread
 
