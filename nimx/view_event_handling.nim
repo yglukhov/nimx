@@ -120,7 +120,7 @@ proc processTouchEvent*(v: View, e : var Event): bool =
                 result = v.onTouchEv(e)
             else:
                 let localPosition = e.localPosition
-                for i in countdown(v.subviews.len - 1, 0):
+                for i in countdown(v.subviews.high, 0):
                     let s = v.subviews[i]
                     e.localPosition = s.convertPointFromParent(localPosition)
                     if e.localPosition.inRect(s.bounds):
@@ -130,10 +130,10 @@ proc processTouchEvent*(v: View, e : var Event): bool =
                             e.setTouchTarget(s)
                             break
 
+                e.localPosition = localPosition
                 if result and v.onListenTouchEv(e):
                     discard v.onTouchEv(e)
                 if not result:
-                    e.localPosition = localPosition
                     result = v.onTouchEv(e)
                     if result:
                         e.setTouchTarget(v)
@@ -177,7 +177,7 @@ proc processTouchEvent*(v: View, e : var Event): bool =
 proc processMouseWheelEvent*(v: View, e : var Event): bool =
     if v.hidden: return false
     let localPosition = e.localPosition
-    for i in countdown(v.subviews.len - 1, 0):
+    for i in countdown(v.subviews.high, 0):
         let s = v.subviews[i]
         e.localPosition = s.convertPointFromParent(localPosition)
         if e.localPosition.inRect(s.bounds):
