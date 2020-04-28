@@ -196,17 +196,18 @@ proc createRow(v: TableView): TableRow =
         result = TableRow.new(newRect(0, 0, if v.numberOfColumns == 1: v.bounds.width else: (v.numberOfColumns.Coord * v.defaultColWidth).Coord, v.defaultRowHeight))
         result.setFrame(newRect(0, 0, v.bounds.width, 50))
 
+        var px = 0.0
         for i in 0 ..< v.numberOfColumns:
             let c = v.mCreateCell(i)
             c.col = i
             c.resizingMask = "rh"
-
             let width = if v.numberOfColumns == 1:
                 v.bounds.width
               else:
-                v.defaultColWidth
-            c.setFrame(newRect(width * i.Coord, 0, width, 50))
+                c.frame.width
+            c.setFrame(newRect(px, 0, width, 50))
             result.addSubview(c)
+            px += width
 
 proc dequeueReusableRow(v: TableView, cells: var seq[TableRow], row: int, top, height: Coord): TableRow =
     var needToAdd = false
