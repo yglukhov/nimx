@@ -1,11 +1,11 @@
-import nimx/[ abstract_window, view, context, event, app, screen,
+import nimx/[ types, abstract_window, view, context, event, app, screen,
             portable_gl, linkage_details, notification_center ]
 
 import x11/[xlib, x, xutil, xresource]
 import opengl/glx, opengl
 import asyncdispatch, parseutils, times
-import nimx/types
 
+import nimx/private/x11_vk_map
 # X11 impl. Nice tutorial: https://github.com/gamedevtech/X11OpenGLWindow
 
 type
@@ -105,21 +105,53 @@ proc getOsFrame(w: X11Window): Rect =
   discard XGetWindowAttributes(w.xdisplay, w.xwindow, addr attrs)
   newRect(attrs.x.Coord, attrs.y.Coord, attrs.width.Coord, attrs.height.Coord)
 
-proc eventWithXEvent(d: PDisplay, ev: var TXEvent): Event =
+proc eventWithXEvent(d: PDisplay, ev: var TXEvent, result: var seq[Event]) =
+  var e: Event
   case ev.theType
   of KeymapNotify:
     discard XRefreshKeyboardMapping(addr ev.xmapping)
-  of KeyPress, KeyRelease:
+  of KeyPress:
+
+    let im = XOpenIM(d, nil, nil, nil)
+    # var styles: ptr TXIMStyles
+    # var ximRequestedStyle: TXIMStyle
+    # let failed = XGetIMValues(im, XNQueryInputStyle, addr styles, nil)
+    # if not failed.isNil:
+    #   echo "XIM Cant get styles"
+    let ic = XCreateIC(im, XNInputStyle, XIMPreeditNothing or XIMStatusNothing, XNClientWindow, ev.xkey.window, nil)
+    XSetICFocus(ic)
     let wnd = findWindowWithX(d, ev.xkey.window)
-    let state = if ev.theType == KeyPress: bsDown else: bsUp
-    var str: string
-    str.setLen(25)
+    var str = newString(25)
     var ks: TKeySym
-    let sz = Xutf8LookupString(addr ev.xkey, addr str[0], str.len.cint, addr ks, nil).int
-    if sz != 0:
-      echo "Key pressed: ", str, ", ", sz, " ", ks
-    # echo "kp ", ks
-    result = newKeyboardEvent(virtualKeyFromNative(ks), state, false)
+    var st: TStatus
+    let sz = Xutf8LookupString(ic, addr ev.xkey, addr str[0], str.len.cint, addr ks, addr st).int
+    XDestroyIC(ic)
+
+    if st in {XLookupKeySymVal, XLookupBoth}:
+
+      e = newKeyboardEvent(virtualKeyFromNative(ks), bsDown, false)
+      e.window = wnd
+      result.add(e)
+
+    if st in {XLookupChars, XLookupBoth} and sz != 0:
+      # var minKeycode, maxKeycode: cint
+      # XDisplayKeycodes(d, addr minKeycode, addr maxKeycode)
+
+      if sz != 0:
+        # TODO: This doesn't really work, as it sends text input event for non-printable characters.
+
+        str.setLen(sz)
+        e = newEvent(etTextInput)
+        e.text = str
+        e.window = wnd
+
+  of KeyRelease:
+    let wnd = findWindowWithX(d, ev.xkey.window)
+    var str = newString(25)
+    var ks: TKeySym
+    discard XLookupString(addr ev.xkey, addr str[0], str.len.cint, addr ks, nil).int
+    e = newKeyboardEvent(virtualKeyFromNative(ks), bsUp, false)
+    e.window = wnd
 
   of ButtonPress, ButtonRelease:
     let state = if ev.theType == ButtonPress: bsDown else: bsUp
@@ -130,14 +162,14 @@ proc eventWithXEvent(d: PDisplay, ev: var TXEvent): Event =
       of 3: VirtualKey.MouseButtonSecondary
       else: VirtualKey.Unknown
     let pos = newPoint(ev.xbutton.x.Coord, ev.xbutton.y.Coord) / wnd.pixelRatio
-    result = newMouseButtonEvent(pos, button, state)
-    result.window = wnd
+    e = newMouseButtonEvent(pos, button, state)
+    e.window = wnd
 
   of MotionNotify:
     let wnd = findWindowWithX(d, ev.xmotion.window)
     let pos = newPoint(ev.xmotion.x.Coord, ev.xmotion.y.Coord) / wnd.pixelRatio
-    result = newMouseMoveEvent(pos)
-    result.window = wnd
+    e = newMouseMoveEvent(pos)
+    e.window = wnd
 
   of EnterNotify:
     echo "Mouse enter"
@@ -147,12 +179,15 @@ proc eventWithXEvent(d: PDisplay, ev: var TXEvent): Event =
 
   of Expose:
     let wnd = findWindowWithX(d, ev.xexpose.window)
-    result = newEvent(etWindowResized)
-    result.window = wnd
-    result.position = newPoint(ev.xexpose.width.Coord, ev.xexpose.height.Coord) / wnd.pixelRatio
+    e = newEvent(etWindowResized)
+    e.window = wnd
+    e.position = newPoint(ev.xexpose.width.Coord, ev.xexpose.height.Coord) / wnd.pixelRatio
 
   else:
     discard
+
+  if e.kind != etUnknown:
+    result.add(e)
 
 proc animateAndDraw() =
   let a = mainApplication()
@@ -161,10 +196,14 @@ proc animateAndDraw() =
 
 proc onXSocket(d: PDisplay) =
   var ev: TXEvent
+  var evs = newSeqOfCap[Event](2)
+  let app = mainApplication()
   while XPending(d) != 0:
+    evs.setLen(0)
     discard XNextEvent(d, addr ev)
-    var e = eventWithXEvent(d, ev)
-    discard mainApplication().handleEvent(e)
+    eventWithXEvent(d, ev, evs)
+    for i in 0 .. evs.high:
+      discard app.handleEvent(evs[i])
 
   animateAndDraw()
 
