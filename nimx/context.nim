@@ -492,8 +492,8 @@ void compose() {
 """
 
 proc drawLine*(c: GraphicsContext, pointFrom: Point, pointTo: Point) =
-    let xfrom = min(pointFrom.x, pointTo.x)
-    let yfrom = min(pointFrom.y, pointTo.y)
+    let xfrom = system.min(pointFrom.x, pointTo.x)
+    let yfrom = system.min(pointFrom.y, pointTo.y)
     let xsize = max(pointFrom.x, pointTo.x) - xfrom
     let ysize = max(pointFrom.y, pointTo.y) - yfrom
     let r = newRect(xfrom - c.strokeWidth, yfrom - c.strokeWidth, xsize + 2 * c.strokeWidth, ysize + 2 * c.strokeWidth)
