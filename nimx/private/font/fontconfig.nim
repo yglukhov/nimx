@@ -41,8 +41,51 @@ const useLibfontconfig = defined(posix) and not defined(android) and not defined
 
 
 when useLibfontconfig:
-  proc loadFontconfigLib(): LibHandle =
-    loadLib("libfontconfig.so")
+  type
+    Config = ptr object
+    Pattern = ptr object
+
+    FontConfigLib = ptr object
+      m: LibHandle
+      patternCreate: proc(): Pattern {.cdecl.}
+      patternAddString: proc(p: Pattern, k, v: cstring): cint {.cdecl.}
+      patternAddInteger: proc(p: Pattern, k: cstring, v: cint): cint {.cdecl.}
+      configSubstitute: proc(c: Config, p: Pattern, kind: cint): cint {.cdecl.}
+      defaultSubstitute: proc(p: Pattern) {.cdecl.}
+      fontMatch: proc(c: Config, p: Pattern, res: ptr cint): Pattern {.cdecl.}
+      patternGetString: proc(p: Pattern, obj: cstring, n: cint, s: var cstring): cint {.cdecl.}
+      patternGetInteger: proc(p: Pattern, obj: cstring, n: cint, s: var cint): cint {.cdecl.}
+      patternDestroy: proc(p: Pattern) {.cdecl.}
+      configAppFontAddDir: proc(c: Config, d: cstring): cint {.cdecl.}
+
+  var fcLib: FontConfigLib
+
+  proc load(l: FontConfigLib) =
+    l.m = loadLib("libfontconfig.so")
+    if l.m.isNil: return
+
+    template p(s: untyped, t: untyped) =
+      l.s = cast[typeof(l.s)](symAddr(l.m, astToStr(t)))
+      if l.s.isNil:
+        unloadLib(l.m)
+        l.m = nil
+        return
+
+    p patternCreate, FcPatternCreate
+    p patternAddString, FcPatternAddString
+    p patternAddInteger, FcPatternAddInteger
+    p configSubstitute, FcConfigSubstitute
+    p defaultSubstitute, FcDefaultSubstitute
+    p fontMatch, FcFontMatch
+    p patternGetString, FcPatternGetString
+    p patternGetInteger, FcPatternGetInteger
+    p patternDestroy, FcPatternDestroy
+    p configAppFontAddDir, FcConfigAppFontAddDir
+
+    when defined(linux):
+      discard fcLib.configAppFontAddDir(nil, getAppDir() / "res")
+    elif defined(macosx):
+      discard fcLib.configAppFontAddDir(nil, getAppDir() /../ "Resources")
 
   proc getFcWeight(face: var string, weightSymbol: string): bool =
     # face and weightSymbol must be lowercase!
@@ -56,71 +99,45 @@ when useLibfontconfig:
       face.delete(face.len - lSuffix.len, face.high)
 
   proc findFontFileForFaceAux(face: string): string =
-    let m = loadFontconfigLib()
-    if m.isNil: return
+    if unlikely fcLib.isNil:
+      fcLib = cast[FontConfigLib](alloc0(sizeof(fcLib[])))
+      load(fcLib)
 
-    type
-      Config = ptr object
-      Pattern = ptr object
-
-    template p(s: untyped, t: untyped) =
-      let s = cast[t](symAddr(m, astToStr(s)))
-      if s.isNil:
-        unloadLib(m)
-        return
-
-    p FcPatternCreate, proc(): Pattern {.cdecl.}
-    p FcPatternAddString, proc(p: Pattern, k, v: cstring): cint {.cdecl.}
-    p FcPatternAddInteger, proc(p: Pattern, k: cstring, v: cint): cint {.cdecl.}
-    p FcConfigSubstitute, proc(c: Config, p: Pattern, kind: cint): cint {.cdecl.}
-    p FcDefaultSubstitute, proc(p: Pattern) {.cdecl.}
-    p FcFontMatch, proc(c: Config, p: Pattern, res: ptr cint): Pattern {.cdecl.}
-    p FcPatternGetString, proc(p: Pattern, obj: cstring, n: cint, s: var cstring): cint {.cdecl.}
-    p FcPatternGetInteger, proc(p: Pattern, obj: cstring, n: cint, s: var cint): cint {.cdecl.}
-    p FcPatternDestroy, proc(p: Pattern) {.cdecl.}
-    p FcConfigAppFontAddDir, proc(c: Config, d: cstring): cint {.cdecl.}
-
+    if fcLib.m.isNil: return
 
     proc getString(p: Pattern, k: cstring, n: cint): string =
       var t: cstring
-      if FcPatternGetString(p, k, n, t) == 0:
+      if fcLib.patternGetString(p, k, n, t) == 0:
         result = $t
 
-    when defined(linux):
-      discard FcConfigAppFontAddDir(nil, getAppDir() / "res")
-    elif defined(macosx):
-      discard FcConfigAppFontAddDir(nil, getAppDir() /../ "Resources")
-
-    let pat = FcPatternCreate()
+    let pat = fcLib.patternCreate()
     var face = face.toLowerAscii
     if getFcWeight(face, "black"):
-      discard FcPatternAddString(pat, "family", face)
-      discard FcPatternAddInteger(pat, "weight", 210)
+      discard fcLib.patternAddString(pat, "family", face)
+      discard fcLib.patternAddInteger(pat, "weight", 210)
     elif getFcWeight(face, "bold"):
-      discard FcPatternAddString(pat, "family", face)
-      discard FcPatternAddInteger(pat, "weight", 200)
+      discard fcLib.patternAddString(pat, "family", face)
+      discard fcLib.patternAddInteger(pat, "weight", 200)
     elif getFcWeight(face, "regular"):
-      discard FcPatternAddString(pat, "family", face)
-      discard FcPatternAddInteger(pat, "weight", 80)
+      discard fcLib.patternAddString(pat, "family", face)
+      discard fcLib.patternAddInteger(pat, "weight", 80)
     else:
-      discard FcPatternAddString(pat, "family", face)
+      discard fcLib.patternAddString(pat, "family", face)
 
-    discard FcPatternAddString(pat, "fontformat", "TrueType")
+    discard fcLib.patternAddString(pat, "fontformat", "TrueType")
 
-    discard FcConfigSubstitute(nil, pat, 0)
-    FcDefaultSubstitute(pat)
+    discard fcLib.configSubstitute(nil, pat, 0)
+    fcLib.defaultSubstitute(pat)
     var res: cint
-    let match = FcFontMatch(nil, pat, addr res)
+    let match = fcLib.fontMatch(nil, pat, addr res)
 
     result = match.getString("file", 0)
 
     # var index: cint
-    # discard FcPatternGetInteger(match, "index", 0, index)
+    # discard fcLib.patternGetInteger(match, "index", 0, index)
 
-    FcPatternDestroy(pat)
-    FcPatternDestroy(match)
-
-    unloadLib(m)
+    fcLib.patternDestroy(pat)
+    fcLib.patternDestroy(match)
 
     # TODO: Our glyph rasterizer (stb_truetype) supports only ttf.
     # We should have gotten a ttf file by now, but verify it
