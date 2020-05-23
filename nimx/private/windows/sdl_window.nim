@@ -127,63 +127,52 @@ elif x11Platform:
 # when waylandPlatform:
 #     import wayland/client as wl
 
-proc scaleFactor(w: SdlWindow): float =
-    when appkitPlatform or x11Platform:
-        var dpi = 96.0
+when x11Platform:
+    proc getX11Display(w: SdlWindow): PDisplay =
+        type WMinfoX11 = object
+            version*: SDL_Version
+            subsystem*: SysWMType
+            display*: PDisplay
+            window*: culong
+
         var winInfo: WMinfo
         getVersion(winInfo.version)
-
         if w.impl.getWMInfo(winInfo) == True32:
-            case winInfo.subsystem
-            of SysWM_X11:
-                when x11Platform:
-                    type WMinfoX11 = object
-                        version*: SDL_Version
-                        subsystem*: SysWMType
-                        display*: PDisplay
-                        window*: culong
+            if winInfo.subsystem == SysWM_X11:
+                let wi = cast[ptr WMinfoX11](addr winInfo)
+                result = wi.display
+elif appkitPlatform:
+    proc getNSWindow(w: SdlWindow): NSWindow =
+        var winInfo: WMinfo
+        getVersion(winInfo.version)
+        if w.impl.getWMInfo(winInfo) == True32:
+            if winInfo.subsystem == SysWM_Cocoa:
+                result = cast[ptr NSWindow](addr winInfo.padding[0])[]
 
-                    let wi = cast[ptr WMinfoX11](addr winInfo)
-                    let display = wi.display
+proc scaleFactor(w: SdlWindow): float =
+    when x11Platform:
+        var dpi = 96.0
+        let display = w.getX11Display()
+        if not display.isNil:
+            let nd = XOpenDisplay(DisplayString(display))
+            if not nd.isNil:
+                let resourceString = XResourceManagerString(nd)
+                if not resourceString.isNil:
+                    XrmInitialize() # Need to initialize the DB before calling Xrm* functions
+                    let db = XrmGetStringDatabase(resourceString)
+                    if not db.isNil:
+                        var value: TXrmValue
+                        var typ: cstring
+                        if XrmGetResource(db, "Xft.dpi", "String", addr typ, addr value) != 0:
+                            if not value.address.isNil:
+                                discard parseFloat($cstring(value.address), dpi, 0)
+                        XrmDestroyDatabase(db)
 
-                    if not display.isNil:
-                        let nd = XOpenDisplay(DisplayString(display))
-                        if not nd.isNil:
-                            let resourceString = XResourceManagerString(nd)
-                            if not resourceString.isNil:
-                                XrmInitialize() # Need to initialize the DB before calling Xrm* functions
-                                let db = XrmGetStringDatabase(resourceString)
-                                if not db.isNil:
-                                    var value: TXrmValue
-                                    var typ: cstring
-                                    if XrmGetResource(db, "Xft.dpi", "String", addr typ, addr value) != 0:
-                                        if not value.address.isNil:
-                                            discard parseFloat($cstring(value.address), dpi, 0)
-                                    XrmDestroyDatabase(db)
-
-                            discard XCloseDisplay(nd)
-            of SysWM_Cocoa:
-                when appkitPlatform:
-                    let nsWindow = cast[ptr NSWindow](addr winInfo.padding[0])[]
-                    if not nsWindow.isNil:
-                        dpi *= nsWindow.scaleFactor
-            of SysWM_Wayland:
-                when waylandPlatform:
-                    discard
-                    # TODO:
-
-                    # type WMinfoWayland = object
-                    #     version*: SDL_Version
-                    #     subsystem*: SysWMType
-                    #     display*: wl.Display
-                    #     surface*: wl.Surface
-
-                    # let wi = cast[ptr WMinfoWayland](addr winInfo)
-                    # let reg = wi.display.getRegistry()
-            else:
-                discard
-
+                discard XCloseDisplay(nd)
         result = dpi / 96
+    elif appkitPlatform:
+        let nsWindow = w.getNSWindow()
+        result = if nsWindow.isNil: 1 else: nsWindow.scaleFactor
     else:
         result = screenScaleFactor()
 
