@@ -1,5 +1,5 @@
 import view, view_event_handling, table_view_cell, scroll_view, layout_vars,
-       keyboard
+       pasteboard/pasteboard_item, keyboard
 
 import clip_view
 
@@ -13,6 +13,11 @@ type
     smNone
     smSingleSelection
     smMultipleSelection
+
+  DragOperation* = enum
+    none
+    move
+    copy
 
   TableView* = ref object of View
     numberOfColumns*: int
@@ -30,6 +35,14 @@ type
 
     initiallyClickedRow: int
     constraints: seq[Constraint]
+
+    # Drag source
+    mOnDragStarted: proc(rows: IntSet): PasteboardItem
+    mOnDragComplete: proc(rows: IntSet, op: DragOperation)
+
+    # Drag destination
+    mAcceptDrop: proc(i: PasteboardItem, atRow: int, inside: bool): DragOperation
+    mOnDrop: proc(i: PasteboardItem, atRow: int, inside: bool)
 
 proc `createCell=`*(v: TableView, p: proc(): TableViewCell) =
     v.mCreateCell = proc(c: int): TableViewCell =
@@ -167,6 +180,8 @@ proc createRow(v: TableView): TableRow =
         for i in 0 ..< v.numberOfColumns:
             let c = v.mCreateCell(i)
             c.col = i
+            c.addConstraint(c.layout.vars.top == superPHS.top)
+            c.addConstraint(c.layout.vars.bottom == superPHS.bottom)
 
             if i == 0:
                 c.addConstraint(c.layout.vars.leading == superPHS.leading)

@@ -67,9 +67,9 @@ proc updateWindowLayout*(w: Window) =
         let newSz = newSize(w.layout.vars.width.value, w.layout.vars.height.value)
         if newSz != oldSz:
             discard # TODO: update window size
-        echo w.dump() do(v: View) -> string:
-            let name = if v.name.len != 0: " (" & v.name & "): " else: ": "
-            v.className & name & $v.frame
+        # echo w.dump() do(v: View) -> string:
+        #     let name = if v.name.len != 0: " (" & v.name & "): " else: ": "
+        #     v.className & name & $v.frame
 
 
 method onResize*(w: Window, newSize: Size) {.base.} =

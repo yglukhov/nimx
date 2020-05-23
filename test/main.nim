@@ -22,6 +22,8 @@ import sample13_drag_and_drop
 import sample14_layout
 # import sample15_animation_easings
 import sample16_outline_view
+import sample17_table_view
+
 
 
 const isMobile = defined(ios) or defined(android)
@@ -51,9 +53,6 @@ proc startApplication() =
                     createCell do() -> TableViewCell:
                         result = TableViewCell.new(zeroRect)
                         result.makeLayout:
-                            top == super
-                            bottom == super
-
                             - Label:
                                 frame == super
                                 width == 200
