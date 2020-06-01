@@ -172,7 +172,7 @@ proc scaleFactor(w: SdlWindow): float =
         result = dpi / 96
     elif appkitPlatform:
         let nsWindow = w.getNSWindow()
-        result = if nsWindow.isNil: 1 else: nsWindow.scaleFactor
+        result = if nsWindow.isNil: 1.0 else: nsWindow.scaleFactor
     else:
         result = screenScaleFactor()
 
