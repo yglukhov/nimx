@@ -190,6 +190,10 @@ proc removeAnimationRunner*(w: Window, ar: AnimationRunner)=
 proc addAnimation*(w: Window, a: Animation) =
     if not w.isNil:
         w.animationRunners[DEFAULT_RUNNER].pushAnimation(a)
+        when defined(ios):
+            # TODO: This is a quick fix for iOS animation issue. Should be researched more carefully.
+            if not w.mAnimationEnabled:
+                w.enableAnimation(true)
 
 proc onFocusChange*(w: Window, inFocus: bool)=
 
