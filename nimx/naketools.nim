@@ -77,6 +77,8 @@ type Builder* = ref object
     rebuild: bool
     useGradle* {.deprecated.}: bool # Experimental
 
+    iosStatic*: bool # Dont use this
+
 proc setBuilderSettingsFromCmdLine(b: Builder) =
     for kind, key, val in getopt():
         case kind
@@ -677,8 +679,12 @@ proc build*(b: Builder) =
 
 
     of "ios", "ios-sim":
-        b.executablePath = b.buildRoot / b.bundleName / b.appName
-        b.resourcePath = b.buildRoot / b.bundleName
+        if b.iosStatic:
+            b.executablePath = b.buildRoot / "libMain.a"
+            b.resourcePath = b.buildRoot / "res"
+        else:
+            b.executablePath = b.buildRoot / b.bundleName / b.appName
+            b.resourcePath = b.buildRoot / b.bundleName
 
         b.nimFlags.add(["--os:macosx", "-d:ios", "-d:iPhone", "--dynlibOverride:SDL2"])
 
@@ -699,6 +705,14 @@ proc build*(b: Builder) =
         b.linkerFlags.add(["-fobjc-link-runtime", "-L" & sdlLibDir])
         addCAndLFlags(["-isysroot", sdkPath])
 
+        if b.iosStatic:
+            b.nimFlags.add("--out:" & b.executablePath / "libmain_static.a")
+            # b.compilerFlags.add("-fembed-bitcode")
+            b.nimFlags.add("--clang.linkerexe:" & "llvm-ar")
+            b.nimFlags.add("--listCmd")
+
+            # Workaround nim static lib linker
+            b.nimFlags.add("--clang.linkTmpl:" & quoteShell("rcs $exefile $objfiles"))
     of "android":
         if b.androidApi == 0:
             b.androidApi = 16
