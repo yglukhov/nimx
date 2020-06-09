@@ -259,16 +259,16 @@ reg "Autoresizing Frame":
 method init(v: LayoutSampleView, r: Rect) =
   procCall v.View.init(r)
   var by = 5'f32
-  for i in testLayoutRegistry:
+  for i in 0 .. testLayoutRegistry.high:
     closureScope:
-      let i = i
+      let c = testLayoutRegistry[i]
       let b = Button.new(newRect(10, by, 150, 25))
-      b.title = i.name
+      b.title = c.name
       by += 30
       b.onAction do():
         let wnd = newWindow(newRect(80, 80, 800, 600))
-        wnd.title = i.name
-        i.createProc(wnd)
+        wnd.title = c.name
+        c.createProc(wnd)
       v.addSubview(b)
 
 registerSample(LayoutSampleView, "Layout")
