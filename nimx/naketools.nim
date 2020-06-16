@@ -713,6 +713,7 @@ proc build*(b: Builder) =
 
             # Workaround nim static lib linker
             b.nimFlags.add("--clang.linkTmpl:" & quoteShell("rcs $exefile $objfiles"))
+            b.compilerFlags.add("-g")
     of "android":
         if b.androidApi == 0:
             b.androidApi = 16

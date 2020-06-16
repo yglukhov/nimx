@@ -166,7 +166,7 @@ proc newGraphicsContext*(canvas: ref RootObj = nil): GraphicsContext =
     when not defined(ios) and not defined(android) and not defined(js) and not defined(emscripten):
         loadExtensions()
 
-    result.gl.clearColor(0.93, 0.93, 0.93, 0.0)
+    result.gl.clearColor(0, 0, 0, 0.0)
     result.alpha = 1.0
 
     result.gl.enable(result.gl.BLEND)

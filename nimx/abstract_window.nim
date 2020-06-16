@@ -225,6 +225,9 @@ method init*(w: Window, frame: Rect) =
     s.suggestValue(w.layout.vars.width, frame.width)
     s.suggestValue(w.layout.vars.height, frame.height)
 
+    w.backgroundColor = newGrayColor(0.93, 0)
+    w.mActiveBgColor.r = -123 # Any invalid color
+
     #default animation runner for window
     w.addAnimationRunner(newAnimationRunner())
 
