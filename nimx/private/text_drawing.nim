@@ -240,7 +240,7 @@ proc drawText*(c: GraphicsContext, font: Font, pt: var Point, text: string) =
     if hasPostEffect():
         subpixelDraw = false
 
-    when defined(android):
+    when defined(android) or defined(ios):
         subpixelDraw = false
 
     let preScale = 1.0 / 320.0 # magic constant...

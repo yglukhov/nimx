@@ -170,7 +170,8 @@ proc newGraphicsContext*(canvas: ref RootObj = nil): GraphicsContext =
     result.alpha = 1.0
 
     result.gl.enable(result.gl.BLEND)
-    result.gl.blendFunc(result.gl.SRC_ALPHA, result.gl.ONE_MINUS_SRC_ALPHA)
+    # We're using 1s + (1-s)d for alpha for proper alpha blending e.g. when rendering to texture.
+    result.gl.blendFuncSeparate(result.gl.SRC_ALPHA, result.gl.ONE_MINUS_SRC_ALPHA, result.gl.ONE, result.gl.ONE_MINUS_SRC_ALPHA)
 
     #result.gl.enable(result.gl.CULL_FACE)
     #result.gl.cullFace(result.gl.BACK)
