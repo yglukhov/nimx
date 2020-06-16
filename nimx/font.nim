@@ -314,7 +314,6 @@ proc chunkAndCharIndexForRune(f: Font, r: Rune): tuple[ch: CharInfo, index: int]
 
             ch.texture = gl.createTexture()
             gl.bindTexture(gl.TEXTURE_2D, ch.texture)
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
 
             let texWidth = ch.data.bitmapWidth.GLsizei
             let texHeight = ch.data.bitmapHeight.GLsizei
