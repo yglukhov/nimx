@@ -372,7 +372,7 @@ proc generateMipmap*(i: SelfContainedImage, gl: GL) =
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST)
 
-when not web:
+when not web and not defined(ios):
     type ImageFileFormat = enum tga, hdr, bmp, png
 
     proc writeToFile(i: Image, path: string, format: ImageFileFormat) =

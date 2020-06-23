@@ -428,7 +428,8 @@ proc buildSDLForIOS(b: Builder, forSimulator: bool = false): string =
     b.checkSdlRoot()
     let entity = if forSimulator: "iphonesimulator" else: "iphoneos"
     let xcodeProjDir = expandTilde(b.sdlRoot)/"Xcode-iOS/SDL"
-    result = xcodeProjDir/"build/Release-" & entity
+    let sdlBuildDir = xcodeProjDir/"build/Release-" & entity
+    result = b.buildRoot
     if not fileExists result/"libSDL2.a":
         var args = @["xcodebuild", "-project", xcodeProjDir/"SDL.xcodeproj", "-configuration", "Release", "-sdk", entity&b.iOSSDKVersion, "SYMROOT=build"]
         if forSimulator:
@@ -436,6 +437,8 @@ proc buildSDLForIOS(b: Builder, forSimulator: bool = false): string =
         else:
             args.add("ARCHS=\"arm64 armv7\"")
         direShell args
+        createDir(result)
+        createSymLink(sdlBuildDir / "libSDL2.a", result / "libSDL2.a")
 
 proc makeAndroidBuildDir(b: Builder): string =
     let buildDir = b.buildRoot / b.javaPackageId
