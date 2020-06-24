@@ -399,6 +399,15 @@ proc buildSDLForDesktop(b: Builder): string =
     elif defined(macosx):
         proc isValid(dir: string): bool =
             fileExists(dir / "libSDL2.a") or fileExists(dir / "libSDL2.dylib")
+        if b.sdlRoot.len != 0:
+            b.checkSdlRoot()
+            let xcodeProjDir = expandTilde(b.sdlRoot)/"Xcode/SDL"
+            result = xcodeProjDir/"build/Release"
+            if isValid(result): return result
+            # would be cleaner with try/catch, see https://github.com/fowlmouth/nake/issues/63, to give better diagnostics
+            direShell "xcodebuild", "-project", xcodeProjDir/"SDL.xcodeproj", "-target", "Static\\ Library", "-configuration", "Release", "SYMROOT=build"
+            return result
+
         result = "/usr/local/lib"
         if isValid(result): return result
 
@@ -411,16 +420,8 @@ proc buildSDLForDesktop(b: Builder): string =
                 result = result / "lib"
                 doAssert isValid(result), result
                 return result
-            else:
-                echo "consider running: `brew install sdl2`; trying xcodebuild fallback"
 
-        b.checkSdlRoot()
-        let xcodeProjDir = expandTilde(b.sdlRoot)/"Xcode/SDL"
-        result = xcodeProjDir/"build/Release"
-        if isValid(result): return result
-        # would be cleaner with try/catch, see https://github.com/fowlmouth/nake/issues/63, to give better diagnostics
-        direShell "xcodebuild", "-project", xcodeProjDir/"SDL.xcodeproj", "-target", "Static\\ Library", "-configuration", "Release", "SYMROOT=build"
-        return result
+        assert(false, "Don't know where to find SDL. Consider setting SDL_HOME environment variable.")
     else:
         assert(false, "Don't know where to find SDL")
 
