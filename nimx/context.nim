@@ -270,21 +270,25 @@ proc drawEllipseInRect*(c: GraphicsContext, r: Rect) =
         setUniform("uStrokeColor", if c.strokeWidth == 0: c.fillColor else: c.strokeColor)
         setUniform("uStrokeWidth", c.strokeWidth)
 
-var imageComposition = newComposition """
-uniform Image uImage;
-uniform vec4 uFromRect;
+proc imageVertexShader(aPosition: Vec2, uModelViewProjectionMatrix: Mat4, uBounds, uImage_texCoords, uFromRect: Vec4, vPos, vImageUV: var Vec2): Vec4 =
+    let f = uFromRect
+    let t = uImage_texCoords
+    vPos = uBounds.xy + aPosition * uBounds.zw
+    vImageUV = t.xy + (t.zw - t.xy) * (f.xy + (f.zw - f.xy) * aPosition)
+    result = uModelViewProjectionMatrix * newVec4(vPos, 0.0, 1.0)
+
+const imageVertexShaderCode = getGLSLVertexShader(imageVertexShader)
+
+var imageComposition = newComposition(imageVertexShaderCode, """
+uniform sampler2D uImage_tex;
 uniform float uAlpha;
+varying vec2 vImageUV;
 
 void compose() {
-    vec2 destuv = (vPos - bounds.xy) / bounds.zw;
-    vec2 duv = uImage.texCoords.zw - uImage.texCoords.xy;
-    vec2 srcxy = uImage.texCoords.xy + duv * uFromRect.xy;
-    vec2 srczw = uImage.texCoords.xy + duv * uFromRect.zw;
-    vec2 uv = srcxy + (srczw - srcxy) * destuv;
-    gl_FragColor = texture2D(uImage.tex, uv);
+    gl_FragColor = texture2D(uImage_tex, vImageUV);
     gl_FragColor.a *= uAlpha;
 }
-"""
+""")
 
 proc bindVertexData*(c: GraphicsContext, length: int) =
     let gl = c.gl
