@@ -443,6 +443,7 @@ method onKeyDown*(t: TextField, e: var Event): bool =
                 else:
                     t.textSelection = -1 .. -1
                 t.bumpCursorVisibility()
+                result = true
             elif e.keyCode == VirtualKey.Up:
                 let oldCursorPos = cursorPos
                 let ln = t.mText.lineOfRuneAtPos(cursorPos)
@@ -455,7 +456,7 @@ method onKeyDown*(t: TextField, e: var Event): bool =
                     else:
                         t.textSelection = -1 .. -1
                     t.bumpCursorVisibility()
-            result = true
+                result = true
     if t.selectable or t.editable:
         let cmd = commandFromEvent(e)
         if cmd == kcSelectAll: t.selectAll()
