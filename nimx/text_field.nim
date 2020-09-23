@@ -479,8 +479,9 @@ method onKeyDown*(t: TextField, e: var Event): bool =
                         pasteboardWithName(PboardGeneral).writeString(s)
                     if cmd == kcCut and t.editable:
                         t.clearSelection()
-                    result = true
-        result = t.editable and (result or e.keyCode.isModifier() or not e.modifiers.anyOsModifier())
+                result = true
+        
+        result = result or (t.editable and e.modifiers.isEmpty())
 
 method onTextInput*(t: TextField, s: string): bool =
     if not t.editable: return false
