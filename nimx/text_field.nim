@@ -480,7 +480,7 @@ method onKeyDown*(t: TextField, e: var Event): bool =
                     if cmd == kcCut and t.editable:
                         t.clearSelection()
                 result = true
-        
+
         result = result or (t.editable and e.modifiers.isEmpty())
 
 method onTextInput*(t: TextField, s: string): bool =
