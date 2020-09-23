@@ -233,4 +233,6 @@ proc anyOsModifier*(s: ModifiersSet): bool =
     else:
         s.anyCtrl()
 
+proc isEmpty*(s: ModifiersSet): bool = s.int16 == 0
+
 {.pop.}
