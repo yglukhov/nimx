@@ -405,6 +405,12 @@ proc eventWithSDLEvent(event: ptr sdl2.Event): Event =
         of AppWillEnterForeground:
             result = newEvent(etAppWillEnterForeground)
 
+        of AppDidEnterBackground:
+            result = newEvent(etAppDidEnterForeground)
+
+        of AppDidEnterForeground:
+            result = newEvent(etAppDidEnterForeground)
+
         of DisplayEvent:
             # Sometimes happens on android resulting in black screen, so we need to
             # redraw.
@@ -476,11 +482,9 @@ proc nextEvent(evt: var sdl2.Event) =
             gcRequested = false
 
     when defined(ios):
-        iPhoneSetEventPump(true)
-        pumpEvents()
-        iPhoneSetEventPump(false)
         while pollEvent(evt):
-            discard handleEvent(addr evt)
+            if evt.kind notin {FingerMotion, FingerDown, FingerUp}: # Touch events are handled in the event watch callback
+                discard handleEvent(addr evt)
 
         if not animationEnabled:
             mainApplication().drawWindows()
@@ -523,17 +527,13 @@ when defined(macosx): # Most likely should be enabled for linux and windows...
     # Handle live resize on macos
     {.push stackTrace: off.} # This can be called on background thread
     proc resizeEventWatch(userdata: pointer; event: ptr sdl2.Event): Bool32 {.cdecl.} =
-        if event.kind == WindowEvent:
-            let wndEv = cast[WindowEventPtr](event)
-            case wndEv.event
-            of WindowEvent_Resized:
-                let wnd = windowFromSDLEvent(wndEv)
-                var evt = newEvent(etWindowResized)
-                evt.window = wnd
-                evt.position = newPoint(wndEv.data1.Coord, wndEv.data2.Coord) / wnd.pixelRatio
-                discard mainApplication().handleEvent(evt)
-            else:
-                discard
+        if event.kind == WindowEvent and cast[WindowEventPtr](event).event == WindowEvent_Resized:
+            # Handle macos live resize
+            discard handleEvent(event)
+        elif event.kind in {FingerMotion, FingerDown, FingerUp}:
+            # Handle iOS touch events bypassing the SDL event queue
+            # This results in a lot snappier touch processing
+            discard handleEvent(event)
     {.pop.}
 
 proc runUntilQuit*() =
