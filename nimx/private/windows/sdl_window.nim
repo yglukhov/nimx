@@ -405,6 +405,12 @@ proc eventWithSDLEvent(event: ptr sdl2.Event): Event =
         of AppWillEnterForeground:
             result = newEvent(etAppWillEnterForeground)
 
+        of AppDidEnterBackground:
+            result = newEvent(etAppDidEnterForeground)
+
+        of AppDidEnterForeground:
+            result = newEvent(etAppDidEnterForeground)
+
         of DisplayEvent:
             # Sometimes happens on android resulting in black screen, so we need to
             # redraw.
