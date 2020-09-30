@@ -1,5 +1,5 @@
 import math, strutils, tables, streams, logging
-import types, portable_gl, mini_profiler, system_logger
+import types, portable_gl, mini_profiler
 import opengl
 
 import nimx / assets / [ asset_loading, url_stream, asset_manager ]
@@ -175,7 +175,7 @@ when not web:
 
             for row in 0 ..< y:
                 copyMem(offset(newData, row * texRowWidth), offset(data, row * rowWidth), rowWidth)
-                let lastRowPixel = offset(data, (row + 1) * rowWidth)
+                let lastRowPixel = offset(data, (row + 1) * rowWidth - comp)
                 for i in 0 ..< xExtrusion:
                     copyMem(offset(newData, row * texRowWidth + rowWidth + i * comp), lastRowPixel, comp)
 
@@ -296,7 +296,7 @@ when defined(js):
 
         let err = gl.getError()
         if err != 0.GLenum:
-            logi "GL error in texture load: ", err.int.toHex(), ": ", i.mFilePath
+            error "GL error in texture load: ", err.int.toHex(), ": ", i.mFilePath
 
 method getTextureQuad*(i: SelfContainedImage, gl: GL, texCoords: var array[4, GLfloat]): TextureRef =
     when defined js:
@@ -474,8 +474,8 @@ when asyncResourceLoad:
         var url = cast[ImageLoadingCtx](ctx).url
         openStreamForUrl(url) do(s: Stream, err: string):
             if err.len != 0:
-                logi "Could not load url: ", url
-                logi "Error: ", err
+                error "Could not load url: ", url
+                error "Error: ", err
 
             let c = cast[ImageLoadingCtx](ctx)
 
@@ -489,7 +489,7 @@ when asyncResourceLoad:
 
                 if not ctxIsCurrent:
                     if glMakeCurrent(c.wnd, c.glCtx) != 0:
-                        logi "Error in glMakeCurrent: ", getError()
+                        error "Error in glMakeCurrent: ", getError()
                     ctxIsCurrent = true
 
                 loadDecodedImageDataToTexture(decoded, c.texture, c.size, c.texCoords, c.texWidth, c.texHeight)
@@ -540,7 +540,7 @@ when defined(emscripten):
     proc nimxImageLoadError(c: pointer) {.EMSCRIPTEN_KEEPALIVE.} =
         let ctx = cast[ImageLoadingCtx](c)
         GC_unref(ctx)
-        logi "Error loading image: ", ctx.path
+        error "Error loading image: ", ctx.path
         ctx.callback(nil)
 
     proc nimxNextPowerOf2(x: cint): cint {.EMSCRIPTEN_KEEPALIVE,} =
