@@ -175,7 +175,7 @@ when not web:
 
             for row in 0 ..< y:
                 copyMem(offset(newData, row * texRowWidth), offset(data, row * rowWidth), rowWidth)
-                let lastRowPixel = offset(data, (row + 1) * rowWidth)
+                let lastRowPixel = offset(data, (row + 1) * rowWidth - comp)
                 for i in 0 ..< xExtrusion:
                     copyMem(offset(newData, row * texRowWidth + rowWidth + i * comp), lastRowPixel, comp)
 
