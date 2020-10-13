@@ -59,8 +59,8 @@ type Builder* = ref object
 
     bundleName : string
 
-    codesignIdentity*: string
-    teamId*: string
+    codesignIdentity*: string # for iOS.
+    teamId*: string # Optional
     emscriptenPreloadFiles*: seq[string]
     emscriptenPreJS*: seq[string]
 
@@ -76,6 +76,8 @@ type Builder* = ref object
     avoidSDL*: bool # Experimental feature.
     rebuild: bool
     useGradle* {.deprecated.}: bool # Experimental
+
+    iosStatic*: bool # Dont use this
 
 proc setBuilderSettingsFromCmdLine(b: Builder) =
     for kind, key, val in getopt():
@@ -137,6 +139,8 @@ proc findNdk(p: string): string =
     result = maxVerNdk[1]
 
 proc findEnvPaths(b: Builder) =
+    b.sdlRoot = getEnv("SDL_HOME")
+
     if b.platform in ["android", "ios", "ios-sim"]:
         var errorMsg = ""
         if b.platform == "android":
@@ -165,7 +169,6 @@ proc findEnvPaths(b: Builder) =
 
             b.androidSdk = sdkPath
 
-        b.sdlRoot = getEnv("SDL_HOME")
         if b.sdlRoot.len == 0: errorMsg &= getEnvErrorMsg("SDL_HOME")
 
         if error_msg.len > 0:
@@ -207,25 +210,17 @@ proc newBuilder*(platform: string): Builder =
     b.nimParallelBuild = 0
     b.debugMode = true
 
-    b.additionalNimFlags = @[]
-    b.additionalLinkerFlags = @[]
-    b.additionalCompilerFlags = @[]
-    b.additionalLibsToCopy = @[]
     b.additionalPlistAttrs = newJObject()
 
     b.mainFile = "main"
 
     b.runAfterBuild = true
     b.targetArchitectures = @["arm64-v8a"]
-    b.androidPermissions = @[]
-    b.androidStaticLibraries = @[]
-    b.additionalAndroidResources = @[]
 
     b.buildRoot = "build"
     b.originalResourcePath = "res"
 
-    b.emscriptenPreloadFiles = @[]
-    b.emscriptenPreJs = @[]
+    b.codesignIdentity = "Apple Development"
 
     b.setBuilderSettingsFromCmdLine()
     b.findEnvPaths()
@@ -391,12 +386,28 @@ proc replaceVarsInFile(file: string, vars: Table[string, string]) =
         content = content.replace("$(" & k & ")", v)
     writeFile(file, content)
 
+proc checkSdlRoot(b: Builder) =
+    let r = expandTilde(b.sdlRoot)
+    if not (dirExists(r / "android-project") and dirExists(r / "Xcode-iOS")):
+        echo "Wrong SDL_HOME. The SDL_HOME environment variable must point to SDL2 source code."
+        echo "SDL2 source code can be downloaded from https://www.libsdl.org/download-2.0.php"
+        raise newException(Exception, "Wrong SDL_HOME")
+
 proc buildSDLForDesktop(b: Builder): string =
     when defined(linux):
         result = "/usr/lib"
     elif defined(macosx):
         proc isValid(dir: string): bool =
             fileExists(dir / "libSDL2.a") or fileExists(dir / "libSDL2.dylib")
+        if b.sdlRoot.len != 0:
+            b.checkSdlRoot()
+            let xcodeProjDir = expandTilde(b.sdlRoot)/"Xcode/SDL"
+            result = xcodeProjDir/"build/Release"
+            if isValid(result): return result
+            # would be cleaner with try/catch, see https://github.com/fowlmouth/nake/issues/63, to give better diagnostics
+            direShell "xcodebuild", "-project", xcodeProjDir/"SDL.xcodeproj", "-target", "Static\\ Library", "-configuration", "Release", "SYMROOT=build"
+            return result
+
         result = "/usr/local/lib"
         if isValid(result): return result
 
@@ -409,30 +420,17 @@ proc buildSDLForDesktop(b: Builder): string =
                 result = result / "lib"
                 doAssert isValid(result), result
                 return result
-            else:
-                echo "consider running: `brew install sdl2`; trying xcodebuild fallback"
 
-        let xcodeProjDir = expandTilde(b.sdlRoot)/"Xcode/SDL"
-        result = xcodeProjDir/"build/Release"
-        if isValid(result): return result
-        # would be cleaner with try/catch, see https://github.com/fowlmouth/nake/issues/63, to give better diagnostics
-        direShell "xcodebuild", "-project", xcodeProjDir/"SDL.xcodeproj", "-target", "Static\\ Library", "-configuration", "Release", "-sdk", "macosx"&b.macOSSDKVersion, "SYMROOT=build"
-        return result
+        assert(false, "Don't know where to find SDL. Consider setting SDL_HOME environment variable.")
     else:
         assert(false, "Don't know where to find SDL")
-
-proc checkSdlRoot(b: Builder) =
-    let r = expandTilde(b.sdlRoot)
-    if not (dirExists(r / "android-project") and dirExists(r / "Xcode-iOS")):
-        echo "Wrong SDL_HOME. The SDL_HOME environment variable must point to SDL2 source code."
-        echo "SDL2 source code can be downloaded from https://www.libsdl.org/download-2.0.php"
-        raise newException(Exception, "Wrong SDL_HOME")
 
 proc buildSDLForIOS(b: Builder, forSimulator: bool = false): string =
     b.checkSdlRoot()
     let entity = if forSimulator: "iphonesimulator" else: "iphoneos"
     let xcodeProjDir = expandTilde(b.sdlRoot)/"Xcode-iOS/SDL"
-    result = xcodeProjDir/"build/Release-" & entity
+    let sdlBuildDir = xcodeProjDir/"build/Release-" & entity
+    result = b.buildRoot
     if not fileExists result/"libSDL2.a":
         var args = @["xcodebuild", "-project", xcodeProjDir/"SDL.xcodeproj", "-configuration", "Release", "-sdk", entity&b.iOSSDKVersion, "SYMROOT=build"]
         if forSimulator:
@@ -440,6 +438,8 @@ proc buildSDLForIOS(b: Builder, forSimulator: bool = false): string =
         else:
             args.add("ARCHS=\"arm64 armv7\"")
         direShell args
+        createDir(result)
+        createSymLink(sdlBuildDir / "libSDL2.a", result / "libSDL2.a")
 
 proc makeAndroidBuildDir(b: Builder): string =
     let buildDir = b.buildRoot / b.javaPackageId
@@ -528,7 +528,6 @@ proc curPackageNameAndPath(): tuple[name, path: string] =
         d = d.parentDir()
 
 proc nimbleOverrideFlags(b: Builder): seq[string] =
-    result = @[]
     let cp = curPackageNameAndPath()
     if cp.name.len != 0:
         let origNimblePath = nimblePath(cp.name)
@@ -568,15 +567,29 @@ proc postprocessWebTarget(b: Builder) =
             get "/": redirect "main.html"
         router.serve(staticPath = b.buildRoot)
 
+proc teamIdFromCodesignIdentity(i: string): string =
+    # TeamId is the Organizational Unit of codesign identity certificate. To extract it run:
+    # security find-certificate -c "Apple Development: me@example.com (12345678)" -p | openssl x509 -noout -text | sed -n 's/.*Subject:.* OU=\([^,]*\).*/\1/p'
+    let (o, r) = execCmdEx("""sh -c "security find-certificate -c '""" & i & """' -p | openssl x509 -noout -text | sed -n 's/.*Subject:.* OU=\([^,]*\).*/\1/p'"""")
+    if r == 0: result = string(o).strip()
+
 proc signIosBundle(b: Builder) =
     let e = newJObject() # Entitlements
     let entPath = b.buildRoot / "entitlements.plist"
+    if b.teamId.len == 0:
+        b.teamId = teamIdFromCodesignIdentity(b.codesignIdentity)
+        if b.teamId.len == 0:
+            raise newException(ValueError, "Could not get Team Id. Wrong codesign identity?")
+
     let appID = b.teamId & "." & b.bundleId
 
     e["application-identifier"] = %appID
     e["com.apple.developer.team-identifier"] = %b.teamId
     e["get-task-allow"] = %b.debugMode
     e["keychain-access-groups"] = %*[appID]
+
+    # List available codesign identities with
+    # security find-identity -v -p codesigning
 
     e.writePlist(entPath)
     direShell(["codesign", "-s", "\"" & b.codesignIdentity & "\"", "--force", "--entitlements", entPath, b.buildRoot / b.bundleName])
@@ -653,10 +666,6 @@ proc build*(b: Builder) =
     b.executablePath = b.buildRoot / b.appName
     b.bundleName = b.appName & ".app"
 
-    b.nimFlags = @[]
-    b.linkerFlags = @[]
-    b.compilerFlags = @[]
-
     template addCAndLFlags(f: openarray[string]) =
         b.linkerFlags.add(f)
         b.compilerFlags.add(f)
@@ -674,8 +683,12 @@ proc build*(b: Builder) =
 
 
     of "ios", "ios-sim":
-        b.executablePath = b.buildRoot / b.bundleName / b.appName
-        b.resourcePath = b.buildRoot / b.bundleName
+        if b.iosStatic:
+            b.executablePath = b.buildRoot / "libMain.a"
+            b.resourcePath = b.buildRoot / "res"
+        else:
+            b.executablePath = b.buildRoot / b.bundleName / b.appName
+            b.resourcePath = b.buildRoot / b.bundleName
 
         b.nimFlags.add(["--os:macosx", "-d:ios", "-d:iPhone", "--dynlibOverride:SDL2"])
 
@@ -696,6 +709,15 @@ proc build*(b: Builder) =
         b.linkerFlags.add(["-fobjc-link-runtime", "-L" & sdlLibDir])
         addCAndLFlags(["-isysroot", sdkPath])
 
+        if b.iosStatic:
+            b.nimFlags.add("--out:" & b.executablePath / "libmain_static.a")
+            # b.compilerFlags.add("-fembed-bitcode")
+            b.nimFlags.add("--clang.linkerexe:" & "llvm-ar")
+            b.nimFlags.add("--listCmd")
+
+            # Workaround nim static lib linker
+            b.nimFlags.add("--clang.linkTmpl:" & quoteShell("rcs $exefile $objfiles"))
+            b.compilerFlags.add("-g")
     of "android":
         if b.androidApi == 0:
             b.androidApi = 16

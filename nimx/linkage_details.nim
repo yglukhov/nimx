@@ -144,7 +144,7 @@ when not defined(emscripten):
                 {.passC:"-arch arm64".}
                 {.passL:"-arch arm64".}
     elif defined(macosx):
-        useFrameworks("OpenGL", "AppKit", "AudioUnit", "ForceFeedback", "IOKit", "Carbon", "CoreServices", "ApplicationServices")
+        useFrameworks("OpenGL", "AppKit", "AudioUnit", "ForceFeedback", "IOKit", "Carbon", "CoreServices", "ApplicationServices", "Metal")
 
     when defined(macosx) or defined(ios):
         useFrameworks("AudioToolbox", "CoreAudio", "CoreGraphics", "QuartzCore")

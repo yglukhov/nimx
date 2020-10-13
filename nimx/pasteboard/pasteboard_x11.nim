@@ -84,7 +84,7 @@ proc pbRead(p: Pasteboard, kind: string): PasteboardItem =
     var overflow: culong = 0
     var src : cstring
 
-    if XGetWindowProperty(display, owner, selection, 0.clong, (XINT_MAX div 4).clong, 0.TBool, format, (addr selType).PAtom,
+    if XGetWindowProperty(display, owner, selection, 0.clong, (XINT_MAX div 4).clong, 0.XBool, format, (addr selType).PAtom,
         (addr selFormat).PCint, (addr bytes).Pculong, (addr overflow).Pculong, cast[PPcuchar](addr src)) == Success:
         if selType == format:
             var data = $src

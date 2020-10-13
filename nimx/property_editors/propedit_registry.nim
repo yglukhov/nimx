@@ -30,6 +30,21 @@ proc editorFont*(): Font =
 
 const editorRowHeight* = 16
 
+template createEditorAUX(r: Rect) =
+    let editor = creator(editedObject, v)
+    editor.name = "editor"
+    editor.setFrameOrigin(r.origin)
+    var sz = newSize(r.size.width, editor.frame.height)
+    editor.setFrameSize(sz)
+    editor.autoresizingMask = {afFlexibleWidth, afFlexibleMaxY}
+    result.addSubview(editor)
+
+    sz = result.frame.size
+    sz.height = editor.frame.height
+    result.setFrameSize(sz)
+
+    editor.changeInspector = changeInspectorCallback
+
 proc propertyEditorForProperty*(editedObject: Variant, title: string, v: Variant, notUsed, changeInspectorCallback: proc() = nil): View =
     let creator = propEditors.getOrDefault(v.typeId)
     result = View.new(newRect(0, 0, 328, editorRowHeight))
@@ -44,16 +59,13 @@ proc propertyEditorForProperty*(editedObject: Variant, title: string, v: Variant
     if creator.isNil:
         label.text = title & " - Unknown property"
     else:
-        let editor = creator(editedObject, v)
-        editor.name = "editor"
-        editor.setFrameOrigin(newPoint(label.frame.width, 0))
-        var sz = newSize(result.bounds.width - label.frame.width, editor.frame.height)
-        editor.setFrameSize(sz)
-        editor.autoresizingMask = {afFlexibleWidth, afFlexibleMaxY}
-        result.addSubview(editor)
+        createEditorAUX(newRect(label.frame.width, 0, result.bounds.width - label.frame.width, result.bounds.height))
 
-        sz = result.frame.size
-        sz.height = editor.frame.height
-        result.setFrameSize(sz)
-
-        editor.changeInspector = changeInspectorCallback
+proc propertyEditorForProperty*(editedObject: Variant, v: Variant, changeInspectorCallback: proc() = nil): View =
+    let creator = propEditors.getOrDefault(v.typeId)
+    result = View.new(newRect(0, 0, 228, editorRowHeight))
+    result.autoresizingMask = {afFlexibleWidth, afFlexibleMaxY}
+    if creator.isNil:
+        discard result.newLabel(newPoint(100, 0), newSize(128, editorRowHeight), "Unknown")
+    else:
+        createEditorAUX(newRect(0,0, result.bounds.width, result.bounds.height))
