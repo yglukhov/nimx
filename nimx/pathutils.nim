@@ -11,6 +11,10 @@ proc urlParentDir*(url: string): string =
 
     url[0 ..< i]
 
+proc parentDirEx*(pathOrUrl: string): string =
+    let i = pathOrUrl.rfind({'/', '\\'})
+    pathOrUrl[0 ..< i]
+
 proc relativePathToPath*(path, toPath: string): string =
     # Returns a relative path to `toPath` which is equivalent of absolute `path`
     # E.g. given `path` = "/a/b/c/d/e" and `toPath` = "/a/b/c/f/g"
