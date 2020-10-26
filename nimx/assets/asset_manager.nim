@@ -4,8 +4,14 @@ import abstract_asset_bundle, asset_cache, url_stream, asset_loading, asset_load
 import nimx/pathutils
 
 type
+    MountEntry = tuple
+        ab: AssetBundle
+        cache: AssetCache
+        path: string
+        refCount: int
+
     AssetManager* = ref object
-        mounts: seq[tuple[path: string, ab: AssetBundle, cache: AssetCache]]
+        mounts: seq[MountEntry]
         mDefaultAssetBundle: AssetBundle
         defaultCache: AssetCache
 
@@ -69,26 +75,33 @@ when defined(windows):
 else:
     template normalizeSlashes(s: string): string = s
 
-proc mountForPath(am: AssetManager, path: string): tuple[ab: AssetBundle, cache: AssetCache, path: string] =
+proc mountForPath(am: AssetManager, path: string): MountEntry =
     let i = am.mountIndex(path)
     if i == -1:
-        return (am.defaultAssetBundle, am.defaultCache, path)
-    return (am.mounts[i].ab, am.mounts[i].cache, path.substr(am.mounts[i].path.len + 1))
+        return (am.defaultAssetBundle, am.defaultCache, path, 0)
+    result = am.mounts[i]
+    result.path = path.substr(am.mounts[i].path.len + 1)
 
 proc mount*(am: AssetManager, path: string, assetBundle: AssetBundle) =
-    am.mounts.add((path, assetBundle, newAssetCache()))
+    let i = am.mountIndex(path)
+    if i == -1:
+        am.mounts.add((assetBundle, newAssetCache(), path, 1))
+    else:
+        inc am.mounts[i].refCount
+
+proc unmountAUX(am: AssetManager, i: int) =
+    if i < 0 or i >= am.mounts.len: return
+    dec am.mounts[i].refCount
+    if am.mounts[i].refCount == 0:
+        am.mounts.del(i)
 
 proc unmount*(am: AssetManager, path: string) =
-    for i in 0 ..< am.mounts.len:
-        if am.mounts[i][0] == path:
-            am.mounts.del(i)
-            break
+    let i = am.mountIndex(path)
+    am.unmountAUX(i)
 
 proc unmount*(am: AssetManager, ab: AssetBundle) =
-    for i in 0 ..< am.mounts.len:
-        if am.mounts[i][1] == ab:
-            am.mounts.del(i)
-            break
+    let i = am.mountIndex(ab)
+    am.unmountAUX(i)
 
 proc unmountAll*(am: AssetManager) =
     am.mounts.setLen(0)
@@ -97,7 +110,7 @@ proc assetBundleForPath*(am: AssetManager, path: string): AssetBundle =
     am.mountForPath(path.normalizeSlashes).ab
 
 proc urlForResource*(am: AssetManager, path: string): string =
-    var (a, _, p) = am.mountForPath(path.normalizeSlashes)
+    var (a, _, p, _) = am.mountForPath(path.normalizeSlashes)
     result = a.urlForPath(p)
 
 proc resolveUrl*(am: AssetManager, url: string): string =
@@ -109,12 +122,12 @@ proc resolveUrl*(am: AssetManager, url: string): string =
         result = url
 
 proc cachedAssetAux(am: AssetManager, path: string): Variant =
-    let (_, c, p) = am.mountForPath(path.normalizeSlashes)
+    let (_, c, p, _) = am.mountForPath(path.normalizeSlashes)
     result = c.getOrDefault(p)
 
 proc cacheAssetAux(am: AssetManager, path: string, v: Variant) =
     assert(not v.isEmpty)
-    let (_, c, p) = am.mountForPath(path.normalizeSlashes)
+    let (_, c, p, _) = am.mountForPath(path.normalizeSlashes)
     c[p] = v
 
 proc cachedAsset*(am: AssetManager, T: typedesc, path: string): T {.inline.} =
@@ -133,7 +146,7 @@ proc cacheAsset*[T](am: AssetManager, path: string, v: T) {.inline.} =
 proc getAssetAtPathAux(am: AssetManager, path: string, putToCache: bool, handler: proc(res: Variant, err: string)) =
     let v = am.cachedAssetAux(path)
     if v.isEmpty:
-        var (a, c, p) = am.mountForPath(path.normalizeSlashes)
+        var (a, c, p, _) = am.mountForPath(path.normalizeSlashes)
         let url = a.urlForPath(p)
         if not putToCache:
             # Create dummy cache that will be disposed by GC
