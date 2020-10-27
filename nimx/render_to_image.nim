@@ -176,6 +176,7 @@ proc endDraw*(t: ImageRenderTarget, state: var GlFrameState) =
 
 proc drawAUX(sci: SelfContainedImage, withClear: bool, drawProc: proc()) =
     var gfs: GlFrameState
+    gfs.doClear = withClear
     let rt = newImageRenderTarget()
     rt.setImage(sci)
     rt.beginDraw(gfs)
