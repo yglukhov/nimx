@@ -7,6 +7,7 @@ type
         viewportSize: array[4, GLint]
         framebuffer: FramebufferRef
         bStencil: bool
+        doClear: bool
         rt: ImageRenderTarget
 
     ImageRenderTarget* = ref ImageRenderTargetObj
@@ -152,25 +153,28 @@ proc beginDraw*(t: ImageRenderTarget, state: var GlFrameState) =
     state.framebuffer = gl.boundFramebuffer()
     state.viewportSize = gl.getViewport()
     state.bStencil = gl.getParamb(gl.STENCIL_TEST)
-    gl.getClearColor(state.clearColor)
+    if state.doClear:
+        gl.getClearColor(state.clearColor)
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, t.framebuffer)
     gl.viewport(t.vpX, t.vpY, t.vpW, t.vpH)
-    gl.stencilMask(0xFF) # Android requires setting stencil mask to clear
-    gl.clearColor(0, 0, 0, 0)
-    gl.clear(gl.COLOR_BUFFER_BIT or gl.DEPTH_BUFFER_BIT or gl.STENCIL_BUFFER_BIT)
-    gl.stencilMask(0x00) # Android requires setting stencil mask to clear
-    gl.disable(gl.STENCIL_TEST)
+    if state.doClear:
+        gl.stencilMask(0xFF) # Android requires setting stencil mask to clear
+        gl.clearColor(0, 0, 0, 0)
+        gl.clear(gl.COLOR_BUFFER_BIT or gl.DEPTH_BUFFER_BIT or gl.STENCIL_BUFFER_BIT)
+        gl.stencilMask(0x00) # Android requires setting stencil mask to clear
+        gl.disable(gl.STENCIL_TEST)
 
 proc endDraw*(t: ImageRenderTarget, state: var GlFrameState) =
     let gl = sharedGL()
     if state.bStencil:
         gl.enable(gl.STENCIL_TEST)
-    gl.clearColor(state.clearColor[0], state.clearColor[1], state.clearColor[2], state.clearColor[3])
+    if state.doClear:
+        gl.clearColor(state.clearColor[0], state.clearColor[1], state.clearColor[2], state.clearColor[3])
     gl.viewport(state.viewportSize)
     gl.bindFramebuffer(gl.FRAMEBUFFER, state.framebuffer)
 
-proc draw*(sci: SelfContainedImage, drawProc: proc()) =
+proc drawAUX(sci: SelfContainedImage, withClear: bool, drawProc: proc()) =
     var gfs: GlFrameState
     let rt = newImageRenderTarget()
     rt.setImage(sci)
@@ -186,3 +190,9 @@ proc draw*(sci: SelfContainedImage, drawProc: proc()) =
     # coords here.
     if not sci.flipped:
         sci.flipVertically()
+
+proc draw*(sci: SelfContainedImage, drawProc: proc()) =
+    sci.drawAUX(true, drawProc)
+
+proc drawWithoutClear*(sci: SelfContainedImage, drawProc: proc()) =
+    sci.drawAUX(false, drawProc)
