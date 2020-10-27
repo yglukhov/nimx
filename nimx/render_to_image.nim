@@ -2,12 +2,14 @@ import image, types, context, portable_gl
 import opengl
 
 type
-    GlFrameState* = tuple
+    RTIContext* = tuple
         clearColor: array[4, GLfloat]
         viewportSize: array[4, GLint]
         framebuffer: FramebufferRef
         bStencil: bool
-        rt: ImageRenderTarget
+        doClear: bool
+
+    GlFrameState* {.deprecated.} = RTIContext
 
     ImageRenderTarget* = ref ImageRenderTargetObj
     ImageRenderTargetObj = object
@@ -145,44 +147,58 @@ proc setImage*(rt: ImageRenderTarget, i: SelfContainedImage) =
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, oldFramebuffer)
 
-proc beginDraw*(t: ImageRenderTarget, state: var GlFrameState) =
+proc beginDraw*(t: ImageRenderTarget, state: var RTIContext) =
     assert(t.vpW != 0 and t.vpH != 0)
 
     let gl = sharedGL()
     state.framebuffer = gl.boundFramebuffer()
     state.viewportSize = gl.getViewport()
     state.bStencil = gl.getParamb(gl.STENCIL_TEST)
-    gl.getClearColor(state.clearColor)
+    if state.doClear:
+        gl.getClearColor(state.clearColor)
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, t.framebuffer)
     gl.viewport(t.vpX, t.vpY, t.vpW, t.vpH)
-    gl.stencilMask(0xFF) # Android requires setting stencil mask to clear
-    gl.clearColor(0, 0, 0, 0)
-    gl.clear(gl.COLOR_BUFFER_BIT or gl.DEPTH_BUFFER_BIT or gl.STENCIL_BUFFER_BIT)
-    gl.stencilMask(0x00) # Android requires setting stencil mask to clear
-    gl.disable(gl.STENCIL_TEST)
+    if state.doClear:
+        gl.stencilMask(0xFF) # Android requires setting stencil mask to clear
+        gl.clearColor(0, 0, 0, 0)
+        gl.clear(gl.COLOR_BUFFER_BIT or gl.DEPTH_BUFFER_BIT or gl.STENCIL_BUFFER_BIT)
+        gl.stencilMask(0x00) # Android requires setting stencil mask to clear
+        gl.disable(gl.STENCIL_TEST)
 
-proc endDraw*(t: ImageRenderTarget, state: var GlFrameState) =
+proc beginDrawNoClear*(t: ImageRenderTarget, state: var RTIContext) =
+    state.doClear = false
+    t.beginDraw(state)
+
+proc endDraw*(t: ImageRenderTarget, state: var RTIContext) =
     let gl = sharedGL()
     if state.bStencil:
         gl.enable(gl.STENCIL_TEST)
-    gl.clearColor(state.clearColor[0], state.clearColor[1], state.clearColor[2], state.clearColor[3])
+    if state.doClear:
+        gl.clearColor(state.clearColor[0], state.clearColor[1], state.clearColor[2], state.clearColor[3])
     gl.viewport(state.viewportSize)
     gl.bindFramebuffer(gl.FRAMEBUFFER, state.framebuffer)
 
-proc draw*(sci: SelfContainedImage, drawProc: proc()) =
-    var gfs: GlFrameState
-    let rt = newImageRenderTarget()
+template draw*(rt: ImageRenderTarget, sci: SelfContainedImage, drawBody: untyped) =
+    var gfs: RTIContext
     rt.setImage(sci)
     rt.beginDraw(gfs)
 
     currentContext().withTransform ortho(0, sci.size.width, sci.size.height, 0, -1, 1):
-        drawProc()
+        drawBody
 
     rt.endDraw(gfs)
-    rt.dispose()
     # OpenGL framebuffer coordinate system is flipped comparing to how we load
     # and handle the rest of images. Compensate for that by flipping texture
     # coords here.
     if not sci.flipped:
         sci.flipVertically()
+
+template draw*(sci: SelfContainedImage, drawBody: untyped) =
+    let rt = newImageRenderTarget()
+    rt.draw(sci, drawBody)
+    rt.dispose()
+
+proc draw*(sci: SelfContainedImage, drawProc: proc()) {.deprecated.} =
+    sci.draw:
+        drawProc()

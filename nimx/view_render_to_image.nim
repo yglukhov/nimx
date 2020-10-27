@@ -1,14 +1,10 @@
-import nimx/view
-import nimx/render_to_image
-import nimx/image
-import nimx/types
+import nimx / [ view, render_to_image, image, types, context ]
 
 proc renderToImage*(v: View, image: SelfContainedImage)=
-    image.draw do():
+    image.draw:
         v.recursiveDrawSubviews()
 
 proc screenShot*(v: View):SelfContainedImage=
     var image = imageWithSize(v.bounds.size)
     v.renderToImage(image)
     result = image
-
