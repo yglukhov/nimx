@@ -2,13 +2,14 @@ import image, types, context, portable_gl
 import opengl
 
 type
-    GlFrameState* = tuple
+    RTIContext* = tuple
         clearColor: array[4, GLfloat]
         viewportSize: array[4, GLint]
         framebuffer: FramebufferRef
         bStencil: bool
         doClear: bool
-        rt: ImageRenderTarget
+
+    GlFrameState* {.deprecated.} = RTIContext
 
     ImageRenderTarget* = ref ImageRenderTargetObj
     ImageRenderTargetObj = object
@@ -146,7 +147,7 @@ proc setImage*(rt: ImageRenderTarget, i: SelfContainedImage) =
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, oldFramebuffer)
 
-proc beginDraw*(t: ImageRenderTarget, state: var GlFrameState) =
+proc beginDraw*(t: ImageRenderTarget, state: var RTIContext) =
     assert(t.vpW != 0 and t.vpH != 0)
 
     let gl = sharedGL()
@@ -165,7 +166,11 @@ proc beginDraw*(t: ImageRenderTarget, state: var GlFrameState) =
         gl.stencilMask(0x00) # Android requires setting stencil mask to clear
         gl.disable(gl.STENCIL_TEST)
 
-proc endDraw*(t: ImageRenderTarget, state: var GlFrameState) =
+proc beginDrawNoClear*(t: ImageRenderTarget, state: var RTIContext) =
+    state.doClear = false
+    t.beginDraw(state)
+
+proc endDraw*(t: ImageRenderTarget, state: var RTIContext) =
     let gl = sharedGL()
     if state.bStencil:
         gl.enable(gl.STENCIL_TEST)
@@ -174,26 +179,26 @@ proc endDraw*(t: ImageRenderTarget, state: var GlFrameState) =
     gl.viewport(state.viewportSize)
     gl.bindFramebuffer(gl.FRAMEBUFFER, state.framebuffer)
 
-proc drawAUX(sci: SelfContainedImage, withClear: bool, drawProc: proc()) =
-    var gfs: GlFrameState
-    gfs.doClear = withClear
-    let rt = newImageRenderTarget()
+template draw*(rt: ImageRenderTarget, sci: SelfContainedImage, drawBody: untyped) =
+    var gfs: RTIContext
     rt.setImage(sci)
     rt.beginDraw(gfs)
 
     currentContext().withTransform ortho(0, sci.size.width, sci.size.height, 0, -1, 1):
-        drawProc()
+        drawBody
 
     rt.endDraw(gfs)
-    rt.dispose()
     # OpenGL framebuffer coordinate system is flipped comparing to how we load
     # and handle the rest of images. Compensate for that by flipping texture
     # coords here.
     if not sci.flipped:
         sci.flipVertically()
 
-proc draw*(sci: SelfContainedImage, drawProc: proc()) =
-    sci.drawAUX(true, drawProc)
+template draw*(sci: SelfContainedImage, drawBody: untyped) =
+    let rt = newImageRenderTarget()
+    rt.draw(sci, drawBody)
+    rt.dispose()
 
-proc drawWithoutClear*(sci: SelfContainedImage, drawProc: proc()) =
-    sci.drawAUX(false, drawProc)
+proc draw*(sci: SelfContainedImage, drawProc: proc()) {.deprecated.} =
+    sci.draw:
+        drawProc()
