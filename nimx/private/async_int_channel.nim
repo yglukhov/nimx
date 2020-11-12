@@ -22,6 +22,11 @@ when defined(windows):
           pendingMessages.addLast(data)
         else:
           error "Message queue overflow"
+
+  proc dummyTimerLoop() {.async.} =
+    while true:
+      await sleepAsync(10.minutes)
+
 else:
   import posix, asyncfile
   proc setNonBlocking(fd: cint) {.inline.} =
@@ -40,6 +45,10 @@ proc init*() {.inline.} =
     customOverlapped.data = CompletionData(fd: cast[AsyncFd](overlappedKey), cb: onEvent)
     pendingMessages = initDeque[pointer]()
     completionPort = getGlobalDispatcher().getIoHandler()
+
+    # We're sending events without dispatcher knowing about it,
+    # so add a dummy timer to prevent it on failing because it's empty
+    asyncCheck dummyTimerLoop()
   else:
     var pipeFds: array[2, cint]
     discard posix.pipe(pipeFds)
