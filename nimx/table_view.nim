@@ -93,7 +93,7 @@ proc getRowsAtHeights(v: TableView, heights: openarray[Coord], rows: var openarr
         var j = 0
         rows[j] = -1
         for i in startRow ..< rowsCount:
-            if j > heights.len:
+            if j >= heights.len:
                 break
             height += v.heightOfRowUsingDelegate(i)
             if heights[j] < height:
