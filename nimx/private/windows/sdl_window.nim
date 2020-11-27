@@ -12,6 +12,10 @@ const
     x11Platform = defined(linux) and not defined(emscripten) and not defined(android)
     waylandPlatform = defined(linux) and not defined(emscripten) and not defined(android)
     appkitPlatform = defined(macosx) and not defined(ios)
+    asyncRunloop = true #defined(windows) or defined(linux)
+
+when asyncRunloop:
+    import asyncdispatch
 
 proc initSDLIfNeeded() =
     var sdlInitialized {.global.} = false
@@ -544,9 +548,11 @@ proc runUntilQuit*() =
 
     when defined(macosx):
         addEventWatch(resizeEventWatch, nil)
-
     # Main loop
     while true:
+        when asyncRunloop:
+            if hasPendingOperations():
+                drain(timeout = 0)
         nextEvent(evt)
         if evt.kind == QuitEvent:
             break
