@@ -2,7 +2,7 @@ import sdl2 except Event, Rect, Point
 
 import nimx/[ abstract_window, system_logger, view, context, event, app, screen,
                 linkage_details, portable_gl ]
-import nimx/private/sdl_vk_map
+import nimx/private/[sdl_vk_map, sdl_asyncdispatch]
 import opengl
 import times, logging
 
@@ -492,13 +492,13 @@ proc nextEvent(evt: var sdl2.Event) =
         var doPoll = false
         if animationEnabled:
             doPoll = true
-        elif waitEvent(evt):
+        elif sdlAsyncWaitEvent(evt):
             discard handleEvent(addr evt)
             doPoll = evt.kind != QuitEvent
         # TODO: This should be researched more carefully.
         # During animations we need to process more than one event
         if doPoll:
-            while pollEvent(evt):
+            while sdlAsyncPollEvent(evt):
                 discard handleEvent(addr evt)
                 if evt.kind == QuitEvent:
                     break
@@ -544,6 +544,8 @@ proc runUntilQuit*() =
 
     when defined(macosx):
         addEventWatch(resizeEventWatch, nil)
+
+    initAsyncSdlLoop()
 
     # Main loop
     while true:
