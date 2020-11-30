@@ -13,7 +13,7 @@ const
     waylandPlatform = defined(linux) and not defined(emscripten) and not defined(android)
     appkitPlatform = defined(macosx) and not defined(ios)
 
-when defined(asyncRunloop):
+when defined(nimxAsyncRunloop):
     import asyncdispatch
 
 proc initSDLIfNeeded() =
@@ -549,7 +549,7 @@ proc runUntilQuit*() =
         addEventWatch(resizeEventWatch, nil)
     # Main loop
     while true:
-        when defined(asyncRunloop):
+        when defined(nimxAsyncRunloop):
             if hasPendingOperations():
                 drain(timeout = 0)
         nextEvent(evt)
