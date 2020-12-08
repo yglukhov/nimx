@@ -5,6 +5,14 @@ import unicode, times, logging
 import jsbind, jsbind/emscripten
 import nimx/private/js_vk_map
 
+import system, system/ansi_c
+
+proc globalExceptionHandler(errorMsg: string) =
+  cstderr.rawWrite(errorMsg)
+  emscripten_cancel_main_loop()
+
+onUnhandledException = globalExceptionHandler
+
 type EmscriptenWindow* = ref object of Window
     ctx: EMSCRIPTEN_WEBGL_CONTEXT_HANDLE
     renderingContext: GraphicsContext
