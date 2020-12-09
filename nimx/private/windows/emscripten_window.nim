@@ -403,6 +403,7 @@ method onResize*(w: EmscriptenWindow, newSize: Size) =
     w.pixelRatio = screenScaleFactor()
     glViewport(0, 0, GLSizei(newSize.width * w.pixelRatio), GLsizei(newSize.height * w.pixelRatio))
 
+    #TODO: figure out why info creates UTF8ToString() error and single char garbage output
     echo "EmscriptenWindow onResize viewport ", $(newSize.width * w.pixelRatio), " ", $(newSize.height * w.pixelRatio)
     procCall w.Window.onResize(newSize)
 
