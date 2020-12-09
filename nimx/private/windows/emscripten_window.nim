@@ -336,10 +336,10 @@ proc initCommon(w: EmscriptenWindow, r: view.Rect) =
     discard emscripten_webgl_make_context_current(w.ctx)
     w.renderingContext = newGraphicsContext()
 
-    discard emscripten_set_mousedown_callback(canvasSelector, cast[pointer](w), 0, onMouseDown)
-    discard emscripten_set_mouseup_callback(canvasSelector, cast[pointer](w), 0, onMouseUp)
-    discard emscripten_set_mousemove_callback(canvasSelector, cast[pointer](w), 0, onMouseMove)
-    discard emscripten_set_wheel_callback(canvasSelector, cast[pointer](w), 0, onMouseWheel)
+    discard emscripten_set_mousedown_callback(documentSelector, cast[pointer](w), 0, onMouseDown)
+    discard emscripten_set_mouseup_callback(documentSelector, cast[pointer](w), 0, onMouseUp)
+    discard emscripten_set_mousemove_callback(documentSelector, cast[pointer](w), 0, onMouseMove)
+    discard emscripten_set_wheel_callback(documentSelector, cast[pointer](w), 0, onMouseWheel)
 
     discard emscripten_set_touchstart_callback(documentSelector, cast[pointer](w), 0, onTouchStart)
     discard emscripten_set_touchmove_callback(documentSelector, cast[pointer](w), 0, onTouchMove)
