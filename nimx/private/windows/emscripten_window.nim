@@ -84,6 +84,10 @@ method `fullscreen=`*(w: EmscriptenWindow, v: bool) =
 method animationStateChanged*(w: EmscriptenWindow, flag: bool) =
     discard
 
+template sdlNow():uint32 =
+    let t = getTime()
+    uint32(t.toUnix * 1000 + t.nanosecond div 1000000)
+
 proc getCanvasDimensions(id: cstring, cssRect: var Rect, virtualSize: var Size) {.inline.} =
     discard EM_ASM_INT("""
         var c = document.getElementById(UTF8ToString($0));
@@ -120,7 +124,7 @@ proc onMouseButton(eventType: cint, mouseEvent: ptr EmscriptenMouseEvent, userDa
         else: VirtualKey.Unknown
 
     let point = eventLocationFromJSEvent(mouseEvent, w, false)
-    var evt = newMouseButtonEvent(point, bcFromE(), bs, uint32(mouseEvent.timestamp))
+    var evt = newMouseButtonEvent(point, bcFromE(), bs, sdlNow())
     evt.window = w
     if mainApplication().handleEvent(evt): result = 1
 
@@ -160,7 +164,7 @@ proc onTouchEnd(eventType: cint, touchEvent: ptr EmscriptenTouchEvent, userData:
 proc onMouseMove(eventType: cint, mouseEvent: ptr EmscriptenMouseEvent, userData: pointer): EM_BOOL {.cdecl.} =
     let w = cast[EmscriptenWindow](userData)
     let point = eventLocationFromJSEvent(mouseEvent, w, false)
-    var evt = newMouseMoveEvent(point, uint32(mouseEvent.timestamp))
+    var evt = newMouseMoveEvent(point, sdlNow())
     evt.window = w
     if mainApplication().handleEvent(evt): result = 1
 
