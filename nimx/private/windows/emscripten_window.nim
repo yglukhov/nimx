@@ -403,7 +403,7 @@ method onResize*(w: EmscriptenWindow, newSize: Size) =
     w.pixelRatio = screenScaleFactor()
     glViewport(0, 0, GLSizei(newSize.width * w.pixelRatio), GLsizei(newSize.height * w.pixelRatio))
 
-    info "EmscriptenWindow onResize viewport ", newSize.width * w.pixelRatio, " ", newSize.height * w.pixelRatio
+    echo "EmscriptenWindow onResize viewport ", $(newSize.width * w.pixelRatio), " ", $(newSize.height * w.pixelRatio)
     procCall w.Window.onResize(newSize)
 
 proc nimx_OnTextInput(wnd: pointer, text: cstring) {.EMSCRIPTEN_KEEPALIVE.} =
