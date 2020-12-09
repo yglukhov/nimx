@@ -318,34 +318,41 @@ proc initCommon(w: EmscriptenWindow, r: view.Rect) =
     attrs.alpha = 0
     attrs.antialias = 0
     attrs.stencil = 1
-    w.ctx = emscripten_webgl_create_context(w.canvasId, addr attrs)
+  
+    # emscripten special selector, keep in sync with EMSCRIPTEN_EVENT_TARGET_DOCUMENT
+    # and EMSCRIPTEN_EVENT_TARGET_WINDOW in emscripten html.h
+    const documentSelector = "1"
+    const windowSelector = "2"
+    # regular css selector for the canvas
+    let canvasSelector = "#" & w.canvasId
+
+    w.ctx = emscripten_webgl_create_context(canvasSelector, addr attrs)
     if w.ctx <= 0:
         raise newException(Exception, "Could not create WebGL context: " & $w.ctx)
     discard emscripten_webgl_make_context_current(w.ctx)
     w.renderingContext = newGraphicsContext()
 
-    const docID = "#document"
-    discard emscripten_set_mousedown_callback(docID, cast[pointer](w), 0, onMouseDown)
-    discard emscripten_set_mouseup_callback(docID, cast[pointer](w), 0, onMouseUp)
-    discard emscripten_set_mousemove_callback(docID, cast[pointer](w), 0, onMouseMove)
-    discard emscripten_set_wheel_callback(w.canvasId, cast[pointer](w), 0, onMouseWheel)
+    discard emscripten_set_mousedown_callback(canvasSelector, cast[pointer](w), 0, onMouseDown)
+    discard emscripten_set_mouseup_callback(canvasSelector, cast[pointer](w), 0, onMouseUp)
+    discard emscripten_set_mousemove_callback(canvasSelector, cast[pointer](w), 0, onMouseMove)
+    discard emscripten_set_wheel_callback(canvasSelector, cast[pointer](w), 0, onMouseWheel)
 
-    discard emscripten_set_touchstart_callback(docID, cast[pointer](w), 0, onTouchStart)
-    discard emscripten_set_touchmove_callback(docID, cast[pointer](w), 0, onTouchMove)
-    discard emscripten_set_touchend_callback(docID, cast[pointer](w), 0, onTouchEnd)
-    discard emscripten_set_touchcancel_callback(docID, cast[pointer](w), 0, onTouchEnd)
+    discard emscripten_set_touchstart_callback(documentSelector, cast[pointer](w), 0, onTouchStart)
+    discard emscripten_set_touchmove_callback(documentSelector, cast[pointer](w), 0, onTouchMove)
+    discard emscripten_set_touchend_callback(documentSelector, cast[pointer](w), 0, onTouchEnd)
+    discard emscripten_set_touchcancel_callback(documentSelector, cast[pointer](w), 0, onTouchEnd)
 
-    discard emscripten_set_keydown_callback(docID, cast[pointer](w), 1, onKeyDown)
-    discard emscripten_set_keyup_callback(docID, cast[pointer](w), 1, onKeyUp)
+    discard emscripten_set_keydown_callback(documentSelector, cast[pointer](w), 1, onKeyDown)
+    discard emscripten_set_keyup_callback(documentSelector, cast[pointer](w), 1, onKeyUp)
 
-    discard emscripten_set_blur_callback(nil, cast[pointer](w), 1, onBlur)
-    discard emscripten_set_focus_callback(nil, cast[pointer](w), 1, onFocus)
+    discard emscripten_set_blur_callback(windowSelector, cast[pointer](w), 1, onBlur)
+    discard emscripten_set_focus_callback(windowSelector, cast[pointer](w), 1, onFocus)
 
-    discard emscripten_set_webglcontextlost_callback(w.canvasId, cast[pointer](w), 0, onContextLost)
+    discard emscripten_set_webglcontextlost_callback(canvasSelector, cast[pointer](w), 0, onContextLost)
 
-    discard emscripten_set_fullscreenchange_callback(docId, cast[pointer](w), 0, onFullscreenChange)
+    discard emscripten_set_fullscreenchange_callback(documentSelector, cast[pointer](w), 0, onFullscreenChange)
 
-    discard emscripten_set_resize_callback(nil, cast[pointer](w), 0, onResize)
+    discard emscripten_set_resize_callback(windowSelector, cast[pointer](w), 0, onResize)
 
     discard emscripten_set_orientationchange_callback(cast[pointer](w), 0, onOrientationChanged)
 
