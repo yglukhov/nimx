@@ -66,7 +66,7 @@ proc mountIndex(am: AssetManager, path: string): int =
 
 proc mountIndex(am: AssetManager, ab: AssetBundle): int =
     for i, m in am.mounts:
-        if m.ab == ab:
+        if m.ab == ab or m.ab.urlForPath("") == ab.urlForPath(""):
             return i
     return -1
 
@@ -79,8 +79,7 @@ proc mountForPath(am: AssetManager, path: string): MountEntry =
     let i = am.mountIndex(path)
     if i == -1:
         return (am.defaultAssetBundle, am.defaultCache, path, 0)
-    result = am.mounts[i]
-    result.path = path.substr(am.mounts[i].path.len + 1)
+    return (am.mounts[i].ab, am.mounts[i].cache, path.substr(am.mounts[i].path.len + 1), am.mounts[i].refCount)
 
 proc mount*(am: AssetManager, path: string, assetBundle: AssetBundle) =
     let i = am.mountIndex(path)
@@ -175,6 +174,9 @@ proc getAssetAtPath*[T](am: AssetManager, path: string, putToCache: bool, handle
 proc getAssetAtPath*[T](am: AssetManager, path: string, handler: proc(res: T, err: string)) {.inline.} =
     am.getAssetAtPath(path, true, handler)
 
+proc assetCacheForPath(am: AssetManager, path: string): AssetCache =
+    result = am.mountForPath(path.normalizeSlashes).cache
+
 proc loadAssetsInBundles*(am: AssetManager, bundles: openarray[AssetBundle], onProgress: proc(p: float), onComplete: proc()) =
     let al = newAssetLoader()
     var tempCache = newAssetCache()
@@ -192,10 +194,15 @@ proc loadAssetsInBundles*(am: AssetManager, bundles: openarray[AssetBundle], onP
         let i = am.mountIndex(b)
         if i == -1:
             raise newException(Exception, "AssetBundle not mounted")
+        let cache = am.assetCacheForPath(am.mounts[i].path)
+        for a in b.allAssetsWithBasePath(am.mounts[i].path):
+            if a.substr(am.mounts[i].path.len + 1) notin cache:
+                allAssets.add(a)
 
-        allAssets &= b.allAssetsWithBasePath(am.mounts[i].path)
-
-    al.loadAssets(allAssets)
+    if allAssets.len == 0:
+        onComplete()
+    else:
+        al.loadAssets(allAssets)
 
 registerUrlHandler("res") do(url: string, handler: Handler) {.gcsafe.}:
     openStreamForUrl(sharedAssetManager().resolveUrl(url), handler)
