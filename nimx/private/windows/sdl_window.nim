@@ -107,7 +107,7 @@ method animationStateChanged*(w: SdlWindow, state: bool) =
                 let w = cast[SdlWindow](p)
                 w.runAnimations()
                 w.drawWindow()
-            discard iPhoneSetAnimationCallback(w.impl, 0, animationCallback, cast[pointer](w))
+            discard iPhoneSetAnimationCallback(w.impl, 1, animationCallback, cast[pointer](w))
         else:
             discard iPhoneSetAnimationCallback(w.impl, 0, nil, nil)
 
