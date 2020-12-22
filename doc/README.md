@@ -33,8 +33,7 @@ TOC
         - Text
     - Toolbar
 
-- Views
-    - View
+- [Views](views.md)
     - Collection View
     - Expanding View
     - Form View
@@ -62,18 +61,20 @@ TOC
         - Context
         - Formatted Text
         - Screenshot
-    - Drag and Drop
+    - [Drag and Drop](../../test/sample13_drag_and_drop.nim)
     - Event handling
+    - Pasteboards
     - Timer
 
 - Miscellaneous
-    - Cursors
-    - Fonts
+    - [Cursors](../nimx/cursor.nim)
+    - [Fonts](../nimx/font.nim)
     - Gestures
-    - HTTP Request
-    - Key Commands
-    - Keyboard
-    - Paths
-    - Property Visitor
-    - System Logger
-    - Undo Manager
+    - [HTTP Request](../nimx/http_request.nim)
+    - [Key Commands](../nimx/key_commands.nim)
+    - [Keyboard](../nimx/keyboard.nim)
+    - [Paths](../nimx/pathutils.nim)
+    - [Property Visitor](../nimx/property_visitor.nim)
+    - [System Logger](../nimx/system_logger.nim)
+    - [Unicode strings](../nimx/unistring.nim)
+    - [Undo Manager](../nimx/undo_manager.nim)
