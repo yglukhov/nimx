@@ -38,7 +38,7 @@ TOC
     - [Expanding View](views.md#Expanding-View)
     - [Form View](views.md#Form-View)
     - [Horizontal List View](views.md#Horizontal-List-View)
-    - [Image View](views.md#Collect-View)
+    - [Image View](views.md#Image-View)
     - [Inspector View](views.md#Inspector-View)
     - [Outline View](views.md#Outline-View)
     - [Panel (collapsable view)](views.md#Panel-View)
