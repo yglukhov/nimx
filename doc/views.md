@@ -60,8 +60,8 @@ Outline View
 
 An [**Outline** view](../nimx/outline_view.nim) allows dragging of child elements to different levels of a hierarchical list.
 
-Panel
------
+Panel View
+----------
 
 A collapseable [view](../nimx/panel_view.nim) that allows the showing/hiding of its content.
 
