@@ -41,7 +41,7 @@ TOC
     - Image View
     - Inspector View
     - Outline View
-    - Panel
+    - Panel (collapsable view)
         - Inspector Panel
     - Scroll View
     - Split View
@@ -61,10 +61,11 @@ TOC
         - Context
         - Formatted Text
         - Screenshot
-    - [Drag and Drop](../../test/sample13_drag_and_drop.nim)
+    - [Drag and Drop](../test/sample13_drag_and_drop.nim)
     - Event handling
     - Pasteboards
     - Timer
+    - Updating controls (setNeedsDisplay() or update())
 
 - Miscellaneous
     - [Cursors](../nimx/cursor.nim)
