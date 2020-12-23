@@ -34,19 +34,19 @@ TOC
     - Toolbar
 
 - [Views](views.md)
-    - Collection View
-    - Expanding View
-    - Form View
-    - Horizontal List View
-    - Image View
-    - Inspector View
-    - Outline View
-    - Panel (collapsable view)
+    - [Collection View](views.md#Collection-View)
+    - [Expanding View](views.md#Expanding-View)
+    - [Form View](views.md#Form-View)
+    - [Horizontal List View](views.md#Horizontal-List-View)
+    - [Image View](views.md#Collect-View)
+    - [Inspector View](views.md#Inspector-View)
+    - [Outline View](views.md#Outline-View)
+    - [Panel (collapsable view)](views.md#Panel-View)
         - Inspector Panel
-    - Scroll View
-    - Split View
-    - Stack View
-    - Table View
+    - [Scroll View](views.md#Scroll-View)
+    - [Split View](views.md#Split-View)
+    - [Stack View](views.md#Stack-View)
+    - [Table View](views.md#Table-View)
 
 - Asset management
 
