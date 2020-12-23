@@ -40,7 +40,7 @@ A scrollable [horizontal list](../nimx/horizontal_list_view.nim) of views
 Image View
 ----------
 
-[Image view](../nimx/image_view.nim) is a view for drawing static images with certain view filling rules.
+[Image view](../nimx/image_view.nim) is a view for drawing static images.
 
 Filling rules:
  - **NoFill** is drawn from the top-left corner with its size
@@ -53,7 +53,7 @@ Filling rules:
 Inspector View
 --------------
 
-A vertical listed [view](../nimx/inspector_view.nim) of inspecting object properties.
+A vertical layout [view](../nimx/inspector_view.nim) for inspecting object properties.
 
 Outline View
 ------------
@@ -65,14 +65,12 @@ Panel
 
 A collapseable [view](../nimx/panel_view.nim) that allows the showing/hiding of its content.
 
-- Inspector Panel
-
-  A collapseable Inspector View
+The [inspector Panel](../nimx/inspector_panel.nim) is collapseable Inspector View.
 
 Scroll View
 -----------
 
-[test/main.nim](../test/main.nim)
+[See the main test code](../test/main.nim)
 
 Split View
 -----------
