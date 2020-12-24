@@ -20,7 +20,26 @@ Expanding View
 
 An [**expanding** view](../nimx/expanding_view.nim) has a button that can be clicked to expand the view to display (or hide) the full content of the view.
 
-[See Test 11 code](../test/sample11_expanded_views.nim)
+A simple example:
+```
+import nimx / [ expanding_view, window, text_field ]
+
+runApplication:
+  let w = newWindow(newRect(50, 50, 500, 120))
+  let ev1 = newExpandingView(newRect(0, 0, 500, 120), hasOffset = true)
+  ev1.title = "My Exanding View"
+  ev1.titleBarColor = newColor(0.1, 0.1, 0.6)
+  ev1.expand()
+  ev1.backgroundColor = newColor(0.95, 0.95, 0.95)
+  ev1.contentView.backgroundColor = newColor(0.88, 0.88, 0.95)
+  ev1.addContent(newLabel(nil, newPoint(0,0), newSize(150,26), "This is a Label"))
+  let tf1 = newTextField(nil, newPoint(0,0), newSize(200,26), "This is a TextField")
+  tf1.multiline = false
+  ev1.addContent(tf1)
+  w.addSubView(ev1)
+```
+
+[Also see Test 11 code](../test/sample11_expanded_views.nim)
 
 Form View
 ---------
