@@ -692,8 +692,8 @@ proc build*(b: Builder) =
 
         b.nimFlags.add(["--os:macosx", "-d:ios", "-d:iPhone", "--dynlibOverride:SDL2"])
 
-        var sdkPath : string
-        var sdlLibDir : string
+        var sdkPath: string
+        var sdlLibDir: string
         if b.platform == "ios":
             sdkPath = iOSSDKPath(b.iOSSDKVersion)
             sdlLibDir = b.buildSDLForIOS(false)
@@ -712,11 +712,12 @@ proc build*(b: Builder) =
         if b.iosStatic:
             b.nimFlags.add("--out:" & b.executablePath / "libmain_static.a")
             # b.compilerFlags.add("-fembed-bitcode")
-            b.nimFlags.add("--clang.linkerexe:" & "llvm-ar")
+            b.nimFlags.add("--clang.linkerexe:" & "libtool")
             b.nimFlags.add("--listCmd")
 
+            let arch = if b.platform == "ios-sim": "x86_64" else: "arm64"
             # Workaround nim static lib linker
-            b.nimFlags.add("--clang.linkTmpl:" & quoteShell("rcs $exefile $objfiles"))
+            b.nimFlags.add("--clang.linkTmpl:" & quoteShell("-static -arch_only " & arch & " -D -syslibroot " & sdkPath & " -o $exefile $objfiles"))
             b.compilerFlags.add("-g")
     of "android":
         if b.androidApi == 0:
