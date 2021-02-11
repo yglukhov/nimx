@@ -285,8 +285,9 @@ proc handleToggleTouchEv(b: Button, e: var Event): bool =
     of bsUp:
         if e.localPosition.inRect(b.bounds):
             b.value = toggleValue(b.value)
+            b.setNeedsDisplay()   
             b.sendAction(e)
-        b.setState(if b.value == 1: bsDown else: bsUp)
+        b.setState(if b.value == 1: bsDown else: bsUp)     
     result = true
 
 method onTouchEv*(b: Button, e: var Event): bool =

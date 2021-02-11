@@ -13,6 +13,9 @@ const
     waylandPlatform = defined(linux) and not defined(emscripten) and not defined(android)
     appkitPlatform = defined(macosx) and not defined(ios)
 
+when defined(nimxAsyncRunloop):
+    import asyncdispatch
+
 proc initSDLIfNeeded() =
     var sdlInitialized {.global.} = false
     if not sdlInitialized:
@@ -104,7 +107,7 @@ method animationStateChanged*(w: SdlWindow, state: bool) =
                 let w = cast[SdlWindow](p)
                 w.runAnimations()
                 w.drawWindow()
-            discard iPhoneSetAnimationCallback(w.impl, 0, animationCallback, cast[pointer](w))
+            discard iPhoneSetAnimationCallback(w.impl, 1, animationCallback, cast[pointer](w))
         else:
             discard iPhoneSetAnimationCallback(w.impl, 0, nil, nil)
 
@@ -544,9 +547,11 @@ proc runUntilQuit*() =
 
     when defined(macosx):
         addEventWatch(resizeEventWatch, nil)
-
     # Main loop
     while true:
+        when defined(nimxAsyncRunloop):
+            if hasPendingOperations():
+                drain(timeout = 0)
         nextEvent(evt)
         if evt.kind == QuitEvent:
             break
