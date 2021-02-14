@@ -240,7 +240,7 @@ proc runUntilQuit*()=
       discard TranslateMessage(addr msg)
       discard DispatchMessage(addr msg)
 
-template runApplication*(body: typed): typed=
+template runApplication*(body: typed) =
     try:
         body
         runUntilQuit()

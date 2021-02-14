@@ -96,6 +96,8 @@ template sdlMain*() =
 
 //#include <SDL2/SDL_main.h>
 
+#include <stdlib.h>
+
 extern int cmdCount;
 extern char** cmdLine;
 extern char** gEnv;
@@ -108,15 +110,20 @@ int main(int argc, char** args) {
     gEnv = NULL;
     `setupLogger`();
     NimMain();
+#ifdef __ANDROID__
+    /* Prevent SDLActivity from calling main() again until the main lib
+    *  is reloaded
+    */
+    exit(nim_program_result);
+#endif
     return nim_program_result;
 }
 
 """.}
 
 when not defined(emscripten):
-    import macros
-
     when defined(macosx) or defined(ios):
+        import macros
         macro passToCAndL(s: string): typed =
             result = newNimNode(nnkStmtList)
             result.add parseStmt("{.passL: \"" & s.strVal & "\".}\n")
@@ -128,7 +135,7 @@ when not defined(emscripten):
                 result.add parseStmt("passToCAndL(\"-framework " & n[i].strVal & "\")")
 
     when defined(ios):
-        useFrameworks("OpenGLES", "UIKit", "GameController", "CoreMotion", "Metal", "AVFoundation")
+        useFrameworks("OpenGLES", "UIKit", "GameController", "CoreMotion", "Metal", "AVFoundation", "CoreBluetooth")
         when not defined(simulator):
             when hostCPU == "arm":
                 {.passC:"-arch armv7".}
@@ -137,7 +144,7 @@ when not defined(emscripten):
                 {.passC:"-arch arm64".}
                 {.passL:"-arch arm64".}
     elif defined(macosx):
-        useFrameworks("OpenGL", "AppKit", "AudioUnit", "ForceFeedback", "IOKit", "Carbon", "CoreServices", "ApplicationServices")
+        useFrameworks("OpenGL", "AppKit", "AudioUnit", "ForceFeedback", "IOKit", "Carbon", "CoreServices", "ApplicationServices", "Metal")
 
     when defined(macosx) or defined(ios):
         useFrameworks("AudioToolbox", "CoreAudio", "CoreGraphics", "QuartzCore")

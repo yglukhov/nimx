@@ -190,6 +190,10 @@ proc removeAnimationRunner*(w: Window, ar: AnimationRunner)=
 proc addAnimation*(w: Window, a: Animation) =
     if not w.isNil:
         w.animationRunners[DEFAULT_RUNNER].pushAnimation(a)
+        when defined(ios):
+            # TODO: This is a quick fix for iOS animation issue. Should be researched more carefully.
+            if not w.mAnimationEnabled:
+                w.enableAnimation(true)
 
 proc onFocusChange*(w: Window, inFocus: bool)=
 
@@ -200,6 +204,8 @@ proc onFocusChange*(w: Window, inFocus: bool)=
 
 var newWindow*: proc(r: Rect): Window
 var newFullscreenWindow*: proc(): Window
+var newWindowWithNative*: proc(handle: pointer, r: Rect): Window
+var newFullscreenWindowWithNative*: proc(handle: pointer): Window
 
 method init*(w: Window, frame: Rect) =
     procCall w.View.init(frame)
@@ -218,6 +224,9 @@ method init*(w: Window, frame: Rect) =
 
     s.suggestValue(w.layout.vars.width, frame.width)
     s.suggestValue(w.layout.vars.height, frame.height)
+
+    w.backgroundColor = newGrayColor(0.93, 0)
+    w.mActiveBgColor.r = -123 # Any invalid color
 
     #default animation runner for window
     w.addAnimationRunner(newAnimationRunner())

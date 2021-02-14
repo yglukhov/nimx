@@ -26,7 +26,7 @@ when defined(js) or defined(emscripten):
             """.}
         else:
             discard EM_ASM_INT("""
-            window['dump'](Pointer_stringify($0) + '\n');
+            window['dump'](UTF8ToString($0) + '\n');
             """, a)
 
     var loggerSetupDone = false
@@ -89,7 +89,7 @@ proc testSuiteDefinitionWithNameAndBody(name, body: NimNode): NimNode =
 macro uiTest*(name: untyped, body: typed): untyped =
     result = testSuiteDefinitionWithNameAndBody(name, body)
 
-macro registeredUiTest*(name: untyped, body: typed): typed =
+macro registeredUiTest*(name: untyped, body: typed): untyped =
     result = newStmtList()
     result.add(testSuiteDefinitionWithNameAndBody(name, body))
     result.add(newCall(bindSym"registerTest", name))

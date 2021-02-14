@@ -4,7 +4,6 @@ import editor_types
 import nimx/undo_manager
 import nimx/view
 import nimx/serializers
-import nimx/resource
 
 const savingAndLoadingEnabled* = not defined(js) and not defined(emscripten) and
         not defined(ios) and not defined(android)
@@ -37,6 +36,14 @@ proc serializeView*(ui: UIDocument): string =
     # popParentResource()
     return $s.jsonNode()
 
+proc fileDialog(title: string, kind: DialogKind): string =
+    var di:DialogInfo
+    di.title = title
+    di.kind = kind
+    di.filters = @[(name:"Nimx UI", ext:"*.nimx")]
+    di.extension = "nimx"
+    di.show()
+
 when savingAndLoadingEnabled:
     proc save*(d: UIDocument) =
         if d.path.len == 0:
@@ -49,9 +56,9 @@ when savingAndLoadingEnabled:
 
         if d.path.len > 0:
             let s = newJsonSerializer()
-            pushParentResource(d.path)
+            # pushParentResource(d.path)
             s.serialize(d.view)
-            popParentResource()
+            # popParentResource()
             writeFile(d.path, $s.jsonNode())
 
     proc saveAs*(d: UIDocument) =

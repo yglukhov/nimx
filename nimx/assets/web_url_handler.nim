@@ -17,7 +17,6 @@ when web:
 
     proc errorDesc(r: XMLHTTPRequest, url: string): URLLoadingError =
         var statusText = r.statusText
-        if statusText.isNil: statusText = "(nil)"
         result.description = "XMLHTTPRequest error(" & url & "): " & $r.status & ": " & $statusText
         warn "XMLHTTPRequest failure: ", result.description
 
@@ -66,29 +65,30 @@ when web:
             shallow(result)
 
 proc getHttpStream(url: string, handler: Handler) =
-    when web:
-        let reqListener = proc(data: JSObj) =
-            when defined(js):
-                var dataView : ref RootObj
-                {.emit: "`dataView` = new DataView(`data`);".}
-                handler(newStreamWithDataView(dataView), nil)
-            else:
-                handler(newStringStream(arrayBufferToString(data)), nil)
+    {.gcsafe.}:
+        when web:
+            let reqListener = proc(data: JSObj) =
+                when defined(js):
+                    var dataView : ref RootObj
+                    {.emit: "`dataView` = new DataView(`data`);".}
+                    handler(newStreamWithDataView(dataView), "")
+                else:
+                    handler(newStringStream(arrayBufferToString(data)), "")
 
-        let errorListener = proc(e: URLLoadingError) =
-            handler(nil, e.description)
+            let errorListener = proc(e: URLLoadingError) =
+                handler(nil, e.description)
 
-        loadJSURL(url, "arraybuffer", nil, errorListener, reqListener)
-    else:
-        sendRequest("GET", url, "", []) do(r: Response):
-            if r.statusCode >= 200 and r.statusCode < 300:
-                var b: string
-                shallowCopy(b, r.body)
-                shallow(b)
-                let s = newStringStream(r.body)
-                handler(s, "")
-            else:
-                handler(nil, "Error downloading url " & url & ": " & $r.statusCode)
+            loadJSURL(url, "arraybuffer", nil, errorListener, reqListener)
+        else:
+            sendRequest("GET", url, "", []) do(r: Response):
+                if r.statusCode >= 200 and r.statusCode < 300:
+                    var b: string
+                    shallowCopy(b, r.body)
+                    shallow(b)
+                    let s = newStringStream(r.body)
+                    handler(s, "")
+                else:
+                    handler(nil, "Error downloading url " & url & ": " & $r.statusCode)
 
 registerUrlHandler("http", getHttpStream)
 registerUrlHandler("https", getHttpStream)
@@ -104,4 +104,4 @@ when web:
             if s.isNil:
                 handler(nil, "Could not open file: " & url)
             else:
-                handler(s, nil)
+                handler(s, "")

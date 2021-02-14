@@ -1,7 +1,8 @@
-import tables, typetraits, macros, variant, strutils
+import tables, macros, variant
+import typetraits except getTypeid, Typeid # see https://github.com/nim-lang/Nim/pull/13305
 
 proc skipPtrRef(n: NimNode): NimNode =
-    let ty = getImpl(n.symbol)
+    let ty = getImpl(n)
     result = n
     if ty[2].kind in {nnkRefTy, nnkPtrTy} and ty[2][0].kind == nnkSym:
         result = ty[2][0].skipPtrRef()
@@ -31,7 +32,7 @@ proc superTypeAux(t: NimNode, indent: int): NimNode =
         log "TypeKind: ", ty.typeKind
         result = superTypeAux(ty)
     of nnkBracketExpr:
-        result = superTypeAux(getImpl(t[1].symbol))
+        result = superTypeAux(getImpl(t[1]))
     of nnkTypeDef:
         result = nodeTypedefInheritsFrom(t)
         if result.isNil:
@@ -47,7 +48,7 @@ proc superTypeAux(t: NimNode, indent: int): NimNode =
 
     log "result ", repr(result)
 
-macro superType(t: typed): untyped = superTypeAux(t, 0)
+macro superType*(t: typed): untyped = superTypeAux(t, 0)
 
 method className*(o: RootRef): string {.base.} = discard
 method classTypeId*(o: RootRef): TypeId {.base.} = getTypeId(RootRef)

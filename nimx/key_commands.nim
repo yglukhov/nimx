@@ -1,4 +1,4 @@
-import event, keyboard, window_event_handling
+import event, keyboard
 import private/js_platform_detector
 
 type KeyCommand* = enum

@@ -1,4 +1,5 @@
-import view, view_event_handling, table_view_cell, scroll_view
+import view, view_event_handling, table_view_cell, scroll_view, layout_vars,
+       keyboard
 
 import clip_view
 
@@ -7,17 +8,18 @@ import kiwi
 
 export view, table_view_cell
 
-type SelectionMode* = enum
-    smNone
-    smSingleSelection
-    smMultipleSelection
-
 type SelectionKind* {.pure, deprecated.} = enum
     Nothing = 0
     Row
     Column
 
-type TableView* = ref object of View
+type
+  SelectionMode* = enum
+    smNone
+    smSingleSelection
+    smMultipleSelection
+
+  TableView* = ref object of View
     numberOfColumns*: int
     numberOfRows*: proc (): int
     mCreateCell: proc(column: int): TableViewCell
@@ -32,7 +34,6 @@ type TableView* = ref object of View
     selectedRows*: IntSet
 
     initiallyClickedRow: int
-    usesNewLayout: bool
     constraints: seq[Constraint]
 
 proc `createCell=`*(v: TableView, p: proc(): TableViewCell) =
@@ -57,8 +58,7 @@ method init*(v: TableView, r: Rect) =
     v.selectionMode = smSingleSelection
     v.selectedRows = initIntSet()
 
-    if r == zeroRect:
-        v.usesNewLayout = true
+    if v.usesNewLayout:
         v.rebuildConstraints()
 
 proc heightOfRowUsingDelegate(v: TableView, row: int): Coord {.inline.} =
@@ -93,7 +93,7 @@ proc getRowsAtHeights(v: TableView, heights: openarray[Coord], rows: var openarr
         var j = 0
         rows[j] = -1
         for i in startRow ..< rowsCount:
-            if j > heights.len:
+            if j >= heights.len:
                 break
             height += v.heightOfRowUsingDelegate(i)
             if heights[j] < height:
@@ -198,17 +198,18 @@ proc createRow(v: TableView): TableRow =
         result = TableRow.new(newRect(0, 0, if v.numberOfColumns == 1: v.bounds.width else: (v.numberOfColumns.Coord * v.defaultColWidth).Coord, v.defaultRowHeight))
         result.setFrame(newRect(0, 0, v.bounds.width, 50))
 
+        var px = 0.0
         for i in 0 ..< v.numberOfColumns:
             let c = v.mCreateCell(i)
             c.col = i
             c.resizingMask = "rh"
-
             let width = if v.numberOfColumns == 1:
                 v.bounds.width
               else:
-                v.defaultColWidth
-            c.setFrame(newRect(width * i.Coord, 0, width, 50))
+                c.frame.width
+            c.setFrame(newRect(px, 0, width, 50))
             result.addSubview(c)
+            px += width
 
 proc dequeueReusableRow(v: TableView, cells: var seq[TableRow], row: int, top, height: Coord): TableRow =
     var needToAdd = false
@@ -326,19 +327,78 @@ proc updateSelectedCells*(t: TableView) {.inline.} =
         for c in r.subviews:
             TableViewCell(c).selected = isSelected
 
-proc selectRow*(t: TableView, row: int) =
-    t.selectedRows = initIntSet()
-    t.selectedRows.incl(row)
+proc setRowsSelected(t: TableView, rows: Slice[int], selected: bool) =
+    if selected:
+        for i in rows: t.selectedRows.incl(i)
+    else:
+        for i in rows: t.selectedRows.excl(i)
     t.updateSelectedCells()
     if not t.onSelectionChange.isNil:
         t.onSelectionChange()
     t.setNeedsDisplay()
 
-method onTouchEv(b: TableView, e: var Event): bool =
+proc setRowSelected*(t: TableView, row: int, selected: bool) =
+    t.setRowsSelected(row .. row, selected)
+
+proc toggleSelectedRow(t: TableView, row: int) =
+    t.setRowSelected(row, not t.isRowSelected(row))
+
+proc selectRow*(t: TableView, row: int) =
+    t.selectedRows = initIntSet()
+    t.setRowSelected(row, true)
+
+proc selectRows(t: TableView, rows: Slice[int]) =
+    t.setRowsSelected(rows, true)
+
+proc handleRowSelection(t: TableView, row: int, e: var Event): bool =
+    result = true
+    # is multiseelct modifier key pressed (cmd on macos, else ctrl)
+    let msKey = e.modifiers.anyOsModifier()
+    if t.selectionMode == smSingleSelection:
+        t.selectRow(row)
+        result = false
+    elif t.selectionMode == smMultipleSelection:
+        if msKey:
+            t.toggleSelectedRow(row)
+            result = false
+        elif e.modifiers.anyShift():
+            # Shift-select. Currently we implement range select only if
+            # clicked the clicked has no surrounding selected rows from both sides
+            # Case 1. If there are no selected rows - select this row
+            if t.selectedRows.len == 0:
+                t.selectRow(row)
+            elif t.isRowSelected(row):
+                t.toggleSelectedRow(row)
+            else:
+                # Find selection below
+                var selectionBelow = -1
+                for i in countdown(row - 1, 0):
+                    if i in t.selectedRows:
+                        selectionBelow = i
+                        break
+                # Find selection above
+                var selectionAbove = -1
+                for i in row + 1 .. t.numberOfRows():
+                    if i in t.selectedRows:
+                        selectionAbove = i
+                        break
+                if selectionAbove != -1 and selectionBelow != -1:
+                    t.toggleSelectedRow(row)
+                elif selectionAbove != -1:
+                    t.selectRows(row ..< selectionAbove)
+                else:
+                    t.selectRows(selectionBelow + 1 .. row)
+
+            result = false
+        else:
+            t.selectRow(row)
+            result = false
+
+method onTouchEv*(b: TableView, e: var Event): bool =
     result = true
     case e.buttonState
         of bsDown:
-            if b.selectionMode == smSingleSelection:
+            if b.selectionMode in {smSingleSelection, smMultipleSelection}:
                 let initialPos = e.localPosition
                 var rows = [-1]
                 b.getRowsAtHeights([initialPos.y], rows)
@@ -351,5 +411,4 @@ method onTouchEv(b: TableView, e: var Event): bool =
                 result = false
         of bsUp:
             if b.initiallyClickedRow != -1:
-                b.selectRow(b.initiallyClickedRow)
-                result = false
+                result = b.handleRowSelection(b.initiallyClickedRow, e)

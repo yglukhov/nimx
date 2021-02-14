@@ -1,5 +1,20 @@
 import strutils, os, parseutils
 
+proc urlParentDir*(url: string): string =
+    let schemeEnd = url.find(':')
+    if schemeEnd == -1 or url.len <= schemeEnd + 3 or url[schemeEnd + 1] != '/' or url[schemeEnd + 2] != '/':
+        raise newException(ValueError, "Invalid url: " & url)
+
+    let i = url.rfind({'/', '\\'})
+    if i <= schemeEnd + 3:
+        raise newException(ValueError, "Cannot get parent dir in url: " & url)
+
+    url[0 ..< i]
+
+proc parentDirEx*(pathOrUrl: string): string =
+    let i = pathOrUrl.rfind({'/', '\\'})
+    pathOrUrl[0 ..< i]
+
 proc relativePathToPath*(path, toPath: string): string =
     # Returns a relative path to `toPath` which is equivalent of absolute `path`
     # E.g. given `path` = "/a/b/c/d/e" and `toPath` = "/a/b/c/f/g"
@@ -112,3 +127,4 @@ when isMainModule:
     doAssert("a/b/c".isSubpathOf("a/b"))
     doAssert(not "a/b/ca".isSubpathOf("a/b/c"))
     doAssert("a/b/c/a".isSubpathOf("a/b/c/"))
+    doAssert(urlParentDir("file://a/b") == "file://a")

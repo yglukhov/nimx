@@ -2,7 +2,7 @@ import nimx/naketools
 import osproc
 
 beforeBuild = proc(b: Builder) =
-    b.disableClosureCompiler = false
+    b.disableClosureCompiler = true
     b.mainFile = "test/main"
     b.originalResourcePath = "test/res"
     b.screenOrientation = "sensorLandscape"

@@ -1,5 +1,5 @@
 import nimx / [
-    view, panel_view, toolbar, button, menu, resource, undo_manager,
+    view, panel_view, toolbar, button, menu, undo_manager,
     inspector_panel, gesture_detector, window_event_handling, event, view_event_handling,
     serializers, key_commands, pasteboard/pasteboard, property_editors/autoresizing_mask_editor
 ]

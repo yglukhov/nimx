@@ -495,19 +495,6 @@ template compositionDrawingDefinitions*(cc: CompiledComposition, ctx: GraphicsCo
         gl.uniform1i(uniformLocation(name & "_tex"), cc.iTexIndex)
         inc cc.iTexIndex
 
-template pushPostEffect*(pe: PostEffect, body: untyped) {.deprecated.} =
-    # Usage of this template implies explicit uniforms, which doesn't work in
-    # general case. This template will be deleted soon.
-    postEffectStack.add(PostEffectStackElem(postEffect: pe, setupProc: proc(cc: CompiledComposition) =
-        let ctx = currentContext()
-        let gl = ctx.gl
-        compositionDrawingDefinitions(cc, ctx, gl)
-        body
-    ))
-
-    let oh = if postEffectIdStack.len > 0: postEffectIdStack[^1] else: 0
-    postEffectIdStack.add(oh !& pe.id)
-
 template pushPostEffect*(pe: PostEffect, args: varargs[untyped]) =
     let stackLen = postEffectIdStack.len
     postEffectStack.add(PostEffectStackElem(postEffect: pe, setupProc: proc(cc: CompiledComposition) =
@@ -557,34 +544,35 @@ template GetDIPValue*() : int =
 template ResetDIPValue*() =
     DIPValue = 0
 
-template draw*(comp: var Composition, r: Rect, code: untyped): typed =
-    let ctx = currentContext()
-    let gl = ctx.gl
-    let cc = gl.getCompiledComposition(comp)
-    gl.useProgram(cc.program)
+template draw*(comp: var Composition, r: Rect, code: untyped) =
+    block:
+        let ctx = currentContext()
+        let gl = ctx.gl
+        let cc = gl.getCompiledComposition(comp)
+        gl.useProgram(cc.program)
 
-    overdrawValue += r.size.width * r.size.height
-    DIPValue += 1
+        overdrawValue += r.size.width * r.size.height
+        DIPValue += 1
 
-    const componentCount = 2
-    const vertexCount = 4
-    gl.bindBuffer(gl.ARRAY_BUFFER, ctx.singleQuadBuffer)
-    gl.enableVertexAttribArray(posAttr)
-    gl.vertexAttribPointer(posAttr, componentCount, gl.FLOAT, false, 0, 0)
+        const componentCount = 2
+        const vertexCount = 4
+        gl.bindBuffer(gl.ARRAY_BUFFER, ctx.singleQuadBuffer)
+        gl.enableVertexAttribArray(posAttr)
+        gl.vertexAttribPointer(posAttr, componentCount, gl.FLOAT, false, 0, 0)
 
-    compositionDrawingDefinitions(cc, ctx, gl)
+        compositionDrawingDefinitions(cc, ctx, gl)
 
-    gl.uniformMatrix4fv(uniformLocation("uModelViewProjectionMatrix"), false, ctx.transform)
+        gl.uniformMatrix4fv(uniformLocation("uModelViewProjectionMatrix"), false, ctx.transform)
 
-    setUniform("bounds", r) # This is for fragment shader
-    setUniform("uBounds", r) # This is for vertex shader
+        setUniform("bounds", r) # This is for fragment shader
+        setUniform("uBounds", r) # This is for vertex shader
 
-    setupPosteffectUniforms(cc)
+        setupPosteffectUniforms(cc)
 
-    code
-    gl.drawArrays(gl.TRIANGLE_FAN, 0, vertexCount)
-    gl.bindBuffer(gl.ARRAY_BUFFER, invalidBuffer)
+        code
+        gl.drawArrays(gl.TRIANGLE_FAN, 0, vertexCount)
+        gl.bindBuffer(gl.ARRAY_BUFFER, invalidBuffer)
 
-template draw*(comp: var Composition, r: Rect): typed =
+template draw*(comp: var Composition, r: Rect) =
     comp.draw r:
         discard

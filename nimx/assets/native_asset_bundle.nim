@@ -6,10 +6,10 @@ type NativeAssetBundle* = ref object of AssetBundle
 
 proc newNativeAssetBundle*(): NativeAssetBundle =
     result.new()
-    when defined(macosx):
-        result.mBaseUrl = "file://" & getAppDir() & "/../Resources"
-    elif defined(ios):
+    when defined(ios):
         result.mBaseUrl = "file://" & getAppDir()
+    elif defined(macosx):
+        result.mBaseUrl = "file://" & getAppDir() & "/../Resources"
     else:
         result.mBaseUrl = "file://" & getAppDir() & "/res"
 

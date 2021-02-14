@@ -299,6 +299,7 @@ method onTouchEv*(t: TextField, e: var Event): bool =
     of bsUp:
         if t.selectable and t.isSelecting:
             t.isSelecting = false
+            t.window.startTextInput(t.convertRectToWindow(t.bounds))
             if t.textSelection.len != 0:
                 let oldPos = cursorPos
                 t.mText.getClosestCursorPositionToPoint(pt, cursorPos, cursorOffset)
@@ -362,7 +363,6 @@ method onKeyDown*(t: TextField, e: var Event): bool =
 
     if t.editable:
         if e.keyCode == VirtualKey.Backspace:
-            result = true
             if t.textSelection.len > 0: t.clearSelection()
             elif cursorPos > 0:
                 t.mText.uniDelete(cursorPos - 1, cursorPos - 1)
@@ -372,6 +372,7 @@ method onKeyDown*(t: TextField, e: var Event): bool =
 
             t.updateCursorOffset()
             t.bumpCursorVisibility()
+            result = true
         elif e.keyCode == VirtualKey.Delete and not t.mText.isNil:
             if t.textSelection.len > 0: t.clearSelection()
             elif cursorPos < t.mText.runeLen:
@@ -379,6 +380,7 @@ method onKeyDown*(t: TextField, e: var Event): bool =
                 if t.continuous:
                     t.sendAction()
             t.bumpCursorVisibility()
+            result = true
         elif e.keyCode == VirtualKey.Left:
             let oldCursorPos = cursorPos
             dec cursorPos
@@ -389,6 +391,7 @@ method onKeyDown*(t: TextField, e: var Event): bool =
                 t.textSelection = -1 .. -1
             t.updateCursorOffset()
             t.bumpCursorVisibility()
+            result = true
         elif e.keyCode == VirtualKey.Right:
             let oldCursorPos = cursorPos
             inc cursorPos
@@ -402,12 +405,14 @@ method onKeyDown*(t: TextField, e: var Event): bool =
 
             t.updateCursorOffset()
             t.bumpCursorVisibility()
+            result = true
         elif e.keyCode == VirtualKey.Return or e.keyCode == VirtualKey.KeypadEnter:
             if t.multiline:
                 t.insertText("\l")
             else:
                 t.sendAction()
                 t.textSelection = -1 .. -1
+            result = true
         elif e.keyCode == VirtualKey.Home:
             if e.modifiers.anyShift():
                 t.updateSelectionWithCursorPos(cursorPos, 0)
@@ -417,6 +422,7 @@ method onKeyDown*(t: TextField, e: var Event): bool =
             cursorPos = 0
             t.updateCursorOffset()
             t.bumpCursorVisibility()
+            result = true
         elif e.keyCode == VirtualKey.End:
             if e.modifiers.anyShift():
                 t.updateSelectionWithCursorPos(cursorPos, t.mText.runeLen)
@@ -426,6 +432,7 @@ method onKeyDown*(t: TextField, e: var Event): bool =
             cursorPos = t.mText.runeLen
             t.updateCursorOffset()
             t.bumpCursorVisibility()
+            result = true
         elif t.multiline:
             if e.keyCode == VirtualKey.Down:
                 let oldCursorPos = cursorPos
@@ -438,6 +445,7 @@ method onKeyDown*(t: TextField, e: var Event): bool =
                 else:
                     t.textSelection = -1 .. -1
                 t.bumpCursorVisibility()
+                result = true
             elif e.keyCode == VirtualKey.Up:
                 let oldCursorPos = cursorPos
                 let ln = t.mText.lineOfRuneAtPos(cursorPos)
@@ -450,7 +458,7 @@ method onKeyDown*(t: TextField, e: var Event): bool =
                     else:
                         t.textSelection = -1 .. -1
                     t.bumpCursorVisibility()
-
+                result = true
     if t.selectable or t.editable:
         let cmd = commandFromEvent(e)
         if cmd == kcSelectAll: t.selectAll()
@@ -462,7 +470,7 @@ method onKeyDown*(t: TextField, e: var Event): bool =
                     let s = pasteboardWithName(PboardGeneral).readString()
                     if s.len != 0:
                         t.insertText(s)
-
+                    result = true
         when defined(macosx) or defined(windows) or defined(linux) or defined(emscripten) or defined(js):
             if cmd in { kcCopy, kcCut, kcUseSelectionForFind }:
                 let s = t.selectedText()
@@ -473,6 +481,9 @@ method onKeyDown*(t: TextField, e: var Event): bool =
                         pasteboardWithName(PboardGeneral).writeString(s)
                     if cmd == kcCut and t.editable:
                         t.clearSelection()
+                result = true
+
+        result = result or (t.editable and e.modifiers.isEmpty())
 
 method onTextInput*(t: TextField, s: string): bool =
     if not t.editable: return false
@@ -484,6 +495,10 @@ method viewShouldResignFirstResponder*(v: TextField, newFirstResponder: View): b
     cursorUpdateTimer.clear()
     cursorVisible = false
     v.textSelection = -1 .. -1
+
+    if not v.window.isNil:
+        v.window.stopTextInput()
+
     v.sendAction()
 
 method viewDidBecomeFirstResponder*(t: TextField) =

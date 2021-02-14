@@ -93,7 +93,7 @@ proc removeTotalProgressHandlers*(a: Animation) =
 proc removeLoopProgressHandlers*(a: Animation) =
     a.loopProgressHandlers.setLen(0)
 
-proc `continueUntilEndOfLoopOnCancel=`*(a: Animation, bval: bool)=
+proc `continueUntilEndOfLoopOnCancel=`*(a: Animation, bval: bool) =
     if bval:
         a.cancelBehavior = cbContinueUntilEndOfLoop
     else:
@@ -252,14 +252,14 @@ template interpolate*(fromValue, toValue: SomeInteger, p: float): auto = fromVal
 when defined(js): ## workaround for int64 in javascript
     template interpolate*(fromValue, toValue: int64, p: float): int64 = fromValue + int(float(toValue - fromValue) * p)
 
-template setInterpolationAnimation(a: Animation, ident: untyped, fromVal, toVal: untyped, body: untyped): typed =
+template setInterpolationAnimation(a: Animation, ident: untyped, fromVal, toVal: untyped, body: untyped) =
     let fv = fromVal
     let tv = toVal
     a.onAnimate = proc(p: float) =
         let ident {.inject, hint[XDeclaredButNotUsed]: off.} = interpolate(fv, tv, p)
         body
 
-macro animate*(a: Animation, what: untyped, how: untyped): typed =
+macro animate*(a: Animation, what: untyped, how: untyped): untyped =
     let ident = what[1]
     let fromVal = what[2][1]
     let toVal = what[2][2]

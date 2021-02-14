@@ -1,8 +1,7 @@
 import abstract_pasteboard
 export abstract_pasteboard
 import pasteboard_item
-import os, times
-import xlib, x, xatom, xutil
+import x11/[xlib, x, xatom]
 import nimx/app, nimx/private/windows/sdl_window
 import sdl2
 
@@ -12,7 +11,7 @@ const XINT_MAX = 32767
 type WMinfoX11 = object
     version*: SDL_Version
     subsystem*: SysWMType
-    display*: pointer
+    display*: PDisplay
     window*: culong
 
 proc getTextFormat(d: PDisplay): TAtom =
@@ -26,69 +25,71 @@ const x11ClipboardSelection = "CLIPBOARD"
 proc nimxCutBuffer(display: PDisplay): TAtom =
     result = XInternAtom(display, "SDL_CUTBUFFER", 0)
 
-template displayConnection(body: untyped)=
-    var keyWnd = mainApplication().keyWindow()
+proc displayConnection(): (PDisplay, TWindow, TWindow) =
+    let keyWnd = mainApplication().keyWindow()
     if keyWnd.isNil: return
 
-    var winInfo: WMinfoX11
+    var winInfo: WMinfo
     getVersion(winInfo.version)
 
-    if keyWnd.SdlWindow.getSDLWindow().getWMInfo(cast[ptr WMInfo](addr winInfo)[]) == False32 and winInfo.display.isNil:
-        raise newException(Exception, "Can't retreive SDLWindow info")
+    let res = keyWnd.SdlWindow.getSDLWindow().getWMInfo(winInfo)
+    let wi = cast[ptr WMinfoX11](addr winInfo)
+    let diplay = wi.display
 
-    var display{.inject, used.} = cast[PDisplay](winInfo.display)
-    var window{.inject, used.} = cast[TWindow](winInfo.window)
+    if res == False32 or winInfo.subsystem != SysWM_X11 or diplay.isNil:
+        return
 
-    assert(not display.isNil)
-    var rootWindow{.inject, used.} = DefaultRootWindow(display)
-
-    body
+    (diplay, wi.window, DefaultRootWindow(diplay))
 
 proc pbWrite(p: Pasteboard, pi_ar: varargs[PasteboardItem])=
-    displayConnection:
-        var format = getTextFormat(display)
-        let clipboard = XInternAtom(display, x11ClipboardSelection, 0)
-        let cutBuffer = nimxCutBuffer(display)
-        for pi in pi_ar:
-            discard XChangeProperty(display, rootWindow, cutBuffer, format, 8.cint, PropModeReplace, pi.data.Pcuchar, pi.data.len.cint)
-            if clipboard != None and XGetSelectionOwner(display, clipboard) != window:
-                discard XSetSelectionOwner(display, clipboard, window, CurrentTime)
-            if XGetSelectionOwner(display, XA_PRIMARY) != window:
-                discard XSetSelectionOwner(display, XA_PRIMARY, window, CurrentTime)
+    let (display, window, rootWindow) = displayConnection()
+    if display.isNil: return
+
+    var format = getTextFormat(display)
+    let clipboard = XInternAtom(display, x11ClipboardSelection, 0)
+    let cutBuffer = nimxCutBuffer(display)
+    for pi in pi_ar:
+        discard XChangeProperty(display, rootWindow, cutBuffer, format, 8.cint, PropModeReplace, pi.data.Pcuchar, pi.data.len.cint)
+        if clipboard != None and XGetSelectionOwner(display, clipboard) != window:
+            discard XSetSelectionOwner(display, clipboard, window, CurrentTime)
+        if XGetSelectionOwner(display, XA_PRIMARY) != window:
+            discard XSetSelectionOwner(display, XA_PRIMARY, window, CurrentTime)
 
 proc pbRead(p: Pasteboard, kind: string): PasteboardItem =
-    displayConnection:
-        var format = getTextFormat(display)
-        let clipboard = XInternAtom(display, x11ClipboardSelection, 0)
-        let cutBuffer = nimxCutBuffer(display)
-        var selection: TAtom
-        var owner = XGetSelectionOwner(display, clipboard)
+    let (display, window, rootWindow) = displayConnection()
+    if display.isNil: return
 
-        if owner == None:
-            owner = rootWindow
-            selection = XA_CUT_BUFFER0
-            format = XA_STRING
+    var format = getTextFormat(display)
+    let clipboard = XInternAtom(display, x11ClipboardSelection, 0)
+    let cutBuffer = nimxCutBuffer(display)
+    var selection: TAtom
+    var owner = XGetSelectionOwner(display, clipboard)
 
-        elif owner == window:
-            owner = rootWindow
-            selection = cutBuffer
-        else:
-            owner = window
-            selection = XInternAtom(display, "SDL_SELECTION", 0)
-            discard XConvertSelection(display, clipboard, format, selection, owner, CurrentTime)
+    if owner == None:
+        owner = rootWindow
+        selection = XA_CUT_BUFFER0
+        format = XA_STRING
 
-        var selType: TAtom
-        var selFormat: cint
-        var bytes: culong = 0
-        var overflow: culong = 0
-        var src : cstring
+    elif owner == window:
+        owner = rootWindow
+        selection = cutBuffer
+    else:
+        owner = window
+        selection = XInternAtom(display, "SDL_SELECTION", 0)
+        discard XConvertSelection(display, clipboard, format, selection, owner, CurrentTime)
 
-        if XGetWindowProperty(display, owner, selection, 0.clong, (XINT_MAX div 4).clong, 0.TBool, format, (addr selType).PAtom,
-            (addr selFormat).PCint, (addr bytes).Pculong, (addr overflow).Pculong, cast[PPcuchar](addr src)) == Success:
-            if selType == format:
-                var data = $src
-                result = newPasteboardItem(PboardKindString, data)
-                discard XFree(src)
+    var selType: TAtom
+    var selFormat: cint
+    var bytes: culong = 0
+    var overflow: culong = 0
+    var src : cstring
+
+    if XGetWindowProperty(display, owner, selection, 0.clong, (XINT_MAX div 4).clong, 0.XBool, format, (addr selType).PAtom,
+        (addr selFormat).PCint, (addr bytes).Pculong, (addr overflow).Pculong, cast[PPcuchar](addr src)) == Success:
+        if selType == format:
+            var data = $src
+            result = newPasteboardItem(PboardKindString, data)
+            discard XFree(src)
 
 proc pasteboardWithName*(name: string): Pasteboard=
     var res = new(X11Pasteboard)

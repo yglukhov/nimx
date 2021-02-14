@@ -20,8 +20,8 @@ Usage
 .. code-block:: nim
 
     # File: main.nim
-    import nimx.window
-    import nimx.text_field
+    import nimx/window
+    import nimx/text_field
 
     proc startApp() =
         # First create a window. Window is the root of view hierarchy.

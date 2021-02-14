@@ -293,9 +293,9 @@ method deserialize(s: JsonDeserializer, v: var uint64) =
     v = s.deserializeJsonNode.getBiggestInt().uint64
 
 method deserialize(s: JsonDeserializer, v: var float32) =
-    v = s.deserializeJsonNode.getFNum().float32
+    v = s.deserializeJsonNode.getFloat().float32
 method deserialize(s: JsonDeserializer, v: var float64) =
-    v = s.deserializeJsonNode.getFNum().float64
+    v = s.deserializeJsonNode.getFloat().float64
 
 method deserialize(s: JsonDeserializer, v: var string) =
     let n = s.deserializeJsonNode()

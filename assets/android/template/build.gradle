@@ -8,8 +8,8 @@ buildscript {
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:3.1.3'
-        classpath 'com.android.tools.lint:lint-gradle:26.1.3'
+        classpath 'com.android.tools.build:gradle:3.5.2'
+        // classpath 'com.android.tools.lint:lint-gradle:26.1.3'
     }
 }
 
@@ -28,7 +28,9 @@ android {
 
     defaultConfig {
         ndk {
-            abiFilter 'armeabi-v7a'
+            // We get targetArchitectures from names of dirs in $projectDir/jni/src, as that's where naketools put nimcache
+            def targetArchitectures = file("$projectDir/jni/src").listFiles().findAll { it.isDirectory() }.collect { it.name }
+            abiFilters = targetArchitectures
         }
 
         externalNativeBuild {

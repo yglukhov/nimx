@@ -13,10 +13,6 @@ method init*(v: InspectorView, r: Rect) =
     procCall v.LinearLayout.init(r)
     v.horizontal = false
 
-proc removeAllSubviews(v: InspectorView) =
-    while v.subviews.len > 0:
-        v.subviews[0].removeFromSuperview()
-
 proc setInspectedObject*[T](v: InspectorView, o: T) =
     v.removeAllSubviews()
 

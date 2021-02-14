@@ -1,7 +1,6 @@
 import strutils
 import sample_registry
-import nimx / [ collection_view, image, popup_button, slider, text_field, timer,
-                view ]
+import nimx / [ collection_view, popup_button, slider, text_field, timer, view ]
 
 type CollectionsSampleView = ref object of View
 

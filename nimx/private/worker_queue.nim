@@ -1,23 +1,27 @@
-import locks, os
+import locks
 
 type TaskListNode = object
-    p: proc(data: pointer) {.cdecl.}
+    p: proc(data: pointer) {.cdecl, gcsafe.}
     data: pointer
     next: ptr TaskListNode
 
-type WorkerQueue* = ref object
-    queueCond: Cond
-    queueLock: Lock
-    taskList: ptr TaskListNode
-    lastTask: ptr TaskListNode
-    threads: seq[Thread[pointer]]
+type
+    WorkerQueue* = ref WorkerQueueObj
+    WorkerQueueObj = object
+        queueCond: Cond
+        queueLock: Lock
+        taskList: ptr TaskListNode
+        lastTask: ptr TaskListNode
+        threads: seq[Thread[pointer]]
 
-proc finalize(w: WorkerQueue) =
-    w.queueCond.deinitCond()
-    w.queueLock.deinitLock()
+# proc finalize(w: WorkerQueue) =
+#     # This will not work, so it's not used.
+#     # This is a leak! It's used in nimx image because it's global anyway.
+#     w.queueCond.deinitCond()
+#     w.queueLock.deinitLock()
 
 proc threadWorker(qu: pointer) {.thread.} =
-    let q = cast[WorkerQueue](qu)
+    let q = cast[ptr WorkerQueueObj](qu)
     while true:
         var t: ptr TaskListNode
         q.queueLock.acquire()
@@ -37,7 +41,7 @@ proc threadWorker(qu: pointer) {.thread.} =
         deallocShared(t)
 
 proc newWorkerQueue*(maxThreads : int = 0): WorkerQueue =
-    result.new(finalize)
+    result.new()
     result.queueCond.initCond()
     result.queueLock.initLock()
     let mt = if maxThreads == 0: 2 else: maxThreads
@@ -45,7 +49,7 @@ proc newWorkerQueue*(maxThreads : int = 0): WorkerQueue =
     for i in 0 ..< mt:
         result.threads[i].createThread(threadWorker, cast[pointer](result))
 
-proc addTask*(q: WorkerQueue, p: proc(data: pointer) {.cdecl.}, data: pointer) =
+proc addTask*(q: WorkerQueue, p: proc(data: pointer) {.cdecl, gcsafe.}, data: pointer) =
     let task = cast[ptr TaskListNode](allocShared(sizeof(TaskListNode)))
     task.p = p
     task.data = data
@@ -60,6 +64,7 @@ proc addTask*(q: WorkerQueue, p: proc(data: pointer) {.cdecl.}, data: pointer) =
     q.queueLock.release()
 
 when isMainModule:
+    import os
     proc worker(data: pointer) {.cdecl.} =
         echo "worker doing: ", cast[int](data)
         sleep(500)

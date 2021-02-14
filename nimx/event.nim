@@ -16,6 +16,8 @@ type EventType* = enum
     etTextEditing
     etAppWillEnterBackground
     etAppWillEnterForeground
+    etAppDidEnterBackground
+    etAppDidEnterForeground
 
 type ButtonState* = enum
     bsUnknown

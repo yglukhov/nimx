@@ -1,20 +1,12 @@
 import times, json, math, async
 
-import nimx / [ view, panel_view, context, undo_manager, button, menu, resource, window]
-import nimx / inspector_panel
-
-import nimx / gesture_detector
-import nimx / [ window_event_handling, event, view_event_handling ]
+import nimx / [view, panel_view, context, undo_manager, toolbar, button, menu, inspector_panel,
+            gesture_detector, window_event_handling, view_event_handling, abstract_window,
+            serializers, key_commands ]
 
 import nimx/property_editors/[autoresizing_mask_editor, standard_editors] # Imported here to be registered in the propedit registry
-import nimx/serializers
-import nimx/key_commands
 import nimx/pasteboard/pasteboard
-
-import ui_document
-import grid_drawing
-import editor_types
-import editor_workspace
+import ui_document, grid_drawing, editor_types, editor_workspace
 
 proc `selectedView=`(e: Editor, v: View) =
     e.mSelectedView = v

@@ -4,7 +4,6 @@
 ## member names do not define characters but rather 'common' characters
 ## on those keys places (so that e.g. 'k' and 'K' share same scan code).
 
-import tables
 import private/js_platform_detector
 
 type VirtualKey* {.pure.} = enum
@@ -233,5 +232,7 @@ proc anyOsModifier*(s: ModifiersSet): bool =
             s.anyCtrl()
     else:
         s.anyCtrl()
+
+proc isEmpty*(s: ModifiersSet): bool = s.int16 == 0
 
 {.pop.}

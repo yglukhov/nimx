@@ -13,7 +13,6 @@ import text_field
 import view_event_handling
 import view_dragging_listener
 import button
-import app
 
 import nimx / meta_extensions / [ property_desc, visitors_gen, serializers_gen ]
 

@@ -16,7 +16,6 @@ proc newPopupButton(r: Rect): PopupButton =
 
 method init*(b: PopupButton, r: Rect) =
     procCall b.Control.init(r)
-    b.mItems = @[]
     b.mSelectedIndex = -1
 
 proc `items=`*(b: PopupButton, items: openarray[string]) =

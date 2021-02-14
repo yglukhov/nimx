@@ -1,4 +1,4 @@
-import control, context, image, types, event, font, app, composition
+import control, context, image, types, event, font, composition
 import view_event_handling
 
 import property_visitor, serializers
@@ -13,8 +13,8 @@ type ButtonStyle* = enum
     bsRegular
     bsCheckbox
     bsRadiobox
-    bsImage
-    bsNinePartImage
+    bsImage {.deprecated.}
+    bsNinePartImage {.deprecated.}
 
 type ButtonBehavior* = enum
     bbMomentaryLight
@@ -133,20 +133,18 @@ void compose() {
 }
 """
 
-proc drawRegularStyle(b: Button, r: Rect) {.inline.} =
-    if b.hasBezel:
-        regularButtonComposition.draw r:
-            if b.state == bsUp:
-                setUniform("uStrokeColor", newGrayColor(0.78))
-                setUniform("uFillColorStart", if b.enabled: b.backgroundColor else: grayColor())
-                setUniform("uFillColorEnd", if b.enabled: b.backgroundColor else: grayColor())
-                setUniform("uShadowOffset", -0.5'f32)
-            else:
-                setUniform("uStrokeColor", newColor(0.18, 0.50, 0.98))
-                setUniform("uFillColorStart", newColor(0.31, 0.60, 0.98))
-                setUniform("uFillColorEnd", newColor(0.09, 0.42, 0.88))
-                setUniform("uShadowOffset", 0.0'f32)
-    b.drawTitle(0)
+proc drawRegularBezel(b: Button) =
+    regularButtonComposition.draw b.bounds:
+        if b.state == bsUp:
+            setUniform("uStrokeColor", newGrayColor(0.78))
+            setUniform("uFillColorStart", if b.enabled: b.backgroundColor else: grayColor())
+            setUniform("uFillColorEnd", if b.enabled: b.backgroundColor else: grayColor())
+            setUniform("uShadowOffset", -0.5'f32)
+        else:
+            setUniform("uStrokeColor", newColor(0.18, 0.50, 0.98))
+            setUniform("uFillColorStart", newColor(0.31, 0.60, 0.98))
+            setUniform("uFillColorEnd", newColor(0.09, 0.42, 0.88))
+            setUniform("uShadowOffset", 0.0'f32)
 
 var checkButtonComposition = newComposition """
 uniform vec4 uStrokeColor;
@@ -225,26 +223,15 @@ proc drawRadioboxStyle(b: Button, r: Rect) =
 
     b.drawTitle(bezelRect.width + 1)
 
-proc drawImageStyle(b: Button, r: Rect) =
-    if b.hasBezel:
-        regularButtonComposition.draw r:
-            if b.state == bsUp:
-                setUniform("uStrokeColor", newGrayColor(0.78))
-                setUniform("uFillColorStart", if b.enabled: b.backgroundColor else: grayColor())
-                setUniform("uFillColorEnd", if b.enabled: b.backgroundColor else: grayColor())
-            else:
-                setUniform("uStrokeColor", newColor(0.18, 0.50, 0.98))
-                setUniform("uFillColorStart", newColor(0.31, 0.60, 0.98))
-                setUniform("uFillColorEnd", newColor(0.09, 0.42, 0.88))
-
-    if not b.image.isNil:
-        let c = currentContext()
+proc drawImage(b: Button) =
+    let c = currentContext()
+    let r = b.bounds
+    if b.imageMarginLeft != 0 or b.imageMarginRight != 0 or
+            b.imageMarginTop != 0 or b.imageMarginBottom != 0:
+        c.drawNinePartImage(b.image, b.bounds, b.imageMarginLeft, b.imageMarginTop, b.imageMarginRight, b.imageMarginBottom)
+    else:
         c.drawImage(b.image, newRect(r.x + b.imageMarginLeft, r.y + b.imageMarginTop,
             r.width - b.imageMarginLeft - b.imageMarginRight, r.height - b.imageMarginTop - b.imageMarginBottom))
-
-proc drawNinePartImageStyle(b: Button, r: Rect) =
-    let c = currentContext()
-    c.drawNinePartImage(b.image, b.bounds, b.imageMarginLeft, b.imageMarginTop, b.imageMarginRight, b.imageMarginBottom)
 
 method draw(b: Button, r: Rect) =
     case b.style
@@ -252,12 +239,12 @@ method draw(b: Button, r: Rect) =
         b.drawRadioboxStyle(r)
     of bsCheckbox:
         b.drawCheckboxStyle(r)
-    of bsImage:
-        b.drawImageStyle(r)
-    of bsNinePartImage:
-        b.drawNinePartImageStyle(r)
     else:
-        b.drawRegularStyle(r)
+        if not b.image.isNil:
+            b.drawImage()
+        elif b.hasBezel:
+            b.drawRegularBezel()
+        b.drawTitle(0)
 
 proc setState*(b: Button, s: ButtonState) =
     if b.state != s:
@@ -314,8 +301,9 @@ proc handleToggleTouchEv(b: Button, e: var Event): bool =
     of bsUp:
         if e.localPosition.inRect(b.bounds):
             b.value = toggleValue(b.value)
+            b.setNeedsDisplay()   
             b.sendAction(e)
-        b.setState(if b.value == 1: bsDown else: bsUp)
+        b.setState(if b.value == 1: bsDown else: bsUp)     
     result = true
 
 method onTouchEv*(b: Button, e: var Event): bool =

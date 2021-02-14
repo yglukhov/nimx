@@ -101,7 +101,7 @@ type WindowsPasteboard = ref object of Pasteboard
 proc getPasteboardItem(k: UINT, lpstr: LPVOID, lpdat: Handle): PasteboardItem =
     var lpdatLen = globalSize(lpdat)
     if not *lpdatLen: error()
-    var str = newWideCString("",lpdatLen)
+    var str = newWideCString("",int(lpdatLen))
     copyMem(addr(str[0]), lpstr, csize(lpdatLen) )
 
     var data = str$lpdatLen.int32
@@ -121,7 +121,7 @@ proc pbWrite(p: Pasteboard, pi_ar: varargs[PasteboardItem])=
         for pi in pi_ar:
             let fKind = getClipboardFormatByString(pi.kind)
             let cwstr = newWideCString(pi.data)
-            let size = csize(cwstr.len + 1) * sizeof(Utf16Char)
+            let size = csize((cwstr.len + 1) * sizeof(Utf16Char))
             var allmem = globalAlloc(GMEM_MOVEABLE, size)
             let pBuf = globalLock(allmem)
             if not pBuf.isNil:

@@ -30,6 +30,21 @@ proc editorFont*(): Font =
 
 const editorRowHeight* = 16
 
+template createEditorAUX(r: Rect) =
+    let editor = creator(editedObject, v)
+    editor.name = "editor"
+    editor.setFrameOrigin(r.origin)
+    var sz = newSize(r.size.width, editor.frame.height)
+    editor.setFrameSize(sz)
+    editor.autoresizingMask = {afFlexibleWidth, afFlexibleMaxY}
+    result.addSubview(editor)
+
+    sz = result.frame.size
+    sz.height = editor.frame.height
+    result.setFrameSize(sz)
+
+    editor.changeInspector = changeInspectorCallback
+
 proc propertyEditorForProperty*(editedObject: Variant, title: string, v: Variant, notUsed, changeInspectorCallback: proc() = nil): View =
     let creator = propEditors.getOrDefault(v.typeId)
     result = View.new(newRect(0, 0, 328, editorRowHeight))
@@ -57,6 +72,3 @@ proc propertyEditorForProperty*(editedObject: Variant, title: string, v: Variant
         result.setFrameSize(sz)
 
         editor.changeInspector = changeInspectorCallback
-
-
-

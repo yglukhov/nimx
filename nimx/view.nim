@@ -1,8 +1,5 @@
-import typetraits, tables, sequtils
-import types
-import context
-import animation
-import animation_runner
+import typetraits, tables
+import types, context, animation_runner, layout_vars
 import property_visitor
 import class_registry
 import serializers
@@ -36,7 +33,7 @@ type
         inst: Constraint
 
     LayoutInfo = object
-        vars*: ViewLayoutVars
+        vars*: LayoutVars
         constraints: seq[ConstraintWithPrototype]
 
     View* = ref object of RootRef
@@ -54,6 +51,7 @@ type
         mouseInside*: bool
         handleMouseOver: bool
         hidden*: bool
+        usesNewLayout*: bool
         dragDestination*: DragDestinationDelegate
         layout*: LayoutInfo
 
@@ -64,52 +62,15 @@ type
         needsLayout*: bool
         mouseOverListeners*: seq[View]
         pixelRatio*: float32
+        viewportPixelRatio*: float32
         mActiveBgColor*: Color
         layoutSolver*: Solver
         onClose*: proc()
         mCurrentTouches*: TableRef[int, View]
         mAnimationEnabled*: bool
 
-    ViewLayoutVars = object
-        x*, y*, width*, height*: Variable
-
-proc centerX*(phs: ViewLayoutVars): Expression = phs.x + phs.width / 2
-proc centerY*(phs: ViewLayoutVars): Expression = phs.y + phs.height / 2
-
-proc left*(phs: ViewLayoutVars): Variable {.inline.} = phs.x
-proc right*(phs: ViewLayoutVars): Expression {.inline.} = phs.x + phs.width
-
-proc top*(phs: ViewLayoutVars): Variable {.inline.} = phs.y
-proc bottom*(phs: ViewLayoutVars): Expression = phs.y + phs.height
-
-const leftToRight = true
-
-proc leading*(phs: ViewLayoutVars): Expression =
-    if leftToRight: newExpression(newTerm(phs.left)) else: -phs.right
-
-proc trailing*(phs: ViewLayoutVars): Expression =
-    if leftToRight: phs.right else: -newExpression(newTerm(phs.left))
-
-proc origin*(phs: ViewLayoutVars): array[2, Expression] = [newExpression(newTerm(phs.x)), newExpression(newTerm(phs.y))]
-proc center*(phs: ViewLayoutVars): array[2, Expression] = [phs.centerX, phs.centerY]
-proc size*(phs: ViewLayoutVars): array[2, Expression] = [newExpression(newTerm(phs.width)), newExpression(newTerm(phs.height))]
-
-var prevPHS*, nextPHS*, superPHS*, selfPHS*: ViewLayoutVars
-
-proc init(phs: var ViewLayoutVars) =
-    phs.x = newVariable("x", 0)
-    phs.y = newVariable("y", 0)
-    phs.width = newVariable("width", 0)
-    phs.height = newVariable("height", 0)
-
-init(prevPHS)
-init(nextPHS)
-init(superPHS)
-init(selfPHS)
-
 proc init(i: var LayoutInfo) =
     i.vars.init()
-    i.constraints = @[]
 
 proc replacePlaceholderVar(view: View, indexOfViewInSuper: int, v: var Variable) =
     var prevView, nextView: View
@@ -174,23 +135,35 @@ proc instantiateConstraint(v: View, c: var ConstraintWithPrototype) =
     assert(not v.window.isNil, "Internal error")
     v.window.layoutSolver.addConstraint(ic)
 
+proc findConstraint(v: View, c: Constraint): int {.inline.} =
+    for i, cc in v.layout.constraints:
+        if cc.proto == c:
+            return i
+    return -1
+
 proc addConstraint*(v: View, c: Constraint) =
     v.layout.constraints.add(ConstraintWithPrototype(proto: c))
     if not v.window.isNil:
         v.instantiateConstraint(v.layout.constraints[^1])
 
+proc addConstraints*(v: View, cc: openarray[Constraint]) =
+    for c in cc: v.addConstraint(c)
+
 proc removeConstraint*(v: View, c: Constraint) =
-    var idx = -1
-    for i in 0 ..< v.layout.constraints.len:
-        if v.layout.constraints[i].proto == c:
-            idx = i
-            break
+    let idx = v.findConstraint(c)
     assert(idx != -1)
     let inst = v.layout.constraints[idx].inst
     v.layout.constraints.del(idx)
     if not v.window.isNil:
         assert(not inst.isNil)
         v.window.layoutSolver.removeConstraint(inst)
+
+proc removeConstraints*(v: View, cc: openarray[Constraint]) =
+    for c in cc: v.removeConstraint(c)
+
+proc constraints*(v: View): seq[Constraint] =
+    result = newSeqOfCap[Constraint](v.layout.constraints.len)
+    for c in v.layout.constraints: result.add(c.proto)
 
 method init*(v: View, frame: Rect) {.base.} =
     v.frame = frame
@@ -199,6 +172,7 @@ method init*(v: View, frame: Rect) {.base.} =
     v.subviews = @[]
     v.gestureDetectors = @[]
     v.autoresizingMask = { afFlexibleMaxX, afFlexibleMaxY }
+    v.usesNewLayout = frame == zeroRect
 
 proc addMouseOverListener(w: Window, v: View) =
     let i = w.mouseOverListeners.find(v)
@@ -392,11 +366,14 @@ proc insertSubviewAfter*(v, s, a: View) = v.insertSubview(s, v.subviews.find(a) 
 proc insertSubviewBefore*(v, s, a: View) = v.insertSubview(s, v.subviews.find(a))
 proc addSubview*(v: View, s: View) = v.insertSubview(s, v.subviews.len)
 
-method replaceSubview*(v, s, withView: View) {.base.} =
+method replaceSubview*(v: View, subviewIndex: int, withView: View) {.base.} =
+    v.subviews[subviewIndex].removeFromSuperview()
+    v.insertSubview(withView, subviewIndex)
+
+proc replaceSubview*(v, s, withView: View) =
     assert(s.superview == v)
     let i = v.subviews.find(s)
-    s.removeFromSuperview()
-    v.insertSubview(withView, i)
+    v.replaceSubview(i, withView)
 
 proc findSubview*(v: View, n: string): View=
     for s in v.subviews:
@@ -610,18 +587,40 @@ method deserializeFields*(v: View, s: Deserializer) =
     s.deserialize("arMask", v.autoresizingMask)
     s.deserialize("color", v.backgroundColor)
 
-proc isLastInTreeBranch(d: View): bool =
+proc isLastInSuperview(d: View): bool =
     d.superview.subviews[^1] == d
+
+proc constraintsForFixedFrame*(f: Rect, superSize: Size, m: set[AutoresizingFlag]): seq[Constraint] =
+    # Don't use!
+    if afFlexibleMinX in m:
+        result.add(selfPHS.width == f.width)
+        result.add(selfPHS.right == superPHS.right - (superSize.width - f.maxX))
+    elif afFlexibleWidth in m:
+        result.add(selfPHS.left == superPHS.left + f.x)
+        result.add(selfPHS.right == superPHS.right - (superSize.width - f.maxX))
+    else:
+        result.add(selfPHS.left == superPHS.left + f.x)
+        result.add(selfPHS.width == f.width)
+
+    if afFlexibleMinY in m:
+        result.add(selfPHS.height == f.height)
+        result.add(selfPHS.bottom == superPHS.bottom - (superSize.height - f.maxY))
+    elif afFlexibleHeight in m:
+        result.add(selfPHS.top == superPHS.top + f.y)
+        result.add(selfPHS.bottom == superPHS.bottom - (superSize.height - f.maxY))
+    else:
+        result.add(selfPHS.top == superPHS.top + f.y)
+        result.add(selfPHS.height == f.height)
 
 proc dump(d, root: View, indent, output: var string, printer: proc(v: View): string) =
     let oldIndentLen = indent.len
     if d != root:
         var p = d.superview
         if p != root:
-            indent &= (if p.isLastInTreeBranch(): "   " else: "│  ")
+            indent &= (if p.isLastInSuperview(): "   " else: "│  ")
 
         output &= indent
-        output &= (if d.isLastInTreeBranch(): "└─ " else: "├─ ")
+        output &= (if d.isLastInSuperview(): "└─ " else: "├─ ")
 
     output &= printer(d)
     output &= '\n'
@@ -648,8 +647,7 @@ registerClass(View)
 ]#
 
 import nimx / serializers
-import nimx / resource_cache
-import nimx / assets / [asset_manager, asset_loading]
+import nimx / assets / [asset_loading]
 import json
 
 proc deserializeView*(jn: JsonNode): View = newJsonDeserializer(jn).deserialize(result)
@@ -669,3 +667,8 @@ proc loadViewAsync*(path: string): Future[View]=
         resf.complete(v)
 
     return resf
+
+# default tabs hacky registering
+import nimx/assets/[asset_loading, json_loading]
+registerAssetLoader(["nimx"]) do(url: string, callback: proc(j: JsonNode)):
+    loadJsonFromURL(url, callback)

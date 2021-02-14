@@ -7,6 +7,10 @@ type TableViewCell* = ref object of View
     row*, col*: int
     selected*: bool
 
+proc newTableViewCell*(): TableViewCell =
+    result.new()
+    result.init(zeroRect)
+
 proc newTableViewCell*(r: Rect): TableViewCell =
     result.new()
     result.init(r)
@@ -19,23 +23,18 @@ proc newTableViewCell*(v: View): TableViewCell =
     v.autoresizingMask = { afFlexibleWidth, afFlexibleHeight }
     result.addSubview(v)
 
-method isTableViewCell*(c: View): TableViewCell {.base.} = nil
-method isTableViewCell*(c: TableViewCell): TableViewCell = c
-
 method selectionColor*(c: TableViewCell): Color {.base.} =
     return newColor(0.0, 0.0, 1.0)
 
-proc enclosingTableViewCell*(v: View): TableViewCell =
-    var iv = v
-    while not iv.isNil:
-        let cell = iv.isTableViewCell()
-        if not cell.isNil: return cell
-        iv = iv.superview
+proc enclosingTableViewCell*(v: View): TableViewCell {.inline.} =
+    v.enclosingViewOfType(TableViewCell)
 
-method draw(c: TableViewCell, r: Rect) =
+method draw*(c: TableViewCell, r: Rect) =
     if c.selected:
         let ctx = currentContext()
         ctx.fillColor = c.selectionColor()
         ctx.strokeWidth = 0
         ctx.drawRect(c.bounds)
     procCall c.View.draw(r)
+
+registerClass(TableViewCell)

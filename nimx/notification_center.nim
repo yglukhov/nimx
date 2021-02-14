@@ -110,15 +110,13 @@ template removeObserver*(nc: NotificationCenter, observerId: ref | SomeOrdinal) 
 macro appendTupleToCall(c: untyped, e: typed): untyped =
     let typ = getTypeInst(e)
     result = c
-    if typ.kind == nnkTupleTy:
-        let ln = typ.len
-        for i in 0 ..< ln:
-            result.add(newNimNode(nnkBracketExpr).add(e, newLit(i)))
-    else:
-        result.add(e)
+    typ.expectKind(nnkTupleConstr)
+    let ln = typ.len
+    for i in 0 ..< ln:
+        result.add(newNimNode(nnkBracketExpr).add(e, newLit(i)))
 
 proc newTupleAux(args: NimNode): NimNode =
-    result = newNimNode(nnkPar)
+    result = newNimNode(nnkTupleConstr)
     for c in args: result.add(c)
 
 macro newTuple(args: varargs[typed]): untyped =
@@ -134,7 +132,7 @@ proc dispatchNotification(nc: NotificationCenter, notificationId: int, ctx: poin
     let obsMap = nc.notificationsMap.getOrDefault(notificationId)
     if not obsMap.isNil:
         # dispatch is reentrant!
-        let vals = toSeq(values(obsMap))
+        let vals = toSeq(obsMap.values)
         for p in vals: dispatch(p, ctx)
 
 proc dispatchForwarder[TProc, TTuple](prc: proc(), ctx: pointer) =
@@ -261,15 +259,18 @@ proc addObserver*(nc: NotificationCenter, ev: string, observerId: ref | SomeOrdi
         nc.observers[ev] = o
     o[obsId] = cb
 
-template postNotification*(nc: NotificationCenter, ev: string, args: Variant) =
+proc postNotification*(nc: NotificationCenter, ev: string, args: Variant) =
     let o = nc.observers.getOrDefault(ev)
     if not o.isNil:
-        for v in o.values:
+        # Prevent reentrancy
+        var s = newSeqOfCap[NCCallback](o.len)
+        for v in o.values: s.add(v)
+        for v in s:
             when defined(debugNC):
                 warn "NC postNotification ", ev, " from ", instantiationInfo(), " with args ", args.typeId
             v(args)
 
-template postNotification*(nc: NotificationCenter, ev: string)=
+proc postNotification*(nc: NotificationCenter, ev: string) {.inline.} =
     when defined(debugNC):
         warn "NC postNotification ", ev, " from ", instantiationInfo()
     nc.postNotification(ev, newVariant())

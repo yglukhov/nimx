@@ -8,7 +8,7 @@ Currently nimx uses [SDL2](https://www.libsdl.org/download-2.0.php) for all plat
 
 Install nimx
 ------------
-Nimx is a regural [nimble](https://github.com/nim-lang/nimble) package so you could either install it or add as a dependecy to your project.
+Nimx is a regular [nimble](https://github.com/nim-lang/nimble) package so you could either install it or add as a dependecy to your project.
 ```sh
 # If you want to install nimx
 nimble install -y nimx

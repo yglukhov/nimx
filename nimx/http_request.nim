@@ -2,7 +2,7 @@ import async_http_request
 export async_http_request
 
 when not defined(js) and not defined(emscripten):
-    import sdl2, perform_on_main_thread, marshal, streams
+    import perform_on_main_thread, marshal, streams
 
     proc storeToSharedBuffer*[T](a: T): pointer =
         let s = newStringStream()
@@ -43,4 +43,7 @@ when not defined(js) and not defined(emscripten):
             cast[SdlHandlerContext](ctx).data = storeToSharedBuffer(r)
             performOnMainThread(callHandler, ctx)
 
-        sendRequestThreaded(meth, url, body, headers, sdlThreadSafeHandler, cast[pointer](ctx))
+        when compileOption("threads"):
+            sendRequestThreaded(meth, url, body, headers, sdlThreadSafeHandler, cast[pointer](ctx))
+        else:
+            doAssert(false, "[Not implemented] Http requests only work with --threads:on")

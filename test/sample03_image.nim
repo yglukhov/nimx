@@ -19,7 +19,7 @@ method init*(v: ImageSampleView, r: Rect) =
 
 proc renderToImage(): Image =
     let r = imageWithSize(newSize(200, 80))
-    r.draw do():
+    r.draw:
         let c = currentContext()
         c.fillColor = newColor(0.5, 0.5, 1)
         c.strokeColor = newColor(1, 0, 0)
