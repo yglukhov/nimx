@@ -182,6 +182,9 @@ proc startNimxEditor*(wnd: Window) {.async.}=
     getSubview[View](topPanel, "gridSize").initPropertyEditor(editor.eventCatchingView, "gridSize", editor.eventCatchingView.gridSize)
 
     editor.inspector = InspectorPanel.new(newRect(0, 0, 300, 600))
+    editor.inspector.onPropertyChanged do(name: string):
+        wnd.setNeedsDisplay()
+
     var propWnd = newWindow(newRect(680, 100, 300, 600))
     propWnd.title = "Inspector"
 
