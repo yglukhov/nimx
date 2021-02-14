@@ -11,7 +11,6 @@ else:
     type GlyphProvider = StbTtfGlyphProvider
 
     import os
-    import write_image_impl
 
 import ttf/edtaa3func
 import private/simple_table

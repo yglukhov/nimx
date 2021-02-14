@@ -164,7 +164,7 @@ proc scaleFactor(w: SdlWindow): float =
                     XrmInitialize() # Need to initialize the DB before calling Xrm* functions
                     let db = XrmGetStringDatabase(resourceString)
                     if not db.isNil:
-                        var value: TXrmValue
+                        var value: XrmValue
                         var typ: cstring
                         if XrmGetResource(db, "Xft.dpi", "String", addr typ, addr value) != 0:
                             if not value.address.isNil:

@@ -1,8 +1,8 @@
 import json, logging
-import url_stream, web_url_handler
+import url_stream
 
 when defined(js):
-    import jsbind
+    import jsbind, web_url_handler
 
 proc loadJsonFromURL*(url: string, handler: proc(j: JsonNode)) =
     when defined(js):

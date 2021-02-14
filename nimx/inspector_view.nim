@@ -15,6 +15,7 @@ method init*(v: InspectorView, r: Rect) =
 
 proc setInspectedObject*[T](v: InspectorView, o: T) =
     v.removeAllSubviews()
+    if o.isNil: return
 
     let oo = newVariant(o)
 

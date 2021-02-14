@@ -1,6 +1,5 @@
 import url_stream
 import async_http_request except Handler
-import logging
 
 import nimx/http_request except Handler
 
@@ -10,6 +9,7 @@ type URLLoadingError* = object
     description*: string
 
 when web:
+    import logging
     import jsbind
 
     when defined(js):

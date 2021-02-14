@@ -1,3 +1,4 @@
+{.used.}
 import nimx/context
 import nimx/view_dragging_listener
 import nimx/linear_layout

@@ -15,6 +15,7 @@ proc moveSubviewToBack(v, s: View) =
         v.subviews.insert(s, 0)
 
 method init*(i: InspectorPanel, r: Rect) =
+    i.draggable = false
     procCall i.PanelView.init(r)
     i.collapsible = true
     i.collapsed = true
@@ -37,4 +38,5 @@ method init*(i: InspectorPanel, r: Rect) =
 
 proc setInspectedObject*[T](i: InspectorPanel, o: T) {.inline.} =
     i.inspectorView.setInspectedObject(o)
+    i.collapsed = o.isNil
     i.contentHeight = i.inspectorView.frame.height

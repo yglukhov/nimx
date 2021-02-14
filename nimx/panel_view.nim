@@ -11,6 +11,7 @@ import view_dragging_listener
 import nimx / meta_extensions / [ property_desc, visitors_gen, serializers_gen ]
 
 type PanelView* = ref object of View
+    draggable*: bool
     collapsible*: bool
     mCollapsed: bool
     contentHeight*: Coord
@@ -33,7 +34,8 @@ method init*(v: PanelView, r: Rect) =
     v.collapsible = false
     v.contentHeight = r.height - v.titleHeight
 
-    v.enableDraggingByBackground()
+    if v.draggable:
+        v.enableDraggingByBackground()
     v.enableViewResizing()
 
     # Enable collapsibility

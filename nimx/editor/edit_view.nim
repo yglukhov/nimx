@@ -10,8 +10,7 @@ import ui_document, grid_drawing, editor_types, editor_workspace
 
 proc `selectedView=`(e: Editor, v: View) =
     e.mSelectedView = v
-    if not v.isNil:
-        e.inspector.setInspectedObject(v)
+    e.inspector.setInspectedObject(v)
 
 template selectedView(e: Editor): View = e.mSelectedView
 
