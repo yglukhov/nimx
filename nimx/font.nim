@@ -222,7 +222,7 @@ proc setGlyphMargin*(f: Font, margin: int32) {.deprecated.} =
     f.glyphMargin = margin
     f.impl = cachedImplForFont(f.filePath, f.size)
 
-proc systemFontOfSize*(size: float): Font =
+proc loadSystemFont(size: float): Font =
     for f in preferredFonts:
         result = newFontWithFace(f, size)
         if result != nil: return
@@ -235,10 +235,19 @@ proc systemFontOfSize*(size: float): Font =
 
 proc systemFont*(): Font =
     if sysFont == nil:
-        sysFont = systemFontOfSize(systemFontSize())
+        sysFont = loadSystemFont(systemFontSize())
     result = sysFont
     if result == nil:
         warn "Could not create system font"
+
+proc systemFontOfSize*(size: float): Font =
+    let f = systemFont()
+    if f != nil and f.size != size:
+        result.new()
+        result[] = f[]
+        result.size = size
+    else:
+        result = f
 
 var dfCtx : DistanceFieldContext[float32]
 
