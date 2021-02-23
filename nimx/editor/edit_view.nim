@@ -2,7 +2,7 @@ import times, json, math, async
 
 import nimx / [view, panel_view, context, undo_manager, toolbar, button, menu, inspector_panel,
             gesture_detector, window_event_handling, view_event_handling, abstract_window,
-            serializers, key_commands ]
+            serializers, key_commands, ui_resource]
 
 import nimx/property_editors/[autoresizing_mask_editor, standard_editors] # Imported here to be registered in the propedit registry
 import nimx/pasteboard/pasteboard
@@ -150,7 +150,7 @@ proc setupSimulateButton(e: Editor, b: Button)=
 
         echo "simulate"
 
-proc startNimxEditor*(wnd: Window) {.async.}=
+proc startNimxEditorAsync*(wnd: Window) {.async.}=
     var editor = new(Editor)
 
     editor.workspace = new(EditorWorkspace, wnd.bounds)
@@ -193,6 +193,9 @@ proc startNimxEditor*(wnd: Window) {.async.}=
 
     wnd.onClose = proc()=
         quit(0)
+
+proc startNimxEditor*(wnd: Window) =
+    asyncCheck startNimxEditorAsync(wnd)
 
 proc subviewAtPointAux(v: View, p: Point): View =
     for i in countdown(v.subviews.len - 1, 0):

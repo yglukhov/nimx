@@ -20,6 +20,7 @@ type
         strokeAttrs: seq[int]
         shadowMultiplier*: Size
         mLineSpacing: float32
+        debugDraw*: bool
 
     LineInfo* = object
         startByte: int
@@ -809,6 +810,7 @@ proc drawStroke(c: GraphicsContext, origP: Point, t: FormattedText) =
 proc drawText*(c: GraphicsContext, origP: Point, t: FormattedText) =
     t.updateCacheIfNeeded()
 
+
     if t.overrideColor.a == 0:
         if t.shadowAttrs.len > 0: c.drawShadow(origP, t)
         if t.strokeAttrs.len > 0: c.drawStroke(origP, t)
@@ -817,6 +819,7 @@ proc drawText*(c: GraphicsContext, origP: Point, t: FormattedText) =
         let font = t.mAttributes[curAttrIndex].font
         let oldBaseline = font.baseline
         font.baseline = bAlphabetic
+
         if t.mAttributes[curAttrIndex].isTextGradient:
             gradientAndStrokeComposition.options = GRADIENT_ENABLED
             let gl = c.gl

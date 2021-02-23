@@ -519,21 +519,6 @@ TextField.properties:
     hasBezel
     text
 
-# method visitProperties*(v: TextField, pv: var PropertyVisitor) =
-#     procCall v.Control.visitProperties(pv)
-#     pv.visitProperty("text", v.text)
-#     pv.visitProperty("editable", v.editable)
-
-# method serializeFields*(v: TextField, s: Serializer) =
-#     procCall v.View.serializeFields(s)
-#     s.serialize("text", v.text)
-#     s.serialize("editable", v.editable)
-
-# method deserializeFields*(v: TextField, s: Deserializer) =
-#     procCall v.View.deserializeFields(s)
-#     s.deserialize("text", v.mText)
-#     s.deserialize("editable", v.editable)
-
 registerClass(TextField)
 genVisitorCodeForView(TextField)
 genSerializeCodeForView(TextField)

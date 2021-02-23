@@ -2,9 +2,7 @@
 import json, async
 
 import editor_types
-import nimx/undo_manager
-import nimx/view
-import nimx/serializers
+import nimx / [ undo_manager, view, serializers, ui_resource ]
 
 const savingAndLoadingEnabled* = not defined(js) and not defined(emscripten) and
         not defined(ios) and not defined(android)
