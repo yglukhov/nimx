@@ -1,4 +1,4 @@
-import streams, strutils, tables
+import streams, strutils, tables, logging
 
 export streams
 
@@ -49,6 +49,7 @@ when not defined(js) and not defined(emscripten):
         let p = getPathFromFileUrl(url)
         let s = newFileStream(p, fmRead)
         if s.isNil:
+            error "Could not open file: " & p, " url ", url
             handler(nil, "Could not open file: " & p)
         else:
             handler(s, "")
