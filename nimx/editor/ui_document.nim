@@ -2,7 +2,7 @@
 import json, async
 
 import editor_types
-import nimx / [ undo_manager, view, serializers, ui_resource ]
+import nimx / [ undo_manager, view, serializers, ui_resource, serializers ]
 
 const savingAndLoadingEnabled* = not defined(js) and not defined(emscripten) and
         not defined(ios) and not defined(android)
@@ -44,6 +44,8 @@ proc fileDialog(title: string, kind: DialogKind): string =
     di.show()
 
 when savingAndLoadingEnabled:
+    import nimx / assets / [asset_loading]
+
     proc save*(d: UIDocument) =
         if d.path.len == 0:
             var di: DialogInfo
@@ -72,12 +74,19 @@ when savingAndLoadingEnabled:
             d.path = path
             d.save()
 
+
+    proc loadViewToEditAsync(path: string): Future[View] =
+        var r = newFuture[View]()
+        loadAsset[JsonNode]("file://" & path) do(jn: JsonNode, err: string):
+            r.complete(deserializeView(jn))
+        result = r
+
     proc loadFromPath*(d: UIDocument, path: string) {.async.}=
         d.path = path
         if d.path.len > 0:
             let superview = d.view.superview
             d.view.removeFromSuperview()
-            d.view = await loadViewAsync(path)
+            d.view = await loadViewToEditAsync(path)
             doAssert(not d.view.isNil)
             if not superview.isNil:
 

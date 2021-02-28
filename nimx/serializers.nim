@@ -247,12 +247,16 @@ type JsonDeserializer* = ref object of Deserializer
     nodeStack: seq[JsonNode]
     node: JsonNode
 
+method init*(s: JsonDeserializer, n: JsonNode) {.base.} =
+    s.nodeStack = @[]
+    s.node = n
+
 proc newJsonDeserializer*(n: JsonNode): JsonDeserializer =
     result.new()
-    result.nodeStack = @[]
-    result.node = n
+    result.init(n)
 
-proc deserializeJsonNode(s: JsonDeserializer): JsonNode =
+
+proc deserializeJsonNode*(s: JsonDeserializer): JsonNode =
     let ln = s.nodeStack[^1]
     if ln.kind == JObject:
         assert(s.curKey.len != 0)

@@ -1,4 +1,6 @@
 import nimx / meta_extensions / property_desc
+import nimx / ui_resource
+export ui_resource
 import macros
 
 proc genSerializeCall(view, serializer, field: NimNode, isSerialize: bool): NimNode {.compileTime.}=
