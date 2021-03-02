@@ -1,8 +1,8 @@
-import nimx / [ view, serializers ]
+import nimx / [ view, serializers, control ]
 import tables, hashes, types
 
 type
-  UIResID* = int
+  UIResID = int
   UIActionCallback* = proc()
   UIResource* = ref object of RootObj
     mView: View
@@ -16,7 +16,7 @@ type
     View loading from resources
 ]#
 
-proc `@`*(str: string): UIResID =
+proc `@`(str: string): UIResID =
   UIResID(hash(str))
 
 import nimx / serializers
@@ -94,14 +94,19 @@ proc loadUiResource*(path: string, onLoad: proc(v: UIResource)) =
 proc loadUiResourceAsync*(path: string): Future[UIResource] =
   result = loadAUXAsync[UIResource](path, deserializeUIResource)
 
-proc viewById*[T](ui: UIResource, id: UIResID): T =
+proc getView(ui: UIResource, T: typedesc, id: UIResID): T =
   result = ui.outlets.getOrDefault(id).T
 
-proc viewById*[T](ui: UIResource, id: string): T =
-  result = viewById[T](ui, @id)
+proc getView*(ui: UIResource, T: typedesc, id: string): T =
+  result = getView(ui, T, @id)
 
 proc view*(ui: UIResource): View =
   ui.mView
+
+proc onAction*(ui: UIResource, name: string, cb: proc()) =
+  let v = ui.getView(Control, name)
+  if v.isNil:
+    raise newException(Exception, "UIResource can't find view by id " & name)
 
 # default tabs hacky registering
 import nimx/assets/[asset_loading, json_loading]

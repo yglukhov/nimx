@@ -170,17 +170,17 @@ proc startNimxEditorAsync*(wnd: Window) {.async.}=
     topPanel.setFrameOrigin(zeroPoint)
     wnd.addSubview(topPanel)
 
-    editor.setupNewViewButton(viewById[Button](ui, @"new_view_btn"))
+    editor.setupNewViewButton(ui.getView(Button, "new_view_btn"))
     when savingAndLoadingEnabled:
-        editor.setupLoadButton(viewById[Button](ui, "open_btn"))
-        editor.setupSaveButton(viewById[Button](ui, "save_btn"))
-    editor.setupSimulateButton(viewById[Button](ui, "simulate"))
+        editor.setupLoadButton(ui.getView(Button, "open_btn"))
+        editor.setupSaveButton(ui.getView(Button, "save_btn"))
+    editor.setupSimulateButton(ui.getView(Button, "simulate"))
 
-    var gridButton = viewById[Button](ui, "grid_button")
+    var gridButton = ui.getView(Button, "grid_button")
     gridButton.onAction do():
         editor.eventCatchingView.toggleGrid()
 
-    viewById[View](ui, "gridSize").initPropertyEditor(editor.eventCatchingView, "gridSize", editor.eventCatchingView.gridSize)
+    ui.getView(View, "gridSize").initPropertyEditor(editor.eventCatchingView, "gridSize", editor.eventCatchingView.gridSize)
 
     editor.inspector = InspectorPanel.new(newRect(0, 0, 300, 600))
     editor.inspector.onPropertyChanged do(name: string):
