@@ -9,6 +9,9 @@ import nimx/panel_view
 import nimx/context
 import nimx/types
 
+import nimx / meta_extensions / [ property_desc, visitors_gen, serializers_gen ]
+
+
 const titleSize = 20.0
 const bottomSize = 30.0
 const maxSize = 768.0
@@ -17,10 +20,11 @@ const minSize = 128.0
 type ImagePreview* = ref object of PanelView
     image*: Image
     title*: string
-    contentView*: View
+    contentView* {.deprecated.}: View
     imgScale*: float
     imageRect*: Rect
 
+#todo: fix this, make image setter
 method init*(v: ImagePreview, r: Rect) =
     let maxLen = max(v.image.size.width, v.image.size.height)
     var scale = 1.0
@@ -109,3 +113,13 @@ proc popupAtPoint*(ip: ImagePreview, v: View, p: Point) =
     origin.y = 35.0
     ip.setFrameOrigin(origin)
     v.window.addSubview(ip)
+
+ImagePreview.properties:
+    image
+    title
+    imgScale
+    imageRect
+
+registerClass(ImagePreview)
+genVisitorCodeForView(ImagePreview)
+genSerializeCodeForView(ImagePreview)

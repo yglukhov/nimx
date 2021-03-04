@@ -23,7 +23,6 @@ type ExpandingView* = ref object of View
     titleBarColor*: Color
     titleTextColor*: Color
 
-
     # initRect: Rect
 
 proc updateFrame(v: ExpandingView) =
@@ -69,7 +68,6 @@ proc init*(v: ExpandingView, r: Rect, hasOffset: bool) =
 
     v.titleBarColor = titleBarColor()
     v.titleTextColor = titleTextColor()
-
     v.updateFrame()
 
 proc expand*(v: ExpandingView) =
@@ -87,7 +85,6 @@ method draw(v: ExpandingView, r: Rect) =
 
     # title
     let c = currentContext()
-    let f = systemFontOfSize(14.0)
     var titleRect: Rect
     titleRect.size.width = r.width
     titleRect.size.height = titleSize
@@ -96,8 +93,10 @@ method draw(v: ExpandingView, r: Rect) =
     c.drawRect(titleRect)
 
     c.fillColor = v.titleTextColor
-    c.drawText(f, newPoint(25, 1), v.title)
+    c.drawText(systemFontOfSize(14.0), newPoint(25, 1), v.title)
 
+
+    v.contentView.hidden = not v.expanded
 
 proc addContent*(v: ExpandingView, subView: View) =
     v.contentView.addSubview(subView)

@@ -39,6 +39,16 @@ method onDrop*(dd: DragDestinationDelegate, target: View, i: PasteboardItem) {.b
 method onDragEnter*(dd: DragDestinationDelegate, target: View, i: PasteboardItem) {.base.} = discard
 method onDragExit*(dd: DragDestinationDelegate, target: View, i: PasteboardItem) {.base.} = discard
 
+proc findSubviewAtPoint*(v: View, p: Point, res: var View) =
+    for i in countdown(v.subviews.len - 1, 0):
+        let s = v.subviews[i]
+        var pp = s.convertPointFromParent(p)
+        if pp.inRect(s.bounds):
+            s.findSubviewAtPoint(pp, res)
+            if not res.isNil:
+                break
+
+
 proc findSubviewAtPointAux*(v: View, p: Point, target: var View): View =
     for i in countdown(v.subviews.len - 1, 0):
         let s = v.subviews[i]
@@ -59,3 +69,5 @@ proc findSubviewAtPointAux*(v: View, p: Point, target: var View): View =
 proc findSubviewAtPoint*(v: View, p: Point): View =
     discard v.findSubviewAtPointAux(p, result)
     if result == v: result = nil
+
+

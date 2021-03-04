@@ -14,6 +14,8 @@ import view_event_handling
 import view_dragging_listener
 import button
 
+import nimx / meta_extensions / [ property_desc, visitors_gen, serializers_gen ]
+
 const
     margin = 6
 
@@ -516,3 +518,11 @@ proc popupAtPoint*(c: ColorPickerView, v: View, p: Point) =
     c.removeFromSuperview()
     c.setFrameOrigin(v.convertPointToWindow(p))
     v.window.addSubview(c)
+
+ColorPickerView.properties:
+    rightMargin
+
+const colorCreat = proc(): RootRef = newColorPickerView(zeroRect)
+registerClass(ColorPickerView, colorCreat)
+genVisitorCodeForView(ColorPickerView)
+genSerializeCodeForView(ColorPickerView)

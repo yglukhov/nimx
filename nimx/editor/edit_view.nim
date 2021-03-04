@@ -1,46 +1,12 @@
-import times, json, math
+import times, json, math, async
 
-import nimx/[view, panel_view, context, undo_manager, toolbar, button, menu, inspector_panel,
-             gesture_detector, window_event_handling, view_event_handling]
+import nimx / [view, panel_view, context, undo_manager, toolbar, button, menu, inspector_panel,
+            gesture_detector, window_event_handling, view_event_handling, abstract_window,
+            serializers, key_commands, ui_resource]
 
-import nimx/property_editors/autoresizing_mask_editor # Imported here to be registered in the propedit registry
-import nimx/serializers
-import nimx/key_commands
+import nimx/property_editors/[autoresizing_mask_editor, standard_editors] # Imported here to be registered in the propedit registry
 import nimx/pasteboard/pasteboard
-
-import ui_document
-import grid_drawing
-
-type
-    EventCatchingView = ref object of View
-        keyUpDelegate*: proc (event: var Event)
-        keyDownDelegate*: proc (event: var Event)
-        mouseScrrollDelegate*: proc (event: var Event)
-        panningView: View # View that we're currently moving/resizing with `panOp`
-        editor: Editor
-        panOp: PanOperation
-        dragStartTime: float
-        origPanRect: Rect
-        origPanPoint: Point
-        gridSize: Size
-
-    Editor* = ref object
-        eventCatchingView: EventCatchingView
-        toolbar: Toolbar
-        inspector: InspectorPanel
-        mSelectedView: View # View that we currently draw selection rect around
-        document: UIDocument
-
-    PanOperation = enum
-        poDrag
-        poDragTL
-        poDragT
-        poDragTR
-        poDragB
-        poDragBR
-        poDragBL
-        poDragL
-        poDragR
+import ui_document, grid_drawing, editor_types, editor_workspace
 
 proc `selectedView=`(e: Editor, v: View) =
     e.mSelectedView = v
@@ -57,6 +23,18 @@ method onKeyUp(v: EventCatchingView, e : var Event): bool =
     # echo "editor onKeyUp ", e.keyCode
     if not v.keyUpDelegate.isNil:
         v.keyUpDelegate(e)
+
+proc gridSize(v: EventCatchingView): float = v.mGridSize
+proc `gridSize=`(v: EventCatchingView, val: float) =
+    v.mGridSize = val
+    v.editor.workspace.gridSize = if v.gridSize >= 10.0: newSize(v.gridSize, v.gridSize) else: zeroSize
+    v.setNeedsDisplay()
+
+proc toggleGrid(v: EventCatchingView)=
+    if v.gridSize == 0.0:
+        v.gridSize = 24.0
+    else:
+        v.gridSize = 0.0
 
 method onKeyDown(v: EventCatchingView, e : var Event): bool =
     let u = v.editor.document.undoManager
@@ -116,22 +94,17 @@ method onKeyDown(v: EventCatchingView, e : var Event): bool =
                 svSuper.addSubview(sv)
                 v.selectedView = sv
     elif e.keyCode == VirtualKey.G:
-        if v.gridSize == zeroSize:
-            v.gridSize = newSize(24, 24)
-        else:
-            v.gridSize = zeroSize
-        v.setNeedsDisplay()
+        v.toggleGrid()
 
     if not v.keyDownDelegate.isNil:
         v.keyDownDelegate(e)
 
 proc endEditing*(e: Editor) =
     e.eventCatchingView.removeFromSuperview()
-    e.toolbar.removeFromSuperview()
 
-proc createNewViewButton(e: Editor) =
-    let b = Button.new(newRect(0, 30, 120, 20))
-    b.title = "New view"
+proc setupNewViewButton(e:Editor, b: Button) =
+    # let b = Button.new(newRect(0, 30, 120, 20))
+    # b.title = "New view"
     b.onAction do():
         var menu : Menu
         menu.new()
@@ -148,67 +121,96 @@ proc createNewViewButton(e: Editor) =
                         v.init(newRect(200, 200, 100, 100))
                         e.document.view.addSubview(v)
                     e.eventCatchingView.selectedView = v
+                    v.name = e.document.defaultName(menuItem.title)
+
                 items.add(menuItem)
 
         menu.items = items
         menu.popupAtPoint(b, newPoint(0, 27))
-    e.toolbar.addSubview(b)
 
 when savingAndLoadingEnabled:
-    proc createLoadButton(e: Editor) =
-        let b = Button.new(newRect(0, 30, 120, 20))
-        b.title = "Open"
+    proc setupLoadButton(e: Editor, b: Button) =
         b.onAction do():
             e.selectedView = nil
             e.document.open()
-        e.toolbar.addSubview(b)
 
-    proc createSaveButton(e: Editor) =
-        let b = Button.new(newRect(0, 30, 120, 20))
-        b.title = "Save As..."
+    proc setupSaveButton(e: Editor, b: Button) =
         b.onAction do():
             e.document.saveAs()
-        e.toolbar.addSubview(b)
 
-proc startEditingInView*(editedView, editingView: View): Editor =
-    ## editedView - the view to edit
-    ## editingView - parent view for the editor UI
-    result.new()
-    result.document = newUIDocument()
-    result.document.view = editedView
+proc setupSimulateButton(e: Editor, b: Button)=
+    b.onAction do():
+        var simulateWnd = newWindow(newRect(100, 100, e.document.view.bounds.width, e.document.view.bounds.height))
+        simulateWnd.title = "Simulate"
+        simulateWnd.addSubview(
+            deserializeView(
+                e.document.serializeView()
+                )
+            )
 
-    let editor = result
+        echo "simulate"
 
-    editor.eventCatchingView = EventCatchingView.new(editingView.bounds)
+proc startNimxEditorAsync*(wnd: Window) {.async.}=
+    var editor = new(Editor)
+
+    editor.workspace = new(EditorWorkspace, wnd.bounds)
+    editor.workspace.autoresizingMask = {afFlexibleWidth, afFlexibleHeight}
+    wnd.addSubview(editor.workspace)
+
+    editor.eventCatchingView = EventCatchingView.new(wnd.bounds)
     editor.eventCatchingView.editor = editor
     editor.eventCatchingView.autoresizingMask = {afFlexibleWidth, afFlexibleHeight}
-    editingView.addSubview(editor.eventCatchingView)
+    wnd.addSubview(editor.eventCatchingView)
 
-    const toolbarHeight = 30
-    editor.toolbar = Toolbar.new(newRect(0, 0, 20, toolbarHeight))
-    editingView.addSubview(editor.toolbar)
+    editor.document = newUIDocument(editor)
+    editor.workspace.addSubview(editor.document.view)
 
-    editor.createNewViewButton()
+    var ui = await loadUiResourceAsync("assets/top_panel.nimx")
+    var topPanel = ui.view
+    topPanel.setFrameOrigin(zeroPoint)
+    wnd.addSubview(topPanel)
+
+    editor.setupNewViewButton(ui.getView(Button, "new_view_btn"))
     when savingAndLoadingEnabled:
-        editor.createLoadButton()
-        editor.createSaveButton()
+        editor.setupLoadButton(ui.getView(Button, "open_btn"))
+        editor.setupSaveButton(ui.getView(Button, "save_btn"))
+    editor.setupSimulateButton(ui.getView(Button, "simulate"))
 
-    editor.inspector = InspectorPanel.new(newRect(680, 100, 300, 600))
-    editingView.addSubview(editor.inspector)
+    var gridButton = ui.getView(Button, "grid_button")
+    gridButton.onAction do():
+        editor.eventCatchingView.toggleGrid()
 
-proc findSubviewAtPointAux(v: View, p: Point): View =
+    ui.getView(View, "gridSize").initPropertyEditor(editor.eventCatchingView, "gridSize", editor.eventCatchingView.gridSize)
+
+    editor.inspector = InspectorPanel.new(newRect(0, 0, 300, 600))
+    editor.inspector.onPropertyChanged do(name: string):
+        wnd.setNeedsDisplay()
+
+    var propWnd = newWindow(newRect(680, 100, 300, 600))
+    propWnd.title = "Inspector"
+
+    editor.inspector.autoresizingMask = {afFlexibleWidth, afFlexibleHeight}
+    propWnd.addSubview(editor.inspector)
+
+    wnd.onClose = proc()=
+        quit(0)
+
+proc startNimxEditor*(wnd: Window) =
+    asyncCheck startNimxEditorAsync(wnd)
+
+proc subviewAtPointAux(v: View, p: Point): View =
     for i in countdown(v.subviews.len - 1, 0):
         let s = v.subviews[i]
         var pp = s.convertPointFromParent(p)
         if pp.inRect(s.bounds):
-            result = s.findSubviewAtPointAux(pp)
+            result = s.subviewAtPointAux(pp)
             if not result.isNil:
                 break
     if result.isNil:
         result = v
 
-proc findSubviewAtPoint(v: View, p: Point): View =
-    result = v.findSubviewAtPointAux(p)
+proc subviewAtPoint(v: View, p: Point): View =
+    result = v.subviewAtPointAux(p)
     if result == v: result = nil
 
 proc knobRect(b: Rect, po: PanOperation): Rect =
@@ -246,11 +248,11 @@ proc nearestOf(v: Coord, t: Coord): Coord =
 
 proc nearestToGridX(v: EventCatchingView, val: Coord): Coord =
     result = val
-    if v.gridSize.width > 0: result = nearestOf(val, v.gridSize.width)
+    if v.gridSize > 0: result = nearestOf(val, v.gridSize)
 
 proc nearestToGridY(v: EventCatchingView, val: Coord): Coord =
     result = val
-    if v.gridSize.height > 0: result = nearestOf(val, v.gridSize.height)
+    if v.gridSize > 0: result = nearestOf(val, v.gridSize)
 
 method onTouchEv*(v: EventCatchingView, e: var Event): bool =
     result = procCall v.View.onTouchEv(e)
@@ -266,13 +268,14 @@ method onTouchEv*(v: EventCatchingView, e: var Event): bool =
         if not v.panningView.isNil:
             v.panOp = panOperation(sr, e.localPosition)
 
-        if v.panOp == poDrag and not e.localPosition.inRect(sr):
+        let lpos = v.editor.document.view.convertPointFromWindow(v.convertPointToWindow(e.localPosition))
+        var clickAtView = v.editor.document.view.subviewAtPoint(lpos)
+        if v.panOp == poDrag and (not e.localPosition.inRect(sr) or clickAtView != v.panningView):
             # Either there is no view selected, or mousedown missed selected
             # view. Find some view under mouse and start dragging it.
 
             # Convert to coordinates of edited view
-            let lpos = v.editor.document.view.convertPointFromWindow(v.convertPointToWindow(e.localPosition))
-            v.panningView = v.editor.document.view.findSubviewAtPoint(lpos)
+            v.panningView = clickAtView
 
         if not v.panningView.isNil:
             v.origPanRect = v.panningView.frame
@@ -337,8 +340,6 @@ proc drawSelectionRect(v: EventCatchingView) =
 method draw*(v: EventCatchingView, r: Rect) =
     procCall v.View.draw(r)
 
-    if v.gridSize != zeroSize:
-        drawGrid(v.bounds, v.gridSize)
-
     if not v.selectedView.isNil:
         v.drawSelectionRect()
+
