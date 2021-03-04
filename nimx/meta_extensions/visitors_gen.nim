@@ -22,7 +22,7 @@ macro genVisitorProc(typdesc: typed{nkSym}): untyped=
         method visitProperties*(`viewIdent`: `typdesc`, `visitorIdent`: var PropertyVisitor)=
             `visitBody`
 
-    echo "getVisitor result:\n", repr(result)
+    # echo "getVisitor result:\n", repr(result)
 
 template genVisitorCodeForView*(c: typed)=
     import nimx / property_visitor

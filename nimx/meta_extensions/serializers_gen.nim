@@ -13,7 +13,7 @@ proc genSerializeCall(view, serializer, field: NimNode, isSerialize: bool): NimN
     #     result = quote do:
     #         `serializer`.`call`(`view`.`field`)
 
-    echo "genSerializeCall ", repr(result)
+    # echo "genSerializeCall ", repr(result)
 
 macro genSerializers(typdesc: typed{nkSym}): untyped=
     result = nnkStmtList.newNimNode()
@@ -25,9 +25,10 @@ macro genSerializers(typdesc: typed{nkSym}): untyped=
     var deserializerBody = nnkStmtList.newNimNode()
     let parent = typdesc.inheritFrom()
     if parent.isNil:
-        echo "no inheritance "
+        # echo "no inheritance "
+        discard
     else:
-        echo "impl ", treeRepr(parent), " \ninherit from ", $parent
+        # echo "impl ", treeRepr(parent), " \ninherit from ", $parent
         serializerBody.add quote do:
             procCall `viewArg`.`parent`.serializeFields(`serArg`)
 

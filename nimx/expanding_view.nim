@@ -93,10 +93,6 @@ method draw(v: ExpandingView, r: Rect) =
     c.drawRect(titleRect)
 
     c.fillColor = v.titleTextColor
-    # var font {.global.}: Font
-    # if font.isNil:
-    #     font = systemFontOfSize(14.0)
-    # c.drawText(font, newPoint(25, 1), v.title)
     c.drawText(systemFontOfSize(14.0), newPoint(25, 1), v.title)
 
 

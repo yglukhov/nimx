@@ -66,17 +66,6 @@ proc parsePropertyDescs(properties: NimNode): seq[PropertyDesc] =
             echo "Unexpected property desc kind: ", treeRepr(p)
             assert(false)
 
-# proc verifyProperties(pr: seq[PropertyDesc]) =
-#     for p in pr:
-#         for a in keys(p.attributes):
-#             assert(a in ["serializationKey", "noserialize", "phantom", "combinedWith"], "Invalid attribute: " & a)
-
-# proc registerClassIfNotRegistered*(c: typedesc)=
-#     if not isClassRegistered(c.name):
-#         echo "Class registered ", c.name
-#         registerClass(c)
-
-
 proc inheritFrom*(n: NimNode): NimNode {.compileTime.}=
     let impl = n.getImpl
     var inherit: NimNode
@@ -93,13 +82,5 @@ proc inheritFrom*(n: NimNode): NimNode {.compileTime.}=
 
 macro properties*(typdesc: typed{nkSym}, body: untyped): untyped =
     let k = $typdesc
-    # if k notin props:
-    #     props[k] = @[]
-
     assert(k notin props)
     props[k] = parsePropertyDescs(body)
-
-    # result = nnkCall.newTree(
-    #     ident("registerClassIfNotRegistered"),
-    #     typdesc
-    # )
