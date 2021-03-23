@@ -6,7 +6,7 @@ elif defined(windows):
     import pasteboard_win
     export pasteboard_win
 
-elif defined(js) or defined(emscripten):
+elif defined(js) or defined(emscripten) or defined(wasm):
     import pasteboard_web
     export pasteboard_web
 

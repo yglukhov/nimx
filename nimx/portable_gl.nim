@@ -436,6 +436,8 @@ proc shaderInfoLog*(gl: GL, s: ShaderRef): string =
         }
         """.}
         result = $m
+    elif defined(wasm) and not defined(emscripten):
+        result = "shaderInfoLog not implemented"
     else:
         var infoLen: GLint
         result = ""
@@ -457,6 +459,8 @@ proc programInfoLog*(gl: GL, s: ProgramRef): string =
         }
         """.}
         result = $m
+    elif defined(wasm) and not defined(emscripten):
+        result = "programInfoLog not implemented"
     else:
         var infoLen: GLint
         result = ""
@@ -470,6 +474,9 @@ proc programInfoLog*(gl: GL, s: ProgramRef): string =
 proc shaderSource*(gl: GL, s: ShaderRef, src: cstring) =
     when defined js:
         asm "`gl`.shaderSource(`s`, `src`);"
+    elif defined(wasm) and not defined(emscripten):
+        proc glShaderSourceWasm(a: uint32, b: cstring) {.importc.}
+        glShaderSourceWasm(cast[uint32](s), src)
     else:
         var srcArray = [src]
         glShaderSource(s, 1, cast[cstringArray](addr srcArray), nil)
@@ -477,6 +484,9 @@ proc shaderSource*(gl: GL, s: ShaderRef, src: cstring) =
 proc isShaderCompiled*(gl: GL, shader: ShaderRef): bool {.inline.} =
     when defined js:
         asm "`result` = `gl`.getShaderParameter(`shader`, `gl`.COMPILE_STATUS);"
+    elif defined(wasm) and not defined(emscripten):
+        proc glGetShaderParameterWasm(s, p: uint32): uint32 {.importc.}
+        result = bool(glGetShaderParameterWasm(shader, GL_COMPILE_STATUS.uint32))
     else:
         var compiled: GLint
         glGetShaderiv(shader, GL_COMPILE_STATUS, addr compiled)
@@ -485,6 +495,9 @@ proc isShaderCompiled*(gl: GL, shader: ShaderRef): bool {.inline.} =
 proc isProgramLinked*(gl: GL, prog: ProgramRef): bool {.inline.} =
     when defined js:
         asm "`result` = `gl`.getProgramParameter(`prog`, `gl`.LINK_STATUS);"
+    elif defined(wasm) and not defined(emscripten):
+        proc getProgramParameterbWasm(a, b: uint32): bool {.importc.}
+        result = getProgramParameterbWasm(prog.uint32, GL_LINK_STATUS.uint32)
     else:
         var linked: GLint
         glGetProgramiv(prog, GL_LINK_STATUS, addr linked)

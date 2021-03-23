@@ -163,7 +163,7 @@ proc createQuadBuffer(c: GraphicsContext): BufferRef =
 proc newGraphicsContext*(canvas: ref RootObj = nil): GraphicsContext =
     result.new()
     result.gl = newGL(canvas)
-    when not defined(ios) and not defined(android) and not defined(js) and not defined(emscripten):
+    when not defined(ios) and not defined(android) and not defined(js) and not defined(emscripten) and not defined(wasm):
         loadExtensions()
 
     result.gl.clearColor(0, 0, 0, 0.0)

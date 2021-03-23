@@ -100,7 +100,7 @@ when defined(js):
         `s` = window.location.href;
         """.}
         result = $s
-elif defined(emscripten):
+elif defined(emscripten) or defined(wasm):
     import jsbind/emscripten
 
     proc getCurrentHref*(): string =

@@ -152,7 +152,7 @@ when not defined(js):
 
 var sysFont : Font
 
-const preferredFonts = when defined(js) or defined(windows) or defined(emscripten):
+const preferredFonts = when defined(js) or defined(windows) or defined(emscripten) or defined(wasm):
         [
             "Arial",
             "OpenSans-Regular"

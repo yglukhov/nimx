@@ -4,7 +4,7 @@ import opengl
 
 import nimx / assets / [ asset_loading, url_stream, asset_manager ]
 import nimx / serializers
-const web = defined(js) or defined(emscripten)
+const web = defined(js) or defined(emscripten) or defined(wasm)
 
 when web:
     import jsbind
@@ -276,6 +276,8 @@ method deserialize*(s: Deserializer, v: var Image) {.base.} =
             v = imageWithResource(imagePath)
 
 when defined(js):
+    import strutils
+
     proc initWithJSImage(i: SelfContainedImage, gl: GL, jsImg: RootRef) =
         var width, height : Coord
         {.emit: """
@@ -520,7 +522,7 @@ when asyncResourceLoad:
             let p = cast[pointer](loadComplete)
             performOnMainThread(cast[proc(data: pointer){.cdecl, gcsafe.}](p), ctx)
 
-when defined(emscripten):
+when defined(emscripten) or defined(wasm):
     import jsbind/emscripten
 
     type ImageLoadingCtx = ref object
