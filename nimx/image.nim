@@ -19,7 +19,8 @@ type
         mSize: Size
         texWidth*, texHeight*: int16
 
-    SelfContainedImage* = ref object of Image
+    SelfContainedImage* = ref SelfContainedImageObj
+    SelfContainedImageObj = object of Image
         texture*: TextureRef
         mFilePath: string
 
@@ -47,17 +48,24 @@ method filePath*(i: SelfContainedImage): string = i.mFilePath
 
 when not defined(js):
     let totalImages = sharedProfiler().newDataSource(int, "Images")
-    proc finalize(i: SelfContainedImage) =
+
+    proc `=destroy`(i: var SelfContainedImageObj) =
         if i.texture != invalidTexture:
             glDeleteTextures(1, addr i.texture)
         dec totalImages
+
+    proc finalize(i: SelfContainedImage) =
+        `=destroy`(i[])
 
 proc newSelfContainedImage(): SelfContainedImage {.inline.} =
     when defined(js):
         result.new()
     else:
         inc totalImages
-        result.new(finalize)
+        when defined(gcDestructors):
+            result = SelfContainedImage()
+        else:
+            result.new(finalize)
 
 when not web:
     type DecodedImageData = object
