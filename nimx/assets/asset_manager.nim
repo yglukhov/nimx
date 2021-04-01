@@ -204,6 +204,11 @@ proc loadAssetsInBundles*(am: AssetManager, bundles: openarray[AssetBundle], onP
     else:
         al.loadAssets(allAssets)
 
+proc dump*(am: AssetManager): string =
+    result = "AssetManager DUMP:"
+    for m in am.mounts:
+        result &= "\n" & m.path & ": " & $m.refCount
+
 registerUrlHandler("res") do(url: string, handler: Handler) {.gcsafe.}:
     openStreamForUrl(sharedAssetManager().resolveUrl(url), handler)
 

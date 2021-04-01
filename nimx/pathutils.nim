@@ -13,6 +13,7 @@ proc urlParentDir*(url: string): string =
 
 proc parentDirEx*(pathOrUrl: string): string =
     let i = pathOrUrl.rfind({'/', '\\'})
+    if i == -1: return ""
     pathOrUrl[0 ..< i]
 
 proc relativePathToPath*(path, toPath: string): string =
