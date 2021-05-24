@@ -598,6 +598,7 @@ proc gradleBuild(b: Builder) =
     withDir(b.buildRoot / b.javaPackageId):
         putEnv "ANDROID_HOME", expandTilde(b.androidSdk)
         var args = @[getCurrentDir() / "gradlew"]
+        args.add(["--warning-mode", "all"])
         if b.debugMode:
             args.add("assembleDebug")
         else:
@@ -692,8 +693,8 @@ proc build*(b: Builder) =
 
         b.nimFlags.add(["--os:macosx", "-d:ios", "-d:iPhone", "--dynlibOverride:SDL2"])
 
-        var sdkPath : string
-        var sdlLibDir : string
+        var sdkPath: string
+        var sdlLibDir: string
         if b.platform == "ios":
             sdkPath = iOSSDKPath(b.iOSSDKVersion)
             sdlLibDir = b.buildSDLForIOS(false)
@@ -712,11 +713,12 @@ proc build*(b: Builder) =
         if b.iosStatic:
             b.nimFlags.add("--out:" & b.executablePath / "libmain_static.a")
             # b.compilerFlags.add("-fembed-bitcode")
-            b.nimFlags.add("--clang.linkerexe:" & "llvm-ar")
+            b.nimFlags.add("--clang.linkerexe:" & "libtool")
             b.nimFlags.add("--listCmd")
 
+            let arch = if b.platform == "ios-sim": "x86_64" else: "arm64"
             # Workaround nim static lib linker
-            b.nimFlags.add("--clang.linkTmpl:" & quoteShell("rcs $exefile $objfiles"))
+            b.nimFlags.add("--clang.linkTmpl:" & quoteShell("-static -arch_only " & arch & " -D -syslibroot " & sdkPath & " -o $exefile $objfiles"))
             b.compilerFlags.add("-g")
     of "android":
         if b.androidApi == 0:
@@ -970,6 +972,9 @@ proc adbServerName(b: Builder): string =
     if result.len == 0: result = "localhost"
 
 proc getConnectedAndroidDevices*(b: Builder): seq[string] =
+    # The readLine loop can hang if adb is run without starting the adb server,
+    # so we start the server upfront.
+    if b.adbServerName == "localhost": direShell b.adbExe, "start-server"
     let logcat = startProcess(b.adbExe, args = ["-H", b.adbServerName, "devices"])
     let so = logcat.outputStream
     var line = ""
@@ -986,6 +991,7 @@ proc installAppOnConnectedDevice(b: Builder, devId: string) =
     var apkPath = b.buildRoot / b.javaPackageId / "build" / "outputs" / "apk" / conf / b.javaPackageId & "-" & conf & ".apk"
 
     direShell b.adbExe, "-H", b.adbServerName, "-s", devId, "install", "-r", apkPath
+    # direShell b.adbExe, "-H", b.adbServerName, "-s", devId, "install", "--abi", "armeabi-v7a", "-r", apkPath
     if b.runAfterBuild:
         var activityName =  b.javaPackageId & "/" & b.activityClassName
         direShell b.adbExe, "shell", "am", "start", "-n", activityName

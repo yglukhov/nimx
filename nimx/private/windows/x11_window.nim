@@ -1,7 +1,8 @@
 import nimx/[ types, abstract_window, view, context, event, app, screen,
             portable_gl, linkage_details, notification_center ]
 
-import x11/[xlib, x, xutil, xresource]
+import x11/[xlib, xutil, xresource]
+import x11/x except Window
 import opengl/glx, opengl
 import asyncdispatch, parseutils, times
 
@@ -11,13 +12,13 @@ import nimx/private/x11_vk_map
 type
   X11Window = ref object of Window
     xdisplay: PDisplay
-    xwindow: TWindow
+    xwindow: x.Window
     renderingContext: GraphicsContext
 
 var defaultDisplay: PDisplay
 var allWindows {.threadvar.}: seq[X11Window]
 
-proc newXWindow(d: PDisplay, w: TWindow, r: Rect): X11Window =
+proc newXWindow(d: PDisplay, w: x.Window, r: Rect): X11Window =
   result = X11Window(xdisplay: d, xwindow: w)
   result.renderingContext = newGraphicsContext()
   allWindows.add(result)
@@ -77,7 +78,7 @@ proc destroy(w: X11Window) =
       allWindows.del(i)
       break
 
-proc findWindowWithX(d: PDisplay, w: TWindow): X11Window =
+proc findWindowWithX(d: PDisplay, w: x.Window): X11Window =
   for x in allWindows:
     if x.xwindow == w:
       result = x
@@ -128,22 +129,22 @@ proc eventWithXEvent(d: PDisplay, ev: var TXEvent, result: var seq[Event]) =
     XDestroyIC(ic)
 
     if st in {XLookupKeySymVal, XLookupBoth}:
-
       e = newKeyboardEvent(virtualKeyFromNative(ks), bsDown, false)
       e.window = wnd
       result.add(e)
 
+      # Some keycodes like Backspace still trigger an XLookupChars event, but we
+      # don't want to generate an input event for that, so stop here
+      if e.keyCode in {Backspace}:
+        return
+
     if st in {XLookupChars, XLookupBoth} and sz != 0:
-      # var minKeycode, maxKeycode: cint
-      # XDisplayKeycodes(d, addr minKeycode, addr maxKeycode)
-
       if sz != 0:
-        # TODO: This doesn't really work, as it sends text input event for non-printable characters.
-
         str.setLen(sz)
         e = newEvent(etTextInput)
         e.text = str
         e.window = wnd
+        result.add(e)
 
   of KeyRelease:
     let wnd = findWindowWithX(d, ev.xkey.window)
@@ -152,6 +153,7 @@ proc eventWithXEvent(d: PDisplay, ev: var TXEvent, result: var seq[Event]) =
     discard XLookupString(addr ev.xkey, addr str[0], str.len.cint, addr ks, nil).int
     e = newKeyboardEvent(virtualKeyFromNative(ks), bsUp, false)
     e.window = wnd
+    result.add(e)
 
   of ButtonPress, ButtonRelease:
     let state = if ev.theType == ButtonPress: bsDown else: bsUp
@@ -164,12 +166,14 @@ proc eventWithXEvent(d: PDisplay, ev: var TXEvent, result: var seq[Event]) =
     let pos = newPoint(ev.xbutton.x.Coord, ev.xbutton.y.Coord) / wnd.pixelRatio
     e = newMouseButtonEvent(pos, button, state)
     e.window = wnd
+    result.add(e)
 
   of MotionNotify:
     let wnd = findWindowWithX(d, ev.xmotion.window)
     let pos = newPoint(ev.xmotion.x.Coord, ev.xmotion.y.Coord) / wnd.pixelRatio
     e = newMouseMoveEvent(pos)
     e.window = wnd
+    result.add(e)
 
   of EnterNotify:
     echo "Mouse enter"
@@ -182,12 +186,10 @@ proc eventWithXEvent(d: PDisplay, ev: var TXEvent, result: var seq[Event]) =
     e = newEvent(etWindowResized)
     e.window = wnd
     e.position = newPoint(ev.xexpose.width.Coord, ev.xexpose.height.Coord) / wnd.pixelRatio
+    result.add(e)
 
   else:
     discard
-
-  if e.kind != etUnknown:
-    result.add(e)
 
 proc animateAndDraw() =
   let a = mainApplication()

@@ -107,7 +107,7 @@ method animationStateChanged*(w: SdlWindow, state: bool) =
                 let w = cast[SdlWindow](p)
                 w.runAnimations()
                 w.drawWindow()
-            discard iPhoneSetAnimationCallback(w.impl, 0, animationCallback, cast[pointer](w))
+            discard iPhoneSetAnimationCallback(w.impl, 1, animationCallback, cast[pointer](w))
         else:
             discard iPhoneSetAnimationCallback(w.impl, 0, nil, nil)
 
@@ -164,7 +164,7 @@ proc scaleFactor(w: SdlWindow): float =
                     XrmInitialize() # Need to initialize the DB before calling Xrm* functions
                     let db = XrmGetStringDatabase(resourceString)
                     if not db.isNil:
-                        var value: TXrmValue
+                        var value: XrmValue
                         var typ: cstring
                         if XrmGetResource(db, "Xft.dpi", "String", addr typ, addr value) != 0:
                             if not value.address.isNil:

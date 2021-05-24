@@ -1,9 +1,14 @@
+{.used.}
 import nimx/context
 import nimx/types
 
 proc drawGrid*(bounds: Rect, gridSize: Size, shift = zeroSize) =
     let c = currentContext()
     c.strokeWidth = 0
+    c.strokeColor = blackColor()
+
+    c.fillColor = blackColor()
+
     var r = newRect(0, 0, 1, bounds.height)
     if gridSize.width > 0:
         let n = int((bounds.width - bounds.x - shift.width) / gridSize.width)

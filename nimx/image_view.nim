@@ -1,6 +1,5 @@
 import nimx / [ context, image, types, view ]
-import nimx/property_visitor
-import nimx/serializers
+import nimx / meta_extensions / [ property_desc, visitors_gen, serializers_gen ]
 
 type
     ImageFillRule* {.pure.} = enum
@@ -83,34 +82,14 @@ method draw(v: ImageView, r: Rect) =
         of ImageFillRule.NinePartImage:
             c.drawNinePartImage(v.image, v.bounds, v.imageMarginLeft, v.imageMarginTop, v.imageMarginRight, v.imageMarginBottom)
 
-method visitProperties*(v: ImageView, pv: var PropertyVisitor) =
-    procCall v.View.visitProperties(pv)
-    pv.visitProperty("image", v.image)
-    pv.visitProperty("fillRule", v.fillRule)
-    pv.visitProperty("marginLeft", v.imageMarginLeft)
-    pv.visitProperty("marginRight", v.imageMarginRight)
-    pv.visitProperty("marginTop", v.imageMarginTop)
-    pv.visitProperty("marginBottom", v.imageMarginBottom)
-
-method serializeFields*(v: ImageView, s: Serializer) =
-    procCall v.View.serializeFields(s)
-    s.serialize("image", v.image.filePath)
-    s.serialize("fillRule", v.fillRule)
-    s.serialize("marginLeft", v.imageMarginLeft)
-    s.serialize("marginRight", v.imageMarginRight)
-    s.serialize("marginTop", v.imageMarginTop)
-    s.serialize("marginBottom", v.imageMarginBottom)
-
-method deserializeFields*(v: ImageView, s: Deserializer) =
-    procCall v.View.deserializeFields(s)
-    s.deserialize("fillRule", v.fillRule)
-    var imgName : string
-    s.deserialize("image", imgName)
-    if imgName.len != 0:
-        v.image = imageWithResource(imgName)
-    s.deserialize("marginLeft", v.imageMarginLeft)
-    s.deserialize("marginRight", v.imageMarginRight)
-    s.deserialize("marginTop", v.imageMarginTop)
-    s.deserialize("marginBottom", v.imageMarginBottom)
+ImageView.properties:
+    image
+    fillRule
+    imageMarginLeft
+    imageMarginRight
+    imageMarginTop
+    imageMarginBottom
 
 registerClass(ImageView)
+genVisitorCodeForView(ImageView)
+genSerializeCodeForView(ImageView)

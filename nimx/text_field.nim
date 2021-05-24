@@ -16,6 +16,8 @@ import key_commands
 import formatted_text
 import scroll_view
 
+import nimx / meta_extensions / [ property_desc, visitors_gen, serializers_gen ]
+
 export control
 
 type
@@ -504,21 +506,19 @@ method viewDidBecomeFirstResponder*(t: TextField) =
     cursorPos = if t.mText.isNil: 0 else: t.mText.runeLen
     t.updateCursorOffset()
     t.bumpCursorVisibility()
+
     t.selectAll()
 
-method visitProperties*(v: TextField, pv: var PropertyVisitor) =
-    procCall v.Control.visitProperties(pv)
-    pv.visitProperty("text", v.text)
-    pv.visitProperty("editable", v.editable)
-
-# method serializeFields*(v: TextField, s: Serializer) =
-#     procCall v.View.serializeFields(s)
-#     s.serialize("text", v.text)
-#     s.serialize("editable", v.editable)
-
-# method deserializeFields*(v: TextField, s: Deserializer) =
-#     procCall v.View.deserializeFields(s)
-#     s.deserialize("text", v.mText)
-#     s.deserialize("editable", v.editable)
+TextField.properties:
+    editable
+    continuous
+    mSelectable
+    isSelecting
+    # mFont
+    multiline
+    hasBezel
+    text
 
 registerClass(TextField)
+genVisitorCodeForView(TextField)
+genSerializeCodeForView(TextField)

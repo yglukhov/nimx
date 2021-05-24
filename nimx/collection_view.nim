@@ -5,6 +5,8 @@ import nimx/gesture_detector
 import nimx/types
 import nimx/view
 
+import nimx / meta_extensions / [ property_desc, visitors_gen, serializers_gen ]
+
 type
     LayoutDirection* {.pure.} = enum
         ## Defines how items are layed out inside collection view
@@ -195,3 +197,14 @@ method onScroll*(v: CollectionView, e: var Event): bool =
 method resizeSubviews*(v: CollectionView, oldSize: Size) =
     if not v.numberOfItems.isNil():
         v.update()
+
+CollectionView.properties:
+    offset
+    layoutDirection
+    layoutWidth
+    itemSize
+
+const collectionCreator = proc(): RootRef = newCollectionView(zeroRect, zeroSize, LeftToRight)
+registerClass(CollectionView, collectionCreator)
+genVisitorCodeForView(CollectionView)
+genSerializeCodeForView(CollectionView)

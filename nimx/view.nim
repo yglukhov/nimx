@@ -375,6 +375,15 @@ proc replaceSubview*(v, s, withView: View) =
     let i = v.subviews.find(s)
     v.replaceSubview(i, withView)
 
+proc findSubview*(v: View, n: string): View=
+    for s in v.subviews:
+        if s.name == n:
+            return s
+        return s.findSubview(n)
+
+proc getSubview*[T](v: View, n: string): T =
+    result = v.findSubviewWithName(n).T
+
 method clipType*(v: View): ClipType {.base.} = ctNone
 
 proc recursiveDrawSubviews*(view: View)
@@ -563,20 +572,6 @@ method serializeFields*(v: View, s: Serializer) =
     s.serialize("subviews", v.subviews)
     s.serialize("arMask", v.autoresizingMask)
     s.serialize("color", v.backgroundColor)
-
-method deserializeFields*(v: View, s: Deserializer) =
-    var fr: Rect
-    s.deserialize("frame", fr)
-    v.init(fr)
-    s.deserialize("bounds", v.bounds)
-    s.deserialize("name", v.name)
-    var subviews: seq[View]
-    s.deserialize("subviews", subviews)
-    for sv in subviews:
-        doAssert(not sv.isNil)
-        v.addSubview(sv)
-    s.deserialize("arMask", v.autoresizingMask)
-    s.deserialize("color", v.backgroundColor)
 
 proc isLastInSuperview(d: View): bool =
     d.superview.subviews[^1] == d

@@ -14,7 +14,7 @@ elif defined(windows):
   [
     r"c:\Windows\Fonts" #todo: system will not always in the c disk
   ]
-elif defined(emscripten):
+elif defined(emscripten) or defined(wasm):
   [
     "res"
   ]
@@ -31,13 +31,13 @@ else:
 iterator potentialFontFilesForFace*(face: string): string =
   for sp in fontSearchPaths:
     yield sp / face & ".ttf"
-  when not defined(emscripten):
+  when not defined(emscripten) and not defined(wasm):
     yield getAppDir() / "res" / face & ".ttf"
     yield getAppDir() /../ "Resources" / face & ".ttf"
     yield getAppDir() / face & ".ttf"
 
 
-const useLibfontconfig = defined(posix) and not defined(android) and not defined(ios) and not defined(emscripten)
+const useLibfontconfig = defined(posix) and not defined(android) and not defined(ios) and not defined(emscripten) and not defined(wasm)
 
 
 when useLibfontconfig:

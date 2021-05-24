@@ -275,8 +275,11 @@ method onTouchEv*(v: OutlineView, e: var Event): bool =
         let i = v.itemAtPos(pos, v.tempIndexPath, y)
 
         if not v.touchTarget.isNil:
-            e.localPosition = v.touchTarget.convertPointFromParent(pos)
+            if not i.isNil and i.cell.View != v.touchTarget:
+                e.localPosition = i.cell.convertPointFromParent(pos)
+            e.localPosition = v.touchTarget.convertPointFromParent(e.localPosition)
             if v.touchTarget.processTouchEvent(e):
+                v.setNeedsDisplay()
                 return true
 
         v.touchTarget = nil
@@ -320,8 +323,12 @@ method onTouchEv*(v: OutlineView, e: var Event): bool =
             if e.localPosition.inRect(i.cell.bounds):
                 result = i.cell.processTouchEvent(e)
                 if result:
-                    v.touchTarget = i.cell
+                    if i.cell.touchTarget.isNil:
+                        v.touchTarget = i.cell
+                    else:
+                        v.touchTarget = i.cell.touchTarget
                     discard v.touchTarget.makeFirstResponder()
+                    v.setNeedsDisplay()
                     return result
 
         e.localPosition = pos

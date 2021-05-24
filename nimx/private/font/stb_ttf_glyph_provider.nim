@@ -23,7 +23,7 @@ proc loadFontData(p: StbTtfGlyphProvider) =
         var s: Stream
         openStreamForUrl(p.path) do(st: Stream, err: string):
             s = st
-        if not s.isNil:
+        if s.isNil:
             error "Could not load font from path: ", p.path
         p.fontData = s.readAll()
         s.close()

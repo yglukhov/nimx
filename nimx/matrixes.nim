@@ -32,6 +32,14 @@ proc clamp*[I: static[int], T](v, minV, maxV: TVector[I, T]): TVector[I, T] =
     for i in 0 ..< I:
         result[i] = clamp[T](result[i], minV[i], maxV[i])
 
+proc min*[I: static[int], T](v1,v2: TVector[I, T]): TVector[I, T] =
+    for i in 0 ..< I:
+        result[i] = min(v1[i], v2[i])
+
+proc max*[I: static[int], T](v1,v2: TVector[I, T]): TVector[I, T] =
+    for i in 0 ..< I:
+        result[i] = max(v1[i], v2[i])
+
 proc normalize*(v: var Vector3) =
     let leng = v.length()
     if leng != 0:

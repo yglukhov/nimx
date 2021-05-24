@@ -1,8 +1,8 @@
 const appKit = defined(macosx) and not defined(ios)
 
-when defined(js) or defined(emscripten):
+when defined(js) or defined(emscripten) or defined(wasm):
     import jsbind
-    when defined(emscripten):
+    when defined(emscripten) or defined(wasm):
         import jsbind/emscripten
 elif appKit:
     import darwin/app_kit as apkt
@@ -25,14 +25,14 @@ type
         ckHand
 
     Cursor* = ref object
-        when defined(js) or defined(emscripten):
+        when defined(js) or defined(emscripten) or defined(wasm):
             c: jsstring
         elif appKit:
             c: pointer
         else:
             c: CursorPtr
 
-when defined(js) or defined(emscripten):
+when defined(js) or defined(emscripten) or defined(wasm):
     proc cursorKindToCSSName(c: CursorKind): jsstring =
         case c
         of ckArrow: "auto"
@@ -85,7 +85,7 @@ else:
         freeCursor(c.c)
 
 proc newCursor*(k: CursorKind): Cursor =
-    when defined(js) or defined(emscripten):
+    when defined(js) or defined(emscripten) or defined(wasm):
         result.new()
         result.c = cursorKindToCSSName(k)
     else:
@@ -108,7 +108,7 @@ proc setCurrent*(c: Cursor) =
         {.emit: """
         document.body.style.cursor = `cs`;
         """.}
-    elif defined(emscripten):
+    elif defined(emscripten) or defined(wasm):
         discard EM_ASM_INT("""
         document.body.style.cursor = UTF8ToString($0);
         """, cstring(c.c))
