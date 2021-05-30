@@ -1,5 +1,7 @@
-import nimx / [ view, serializers, control ]
-import tables, hashes, types
+import std / [ tables, hashes, json ]
+import nimx / [ view, serializers, control, types ]
+import nimx / assets / asset_loading
+import private / async
 
 type
   UIResID = int
@@ -19,10 +21,6 @@ type
 proc `@`(str: string): UIResID =
   UIResID(hash(str))
 
-import nimx / serializers
-import nimx / assets / [asset_loading]
-import json
-
 proc deserializeView*(jn: JsonNode): View = newJsonDeserializer(jn).deserialize(result)
 proc deserializeView*(data: string): View = deserializeView(parseJson(data))
 
@@ -30,19 +28,19 @@ proc loadAUX[T](path: string, deser: proc(j: JsonNode): T, onLoad: proc(v: T))=
   loadAsset[JsonNode]("res://" & path) do(jn: JsonNode, err: string):
     onLoad(deser(jn))
 
-import async
-
 proc loadAUXAsync[T](path: string, deser: proc(j: JsonNode): T): Future[T] =
-  let resf = newFuture[T]()
-  loadAUX[T](path, deser) do(v: T):
-    resf.complete(v)
-
-  return resf
+  when defined js:
+    newPromise() do (resolve: proc(response: T)):
+      loadAUX[T](path, deser) do(v: T):
+          resolve(v)
+  else:
+    let resf = newFuture[T]()
+    loadAUX[T](path, deser) do(v: T):
+      resf.complete(v)
+    return resf
 
 proc loadView*(path: string, onLoad: proc(v: View))=
   loadAUX[View](path, deserializeView, onLoad)
-
-import async
 
 proc loadViewAsync*(path: string): Future[View] =
   result = loadAUXAsync[View](path, deserializeView)
@@ -114,3 +112,8 @@ registerAssetLoader(["nimx"]) do(url: string, callback: proc(j: JsonNode)):
   loadJsonFromURL(url, callback)
 
 
+when isMainModule:
+    loadAsset[JsonNode]("res://assets/back.nimx") do(jn: JsonNode, err: string):
+        echo "res: " & $jn
+    proc a {.async.} = echo await(loadViewAsync("assets/back.nimx")).dump
+    asyncCheck a()
