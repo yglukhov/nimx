@@ -1,11 +1,10 @@
 {.used.}
-import json, async
+import json, sugar
 
 import editor_types
-import nimx / [ undo_manager, view, serializers, ui_resource, serializers ]
+import nimx / [ undo_manager, view, serializers, ui_resource, private/async ]
 
-const savingAndLoadingEnabled* = not defined(js) and not defined(emscripten) and
-        not defined(ios) and not defined(android)
+const savingAndLoadingEnabled* = not defined(ios) and not defined(android)
 
 const ViewPboardKind* = "io.github.yglukhov.nimx"
 
@@ -35,16 +34,16 @@ proc serializeView*(ui: UIDocument): string =
     # popParentResource()
     return $s.jsonNode()
 
-proc fileDialog(title: string, kind: DialogKind): string =
-    var di:DialogInfo
-    di.title = title
-    di.kind = kind
-    di.filters = @[(name:"Nimx UI", ext:"*.nimx")]
-    di.extension = "nimx"
-    di.show()
-
 when savingAndLoadingEnabled:
     import nimx / assets / [asset_loading]
+
+    proc fileDialog(title: string, kind: DialogKind): string =
+        var di: DialogInfo
+        di.title = title
+        di.kind = kind
+        di.filters = @[(name:"Nimx UI", ext:"*.nimx")]
+        di.extension = "nimx"
+        di.show()
 
     proc save*(d: UIDocument) =
         if d.path.len == 0:
@@ -76,10 +75,15 @@ when savingAndLoadingEnabled:
 
 
     proc loadViewToEditAsync(path: string): Future[View] =
-        var r = newFuture[View]()
-        loadAsset[JsonNode]("file://" & path) do(jn: JsonNode, err: string):
-            r.complete(deserializeView(jn))
-        result = r
+        when defined js:
+            newPromise() do (resolve: proc(response: View)):
+                loadAsset[JsonNode]("file://" & path) do(jn: JsonNode, err: string):
+                    resolve(deserializeView(jn))
+        else:
+            var r = newFuture[View]()
+            loadAsset[JsonNode]("file://" & path) do(jn: JsonNode, err: string):
+                r.complete(deserializeView(jn))
+            result = r
 
     proc loadFromPath*(d: UIDocument, path: string) {.async.}=
         d.path = path

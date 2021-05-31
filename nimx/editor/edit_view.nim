@@ -1,8 +1,8 @@
-import times, json, math, async
+import times, json, math
 
 import nimx / [view, panel_view, context, undo_manager, toolbar, button, menu, inspector_panel,
             gesture_detector, window_event_handling, view_event_handling, abstract_window,
-            serializers, key_commands, ui_resource]
+            serializers, key_commands, ui_resource, private/async]
 
 import nimx/property_editors/[autoresizing_mask_editor, standard_editors] # Imported here to be registered in the propedit registry
 import nimx/pasteboard/pasteboard
