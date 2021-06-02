@@ -391,9 +391,6 @@ else:
 
     template isEmpty*(obj: TextureRef or FramebufferRef or RenderbufferRef): bool = obj == 0
 
-# TODO: This is a quick and dirty hack for render to texture.
-var globalGL: GL
-
 proc newGL*(canvas: ref RootObj): GL =
     when defined js:
         asm """
@@ -421,9 +418,6 @@ proc newGL*(canvas: ref RootObj): GL =
             """
     else:
         result.new()
-    globalGL = result
-
-proc sharedGL*(): GL = globalGL
 
 proc shaderInfoLog*(gl: GL, s: ShaderRef): string =
     when defined js:

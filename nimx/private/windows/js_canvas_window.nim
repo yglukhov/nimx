@@ -7,7 +7,6 @@ import nimx/[ abstract_window, system_logger, view, context, matrixes, app,
 import nimx/private/js_vk_map
 
 type JSCanvasWindow* = ref object of Window
-    renderingContext: GraphicsContext
     canvas: Element
 
 method fullscreenAvailable*(w: JSCanvasWindow): bool =
@@ -253,8 +252,8 @@ proc initWithCanvas*(w: JSCanvasWindow, canvas: Element) =
     }
     """.}
     w.canvas = canvas
-    procCall w.Window.init(newRect(0, 0, width, height))
-    w.renderingContext = newGraphicsContext(canvas)
+    procCall w.Window.init(w, newRect(0, 0, width, height))
+    w.gfxCtx = newGraphicsContext(canvas)
 
     w.setupEventHandlersForCanvas(canvas)
 
@@ -286,7 +285,7 @@ proc newJSCanvasWindow*(canvasId: string): JSCanvasWindow =
 
 proc newJSCanvasWindow*(r: Rect): JSCanvasWindow =
     result.new()
-    result.init(r)
+    result.init(result, r)
 
 proc newJSWindowByFillingBrowserWindow*(): JSCanvasWindow =
     result.new()
@@ -298,7 +297,7 @@ newWindow = proc(r: view.Rect): Window =
 newFullscreenWindow = proc(): Window =
     result = newJSWindowByFillingBrowserWindow()
 
-method init*(w: JSCanvasWindow, r: Rect) =
+method init*(w: JSCanvasWindow, _: Window, r: Rect) =
     let canvas = document.createElement("canvas")
     let width = r.width
     let height = r.height
@@ -310,14 +309,12 @@ method init*(w: JSCanvasWindow, r: Rect) =
     w.initWithCanvas(canvas)
 
 method drawWindow*(w: JSCanvasWindow) =
-    let c = w.renderingContext
-    let oldContext = setCurrentContext(c)
+    let c = w.gfxCtx
     c.withTransform ortho(0, w.frame.width, w.frame.height, 0, -1, 1):
         procCall w.Window.drawWindow()
-    setCurrentContext(oldContext)
 
 method onResize*(w: JSCanvasWindow, newSize: Size) =
-    w.renderingContext.gl.viewport(0, 0, GLSizei(newSize.width), GLsizei(newSize.height))
+    w.gfxCtx.gl.viewport(0, 0, GLSizei(newSize.width), GLsizei(newSize.height))
     procCall w.Window.onResize(newSize)
 
 proc startAnimation*() {.deprecated.} = discard

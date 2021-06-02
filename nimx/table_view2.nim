@@ -43,8 +43,8 @@ proc `createCell=`*(v: TableView, p: proc(column: int): TableViewCell) =
 
 proc rebuildConstraints(v: TableView)
 
-method init*(v: TableView, r: Rect) =
-    procCall v.View.init(r)
+method init*(v: TableView, w: Window, r: Rect) =
+    procCall v.View.init(w, r)
     v.numberOfColumns = 1
     v.defaultRowHeight = 30
     v.defaultColWidth = 50
@@ -132,7 +132,7 @@ proc visibleRect(v: View): Rect = # TODO: This can be more generic. Move to view
         result = v.bounds
 
 # method draw*(v: TableView, r: Rect) =
-#     let c = currentContext()
+#     let c = v.window.gfxCtx
 #     c.fillColor = blackColor()
 #     let r = inset(visibleRect(v), 5, 5)
 #     c.drawRect(r)

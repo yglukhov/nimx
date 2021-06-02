@@ -39,53 +39,53 @@ method onDrop*(dd: MyDropDelegate, target: View, i: PasteboardItem) =
 
 #============= Views ==============
 
-proc createDraggedView(pos: Point, name: string): View =
-    result = DraggedView.new(newRect(pos.x, pos.y, 150, 60))
+proc createDraggedView(w: Window, pos: Point, name: string): View =
+    result = DraggedView.new(w, newRect(pos.x, pos.y, 150, 60))
     result.name = name
     result.backgroundColor = newColor(0.0, 1.0, 0.0, 1.0)
 
-    let label_name = newLabel(newRect(2, 0, 200, 40))
+    let label_name = newLabel(w, newRect(2, 0, 200, 40))
     label_name.text = result.name
     result.addSubView(label_name)
 
-proc createDropView(pos: Point, name: string, delegate: MyDropDelegate): View =
-    result = newView(newRect(pos.x, pos.y, 200, 200))
+proc createDropView(w: Window, pos: Point, name: string, delegate: MyDropDelegate): View =
+    result = newView(w, newRect(pos.x, pos.y, 200, 200))
     result.name = name
     result.backgroundColor = newColor(1.0, 0.0, 0.0, 1.0)
     result.dragDestination = delegate
 
-    let label_name = newLabel(newRect(2, 150, 200, 40))
+    let label_name = newLabel(w, newRect(2, 150, 200, 40))
     label_name.text = result.name
     result.addSubView(label_name)
 
-    let label_drop = newLabel(newRect(2, 170, 200, 35))
+    let label_drop = newLabel(w, newRect(2, 170, 200, 35))
     label_drop.text = "drop : "
     result.addSubView(label_drop)
 
-method init(v: DragAndDropView, r: Rect) =
-    procCall v.View.init(r)
+method init(v: DragAndDropView, w: Window, r: Rect) =
+    procCall v.View.init(w, r)
 
     let dropDelegate = MyDropDelegate.new()
-    let red_view = createDropView(newPoint(50.0, 80.0), "red_drop_view", dropDelegate)
+    let red_view = createDropView(w, newPoint(50.0, 80.0), "red_drop_view", dropDelegate)
 
-    let blue_view = createDropView(newPoint(350.0, 80.0), "blue_drop_view", dropDelegate)
+    let blue_view = createDropView(w, newPoint(350.0, 80.0), "blue_drop_view", dropDelegate)
     blue_view.backgroundColor = newColor(0.0, 0.0, 1.0, 1.0)
 
     v.addSubView(red_view)
     v.addSubView(blue_view)
 
-    let draggedView1 = createDraggedView(newPoint(50, 10), "green")
+    let draggedView1 = createDraggedView(w, newPoint(50, 10), "green")
     v.addSubView(draggedView1)
 
-    let draggedView2 = createDraggedView(newPoint(350, 10), "yelow")
+    let draggedView2 = createDraggedView(w, newPoint(350, 10), "yelow")
     draggedView2.backgroundColor = newColor(1.0, 1.0, 0.0, 1.0)
     v.addSubView(draggedView2)
 
-    let expView = newExpandingView(newRect(50, 300, 200, 400), true)
+    let expView = newExpandingView(w, newRect(50, 300, 200, 400), true)
     expView.title = "Expanded View "
     v.addSubview(expView)
 
-    let exp_drop_view = createDropView(newPoint(350.0, 80.0), "exp_drop_view", dropDelegate)
+    let exp_drop_view = createDropView(w, newPoint(350.0, 80.0), "exp_drop_view", dropDelegate)
     exp_drop_view.backgroundColor = newColor(1.0, 0.0, 1.0, 1.0)
     expView.addContent(exp_drop_view)
 

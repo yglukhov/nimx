@@ -10,8 +10,8 @@ export linear_layout
 type InspectorView* = ref object of LinearLayout
     onPropertyChanged*: proc(name: string)
 
-method init*(v: InspectorView, r: Rect) =
-    procCall v.LinearLayout.init(r)
+method init*(v: InspectorView, w: Window, r: Rect) =
+    procCall v.LinearLayout.init(w, r)
     v.horizontal = false
 
 proc setInspectedObject*[T](v: InspectorView, o: T) =
@@ -31,6 +31,6 @@ proc setInspectedObject*[T](v: InspectorView, o: T) =
     visitor.requireGetter = true
     visitor.flags = { pfEditable }
     visitor.commit = proc() =
-        v.addSubview(propertyEditorForProperty(oo, visitor.name, visitor.setterAndGetter, onChange = onChanged(visitor)))
+        v.addSubview(propertyEditorForProperty(v.window, oo, visitor.name, visitor.setterAndGetter, onChange = onChanged(visitor)))
 
     o.visitProperties(visitor)

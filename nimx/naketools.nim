@@ -813,9 +813,9 @@ proc build*(b: Builder) =
     if b.avoidSDL: b.nimFlags.add("-d:nimxAvoidSDL")
 
     if b.debugMode:
-        b.nimFlags.add(["-d:debug"])
-        if b.platform != "js":
-            b.nimFlags.add(["--stackTrace:on", "--lineTrace:on"])
+        b.nimFlags.add(["--debugger:on"])
+        if b.platform == "js":
+            b.nimFlags.add(["--stackTrace:off", "--lineTrace:off"])
     else:
         b.nimFlags.add(["-d:release", "--opt:speed", "-d:noAutoGLerrorCheck"])
 

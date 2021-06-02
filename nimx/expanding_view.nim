@@ -47,21 +47,21 @@ proc updateFrame(v: ExpandingView) =
     elif not v.contentView.superview.isNil:
         v.contentView.removeFromSuperView()
 
-proc init*(v: ExpandingView, r: Rect, hasOffset: bool) =
-    procCall v.View.init(r)
+proc init*(v: ExpandingView, w: Window, r: Rect, hasOffset: bool) =
+    procCall v.View.init(w, r)
     v.backgroundColor = newColor(0.2, 0.2, 0.2, 1.0)
     v.title = "Expanded View"
 
     v.hasOffset = hasOffset
     if v.hasOffset:
-        v.contentView = newStackView(newRect(expandButtonSize, titleSize, r.width - expandButtonSize, r.height - titleSize))
+        v.contentView = newStackView(w, newRect(expandButtonSize, titleSize, r.width - expandButtonSize, r.height - titleSize))
     else:
-        v.contentView = newStackView(newRect(0, titleSize, r.width, r.height - titleSize))
+        v.contentView = newStackView(w, newRect(0, titleSize, r.width, r.height - titleSize))
     v.contentView.name = "contentView"
     v.contentView.resizingMask = "wb"
     v.addSubview(v.contentView)
 
-    v.expandBut = newExpandButton(v, newRect(0.0, 0.0, expandButtonSize, expandButtonSize))
+    v.expandBut = newExpandButton(v, w, newRect(0.0, 0.0, expandButtonSize, expandButtonSize))
     v.expandBut.onExpandAction =  proc(state: bool) =
         v.expanded = state
         v.updateFrame()
@@ -75,25 +75,26 @@ proc expand*(v: ExpandingView) =
     v.updateFrame()
     v.expandBut.expanded = true
 
-proc newExpandingView*(r: Rect, hasOffset: bool = false): ExpandingView =
+proc newExpandingView*(w: Window, r: Rect, hasOffset: bool = false): ExpandingView =
     result.new()
-    result.init(r, hasOffset)
+    result.init(w, r, hasOffset)
     result.name = "expandingView"
 
 method draw(v: ExpandingView, r: Rect) =
+    template gfxCtx: untyped = v.window.gfxCtx
+    template fontCtx: untyped = gfxCtx.fontCtx
     procCall v.View.draw(r)
 
     # title
-    let c = currentContext()
     var titleRect: Rect
     titleRect.size.width = r.width
     titleRect.size.height = titleSize
 
-    c.fillColor = v.titleBarColor
-    c.drawRect(titleRect)
+    gfxCtx.fillColor = v.titleBarColor
+    gfxCtx.drawRect(titleRect)
 
-    c.fillColor = v.titleTextColor
-    c.drawText(systemFontOfSize(14.0), newPoint(25, 1), v.title)
+    gfxCtx.fillColor = v.titleTextColor
+    gfxCtx.drawText(systemFontOfSize(fontCtx, 14.0), newPoint(25, 1), v.title)
 
 
     v.contentView.hidden = not v.expanded

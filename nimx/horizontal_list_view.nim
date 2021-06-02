@@ -7,7 +7,6 @@ import types
 import clip_view
 
 type
-
     Adapter* = ref object of RootObj
 
     ListScrollListener = ref object of OnScrollListener
@@ -26,7 +25,7 @@ type
         dirtyBoundsOrigin : Point
         itemClick: proc(pos : int)
 
-proc newViewWrapper(view : View, pos: int): ViewWrapper =
+proc newViewWrapper(view: View, pos: int): ViewWrapper =
     result.new
     result.v = view
     result.pos = pos
@@ -37,13 +36,13 @@ method getView*(a: Adapter, position: int, convertView : View): View {.base.} = 
 method setItemClickListener*(v: HorizontalListView, lis : proc(pos : int)) {.base.} =
     v.itemClick = lis
 
-proc newHorListView*(r: Rect): HorizontalListView =
+proc newHorListView*(w: Window, r: Rect): HorizontalListView =
     result.new()
     result.items = @[]
     result.cleared = @[]
-    result.init(r)
+    result.init(w, r)
 
-var offs = newPoint(0,0)
+var offs = newPoint(0,0) # TODO: globals
 
 proc getMinPos(v : HorizontalListView):ViewWrapper =
     if v.items.len > 0:
@@ -191,8 +190,8 @@ proc checkItemClick(v : HorizontalListView, p : Point) =
             if not v.itemClick.isNil:
                 v.itemClick(wrap.pos)
 
-method init*(v: HorizontalListView, r: Rect) =
-    procCall v.View.init(r)
+method init*(v: HorizontalListView, w: Window, r: Rect) =
+    procCall v.View.init(w, r)
     v.backgroundColor = newGrayColor(0.89)
     var sl : ListScrollListener
     new(sl)

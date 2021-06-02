@@ -40,13 +40,13 @@ const
 
 proc updateLayout*(v: CollectionView)
 
-proc newCollectionView*(r: Rect, itemSize: Size, layoutDirection: LayoutDirection, layoutWidth: int = LayoutWidthAuto): CollectionView =
+proc newCollectionView*(w: Window, r: Rect, itemSize: Size, layoutDirection: LayoutDirection, layoutWidth: int = LayoutWidthAuto): CollectionView =
     ## CollectionView constructor
     result.new()
     result.layoutDirection = layoutDirection
     result.layoutWidth = layoutWidth
     result.itemSize = itemSize
-    result.init(r)
+    result.init(w, r)
 
 method clipType*(v: CollectionView): ClipType = ctDefaultClip
 
@@ -162,8 +162,8 @@ proc updateLayout*(v: CollectionView) =
    v.scrollOffset = 0.0
    v.update()
 
-method init*(v: CollectionView, r: Rect) =
-    procCall v.View.init(r)
+method init*(v: CollectionView, w: Window, r: Rect) =
+    procCall v.View.init(w, r)
     v.rangeCache.dirty = true
     v.offset = 2.0
     let scrollListener = new(CollectionScrollListener)
@@ -204,7 +204,6 @@ CollectionView.properties:
     layoutWidth
     itemSize
 
-const collectionCreator = proc(): RootRef = newCollectionView(zeroRect, zeroSize, LeftToRight)
-registerClass(CollectionView, collectionCreator)
+registerClass(CollectionView)
 genVisitorCodeForView(CollectionView)
 genSerializeCodeForView(CollectionView)

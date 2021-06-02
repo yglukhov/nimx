@@ -33,7 +33,7 @@ method onScrollProgress(ls: ResizingScrollListener, dx, dy : float32, e : var Ev
     v.setFrameSize(ls.originalSize + newSize(dx, dy))
 
 method draw(k: ResizingKnob, r: Rect) =
-    let c = currentContext()
+    let c = k.window.gfxCtx
     c.strokeWidth = 2
     c.strokeColor = newGrayColor(0.2, 0.7)
     let b = k.bounds
@@ -45,7 +45,7 @@ method draw(k: ResizingKnob, r: Rect) =
 
 proc enableViewResizing*(v: View) =
     const size = 20
-    let resizingKnob = ResizingKnob.new(newRect(v.bounds.width - size, v.bounds.height - size, size, size))
+    let resizingKnob = ResizingKnob.new(v.window, newRect(v.bounds.width - size, v.bounds.height - size, size, size))
     resizingKnob.autoresizingMask = {afFlexibleMinX, afFlexibleMinY}
     v.addSubview(resizingKnob)
     var listener: ResizingScrollListener

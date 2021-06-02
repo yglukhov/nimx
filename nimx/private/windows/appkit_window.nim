@@ -158,7 +158,6 @@ static void CreateApplicationMenus(void) {
 type AppkitWindow* = ref object of Window
     nativeWindow: pointer # __NimxWindow__
     mNativeView: pointer # __NimxView__
-    renderingContext: GraphicsContext
     inLiveResize: bool
 
 type AppDelegate = ref object
@@ -208,7 +207,7 @@ proc initCommon(w: AppkitWindow, r: view.Rect) =
     w.mNativeView = nativeView
 
     # The context has to be inited before makeKeyAndOrderFront.
-    w.renderingContext = newGraphicsContext()
+    w.gfxCtx = newGraphicsContext()
     {.emit: """
     [win makeKeyAndOrderFront:nil];
     """.}
@@ -220,7 +219,7 @@ template nativeView(w: AppkitWindow): NSView = cast[NSView](w.mNativeView)
 proc initFullscreen*(w: AppkitWindow) =
     w.initCommon(newRect(0, 0, 800, 600))
 
-method init*(w: AppkitWindow, r: view.Rect) =
+method init*(w: AppkitWindow, _: Window, r: view.Rect) =
     w.initCommon(r)
 
 proc newFullscreenAppkitWindow(): AppkitWindow =
@@ -229,7 +228,7 @@ proc newFullscreenAppkitWindow(): AppkitWindow =
 
 proc newAppkitWindow(r: view.Rect): AppkitWindow =
     result.new()
-    result.init(r)
+    result.init(result, r)
 
 newWindow = proc(r: view.Rect): Window =
     result = newAppkitWindow(r)
@@ -242,15 +241,13 @@ method drawWindow(w: AppkitWindow) =
         let s = w.nativeView.bounds.size
         w.onResize(newSize(s.width, s.height))
 
-    let c = w.renderingContext
+    let c = w.gfxCtx
     c.gl.clear(c.gl.COLOR_BUFFER_BIT or c.gl.STENCIL_BUFFER_BIT or c.gl.DEPTH_BUFFER_BIT)
-    let oldContext = setCurrentContext(c)
 
     c.withTransform ortho(0, w.frame.width, w.frame.height, 0, -1, 1):
         procCall w.Window.drawWindow()
     let nv = w.nativeView
     {.emit: "[[`nv` openGLContext] flushBuffer];".}
-    setCurrentContext(oldContext)
 
 proc markNeedsDisplayAux(w: AppkitWindow) =
     let nv = w.nativeView

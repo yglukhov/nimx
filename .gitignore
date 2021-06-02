@@ -3,3 +3,5 @@ nakefile
 test/main
 *.exe
 build/
+.debug
+.vscode

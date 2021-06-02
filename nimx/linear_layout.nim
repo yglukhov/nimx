@@ -15,17 +15,17 @@ type
         hoveredDivider: int
         initialDragPos: Point
 
-proc newHorizontalLayout*(r: Rect): LinearLayout =
-    result = LinearLayout.new(r)
+proc newHorizontalLayout*(w: Window, r: Rect): LinearLayout =
+    result = LinearLayout.new(w, r)
     result.name = "HorizontalLayout"
 
-proc newVerticalLayout*(r: Rect): LinearLayout =
-    result = LinearLayout.new(r)
+proc newVerticalLayout*(w: Window, r: Rect): LinearLayout =
+    result = LinearLayout.new(w, r)
     result.name = "VerticalLayout"
     result.mHorizontal = false
 
-method init*(v: LinearLayout, r: Rect) =
-    procCall v.View.init(r)
+method init*(v: LinearLayout, w: Window, r: Rect) =
+    procCall v.View.init(w, r)
     v.mPadding = 1
     v.mHorizontal = true
     v.hoveredDivider = -1

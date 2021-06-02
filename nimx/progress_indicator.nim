@@ -67,19 +67,20 @@ void compose() {
 }
 """
 
-method init(v: ProgressIndicator, r: Rect) =
-    procCall v.View.init(r)
+method init(v: ProgressIndicator, w: Window, r: Rect) =
+    procCall v.View.init(w, r)
     v.animation = newAnimation()
     v.animation.finished = true
     v.animation.onAnimate = proc(p: float) =
         v.setNeedsDisplay()
 
 method draw*(v: ProgressIndicator, r: Rect) =
+    let c = v.window.gfxCtx
     if v.mIndeterminate:
-        indeterminateComposition.draw v.bounds:
+        draw c, indeterminateComposition, v.bounds:
             setUniform("uPosition", float32(epochTime() mod 1.0))
     else:
-        piComposition.draw v.bounds:
+        draw c, piComposition, v.bounds:
             setUniform("uPosition", v.mValue)
 
 proc `value=`*(v: ProgressIndicator, p: Coord) =
