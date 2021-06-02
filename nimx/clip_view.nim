@@ -3,9 +3,9 @@ import nimx / meta_extensions / [ property_desc, visitors_gen, serializers_gen ]
 
 type ClipView* = ref object of View
 
-proc newClipView*(r: Rect): ClipView =
+proc newClipView*(w: Window, r: Rect): ClipView =
     result.new()
-    result.init(r)
+    result.init(w, r)
     result.autoresizingMask = { afFlexibleWidth, afFlexibleHeight }
 
 method subviewDidChangeDesiredSize*(v: ClipView, sub: View, desiredSize: Size) =

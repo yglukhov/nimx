@@ -7,7 +7,6 @@ import nimx/private/js_vk_map
 
 type EmscriptenWindow* = ref object of Window
     ctx: EMSCRIPTEN_WEBGL_CONTEXT_HANDLE
-    renderingContext: GraphicsContext
     canvasId: string
     textInputActive: bool
 
@@ -314,7 +313,7 @@ proc initCommon(w: EmscriptenWindow, r: view.Rect) =
     if w.ctx <= 0:
         raise newException(Exception, "Could not create WebGL context: " & $w.ctx)
     discard emscripten_webgl_make_context_current(w.ctx)
-    w.renderingContext = newGraphicsContext()
+    w.gfxCtx = newGraphicsContext()
 
     const docID = "#document"
     discard emscripten_set_mousedown_callback(docID, cast[pointer](w), 0, onMouseDown)
@@ -349,7 +348,7 @@ proc initFullscreen*(w: EmscriptenWindow) =
     getDocumentSize(iw, ih)
     w.initCommon(newRect(0, 0, iw, ih))
 
-method init*(w: EmscriptenWindow, r: view.Rect) =
+method init*(w: EmscriptenWindow, _: Window, r: view.Rect) =
     w.initCommon(r)
 
 proc newFullscreenEmscriptenWindow*(canvasId = ""): EmscriptenWindow =
@@ -360,7 +359,7 @@ proc newFullscreenEmscriptenWindow*(canvasId = ""): EmscriptenWindow =
 proc newEmscriptenWindow*(r: view.Rect, canvasId = ""): EmscriptenWindow =
     result.new()
     result.canvasId = canvasId
-    result.init(r)
+    result.init(w, r)
 
 newWindow = proc(r: view.Rect): Window =
     result = newEmscriptenWindow(r)
@@ -377,12 +376,10 @@ newFullscreenWindowWithNative = proc(handle: pointer): Window =
     result = newFullscreenEmscriptenWindow(canvasId)
 
 method drawWindow(w: EmscriptenWindow) =
-    let c = w.renderingContext
-    let oldContext = setCurrentContext(c)
+    let c = w.gfxCtx
 
     c.withTransform ortho(0, w.frame.width, w.frame.height, 0, -1, 1):
         procCall w.Window.drawWindow()
-    setCurrentContext(oldContext)
 
 method onResize*(w: EmscriptenWindow, newSize: Size) =
     w.pixelRatio = screenScaleFactor()

@@ -10,12 +10,12 @@ proc leftOf(v: View, width: Coord): Rect =
     result.size.height = f.height
     result.size.width = width
 
-method init(v: MenuSampleView, r: Rect) =
-    procCall v.View.init(r)
-    let b = Button.new(newRect(5, 5, 100, 25))
+method init(v: MenuSampleView, w: Window, r: Rect) =
+    procCall v.View.init(w, r)
+    let b = Button.new(w, newRect(5, 5, 100, 25))
     b.title = "Menu"
 
-    let textField = TextField.new(b.leftOf(120))
+    let textField = TextField.new(w, b.leftOf(120))
     textField.text = "Menu: none"
 
     let m = makeMenu("File"):

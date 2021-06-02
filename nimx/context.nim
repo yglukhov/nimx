@@ -1,11 +1,13 @@
+import std/[hashes, math, tables]
 import types
 import opengl
 import system_logger
 import matrixes
-import image
-import math
+import image, timer
 import portable_gl
 import nimsl/nimsl
+import font
+import composition_types
 
 export matrixes
 
@@ -15,6 +17,33 @@ type ShaderAttribute* = enum
 
 type Transform3D* = Matrix4
 
+when defined js:
+    type Transform3DRef* = ref Transform3D
+else:
+    type Transform3DRef* = ptr Transform3D
+
+type
+    GraphicsContext* = ref object of RootObj
+        gl*: GL
+        pTransform: Transform3DRef
+        fillColor*: Color
+        strokeColor*: Color
+        strokeWidth*: Coord
+        debugClipColor*: Color
+        alpha*: Coord
+        quadIndexBuffer*: BufferRef
+        gridIndexBuffer4x4*: BufferRef
+        singleQuadBuffer*: BufferRef
+        sharedBuffer*: BufferRef
+        vertexes*: array[4 * 4 * 128, Coord]
+        texQuad*: array[4, GLfloat]
+        overdrawValue*: float32
+        clippingDepth*: GLint
+        DIPValue*: int
+        programCache*: Table[Hash, CompiledComposition]
+        postEffectStack*: seq[PostEffectStackElem]
+        postEffectIdStack*: seq[Hash]
+        fontCtx*: FontContext
 
 proc loadShader(gl: GL, shaderSrc: string, kind: GLenum): ShaderRef =
     result = gl.createShader(kind)
@@ -67,26 +96,39 @@ proc newShaderProgram*(gl: GL, vs, fs: string,
     elif info.len > 0:
         logi "Program linked: ", info
 
-when defined js:
-    type Transform3DRef = ref Transform3D
-else:
-    type Transform3DRef = ptr Transform3D
+template getOverdrawValue*(ctx: GraphicsContext): float32 =
+    ctx.overdrawValue / 1000
 
-type GraphicsContext* = ref object of RootObj
-    gl*: GL
-    pTransform: Transform3DRef
-    fillColor*: Color
-    strokeColor*: Color
-    strokeWidth*: Coord
-    debugClipColor: Color
-    alpha*: Coord
-    quadIndexBuffer*: BufferRef
-    gridIndexBuffer4x4: BufferRef
-    singleQuadBuffer*: BufferRef
-    sharedBuffer*: BufferRef
-    vertexes*: array[4 * 4 * 128, Coord]
+template resetOverdrawValue*(ctx: GraphicsContext) =
+    ctx.overdrawValue = 0
 
-var gCurrentContext: GraphicsContext
+template getDIPValue*(ctx: GraphicsContext): int =
+    ctx.DIPValue
+
+template resetDIPValue*(ctx: GraphicsContext) =
+    ctx.DIPValue = 0
+
+template pushPostEffect*(pe: PostEffect, args: varargs[untyped]) =
+    let ctx = pe.window.gfxCtx
+    let stackLen = postEffectIdStack.len
+    ctx.postEffectStack.add(PostEffectStackElem(postEffect: pe, setupProc: proc(cc: CompiledComposition) =
+        let gl = ctx.gl
+        compositionDrawingDefinitions(cc, ctx, gl)
+        var j = 0
+        staticFor uni in args:
+            setUniform(postEffectUniformName(stackLen, j), uni)
+            inc j
+    ))
+
+    let oh = if stackLen > 0: ctx.postEffectIdStack[^1] else: 0
+    ctx.postEffectIdStack.add(oh !& pe.id)
+
+template popPostEffect*(ctx: GraphicsContext) =
+    ctx.postEffectStack.setLen(ctx.postEffectStack.len - 1)
+    ctx.postEffectIdStack.setLen(ctx.postEffectIdStack.len - 1)
+
+template hasPostEffect*(ctx: GraphicsContext): bool =
+    ctx.postEffectStack.len > 0
 
 proc transformToRef(t: Transform3D): Transform3DRef =
     when defined js:
@@ -102,7 +144,7 @@ template withTransform*(c: GraphicsContext, t: Transform3DRef, body: typed) =
 
 template withTransform*(c: GraphicsContext, t: Transform3D, body: typed) = c.withTransform(transformToRef(t), body)
 
-template transform*(c: GraphicsContext): var Transform3D = c.pTransform[]
+template transform*(ctx: GraphicsContext): var Transform3D = ctx.pTransform[]
 
 proc createQuadIndexBuffer*(c: GraphicsContext, numberOfQuads: int): BufferRef =
     result = c.gl.createBuffer()
@@ -181,14 +223,7 @@ proc newGraphicsContext*(canvas: ref RootObj = nil): GraphicsContext =
     result.singleQuadBuffer = result.createQuadBuffer()
     result.sharedBuffer = result.gl.createBuffer()
 
-    if gCurrentContext.isNil:
-        gCurrentContext = result
-
-proc setCurrentContext*(c: GraphicsContext): GraphicsContext {.discardable.} =
-    result = gCurrentContext
-    gCurrentContext = c
-
-template currentContext*(): GraphicsContext = gCurrentContext
+    result.fontCtx = newFontContext()
 
 proc setTransformUniform*(c: GraphicsContext, program: ProgramRef) =
     c.gl.uniformMatrix4fv(c.gl.getUniformLocation(program, "modelViewProjectionMatrix"), false, c.transform)
@@ -236,7 +271,7 @@ void compose() {
 """
 
 proc drawRoundedRect*(c: GraphicsContext, r: Rect, radius: Coord) =
-    roundedRectComposition.draw r:
+    draw c, roundedRectComposition, r:
         setUniform("uFillColor", c.fillColor)
         setUniform("uStrokeColor", if c.strokeWidth == 0: c.fillColor else: c.strokeColor)
         setUniform("uStrokeWidth", c.strokeWidth)
@@ -251,7 +286,7 @@ proc drawRect(bounds, uFillColor, uStrokeColor: Vec4,
 var rectComposition = newCompositionWithNimsl(drawRect)
 
 proc drawRect*(c: GraphicsContext, r: Rect) =
-    rectComposition.draw r:
+    draw c, rectComposition, r:
         setUniform("uFillColor", c.fillColor)
         setUniform("uStrokeColor", if c.strokeWidth == 0: c.fillColor else: c.strokeColor)
         setUniform("uStrokeWidth", c.strokeWidth)
@@ -265,7 +300,7 @@ proc drawEllipse(bounds, uFillColor, uStrokeColor: Vec4,
 var ellipseComposition = newCompositionWithNimsl(drawEllipse)
 
 proc drawEllipseInRect*(c: GraphicsContext, r: Rect) =
-    ellipseComposition.draw r:
+    draw c, ellipseComposition, r:
         setUniform("uFillColor", c.fillColor)
         setUniform("uStrokeColor", if c.strokeWidth == 0: c.fillColor else: c.strokeColor)
         setUniform("uStrokeWidth", c.strokeWidth)
@@ -301,7 +336,7 @@ proc drawImage*(c: GraphicsContext, i: Image, toRect: Rect, fromRect: Rect = zer
         if fromRect != zeroRect:
             let s = i.size
             fr = newRect(fromRect.x / s.width, fromRect.y / s.height, fromRect.maxX / s.width, fromRect.maxY / s.height)
-        imageComposition.draw toRect:
+        draw c, imageComposition, toRect:
             setUniform("uImage", i)
             setUniform("uAlpha", alpha * c.alpha)
             setUniform("uFromRect", fr)
@@ -332,7 +367,7 @@ void compose() {
 proc drawNinePartImage*(c: GraphicsContext, i: Image, toRect: Rect, ml, mt, mr, mb: Coord, fromRect: Rect = zeroRect, alpha: ColorComponent = 1.0) =
     if i.isLoaded:
         let gl = c.gl
-        var cc = gl.getCompiledComposition(ninePartImageComposition)
+        var cc = getCompiledComposition(c, ninePartImageComposition)
 
         var fuv : array[4, GLfloat]
         let tex = getTextureQuad(i, gl, fuv)
@@ -384,7 +419,7 @@ proc drawNinePartImage*(c: GraphicsContext, i: Image, toRect: Rect, ml, mt, mr, 
         setUniform("uAlpha", alpha * c.alpha)
 
         gl.uniformMatrix4fv(uniformLocation("uModelViewProjectionMatrix"), false, c.transform)
-        setupPosteffectUniforms(cc)
+        setupPosteffectUniforms(c, cc)
 
         gl.activeTexture(GLenum(int(gl.TEXTURE0) + cc.iTexIndex))
         gl.uniform1i(uniformLocation("texUnit"), cc.iTexIndex)
@@ -428,7 +463,7 @@ proc bezierPoint(p0, p1, p2, p3, t: float32): float32 =
 
 proc drawBezier*(c: GraphicsContext, p0, p1, p2, p3: Point) =
     let gl = c.gl
-    var cc = gl.getCompiledComposition(simpleComposition)
+    var cc = getCompiledComposition(c, simpleComposition)
 
     template setVertex(index: int, p: Point) =
         c.vertexes[index * 2 + 0] = p.x.GLfloat
@@ -445,7 +480,7 @@ proc drawBezier*(c: GraphicsContext, p0, p1, p2, p3: Point) =
 
     gl.uniformMatrix4fv(uniformLocation("uModelViewProjectionMatrix"), false, c.transform)
     setUniform("uStrokeColor", c.strokeColor)
-    setupPosteffectUniforms(cc)
+    setupPosteffectUniforms(c, cc)
 
     const componentsCount = 2
     gl.enableVertexAttribArray(saPosition.GLuint)
@@ -498,7 +533,7 @@ proc drawLine*(c: GraphicsContext, pointFrom: Point, pointTo: Point) =
     let ysize = max(pointFrom.y, pointTo.y) - yfrom
     let r = newRect(xfrom - c.strokeWidth, yfrom - c.strokeWidth, xsize + 2 * c.strokeWidth, ysize + 2 * c.strokeWidth)
 
-    lineComposition.draw r:
+    draw c, lineComposition, r:
         setUniform("uStrokeWidth", c.strokeWidth)
         setUniform("uStrokeColor", c.strokeColor)
         setUniform("A", pointFrom)
@@ -542,7 +577,7 @@ proc drawArc*(c: GraphicsContext, center: Point, radius: Coord, fromAngle, toAng
 
     let rad = radius + 1
     let r = newRect(center.x - rad, center.y - rad, rad * 2, rad * 2)
-    arcComposition.draw r:
+    draw c, arcComposition, r:
         setUniform("uStrokeWidth", c.strokeWidth)
         setUniform("uFillColor", c.fillColor)
         setUniform("uStrokeColor", if c.strokeWidth == 0: c.fillColor else: c.strokeColor)
@@ -563,12 +598,9 @@ proc drawTriangle*(c: GraphicsContext, rect: Rect, angleRad: Coord) =
     ## Draws equilateral triangle with current `fillColor`, pointing at `angleRad`
     var color = c.fillColor
     color.a *= c.alpha
-    triangleComposition.draw rect:
+    draw c, triangleComposition, rect:
         setUniform("uAngle", angleRad)
         setUniform("uColor", color)
-
-# TODO: This should probaly be a property of current context!
-var clippingDepth: GLint = 0
 
 # Clipping
 proc applyClippingRect*(c: GraphicsContext, r: Rect, on: bool) =
@@ -577,10 +609,10 @@ proc applyClippingRect*(c: GraphicsContext, r: Rect, on: bool) =
     c.gl.depthMask(false)
     c.gl.stencilMask(0xFF)
     if on:
-        inc clippingDepth
+        inc c.clippingDepth
         c.gl.stencilOp(c.gl.INCR, c.gl.KEEP, c.gl.KEEP)
     else:
-        dec clippingDepth
+        dec c.clippingDepth
         c.gl.stencilOp(c.gl.DECR, c.gl.KEEP, c.gl.KEEP)
 
     c.gl.stencilFunc(c.gl.NEVER, 1, 0xFF)
@@ -591,8 +623,8 @@ proc applyClippingRect*(c: GraphicsContext, r: Rect, on: bool) =
     c.gl.stencilMask(0x00)
 
     c.gl.stencilOp(c.gl.KEEP, c.gl.KEEP, c.gl.KEEP)
-    c.gl.stencilFunc(c.gl.EQUAL, clippingDepth, 0xFF)
-    if clippingDepth == 0:
+    c.gl.stencilFunc(c.gl.EQUAL, c.clippingDepth, 0xFF)
+    if c.clippingDepth == 0:
         c.gl.disable(c.gl.STENCIL_TEST)
 
 template withClippingRect*(c: GraphicsContext, r: Rect, body: typed) =

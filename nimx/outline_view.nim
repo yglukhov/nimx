@@ -42,8 +42,8 @@ type
 
     IndexPath* = seq[int]
 
-method init*(v: OutlineView, r: Rect) =
-    procCall v.View.init(r)
+method init*(v: OutlineView, w: Window, r: Rect) =
+    procCall v.View.init(w, r)
     v.rootItem = ItemNode.new()
     v.rootItem.expandable = true
     v.rootItem.expanded = true
@@ -52,8 +52,8 @@ method init*(v: OutlineView, r: Rect) =
 
 const rowHeight = 20.Coord
 
-proc drawDisclosureTriangle(disclosed: bool, r: Rect) =
-    currentContext().drawTriangle(r, if disclosed: Coord(PI / 2.0) else: Coord(0))
+proc drawDisclosureTriangle(ctx: GraphicsContext, disclosed: bool, r: Rect) =
+    ctx.drawTriangle(r, if disclosed: Coord(PI / 2.0) else: Coord(0))
 
 template xOffsetForIndexPath(ip: IndexPath): Coord =
     Coord(offsetOutline + ip.len * offsetOutline * 2)
@@ -68,11 +68,11 @@ proc configureCellAUX(v: OutlineView, n: ItemNode, y: Coord, indexPath: IndexPat
 
 proc drawNode(v: OutlineView, n: ItemNode, y: var Coord, indexPath: var IndexPath) =
     if n.filtered: return
-    let c = currentContext()
+    let c = v.window.gfxCtx
     v.configureCellAUX(n, y, indexPath)
     n.cell.drawWithinSuperview()
     if n.expandable and n.children.len > 0:
-        drawDisclosureTriangle(n.expanded, newRect(n.cell.frame.x - 6 - offsetOutline * 2 - rowHeight * 0.5 , y - rowHeight * 0.5, rowHeight * 2.0, rowHeight * 2.0))
+        drawDisclosureTriangle(c, n.expanded, newRect(n.cell.frame.x - 6 - offsetOutline * 2 - rowHeight * 0.5 , y - rowHeight * 0.5, rowHeight * 2.0, rowHeight * 2.0))
 
     y += rowHeight
 

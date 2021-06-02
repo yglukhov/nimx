@@ -49,7 +49,7 @@ void compose() {
 """
 
 method draw*(s: Slider, r: Rect) =
-    sliderComposition.draw s.bounds:
+    draw s.window.gfxCtx, sliderComposition, s.bounds:
         setUniform("uPosition", s.mValue)
 
 proc `value=`*(s: Slider, p: Coord) =

@@ -27,40 +27,43 @@ iterator rangesOfSubstring(haystack, needle: string): (int, int) =
             yield (index, b)
             start = b
 
-method init(v: TextSampleView, r: Rect) =
-    procCall v.View.init(r)
+method init(v: TextSampleView, w: Window, r: Rect) =
+    template gfxCtx: untyped = v.window.gfxCtx
+    template fontCtx: untyped = gfxCtx.fontCtx
+    template gl: untyped = gfxCtx.gl
+    procCall v.View.init(w, r)
 
-    let tv = TextField.new(v.bounds.inset(50, 50))
+    let tv = TextField.new(w, v.bounds.inset(50, 50))
     tv.resizingMask = "wh"
     tv.text = textSample
     tv.backgroundColor = newColor(0.5, 0, 0, 0.5)
     tv.multiline = true
 
     for a, b in tv.text.rangesOfSubstring("Nim"):
-        tv.formattedText.setFontInRange(a, b, systemFontOfSize(40))
-        tv.formattedText.setStrokeInRange(a, b, newColor(1, 0, 0), 5)
+        setFontInRange(fontCtx, gl, tv.formattedText, a, b, systemFontOfSize(fontCtx, 40))
+        setStrokeInRange(fontCtx, gl, tv.formattedText, a, b, newColor(1, 0, 0), 5)
 
     for a, b in tv.text.rangesOfSubstring("programming"):
-        tv.formattedText.setTextColorInRange(a, b, newColor(1, 0, 0))
-        tv.formattedText.setShadowInRange(a, b, newGrayColor(0.5, 0.5), newSize(2, 3), 0.0, 0.0)
+        setTextColorInRange(fontCtx, gl, tv.formattedText, a, b, newColor(1, 0, 0))
+        setShadowInRange(fontCtx, gl, tv.formattedText, a, b, newGrayColor(0.5, 0.5), newSize(2, 3), 0.0, 0.0)
 
     for a, b in tv.text.rangesOfSubstring("supported"):
-        tv.formattedText.setTextColorInRange(a, b, newColor(0, 0.6, 0))
+        setTextColorInRange(fontCtx, gl, tv.formattedText, a, b, newColor(0, 0.6, 0))
 
     for a, b in tv.text.rangesOfSubstring("Soft Shadow"):
-        tv.formattedText.setFontInRange(a, b, systemFontOfSize(40))
-        tv.formattedText.setShadowInRange(a, b, newColor(0.0, 0.0, 1.0, 1.0), newSize(2, 3), 5.0, 0.8)
+        setFontInRange(fontCtx, gl, tv.formattedText, a, b, systemFontOfSize(fontCtx, 40))
+        setShadowInRange(fontCtx, gl, tv.formattedText, a, b, newColor(0.0, 0.0, 1.0, 1.0), newSize(2, 3), 5.0, 0.8)
 
-    let sv = newScrollView(tv)
+    let sv = newScrollView(w, tv)
     v.addSubview(sv)
 
-    let hAlignChooser = SegmentedControl.new(newRect(5, 5, 200, 25))
+    let hAlignChooser = SegmentedControl.new(w, newRect(5, 5, 200, 25))
     hAlignChooser.segments = @[$haLeft, $haCenter, $haRight]
     v.addSubview(hAlignChooser)
     hAlignChooser.onAction do():
         tv.formattedText.horizontalAlignment = parseEnum[HorizontalTextAlignment](hAlignChooser.segments[hAlignChooser.selectedSegment])
 
-    let vAlignChooser = SegmentedControl.new(newRect(hAlignChooser.frame.maxX + 5, 5, 200, 25))
+    let vAlignChooser = SegmentedControl.new(w, newRect(hAlignChooser.frame.maxX + 5, 5, 200, 25))
     vAlignChooser.segments = @[$vaTop, $vaCenter, $vaBottom]
     vAlignChooser.selectedSegment = 0
     v.addSubview(vAlignChooser)
@@ -69,9 +72,9 @@ method init(v: TextSampleView, r: Rect) =
     tv.formattedText.verticalAlignment = vaTop
 
 method draw(v: TextView, r: Rect) =
+    template gfxCtx: untyped = v.window.gfxCtx
     procCall v.View.draw(r)
-    let c = currentContext()
     v.text.boundingSize = v.bounds.size
-    c.drawText(newPoint(0, 0), v.text)
+    gfxCtx.drawText(newPoint(0, 0), v.text)
 
 registerSample(TextSampleView, "Text")

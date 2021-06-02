@@ -34,3 +34,9 @@ task "docs", "Build documentation":
                 direShell "nim rst2html " & f & " &>/dev/null"
 
         copyDir "../js", "./livedemo"
+
+task "debug", "Build for debugging":
+    let b = newBuilder()
+    b.additionalNimFlags.add "--debugger:on"
+    b.runAfterBuild = false
+    b.build()

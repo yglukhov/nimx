@@ -14,7 +14,7 @@ when savingAndLoadingEnabled:
 proc newUIDocument*(e: Editor): UIDocument =
     result.new()
     result.undoManager = newUndoManager()
-    result.view = new(View, e.workspace.bounds)
+    result.view = new(View, e.workspace.window, e.workspace.bounds)
     result.view.autoResizingMask = {afFlexibleWidth, afFlexibleHeight}
 
 proc defaultName*(ui: UIDocument, className: string): string =

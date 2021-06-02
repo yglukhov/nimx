@@ -3,6 +3,7 @@ import nimx/view
 import nimx/text_field
 import nimx/font
 import nimx/property_visitor
+import nimx/context
 
 import variant
 
@@ -10,12 +11,13 @@ type
     PropertyEditorView* = ref object of View
         onChange*: proc()
         changeInspector*: proc()
-    PropertyEditorCreatorWO*[T] = proc(editedObject: Variant, setter: proc(s: T), getter: proc(): T): PropertyEditorView
-    PropertyEditorCreator*[T] = proc(setter: proc(s: T), getter: proc(): T): PropertyEditorView
+    PropertyEditorCreatorWO*[T] = proc(w: Window, editedObject: Variant, setter: proc(s: T), getter: proc(): T): PropertyEditorView
+    PropertyEditorCreator*[T] = proc(w: Window, setter: proc(s: T), getter: proc(): T): PropertyEditorView
 
-var propEditors = initTable[TypeId, proc(editedObject: Variant, v: Variant): PropertyEditorView]()
+var propEditors = initTable[TypeId, proc(w: Window, editedObject: Variant, v: Variant): PropertyEditorView]()
+
 proc registerPropertyEditorAUX[T, C](createView: C) =
-    propEditors[getTypeId(SetterAndGetter[T])] = proc(n: Variant, v: Variant): PropertyEditorView =
+    propEditors[getTypeId(SetterAndGetter[T])] = proc(w: Window, n: Variant, v: Variant): PropertyEditorView =
         let sng = v.get(SetterAndGetter[T])
         var r: PropertyEditorView
         proc setterAUX(s: T) =
@@ -23,9 +25,9 @@ proc registerPropertyEditorAUX[T, C](createView: C) =
             if not r.isNil and not r.onChange.isNil:
                 r.onChange()
         when C is PropertyEditorCreatorWO:
-            r = createView(n, setterAUX, sng.getter)
+            r = createView(w, n, setterAUX, sng.getter)
         else:
-            r = createView(setterAUX, sng.getter)
+            r = createView(w, setterAUX, sng.getter)
         result = r
 
 proc registerPropertyEditor*[T](createView: PropertyEditorCreatorWO[T]) =
@@ -34,16 +36,10 @@ proc registerPropertyEditor*[T](createView: PropertyEditorCreatorWO[T]) =
 proc registerPropertyEditor*[T](createView: PropertyEditorCreator[T]) =
     registerPropertyEditorAUX[T, PropertyEditorCreator[T]](createView)
 
-var gEditorFont: Font
-
-proc editorFont*(): Font =
-    if gEditorFont.isNil: gEditorFont = systemFontOfSize(14)
-    result = gEditorFont
-
 const editorRowHeight* = 16
 
-template createEditorAUX(r: Rect) =
-    let editor = creator(editedObject, v)
+template createEditorAUX(w: Window, r: Rect) =
+    let editor = creator(w, editedObject, v)
     editor.name = "editor"
     editor.setFrameOrigin(r.origin)
     var sz = newSize(r.size.width, editor.frame.height)
@@ -58,28 +54,28 @@ template createEditorAUX(r: Rect) =
     editor.changeInspector = changeInspectorCallback
     editor.onChange = onChange
 
-proc propertyEditorForProperty*(editedObject: Variant, title: string, v: Variant, onChange, changeInspectorCallback: proc() = nil): View =
+proc propertyEditorForProperty*(w: Window, editedObject: Variant, title: string, v: Variant, onChange, changeInspectorCallback: proc() = nil): View =
     let creator = propEditors.getOrDefault(v.typeId)
-    result = View.new(newRect(0, 0, 328, editorRowHeight))
+    result = View.new(w, newRect(0, 0, 328, editorRowHeight))
     result.name = "'" & title & "'"
     result.autoresizingMask = {afFlexibleWidth, afFlexibleMaxY}
-    let label = newLabel(newRect(0, 0, 100, editorRowHeight))
+    let label = newLabel(w, newRect(0, 0, 100, editorRowHeight))
     label.textColor = blackColor()
     label.name = "label"
     label.text = title & ":"
-    label.font = editorFont()
+    label.font = systemFontOfSize(w.gfxCtx.fontCtx, 14.0)
     result.addSubview(label)
     if creator.isNil:
         label.text = title & " - Unknown property"
     else:
-        createEditorAUX(newRect(label.frame.width, 0, result.bounds.width - label.frame.width, result.bounds.height))
+        createEditorAUX(w, newRect(label.frame.width, 0, result.bounds.width - label.frame.width, result.bounds.height))
 
-proc propertyEditorForProperty*(editedObject: Variant, v: Variant, changeInspectorCallback: proc() = nil): View =
+proc propertyEditorForProperty*(w: Window, editedObject: Variant, v: Variant, changeInspectorCallback: proc() = nil): View =
     let creator = propEditors.getOrDefault(v.typeId)
-    result = View.new(newRect(0, 0, 228, editorRowHeight))
+    result = View.new(w, newRect(0, 0, 228, editorRowHeight))
     result.autoresizingMask = {afFlexibleWidth, afFlexibleMaxY}
     if creator.isNil:
-        discard result.newLabel(newPoint(100, 0), newSize(128, editorRowHeight), "Unknown")
+        discard result.newLabel(w, newPoint(100, 0), newSize(128, editorRowHeight), "Unknown")
     else:
         const onChange: proc() = nil
-        createEditorAUX(newRect(0,0, result.bounds.width, result.bounds.height))
+        createEditorAUX(w, newRect(0,0, result.bounds.width, result.bounds.height))

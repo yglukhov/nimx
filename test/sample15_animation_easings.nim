@@ -25,8 +25,8 @@ proc createAnimation(v: AnimationEasing, curved: bool): Animation=
 
     result = a
 
-method init*(v: AnimationEasing, r: Rect) =
-    procCall v.View.init(r)
+method init*(v: AnimationEasing, w: Window, r: Rect) =
+    procCall v.View.init(w, r)
 
     v.animationLinear = v.createAnimation(false)
     v.animationCurved = v.createAnimation(true)
@@ -92,11 +92,11 @@ method init*(v: AnimationEasing, r: Rect) =
     v.addSubview(bezierView)
 
 
-    v.progress = ProgressIndicator.new(newRect(50, 400, 550, 20))
+    v.progress = ProgressIndicator.new(w, newRect(50, 400, 550, 20))
     v.addSubview(v.progress)
 
 method draw(v: AnimationEasing, r: Rect) =
-    let c = currentContext()
+    let c = v.window.gfxCtx
     c.strokeWidth = 2
 
     let offsetX = 50.0

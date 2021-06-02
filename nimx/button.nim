@@ -52,38 +52,38 @@ Button.properties:
     imageMarginLeft
     image
 
-proc newButton*(r: Rect): Button =
+proc newButton*(w: Window, r: Rect): Button =
     result.new()
-    result.init(r)
+    result.init(w, r)
 
-proc newButton*(parent: View = nil, position: Point = newPoint(0, 0), size: Size = newSize(100, 20), title: string = "Button"): Button =
-    result = newButton(newRect(position.x, position.y, size.width, size.height))
+proc newButton*(parent: View = nil, w: Window, position: Point = newPoint(0, 0), size: Size = newSize(100, 20), title: string = "Button"): Button =
+    result = newButton(w, newRect(position.x, position.y, size.width, size.height))
     result.title = title
     if not isNil(parent):
         parent.addSubview(result)
 
-proc newCheckbox*(r: Rect): Button =
-    result = newButton(r)
+proc newCheckbox*(w: Window, r: Rect): Button =
+    result = newButton(w, r)
     result.style = bsCheckbox
     result.behavior = bbToggle
 
-proc newRadiobox*(r: Rect): Button =
-    result = newButton(r)
+proc newRadiobox*(w: Window, r: Rect): Button =
+    result = newButton(w, r)
     result.style = bsRadiobox
     result.behavior = bbToggle
 
-proc newImageButton*(r: Rect): Button =
-    result = newButton(r)
+proc newImageButton*(w: Window, r: Rect): Button =
+    result = newButton(w, r)
     result.style = bsImage
 
-proc newImageButton*(parent: View = nil, position: Point = newPoint(0, 0), size: Size = newSize(100, 20), image: Image = nil): Button =
-    result = newImageButton(newRect(position.x, position.y, size.width, size.height))
+proc newImageButton*(parent: View = nil, w: Window, position: Point = newPoint(0, 0), size: Size = newSize(100, 20), image: Image = nil): Button =
+    result = newImageButton(w, newRect(position.x, position.y, size.width, size.height))
     result.image = image
     if not isNil(parent):
         parent.addSubview(result)
 
-method init*(b: Button, frame: Rect) =
-    procCall b.Control.init(frame)
+method init*(b: Button, w: Window, frame: Rect) =
+    procCall b.Control.init(w, frame)
     b.state = bsUp
     b.enabled = true
     b.backgroundColor = whiteColor()
@@ -93,29 +93,31 @@ method init*(b: Button, frame: Rect) =
     b.imageMarginTop = 2
     b.imageMarginBottom = 2
 
-method init*(b: Checkbox, frame: Rect) =
-    procCall b.Button.init(frame)
+method init*(b: Checkbox, w: Window, frame: Rect) =
+    procCall b.Button.init(w, frame)
     b.style = bsCheckbox
     b.behavior = bbToggle
 
-method init*(b: Radiobox, frame: Rect) =
-    procCall b.Button.init(frame)
+method init*(b: Radiobox, w: Window, frame: Rect) =
+    procCall b.Button.init(w, frame)
     b.style = bsRadiobox
     b.behavior = bbToggle
 
 proc drawTitle(b: Button, xOffset: Coord) =
+    template gfxCtx: untyped = b.window.gfxCtx
+    template fontCtx: untyped = b.window.gfxCtx.fontCtx
+    template gl: untyped = b.window.gfxCtx.gl
     if b.title.len != 0:
-        let c = currentContext()
-        c.fillColor = if b.state == bsDown and b.style == bsRegular:
+        gfxCtx.fillColor = if b.state == bsDown and b.style == bsRegular:
                 whiteColor()
             else:
                 blackColor()
 
-        let font = systemFont()
+        let font = systemFont(fontCtx)
         var titleRect = b.bounds
-        var pt = centerInRect(font.sizeOfString(b.title), titleRect)
+        var pt = centerInRect(sizeOfString(fontCtx, gl, font, b.title), titleRect)
         if pt.x < xOffset: pt.x = xOffset
-        c.drawText(font, pt, b.title)
+        gfxCtx.drawText(font, pt, b.title)
 
 var regularButtonComposition = newComposition """
 uniform vec4 uStrokeColor;
@@ -134,7 +136,7 @@ void compose() {
 """
 
 proc drawRegularBezel(b: Button) =
-    regularButtonComposition.draw b.bounds:
+    draw b.window.gfxCtx, regularButtonComposition, b.bounds:
         if b.state == bsUp:
             setUniform("uStrokeColor", newGrayColor(0.78))
             setUniform("uFillColorStart", if b.enabled: b.backgroundColor else: grayColor())
@@ -162,10 +164,10 @@ proc drawCheckboxStyle(b: Button, r: Rect) =
     let
         size = b.bounds.height
         bezelRect = newRect(0, 0, size, size)
-        c = currentContext()
+        c = b.window.gfxCtx
 
     if b.value != 0:
-        checkButtonComposition.draw bezelRect:
+        draw c, checkButtonComposition, bezelRect:
             setUniform("uStrokeColor", selectionColor)
             setUniform("uFillColor", selectionColor)
             setUniform("uRadius", 4.0)
@@ -182,7 +184,7 @@ proc drawCheckboxStyle(b: Button, r: Rect) =
         c.drawLine(newPoint(size / 4.0, size * 1.0 / 2.0), newPoint(size / 4.0 * 2.0, size * 1.0 / 2.0 + size / 5.0 - c.strokeWidth / 2.0))
         c.drawLine(newPoint(size / 4.0 * 2.0 - c.strokeWidth / 2.0, size * 1.0 / 2.0 + size / 5.0), newPoint(size / 4.0 * 3.0 - c.strokeWidth / 2.0, size / 4.0))
     else:
-        checkButtonComposition.draw bezelRect:
+        draw c, checkButtonComposition, bezelRect:
             setUniform("uStrokeColor", newGrayColor(0.78))
             setUniform("uFillColor", whiteColor())
             setUniform("uRadius", 4.0)
@@ -206,16 +208,17 @@ void compose() {
 
 proc drawRadioboxStyle(b: Button, r: Rect) =
     let bezelRect = newRect(0, 0, b.bounds.height, b.bounds.height)
+    let c = b.window.gfxCtx
 
     # Selected
     if b.value != 0:
-        radioButtonComposition.draw bezelRect:
+        draw c, radioButtonComposition, bezelRect:
             setUniform("uStrokeColor", selectionColor)
             setUniform("uFillColor", selectionColor)
             setUniform("uRadioValue", bezelRect.height * 0.3)
             setUniform("uStrokeWidth", 0.0)
     else:
-        radioButtonComposition.draw bezelRect:
+        draw c, radioButtonComposition, bezelRect:
             setUniform("uStrokeColor", newGrayColor(0.78))
             setUniform("uFillColor", whiteColor())
             setUniform("uRadioValue", 1.0)
@@ -224,7 +227,7 @@ proc drawRadioboxStyle(b: Button, r: Rect) =
     b.drawTitle(bezelRect.width + 1)
 
 proc drawImage(b: Button) =
-    let c = currentContext()
+    let c = b.window.gfxCtx
     let r = b.bounds
     if b.imageMarginLeft != 0 or b.imageMarginRight != 0 or
             b.imageMarginTop != 0 or b.imageMarginBottom != 0:
@@ -315,12 +318,8 @@ method onTouchEv*(b: Button, e: var Event): bool =
         result = b.handleToggleTouchEv(e)
 
 registerClass(Button)
-
-const checkBox = proc(): RootRef= newCheckbox(zeroRect)
-registerClass(Checkbox, checkBox)
-
-const radiButton = proc(): RootRef = newRadiobox(zeroRect)
-registerClass(Radiobox, radiButton)
+registerClass(Checkbox)
+registerClass(Radiobox)
 
 genVisitorCodeForView(Button)
 genVisitorCodeForView(Checkbox)

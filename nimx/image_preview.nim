@@ -25,7 +25,7 @@ type ImagePreview* = ref object of PanelView
     imageRect*: Rect
 
 #todo: fix this, make image setter
-method init*(v: ImagePreview, r: Rect) =
+method init*(v: ImagePreview, w: Window, r: Rect) =
     let maxLen = max(v.image.size.width, v.image.size.height)
     var scale = 1.0
     if maxLen > maxSize:
@@ -41,57 +41,58 @@ method init*(v: ImagePreview, r: Rect) =
     viewRect.size.width = content.width + 2.0
     viewRect.size.height = content.height + titleSize + 1.0 + 30.0
 
-    procCall v.PanelView.init(viewRect)
+    procCall v.PanelView.init(w, viewRect)
     v.backgroundColor = newColor(0.2, 0.2, 0.2, 1.0)
     v.title = "Image Preview"
     v.imgScale = scale
 
-    let closeBttn = newButton(v, newPoint(viewRect.width - 16.0 - 1.0, 1.0), newSize(16, 16), "X")
+    let closeBttn = newButton(v, w, newPoint(viewRect.width - 16.0 - 1.0, 1.0), newSize(16, 16), "X")
     closeBttn.autoresizingMask = {afFlexibleMinX, afFlexibleMaxY}
     closeBttn.onAction do():
         v.removeFromSuperview()
 
-proc newImagePreview*(r: Rect, img: Image): ImagePreview =
+proc newImagePreview*(w: Window, r: Rect, img: Image): ImagePreview =
     result.new()
     result.image = img
-    result.init(r)
+    result.init(w, r)
 
 method draw*(v: ImagePreview, r: Rect) =
     procCall v.PanelView.draw(r)
-    let c = currentContext()
-    let f = systemFontOfSize(14.0)
+    template gfxCtx: untyped = v.window.gfxCtx
+    template fontCtx: untyped = gfxCtx.fontCtx
+    let f = systemFontOfSize(fontCtx, 14.0)
     var titleRect: Rect
     titleRect.size.width = r.width
     titleRect.size.height = titleSize
-    c.fillColor = newColor(0.2, 0.2, 0.2)
-    c.drawRect(titleRect)
+    gfxCtx.fillColor = newColor(0.2, 0.2, 0.2)
+    gfxCtx.drawRect(titleRect)
 
     var contentRect: Rect
     contentRect.origin.x = 1.0
     contentRect.origin.y = titleSize
     contentRect.size.width = r.width - 2.0
     contentRect.size.height = r.height - titleSize - bottomSize - 1.0
-    c.fillColor = newColor(0.5, 0.5, 0.5)
-    c.drawRect(contentRect)
+    gfxCtx.fillColor = newColor(0.5, 0.5, 0.5)
+    gfxCtx.drawRect(contentRect)
 
-    c.fillColor = newColor(0.9, 0.9, 0.9)
-    c.drawText(f, newPoint(5, 1), v.title)
+    gfxCtx.fillColor = newColor(0.9, 0.9, 0.9)
+    gfxCtx.drawText(f, newPoint(5, 1), v.title)
 
     # Draw Image
     v.imageRect.origin.x = 1.0
     v.imageRect.origin.y = titleSize
     v.imageRect.size.width = v.image.size.width * v.imgScale
     v.imageRect.size.height = v.image.size.height * v.imgScale
-    c.drawImage(v.image, v.imageRect)
+    gfxCtx.drawImage(v.image, v.imageRect)
 
     # Draw Info
     let sizeInfo = "Size: " & $v.image.size.width & " x " & $v.image.size.height
-    c.drawText(f, newPoint(5, r.height - bottomSize / 2.0), sizeInfo)
+    gfxCtx.drawText(f, newPoint(5, r.height - bottomSize / 2.0), sizeInfo)
 
     var pathInfo = "Path: nil"
     if v.image.filePath.len != 0:
         pathInfo = "Path: " & $v.image.filePath
-    c.drawText(f, newPoint(5, r.height - bottomSize), pathInfo)
+    gfxCtx.drawText(f, newPoint(5, r.height - bottomSize), pathInfo)
 
 # method onTouchEv*(v: ImagePreview, e: var Event) : bool =
 #     discard procCall v.PanelView.onTouchEv(e)

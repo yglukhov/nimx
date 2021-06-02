@@ -11,23 +11,7 @@ export animation_runner, class_registry
 
 const NimxFristResponderChangedInWindow* = "NimxFristResponderChangedInWindow"
 
-type AutoresizingFlag* = enum
-    afFlexibleMinX
-    afFlexibleMaxX
-    afFlexibleMinY
-    afFlexibleMaxY
-    afFlexibleWidth
-    afFlexibleHeight
-
-type ClipType* = enum
-    ctNone
-    ctDefaultClip
-
 type
-    GestureDetector* = ref object of RootObj
-
-    DragDestinationDelegate* = ref object of RootObj
-
     ConstraintWithPrototype = object
         proto: Constraint
         inst: Constraint
@@ -35,6 +19,22 @@ type
     LayoutInfo = object
         vars*: LayoutVars
         constraints: seq[ConstraintWithPrototype]
+    
+    ClipType* = enum
+        ctNone
+        ctDefaultClip
+
+    AutoresizingFlag* = enum
+        afFlexibleMinX
+        afFlexibleMaxX
+        afFlexibleMinY
+        afFlexibleMaxY
+        afFlexibleWidth
+        afFlexibleHeight
+
+    GestureDetector* = ref object of RootObj
+
+    DragDestinationDelegate* = ref object of RootObj
 
     View* = ref object of RootRef
         window*: Window
@@ -56,6 +56,7 @@ type
         layout*: LayoutInfo
 
     Window* = ref object of View
+        gfxCtx*: GraphicsContext
         firstResponder*: View       ## handler of untargeted (keyboard and menu) input
         animationRunners*: seq[AnimationRunner]
         needsDisplay*: bool
@@ -165,7 +166,8 @@ proc constraints*(v: View): seq[Constraint] =
     result = newSeqOfCap[Constraint](v.layout.constraints.len)
     for c in v.layout.constraints: result.add(c.proto)
 
-method init*(v: View, frame: Rect) {.base.} =
+method init*(v: View, w: Window, frame: Rect) {.base.} =
+    v.window = w
     v.frame = frame
     v.layout.init()
     v.bounds = newRect(0, 0, frame.width, frame.height)
@@ -204,13 +206,13 @@ proc removeGestureDetector*(v: View, d: GestureDetector) =
 
 proc removeAllGestureDetectors*(v: View) = v.gestureDetectors.setLen(0)
 
-proc new*[V](v: typedesc[V], frame: Rect): V = # Deprecated
+proc new*[V](v: typedesc[V], w: Window, frame: Rect): V {.deprecated.} =
     result.new()
-    result.init(frame)
+    result.init(w, frame)
 
-proc newView*(frame: Rect): View = # Deprecated
+proc newView*(w: Window, frame: Rect): View {.deprecated.} =
     result.new()
-    result.init(frame)
+    result.init(w, frame)
 
 method convertPointToParent*(v: View, p: Point): Point {.base.} = p + v.frame.origin - v.bounds.origin
 method convertPointFromParent*(v: View, p: Point): Point {.base.} = p - v.frame.origin + v.bounds.origin
@@ -263,7 +265,7 @@ template isFirstResponder*(v: View): bool =
 ####
 method viewWillMoveToSuperview*(v: View, s: View) {.base.} = discard
 method viewWillMoveToWindow*(v: View, w: Window) {.base.} =
-    if not v.window.isNil:
+    if not v.window.isNil and not v.superview.isNil:
         v.window.removeMouseOverListener(v)
         if v.window.firstResponder == v and w != v.window:
             discard v.window.makeFirstResponder(nil)
@@ -280,8 +282,8 @@ method viewWillMoveToWindow*(v: View, w: Window) {.base.} =
         s.window = v.window
         s.viewWillMoveToWindow(w)
 
-method viewDidMoveToWindow*(v: View){.base.} =
-    if not v.window.isNil:
+method viewDidMoveToWindow*(v: View) {.base.} =
+    if not v.window.isNil and not v.superview.isNil:
         for c in v.layout.constraints.mitems:
             v.instantiateConstraint(c)
 
@@ -392,7 +394,7 @@ proc drawWithinSuperview*(v: View) =
     # Assume current coordinate system is superview
     if v.hidden: return
 
-    let c = currentContext()
+    let c = v.window.gfxCtx
     var tmpTransform = c.transform
     if v.bounds.size == v.frame.size:
         # Common case: bounds scale is 1.0
@@ -411,7 +413,7 @@ proc drawWithinSuperview*(v: View) =
             v.recursiveDrawSubviews()
 
 method draw*(view: View, rect: Rect) {.base.} =
-    let c = currentContext()
+    let c = view.window.gfxCtx
     if view.backgroundColor.a > 0.001:
         c.fillColor = view.backgroundColor
         c.strokeWidth = 0
@@ -428,15 +430,15 @@ proc recursiveDrawSubviews*(view: View) =
     view.drawSubviews()
 
 proc drawFocusRing*(v: View) =
-    let c = currentContext()
+    let c = v.window.gfxCtx
     c.fillColor = clearColor()
     c.strokeColor = newColor(0.59, 0.76, 0.95, 0.9)
     c.strokeWidth = 3
     c.drawRoundedRect(v.bounds.inset(-1, -1), 2)
 
-method setFrame*(v: View, r: Rect) {.base.} # Deprecated
+method setFrame*(v: View, r: Rect) {.base, deprecated.}
 
-method resizeSubviews*(v: View, oldSize: Size) {.base.} = # Deprecated
+method resizeSubviews*(v: View, oldSize: Size) {.base, deprecated.} =
     let sizeDiff = v.frame.size - oldSize
 
     for s in v.subviews:
@@ -466,29 +468,29 @@ proc recursiveUpdateLayout*(v: View, relPoint: Point) =
     for s in v.subviews:
         s.recursiveUpdateLayout(relPoint)
 
-method setBoundsSize*(v: View, s: Size) {.base.} = # Deprecated
+method setBoundsSize*(v: View, s: Size) {.base, deprecated.} =
     let oldSize = v.bounds.size
     v.bounds.size = s
     v.setNeedsDisplay()
     v.resizeSubviews(oldSize)
 
-method setBoundsOrigin*(v: View, o: Point) {.base.} = # Deprecated
+method setBoundsOrigin*(v: View, o: Point) {.base, deprecated.} =
     v.bounds.origin = o
     v.setNeedsDisplay()
 
-proc setBounds*(v: View, b: Rect) = # Deprecated
+proc setBounds*(v: View, b: Rect) {.deprecated.} =
     v.setBoundsOrigin(b.origin)
     v.setBoundsSize(b.size)
 
-method setFrameSize*(v: View, s: Size) {.base.} = # Deprecated
+method setFrameSize*(v: View, s: Size) {.base, deprecated.} =
     v.frame.size = s
     v.setBoundsSize(s)
 
-method setFrameOrigin*(v: View, o: Point) {.base.} = # Deprecated
+method setFrameOrigin*(v: View, o: Point) {.base, deprecated.} =
     v.frame.origin = o
     v.setNeedsDisplay()
 
-method setFrame*(v: View, r: Rect) = # Deprecated
+method setFrame*(v: View, r: Rect) {.deprecated.} =
     if v.frame.origin != r.origin:
         v.setFrameOrigin(r.origin)
     if v.frame.size != r.size:
@@ -497,9 +499,9 @@ method setFrame*(v: View, r: Rect) = # Deprecated
 method frame*(v: View): Rect {.base.} = v.frame
 method bounds*(v: View): Rect {.base.} = v.bounds
 
-method subviewDidChangeDesiredSize*(v: View, sub: View, desiredSize: Size) {.base.} = discard # Deprecated
+method subviewDidChangeDesiredSize*(v: View, sub: View, desiredSize: Size) {.base, deprecated.} = discard
 
-proc autoresizingMaskFromStrLit(s: string): set[AutoresizingFlag] {.compileTime.} = # Deprecated
+proc autoresizingMaskFromStrLit(s: string): set[AutoresizingFlag] {.compileTime, deprecated.} =
     case s[0]
     of 'w': result.incl(afFlexibleWidth)
     of 'l': result.incl(afFlexibleMinX)
@@ -511,7 +513,7 @@ proc autoresizingMaskFromStrLit(s: string): set[AutoresizingFlag] {.compileTime.
     of 'b': result.incl(afFlexibleMaxY)
     else: assert(false, "Wrong autoresizing mask!")
 
-template `resizingMask=`*(v: View, s: static[string]) = # Deprecated
+template `resizingMask=`*(v: View, s: static[string]) {.deprecated.} =
     const m = autoresizingMaskFromStrLit(s)
     v.autoresizingMask = m
 

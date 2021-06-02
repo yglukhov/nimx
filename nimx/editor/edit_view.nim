@@ -103,7 +103,7 @@ proc endEditing*(e: Editor) =
     e.eventCatchingView.removeFromSuperview()
 
 proc setupNewViewButton(e:Editor, b: Button) =
-    # let b = Button.new(newRect(0, 30, 120, 20))
+    # let b = Button.new(w, newRect(0, 30, 120, 20))
     # b.title = "New view"
     b.onAction do():
         var menu : Menu
@@ -115,10 +115,10 @@ proc setupNewViewButton(e:Editor, b: Button) =
                 menuItem.action = proc() =
                     let v = View(newObjectOfClass(menuItem.title))
                     if not e.eventCatchingView.selectedView.isNil:
-                        v.init(newRect(10, 10, 100, 100))
+                        v.init(e.workspace.window, newRect(10, 10, 100, 100))
                         e.eventCatchingView.selectedView.addSubview(v)
                     else:
-                        v.init(newRect(200, 200, 100, 100))
+                        v.init(e.workspace.window, newRect(200, 200, 100, 100))
                         e.document.view.addSubview(v)
                     e.eventCatchingView.selectedView = v
                     v.name = e.document.defaultName(menuItem.title)
@@ -153,11 +153,11 @@ proc setupSimulateButton(e: Editor, b: Button)=
 proc startNimxEditorAsync*(wnd: Window) {.async.}=
     var editor = new(Editor)
 
-    editor.workspace = new(EditorWorkspace, wnd.bounds)
+    editor.workspace = new(EditorWorkspace, wnd, wnd.bounds)
     editor.workspace.autoresizingMask = {afFlexibleWidth, afFlexibleHeight}
     wnd.addSubview(editor.workspace)
 
-    editor.eventCatchingView = EventCatchingView.new(wnd.bounds)
+    editor.eventCatchingView = EventCatchingView.new(wnd, wnd.bounds)
     editor.eventCatchingView.editor = editor
     editor.eventCatchingView.autoresizingMask = {afFlexibleWidth, afFlexibleHeight}
     wnd.addSubview(editor.eventCatchingView)
@@ -182,7 +182,7 @@ proc startNimxEditorAsync*(wnd: Window) {.async.}=
 
     ui.getView(View, "gridSize").initPropertyEditor(editor.eventCatchingView, "gridSize", editor.eventCatchingView.gridSize)
 
-    editor.inspector = InspectorPanel.new(newRect(0, 0, 300, 600))
+    editor.inspector = InspectorPanel.new(wnd, newRect(0, 0, 300, 600))
     editor.inspector.onPropertyChanged do(name: string):
         wnd.setNeedsDisplay()
 
@@ -323,7 +323,7 @@ method onTouchEv*(v: EventCatchingView, e: var Event): bool =
     result = true
 
 proc drawSelectionRect(v: EventCatchingView) =
-    let c = currentContext()
+    let c = v.window.gfxCtx
     c.fillColor = clearColor()
     c.strokeColor = newGrayColor(0.3)
     c.strokeWidth = 1

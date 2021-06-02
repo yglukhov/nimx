@@ -1,10 +1,6 @@
 import unicode
 import nimx/font, nimx/composition, nimx/context, nimx/types
 
-var textSubpixelDrawing = true
-proc enableTextSubpixelDrawing*(state: bool) =
-    textSubpixelDrawing = state
-
 let fontComposition = newComposition("""
 attribute vec4 aPosition;
 
@@ -217,7 +213,7 @@ proc drawTextBase*(c: GraphicsContext, font: Font, pt: var Point, text: string) 
             n = 0
 
         let off = n * 16
-        font.getQuadDataForRune(ch, c.vertexes, off, newTexture, pt)
+        getQuadDataForRune(c.fontCtx, gl, font, ch, c.vertexes, off, newTexture, pt)
         if texture != newTexture:
             if n > 0:
                 flush()
@@ -235,9 +231,9 @@ proc drawText*(c: GraphicsContext, font: Font, pt: var Point, text: string) =
     # assume orthographic projection with units = screen pixels, origin at top left
     let gl = c.gl
     var cc : CompiledComposition
-    var subpixelDraw = textSubpixelDrawing
+    var subpixelDraw = c.fontCtx.enableSubpixelDrawing
 
-    if hasPostEffect():
+    if hasPostEffect(c):
         subpixelDraw = false
 
     when defined(android) or defined(ios):
@@ -250,11 +246,11 @@ proc drawText*(c: GraphicsContext, font: Font, pt: var Point, text: string) =
             subpixelDraw = false
 
     if subpixelDraw:
-        cc = gl.getCompiledComposition(fontSubpixelCompositionWithDynamicBase)
+        cc = getCompiledComposition(c, fontSubpixelCompositionWithDynamicBase)
         gl.blendColor(c.fillColor.r, c.fillColor.g, c.fillColor.b, c.fillColor.a)
         gl.blendFunc(gl.CONSTANT_COLOR, gl.ONE_MINUS_SRC_COLOR)
     else:
-        cc = gl.getCompiledComposition(fontComposition)
+        cc = getCompiledComposition(c, fontComposition)
 
     gl.useProgram(cc.program)
 
@@ -263,7 +259,7 @@ proc drawText*(c: GraphicsContext, font: Font, pt: var Point, text: string) =
     setUniform("preScale", preScale)
 
     gl.uniformMatrix4fv(uniformLocation("uModelViewProjectionMatrix"), false, c.transform)
-    setupPosteffectUniforms(cc)
+    setupPosteffectUniforms(c, cc)
 
     gl.activeTexture(GLenum(int(gl.TEXTURE0) + cc.iTexIndex))
     gl.uniform1i(uniformLocation("texUnit"), cc.iTexIndex)

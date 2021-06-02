@@ -6,14 +6,14 @@ import nimx/color
 
 type StackView* = ref object of View
 
-method init*(v: StackView, r: Rect) =
-    procCall v.View.init(r)
+method init*(v: StackView, w: Window, r: Rect) =
+    procCall v.View.init(w, r)
     v.backgroundColor = contentViewColor()
 
 proc recalculateContent(v: StackView)
-proc newStackView*(r: Rect): StackView =
+proc newStackView*(w: Window, r: Rect): StackView =
     result.new()
-    result.init(r)
+    result.init(w, r)
     result.recalculateContent()
 
 method draw(v: StackView, r: Rect) =
