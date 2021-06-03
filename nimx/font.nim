@@ -69,7 +69,6 @@ proc cachedImplForFont(face: string, sz: float): FontImpl =
         result.glyphProvider.glyphMargin = 8
         fontCache[key] = result
 
-
 type Font* = ref object
     impl: FontImpl
     mSize: float
@@ -212,8 +211,6 @@ proc newFontWithFace*(face: string, size: float): Font =
                 if not s.isNil:
                     s.close()
                     result = newFontWithFile(url, size)
-                else:
-                    error "Can't load font ", face
 
 proc systemFontSize*(): float = 16
 
