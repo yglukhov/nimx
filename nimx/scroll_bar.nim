@@ -10,6 +10,7 @@ type ScrollBar* = ref object of Slider
                     # document is 0.5.
     trackingPos: Coord # Position of mouse coordinate (x or y depending on orientation) within knob
 
+const minKnobSize = 0.05
 method init*(s: ScrollBar, gfx: GraphicsContext, r: Rect) =
     procCall s.Slider.init(gfx, r)
     s.mKnobSize = 0.2
@@ -17,13 +18,13 @@ method init*(s: ScrollBar, gfx: GraphicsContext, r: Rect) =
 proc knobRect(s: ScrollBar): Rect =
     result = s.bounds
     if s.isHorizontal:
-        result.size.width *= s.mKnobSize
+        result.size.width *= max(s.mKnobSize, minKnobSize)
         result.origin.x = max((s.bounds.width - result.width) * s.value, 3)
         if result.maxX > s.bounds.width - 3:
             result.size.width = s.bounds.width - result.x - 3
         result = inset(result, 0, 2)
     else:
-        result.size.height *= s.mKnobSize
+        result.size.height *= max(s.mKnobSize, minKnobSize)
         result.origin.y = max((s.bounds.height - result.height) * s.value, 3)
         if result.maxY > s.bounds.height - 3:
             result.size.height = s.bounds.height - result.y - 3
