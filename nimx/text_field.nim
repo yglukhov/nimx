@@ -3,7 +3,7 @@ import context
 import font
 import types
 import event
-import abstract_window
+import window
 import unistring
 import unicode
 import timer
@@ -82,26 +82,26 @@ proc `formattedText=`*(tf: TextField, t: FormattedText) =
 
 template formattedText*(tf: TextField): FormattedText = tf.mText
 
-proc newTextField*(w: Window, r: Rect): TextField {.deprecated.} =
+proc newTextField*(gfx: GraphicsContext, r: Rect): TextField {.deprecated.} =
     result.new()
-    result.init(w, r)
+    result.init(gfx, r)
 
-proc newTextField*(parent: View = nil, w: Window, position: Point = newPoint(0, 0), size: Size = newSize(100, 20), text: string = ""): TextField =
-    result = newTextField(w, newRect(position.x, position.y, size.width, size.height))
+proc newTextField*(parent: View = nil, gfx: GraphicsContext, position: Point = newPoint(0, 0), size: Size = newSize(100, 20), text: string = ""): TextField =
+    result = newTextField(gfx, newRect(position.x, position.y, size.width, size.height))
     result.editable = true
     result.selectable = true
     result.mText.text = text
     if not isNil(parent):
         parent.addSubview(result)
 
-proc newLabel*(w: Window, r: Rect): TextField {.deprecated.} =
-    result = newTextField(w, r)
+proc newLabel*(gfx: GraphicsContext, r: Rect): TextField {.deprecated.} =
+    result = newTextField(gfx, r)
     result.editable = false
     result.selectable = false
     result.backgroundColor.a = 0
 
-proc newLabel*(parent: View = nil, w: Window, position: Point = newPoint(0, 0), size: Size = newSize(100, 20), text: string = "label"): TextField =
-    result = newLabel(w, newRect(position.x, position.y, size.width, size.height))
+proc newLabel*(parent: View = nil, gfx: GraphicsContext, position: Point = newPoint(0, 0), size: Size = newSize(100, 20), text: string = "label"): TextField =
+    result = newLabel(gfx, newRect(position.x, position.y, size.width, size.height))
     result.editable = false
     result.selectable = false
     result.mText.text = text
@@ -109,19 +109,19 @@ proc newLabel*(parent: View = nil, w: Window, position: Point = newPoint(0, 0), 
         parent.addSubview(result)
 
 proc `textColor=`*(t: TextField, c: Color) =
-    template gfxCtx: untyped = t.window.gfxCtx
-    template fontCtx: untyped = gfxCtx.fontCtx
-    template gl: untyped = gfxCtx.gl
+    template gfx: untyped = t.gfx
+    template fontCtx: untyped = gfx.fontCtx
+    template gl: untyped = gfx.gl
     setTextColorInRange(fontCtx, gl, t.mText, 0, -1, c)
 
 proc textColor*(t: TextField): Color =
-    template gfxCtx: untyped = t.window.gfxCtx
-    template fontCtx: untyped = gfxCtx.fontCtx
-    template gl: untyped = gfxCtx.gl
+    template gfx: untyped = t.gfx
+    template fontCtx: untyped = gfx.fontCtx
+    template gl: untyped = gfx.gl
     colorOfRuneAtPos(fontCtx, gl, t.mText, 0).color1
 
-method init*(t: TextField, w: Window, r: Rect) =
-    procCall t.Control.init(w, r)
+method init*(t: TextField, gfx: GraphicsContext, r: Rect) =
+    procCall t.Control.init(gfx, r)
     t.editable = true
     t.selectable = true
     t.textSelection = -1 .. -1
@@ -130,21 +130,21 @@ method init*(t: TextField, w: Window, r: Rect) =
     t.mText = newFormattedText()
     t.mText.verticalAlignment = vaCenter
 
-method init*(v: Label, w: Window, r: Rect) =
-    procCall v.TextField.init(w, r)
+method init*(v: Label, gfx: GraphicsContext, r: Rect) =
+    procCall v.TextField.init(gfx, r)
     v.editable = false
     v.selectable = false
 
 proc `font=`*(t: TextField, f: Font) =
-    template gfxCtx: untyped = t.window.gfxCtx
-    template fontCtx: untyped = gfxCtx.fontCtx
-    template gl: untyped = gfxCtx.gl
+    template gfx: untyped = t.gfx
+    template fontCtx: untyped = gfx.fontCtx
+    template gl: untyped = gfx.gl
     t.mFont = f
     setFontInRange(fontCtx, gl, t.mText, 0, -1, t.mFont)
 
 proc font*(t: TextField): Font =
-    template gfxCtx: untyped = t.window.gfxCtx
-    template fontCtx: untyped = gfxCtx.fontCtx
+    template gfx: untyped = t.gfx
+    template fontCtx: untyped = gfx.fontCtx
     if t.mFont.isNil:
         result = systemFont(fontCtx)
     else:
@@ -160,9 +160,9 @@ proc drawCursorWithRect(c: GraphicsContext, r: Rect) =
         c.drawRect(r)
 
 proc cursorRect(t: TextField): Rect =
-    template gfxCtx: untyped = t.window.gfxCtx
-    template fontCtx: untyped = gfxCtx.fontCtx
-    template gl: untyped = gfxCtx.gl
+    template gfx: untyped = t.gfx
+    template fontCtx: untyped = gfx.fontCtx
+    template gl: untyped = gfx.gl
     let ln = lineOfRuneAtPos(fontCtx, gl, t.mText, cursorPos)
     let y = lineTop(fontCtx, gl, t.mText, ln) + topOffset(fontCtx, gl, t.mText)
     let fh = lineHeight(fontCtx, gl, t.mText, ln)
@@ -229,10 +229,10 @@ proc selectedText*(t: TextField): string =
             result = runeSubStr(t.mText.text, s.a, s.b - s.a)
 
 proc drawSelection(t: TextField) {.inline.} =
-    template gfxCtx: untyped = t.window.gfxCtx
-    template fontCtx: untyped = t.window.gfxCtx.fontCtx
-    template gl: untyped = t.window.gfxCtx.gl
-    gfxCtx.fillColor = newColor(0.0, 0.0, 1.0, 0.5)
+    template gfx: untyped = t.gfx
+    template fontCtx: untyped = t.gfx.fontCtx
+    template gl: untyped = t.gfx.gl
+    gfx.fillColor = newColor(0.0, 0.0, 1.0, 0.5)
     let startLine = lineOfRuneAtPos(fontCtx, gl, t.mText, t.textSelection.a)
     let endLine = lineOfRuneAtPos(fontCtx, gl, t.mText, t.textSelection.b)
     let startOff = xOfRuneAtPos(fontCtx, gl, t.mText, t.textSelection.a)
@@ -247,31 +247,31 @@ proc drawSelection(t: TextField) {.inline.} =
         r.size.width = endOff - startOff
     else:
         r.size.width = lineWidth(fontCtx, gl, t.mText, startLine) - startOff
-    gfxCtx.drawRect(r)
+    gfx.drawRect(r)
     for i in startLine + 1 ..< endLine:
         r.origin.y = lineTop(fontCtx, gl, t.mText, i) + top
         r.size.height = lineHeight(fontCtx, gl, t.mText, i)
         r.origin.x = leftMargin + lineLeft(fontCtx, gl, t.mText, i)
         r.size.width = lineWidth(fontCtx, gl, t.mText, i)
         if r.size.width < 5: r.size.width = 5
-        gfxCtx.drawRect(r)
+        gfx.drawRect(r)
     if startLine != endLine:
         r.origin.y = lineTop(fontCtx, gl, t.mText, endLine) + top
         r.size.height = lineHeight(fontCtx, gl, t.mText, endLine)
         r.origin.x = leftMargin + lineLeft(fontCtx, gl, t.mText, endLine)
         r.size.width = endOff
-        gfxCtx.drawRect(r)
+        gfx.drawRect(r)
 
 method draw*(t: TextField, r: Rect) =
     procCall t.View.draw(r)
 
-    template gfxCtx: untyped = t.window.gfxCtx
+    template gfx: untyped = t.gfx
 
     if t.editable and t.hasBezel:
-        gfxCtx.fillColor = t.backgroundColor
-        gfxCtx.strokeColor = newGrayColor(0.74)
-        gfxCtx.strokeWidth = 1.0
-        gfxCtx.drawRect(t.bounds)
+        gfx.fillColor = t.backgroundColor
+        gfx.strokeColor = newGrayColor(0.74)
+        gfx.strokeWidth = 1.0
+        gfx.drawRect(t.bounds)
 
     t.mText.boundingSize = t.bounds.size
 
@@ -284,19 +284,19 @@ method draw*(t: TextField, r: Rect) =
         t.mText.overrideColor = whiteColor()
     else:
         t.mText.overrideColor.a = 0
-    gfxCtx.drawText(pt, t.mText)
+    gfx.drawText(pt, t.mText)
 
     if t.isEditing:
         if t.hasBezel:
             t.drawFocusRing()
-        drawCursorWithRect(gfxCtx, t.cursorRect())
+        drawCursorWithRect(gfx, t.cursorRect())
 
 method acceptsFirstResponder*(t: TextField): bool = t.editable
 
 method onTouchEv*(t: TextField, e: var Event): bool =
     result = false
-    template fontCtx: untyped = t.window.gfxCtx.fontCtx
-    template gl: untyped = t.window.gfxCtx.gl
+    template fontCtx: untyped = t.gfx.fontCtx
+    template gl: untyped = t.gfx.gl
     var pt = e.localPosition
     case e.buttonState
     of bsDown:
@@ -340,8 +340,8 @@ method onTouchEv*(t: TextField, e: var Event): bool =
             result = false
 
 proc updateCursorOffset(t: TextField) =
-    template fontCtx: untyped = t.window.gfxCtx.fontCtx
-    template gl: untyped = t.window.gfxCtx.gl
+    template fontCtx: untyped = t.gfx.fontCtx
+    template gl: untyped = t.gfx.gl
     cursorOffset = xOfRuneAtPos(fontCtx, gl, t.mText, cursorPos)
 
 proc `cursorPosition=`*(t: TextField, pos: int) =
@@ -350,9 +350,9 @@ proc `cursorPosition=`*(t: TextField, pos: int) =
     t.bumpCursorVisibility()
 
 proc clearSelection(t: TextField) =
-    template gfxCtx: untyped = t.window.gfxCtx
-    template fontCtx: untyped = t.window.gfxCtx.fontCtx
-    template gl: untyped = t.window.gfxCtx.gl
+    template gfx: untyped = t.gfx
+    template fontCtx: untyped = t.gfx.fontCtx
+    template gl: untyped = t.gfx.gl
     # Clears selected text
     let s = t.selectionRange()
     uniDelete(fontCtx, gl, t.mText, s.a, s.b - 1)
@@ -361,8 +361,8 @@ proc clearSelection(t: TextField) =
     t.textSelection = -1 .. -1
 
 proc insertText(t: TextField, s: string) =
-    template fontCtx: untyped = t.window.gfxCtx.fontCtx
-    template gl: untyped = t.window.gfxCtx.gl
+    template fontCtx: untyped = t.gfx.fontCtx
+    template gl: untyped = t.gfx.gl
 
     let th = totalHeight(fontCtx, gl, t.mText)
     if t.textSelection.len > 0:
@@ -383,8 +383,8 @@ proc insertText(t: TextField, s: string) =
         t.sendAction()
 
 method onKeyDown*(t: TextField, e: var Event): bool =
-    template fontCtx: untyped = t.window.gfxCtx.fontCtx
-    template gl: untyped = t.window.gfxCtx.gl
+    template fontCtx: untyped = t.gfx.fontCtx
+    template gl: untyped = t.gfx.gl
     if e.keyCode == VirtualKey.Tab:
         return false
 

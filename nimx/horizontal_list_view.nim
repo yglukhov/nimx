@@ -36,11 +36,11 @@ method getView*(a: Adapter, position: int, convertView : View): View {.base.} = 
 method setItemClickListener*(v: HorizontalListView, lis : proc(pos : int)) {.base.} =
     v.itemClick = lis
 
-proc newHorListView*(w: Window, r: Rect): HorizontalListView =
+proc newHorListView*(gfx: GraphicsContext, r: Rect): HorizontalListView =
     result.new()
     result.items = @[]
     result.cleared = @[]
-    result.init(w, r)
+    result.init(gfx, r)
 
 var offs = newPoint(0,0) # TODO: globals
 
@@ -190,8 +190,8 @@ proc checkItemClick(v : HorizontalListView, p : Point) =
             if not v.itemClick.isNil:
                 v.itemClick(wrap.pos)
 
-method init*(v: HorizontalListView, w: Window, r: Rect) =
-    procCall v.View.init(w, r)
+method init*(v: HorizontalListView, gfx: GraphicsContext, r: Rect) =
+    procCall v.View.init(gfx, r)
     v.backgroundColor = newGrayColor(0.89)
     var sl : ListScrollListener
     new(sl)

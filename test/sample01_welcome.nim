@@ -14,10 +14,10 @@ method onScroll*(v: CustomControl, e: var Event): bool =
     echo "custom scroll ", e.offset
     result = true
 
-method init(v: WelcomeView, w: Window, r: Rect) =
-    procCall v.View.init(w, r)
-    let autoTestButton = newButton(w, newRect(20, 20, 150, 20))
-    let secondTestButton = newButton(w, newRect(20, 50, 150, 20))
+method init(v: WelcomeView, gfx: GraphicsContext, r: Rect) =
+    procCall v.View.init(gfx, r)
+    let autoTestButton = newButton(gfx, newRect(20, 20, 150, 20))
+    let secondTestButton = newButton(gfx, newRect(20, 50, 150, 20))
     autoTestButton.title = "Start Auto Tests"
     secondTestButton.title = "Second button"
     let tapd = newTapGestureDetector do(tapPoint : Point):
@@ -36,7 +36,7 @@ method init(v: WelcomeView, w: Window, r: Rect) =
     v.addGestureDetector(vtapd)
     var cc: CustomControl
     cc.new
-    cc.init(w, newRect(20, 80, 150, 20))
+    cc.init(gfx, newRect(20, 80, 150, 20))
     cc.clickable = true
     cc.backgroundColor = newColor(1.0,0.0,0.0,1.0)
     cc.onAction do():
@@ -68,14 +68,14 @@ void compose() {
 """
 
 method draw(v: WelcomeView, r: Rect) =
-    template gfxCtx: untyped = v.window.gfxCtx
-    template fontCtx: untyped = v.window.gfxCtx.fontCtx
-    template gl: untyped = v.window.gfxCtx.gl
+    template gfx: untyped = v.gfx
+    template fontCtx: untyped = v.gfx.fontCtx
+    template gl: untyped = v.gfx.gl
     if v.welcomeFont.isNil:
         v.welcomeFont = systemFontOfSize(fontCtx, 64)
-    draw(gfxCtx, gradientComposition, v.bounds)
+    draw(gfx, gradientComposition, v.bounds)
     let s = sizeOfString(fontCtx, gl, v.welcomeFont, welcomeMessage)
-    gfxCtx.fillColor = whiteColor()
-    gfxCtx.drawText(v.welcomeFont, s.centerInRect(v.bounds), welcomeMessage)
+    gfx.fillColor = whiteColor()
+    gfx.drawText(v.welcomeFont, s.centerInRect(v.bounds), welcomeMessage)
 
 registerSample(WelcomeView, "Welcome")

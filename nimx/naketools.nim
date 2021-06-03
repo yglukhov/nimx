@@ -613,7 +613,8 @@ proc makeEmscriptenPreloadData(b: Builder): string =
     result = b.nimcachePath / "preload.js"
     let packagerPy = emcc.parentDir() / "tools" / "file_packager.py"
     createDir(b.nimcachePath)
-    var args = @["python", packagerPy.quoteShell(), b.buildRoot / "main.data", "--js-output=" & result]
+    let python = getEnv("PYTHON", "python")
+    var args = @[python, packagerPy.quoteShell(), b.buildRoot / "main.data", "--js-output=" & result]
     for p in b.emscriptenPreloadFiles:
         args.add(["--preload", p])
     direShell(args)

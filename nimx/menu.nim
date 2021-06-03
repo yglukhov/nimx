@@ -70,57 +70,57 @@ type
 
 const menuItemHeight = 20.Coord
 
-proc minMenuWidth(gfxCtx: GraphicsContext, item: MenuItem): Coord =
-    template fontCtx: untyped = gfxCtx.fontCtx
-    template gl: untyped = gfxCtx.gl
+proc minMenuWidth(gfx: GraphicsContext, item: MenuItem): Coord =
+    template fontCtx: untyped = gfx.fontCtx
+    template gl: untyped = gfx.gl
     let font = systemFont(fontCtx)
     for c in item.children:
         let sz = sizeOfString(fontCtx, gl, font, c.title).width
         if sz > result: result = sz
 
-proc newViewWithMenuItems(w: Window, ctx: GraphicsContext, item: MenuItem, size: Size): MenuView =
-    let width = max(size.width, minMenuWidth(ctx, item) + 20)
-    result = MenuView.new(w, newRect(0, 0, width, item.children.len.Coord * menuItemHeight))
+proc newViewWithMenuItems(gfx: GraphicsContext, item: MenuItem, size: Size): MenuView =
+    let width = max(size.width, minMenuWidth(gfx, item) + 20)
+    result = MenuView.new(gfx, newRect(0, 0, width, item.children.len.Coord * menuItemHeight))
     result.item = item
     result.highlightedRow = -1
     var yOff = 0.Coord
     for i, item in item.children:
         var cell: TableViewCell
         if item.title == "-":
-            let sep = SeparatorView.new(w, newRect(0, 0, width, size.height))
-            cell = newTableViewCell(w, sep)
+            let sep = SeparatorView.new(gfx, newRect(0, 0, width, size.height))
+            cell = newTableViewCell(gfx, sep)
         else:
-            let label = newLabel(w, newRect(0, 0, width, size.height))
+            let label = newLabel(gfx, newRect(0, 0, width, size.height))
             label.text = item.title
-            cell = newTableViewCell(w, label)
+            cell = newTableViewCell(gfx, label)
 
         cell.setFrameOrigin(newPoint(0, yOff))
         cell.row = i
         cell.selected = false
 
         if item.children.len > 0:
-            let triangleView = TriangleView.new(w, newRect(width - 20, 0, 20, menuItemHeight))
+            let triangleView = TriangleView.new(gfx, newRect(width - 20, 0, 20, menuItemHeight))
             cell.addSubview(triangleView)
 
         result.addSubview(cell)
         yOff += menuItemHeight
 
 method draw(v: MenuView, r: Rect) =
-    let c = v.window.gfxCtx
+    template c: untyped = v.gfx
     c.fillColor = newGrayColor(0.7)
     c.strokeWidth = 0
     c.drawRoundedRect(v.bounds, 5)
 
 method draw(v: TriangleView, r: Rect) =
     let cell = v.enclosingTableViewCell()
-    let c = v.window.gfxCtx
+    template c: untyped = v.gfx
     c.fillColor = blackColor()
     if not cell.isNil and cell.selected:
         c.fillColor = whiteColor()
     c.drawTriangle(v.bounds, 0)
 
 method draw(v: SeparatorView, r: Rect) =
-    let c = v.window.gfxCtx
+    template c: untyped = v.gfx
     c.fillColor = newGrayColor(0.2)
     c.strokeWidth = 0
     var r = v.bounds
@@ -137,8 +137,7 @@ proc removeMenuView(v: MenuView) =
         v = v.submenu
 
 proc popupAtPoint*(m: MenuItem, v: View, p: Point, size: Size = newSize(150.0, menuItemHeight)) =
-    let ctx = v.window.gfxCtx
-    let mv = newViewWithMenuItems(v.window, ctx, m, size)
+    let mv = newViewWithMenuItems(v.gfx, m, size)
     var wp = v.convertPointToWindow(p)
     let win = v.window
 
@@ -195,7 +194,7 @@ proc popupAtPoint*(m: MenuItem, v: View, p: Point, size: Size = newSize(150.0, m
 
                     if selectedItem.children.len > 0:
                         # Create submenu view
-                        let sub = newViewWithMenuItems(win, ctx, selectedItem, size)
+                        let sub = newViewWithMenuItems(v.gfx, selectedItem, size)
                         var pt = newPoint(selectedCell.bounds.width, selectedCell.bounds.y)
                         pt = selectedCell.convertPointToWindow(pt)
                         sub.setFrameOrigin(pt)

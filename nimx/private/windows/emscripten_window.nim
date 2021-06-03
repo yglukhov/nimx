@@ -265,8 +265,6 @@ proc onContextLost(eventType: cint, reserved: pointer, userData: pointer): EM_BO
     """)
 
 proc initCommon(w: EmscriptenWindow, r: view.Rect) =
-    procCall init(w.Window, r)
-
     let id = EM_ASM_INT("""
     if (window.__nimx_canvas_id === undefined) {
         window.__nimx_canvas_id = 0;
@@ -313,7 +311,9 @@ proc initCommon(w: EmscriptenWindow, r: view.Rect) =
     if w.ctx <= 0:
         raise newException(Exception, "Could not create WebGL context: " & $w.ctx)
     discard emscripten_webgl_make_context_current(w.ctx)
-    w.gfxCtx = newGraphicsContext()
+    w.gfx = newGraphicsContext()
+
+    procCall init(w.Window, w.gfx, r)
 
     const docID = "#document"
     discard emscripten_set_mousedown_callback(docID, cast[pointer](w), 0, onMouseDown)
@@ -348,7 +348,7 @@ proc initFullscreen*(w: EmscriptenWindow) =
     getDocumentSize(iw, ih)
     w.initCommon(newRect(0, 0, iw, ih))
 
-method init*(w: EmscriptenWindow, _: Window, r: view.Rect) =
+method init*(w: EmscriptenWindow, gfx: GraphicsContext, r: view.Rect) =
     w.initCommon(r)
 
 proc newFullscreenEmscriptenWindow*(canvasId = ""): EmscriptenWindow =
@@ -359,7 +359,7 @@ proc newFullscreenEmscriptenWindow*(canvasId = ""): EmscriptenWindow =
 proc newEmscriptenWindow*(r: view.Rect, canvasId = ""): EmscriptenWindow =
     result.new()
     result.canvasId = canvasId
-    result.init(w, r)
+    result.init(result.gfx, r)
 
 newWindow = proc(r: view.Rect): Window =
     result = newEmscriptenWindow(r)
@@ -376,7 +376,7 @@ newFullscreenWindowWithNative = proc(handle: pointer): Window =
     result = newFullscreenEmscriptenWindow(canvasId)
 
 method drawWindow(w: EmscriptenWindow) =
-    let c = w.gfxCtx
+    template c: untyped = w.gfx
 
     c.withTransform ortho(0, w.frame.width, w.frame.height, 0, -1, 1):
         procCall w.Window.drawWindow()

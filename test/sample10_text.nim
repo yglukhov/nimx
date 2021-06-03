@@ -27,13 +27,12 @@ iterator rangesOfSubstring(haystack, needle: string): (int, int) =
             yield (index, b)
             start = b
 
-method init(v: TextSampleView, w: Window, r: Rect) =
-    template gfxCtx: untyped = v.window.gfxCtx
-    template fontCtx: untyped = gfxCtx.fontCtx
-    template gl: untyped = gfxCtx.gl
-    procCall v.View.init(w, r)
+method init(v: TextSampleView, gfx: GraphicsContext, r: Rect) =
+    template fontCtx: untyped = gfx.fontCtx
+    template gl: untyped = gfx.gl
+    procCall v.View.init(gfx, r)
 
-    let tv = TextField.new(w, v.bounds.inset(50, 50))
+    let tv = TextField.new(gfx, v.bounds.inset(50, 50))
     tv.resizingMask = "wh"
     tv.text = textSample
     tv.backgroundColor = newColor(0.5, 0, 0, 0.5)
@@ -54,16 +53,16 @@ method init(v: TextSampleView, w: Window, r: Rect) =
         setFontInRange(fontCtx, gl, tv.formattedText, a, b, systemFontOfSize(fontCtx, 40))
         setShadowInRange(fontCtx, gl, tv.formattedText, a, b, newColor(0.0, 0.0, 1.0, 1.0), newSize(2, 3), 5.0, 0.8)
 
-    let sv = newScrollView(w, tv)
+    let sv = newScrollView(gfx, tv)
     v.addSubview(sv)
 
-    let hAlignChooser = SegmentedControl.new(w, newRect(5, 5, 200, 25))
+    let hAlignChooser = SegmentedControl.new(gfx, newRect(5, 5, 200, 25))
     hAlignChooser.segments = @[$haLeft, $haCenter, $haRight]
     v.addSubview(hAlignChooser)
     hAlignChooser.onAction do():
         tv.formattedText.horizontalAlignment = parseEnum[HorizontalTextAlignment](hAlignChooser.segments[hAlignChooser.selectedSegment])
 
-    let vAlignChooser = SegmentedControl.new(w, newRect(hAlignChooser.frame.maxX + 5, 5, 200, 25))
+    let vAlignChooser = SegmentedControl.new(gfx, newRect(hAlignChooser.frame.maxX + 5, 5, 200, 25))
     vAlignChooser.segments = @[$vaTop, $vaCenter, $vaBottom]
     vAlignChooser.selectedSegment = 0
     v.addSubview(vAlignChooser)
@@ -72,9 +71,9 @@ method init(v: TextSampleView, w: Window, r: Rect) =
     tv.formattedText.verticalAlignment = vaTop
 
 method draw(v: TextView, r: Rect) =
-    template gfxCtx: untyped = v.window.gfxCtx
+    template gfx: untyped = v.gfx
     procCall v.View.draw(r)
     v.text.boundingSize = v.bounds.size
-    gfxCtx.drawText(newPoint(0, 0), v.text)
+    gfx.drawText(newPoint(0, 0), v.text)
 
 registerSample(TextSampleView, "Text")

@@ -252,8 +252,8 @@ proc initWithCanvas*(w: JSCanvasWindow, canvas: Element) =
     }
     """.}
     w.canvas = canvas
-    procCall w.Window.init(w, newRect(0, 0, width, height))
-    w.gfxCtx = newGraphicsContext(canvas)
+    w.gfx = newGraphicsContext(canvas)
+    procCall w.Window.init(w.gfx, newRect(0, 0, width, height))
 
     w.setupEventHandlersForCanvas(canvas)
 
@@ -285,7 +285,7 @@ proc newJSCanvasWindow*(canvasId: string): JSCanvasWindow =
 
 proc newJSCanvasWindow*(r: Rect): JSCanvasWindow =
     result.new()
-    result.init(result, r)
+    result.init(result.gfx, r)
 
 proc newJSWindowByFillingBrowserWindow*(): JSCanvasWindow =
     result.new()
@@ -297,7 +297,7 @@ newWindow = proc(r: view.Rect): Window =
 newFullscreenWindow = proc(): Window =
     result = newJSWindowByFillingBrowserWindow()
 
-method init*(w: JSCanvasWindow, _: Window, r: Rect) =
+method init*(w: JSCanvasWindow, _: GraphicsContext, r: Rect) =
     let canvas = document.createElement("canvas")
     let width = r.width
     let height = r.height
@@ -309,12 +309,11 @@ method init*(w: JSCanvasWindow, _: Window, r: Rect) =
     w.initWithCanvas(canvas)
 
 method drawWindow*(w: JSCanvasWindow) =
-    let c = w.gfxCtx
-    c.withTransform ortho(0, w.frame.width, w.frame.height, 0, -1, 1):
+    w.gfx.withTransform ortho(0, w.frame.width, w.frame.height, 0, -1, 1):
         procCall w.Window.drawWindow()
 
 method onResize*(w: JSCanvasWindow, newSize: Size) =
-    w.gfxCtx.gl.viewport(0, 0, GLSizei(newSize.width), GLsizei(newSize.height))
+    w.gfx.gl.viewport(0, 0, GLSizei(newSize.width), GLsizei(newSize.height))
     procCall w.Window.onResize(newSize)
 
 proc startAnimation*() {.deprecated.} = discard

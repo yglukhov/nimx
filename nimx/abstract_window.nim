@@ -83,13 +83,13 @@ method drawWindow*(w: Window) {.base.} =
     w.needsDisplay = false
 
     w.recursiveDrawSubviews()
-    let c = w.gfxCtx
+    template c: untyped = w.gfx
 
     let profiler = sharedProfiler()
     if profiler.enabled:
         updateFps()
-        profiler["Overdraw"] = getOverdrawValue(w.gfxCtx)
-        profiler["DIPs"] = getDIPValue(w.gfxCtx)
+        profiler["Overdraw"] = getOverdrawValue(w.gfx)
+        profiler["DIPs"] = getDIPValue(w.gfx)
         profiler["Animations"] = totalAnims
 
         const fontSize = 14
@@ -125,7 +125,7 @@ method drawWindow*(w: Window) {.base.} =
             c.drawRect(rect)
 
 method draw*(w: Window, rect: Rect) =
-    let gl = w.gfxCtx.gl
+    template gl: untyped = w.gfx.gl
     if w.mActiveBgColor != w.backgroundColor:
         gl.clearColor(w.backgroundColor.r, w.backgroundColor.g, w.backgroundColor.b, w.backgroundColor.a)
         w.mActiveBgColor = w.backgroundColor
@@ -202,12 +202,14 @@ proc onFocusChange*(w: Window, inFocus: bool)=
         sharedNotificationCenter().postNotification(AW_FOCUS_LEAVE)
 
 var newWindow*: proc(r: Rect): Window
+var newWindowWithGfxContext*: proc(gfx: GraphicsContext, r: Rect): Window
 var newFullscreenWindow*: proc(): Window
+var newFullscreenWindowWithGfxContext*: proc(gfx: GraphicsContext): Window
 var newWindowWithNative*: proc(handle: pointer, r: Rect): Window
 var newFullscreenWindowWithNative*: proc(handle: pointer): Window
 
-method init*(w: Window, _: Window, frame: Rect) =
-    procCall w.View.init(w, frame)
+method init*(w: Window, gfx: GraphicsContext, frame: Rect) =
+    procCall w.View.init(gfx, frame)
     w.window = w
     w.needsDisplay = true
     w.mCurrentTouches = newTable[int, View]()

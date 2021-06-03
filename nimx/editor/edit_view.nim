@@ -1,7 +1,7 @@
 import times, json, math
 
 import nimx / [view, panel_view, context, undo_manager, toolbar, button, menu, inspector_panel,
-            gesture_detector, window_event_handling, view_event_handling, abstract_window,
+            gesture_detector, window_event_handling, view_event_handling, window,
             serializers, key_commands, ui_resource, private/async]
 
 import nimx/property_editors/[autoresizing_mask_editor, standard_editors] # Imported here to be registered in the propedit registry
@@ -66,7 +66,7 @@ method onKeyDown(v: EventCatchingView, e : var Event): bool =
             echo jn
             let s = newJsonDeserializer(parseJson(pbi.data))
             var nv: View
-            s.deserialize(nv)
+            s.deserialize(nv, v.gfx)
             doAssert(not nv.isNil)
             var targetView = v.selectedView
             if targetView.isNil:
@@ -76,7 +76,7 @@ method onKeyDown(v: EventCatchingView, e : var Event): bool =
             do():
                 nv.removeFromSuperview()
     of kcOpen:
-        v.editor.document.open()
+        v.editor.document.open(v.gfx) 
     of kcSave:
         v.editor.document.save()
     of kcSaveAs:
@@ -103,7 +103,7 @@ proc endEditing*(e: Editor) =
     e.eventCatchingView.removeFromSuperview()
 
 proc setupNewViewButton(e:Editor, b: Button) =
-    # let b = Button.new(w, newRect(0, 30, 120, 20))
+    # let b = Button.new(w.gfx, newRect(0, 30, 120, 20))
     # b.title = "New view"
     b.onAction do():
         var menu : Menu
@@ -115,10 +115,10 @@ proc setupNewViewButton(e:Editor, b: Button) =
                 menuItem.action = proc() =
                     let v = View(newObjectOfClass(menuItem.title))
                     if not e.eventCatchingView.selectedView.isNil:
-                        v.init(e.workspace.window, newRect(10, 10, 100, 100))
+                        v.init(e.workspace.gfx, newRect(10, 10, 100, 100))
                         e.eventCatchingView.selectedView.addSubview(v)
                     else:
-                        v.init(e.workspace.window, newRect(200, 200, 100, 100))
+                        v.init(e.workspace.gfx, newRect(200, 200, 100, 100))
                         e.document.view.addSubview(v)
                     e.eventCatchingView.selectedView = v
                     v.name = e.document.defaultName(menuItem.title)
@@ -132,7 +132,7 @@ when savingAndLoadingEnabled:
     proc setupLoadButton(e: Editor, b: Button) =
         b.onAction do():
             e.selectedView = nil
-            e.document.open()
+            e.document.open(e.workspace.gfx)
 
     proc setupSaveButton(e: Editor, b: Button) =
         b.onAction do():
@@ -142,22 +142,18 @@ proc setupSimulateButton(e: Editor, b: Button)=
     b.onAction do():
         var simulateWnd = newWindow(newRect(100, 100, e.document.view.bounds.width, e.document.view.bounds.height))
         simulateWnd.title = "Simulate"
-        simulateWnd.addSubview(
-            deserializeView(
-                e.document.serializeView()
-                )
-            )
+        simulateWnd.addSubview(deserializeView(e.document.serializeView(), simulateWnd.gfx))
 
         echo "simulate"
 
 proc startNimxEditorAsync*(wnd: Window) {.async.}=
     var editor = new(Editor)
 
-    editor.workspace = new(EditorWorkspace, wnd, wnd.bounds)
+    editor.workspace = new(EditorWorkspace, wnd.gfx, wnd.bounds)
     editor.workspace.autoresizingMask = {afFlexibleWidth, afFlexibleHeight}
     wnd.addSubview(editor.workspace)
 
-    editor.eventCatchingView = EventCatchingView.new(wnd, wnd.bounds)
+    editor.eventCatchingView = EventCatchingView.new(wnd.gfx, wnd.bounds)
     editor.eventCatchingView.editor = editor
     editor.eventCatchingView.autoresizingMask = {afFlexibleWidth, afFlexibleHeight}
     wnd.addSubview(editor.eventCatchingView)
@@ -165,7 +161,7 @@ proc startNimxEditorAsync*(wnd: Window) {.async.}=
     editor.document = newUIDocument(editor)
     editor.workspace.addSubview(editor.document.view)
 
-    var ui = await loadUiResourceAsync("assets/top_panel.nimx")
+    var ui = await loadUiResourceAsync("assets/top_panel.nimx", wnd.gfx)
     var topPanel = ui.view
     topPanel.setFrameOrigin(zeroPoint)
     wnd.addSubview(topPanel)
@@ -182,11 +178,12 @@ proc startNimxEditorAsync*(wnd: Window) {.async.}=
 
     ui.getView(View, "gridSize").initPropertyEditor(editor.eventCatchingView, "gridSize", editor.eventCatchingView.gridSize)
 
-    editor.inspector = InspectorPanel.new(wnd, newRect(0, 0, 300, 600))
+    var propWnd = newWindow(newRect(680, 100, 300, 600))
+
+    editor.inspector = InspectorPanel.new(propWnd.gfx, newRect(0, 0, 300, 600))
     editor.inspector.onPropertyChanged do(name: string):
         wnd.setNeedsDisplay()
 
-    var propWnd = newWindow(newRect(680, 100, 300, 600))
     propWnd.title = "Inspector"
 
     editor.inspector.autoresizingMask = {afFlexibleWidth, afFlexibleHeight}
@@ -323,7 +320,7 @@ method onTouchEv*(v: EventCatchingView, e: var Event): bool =
     result = true
 
 proc drawSelectionRect(v: EventCatchingView) =
-    let c = v.window.gfxCtx
+    template c: untyped = v.gfx
     c.fillColor = clearColor()
     c.strokeColor = newGrayColor(0.3)
     c.strokeWidth = 1

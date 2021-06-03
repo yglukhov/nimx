@@ -42,8 +42,8 @@ type
 
     IndexPath* = seq[int]
 
-method init*(v: OutlineView, w: Window, r: Rect) =
-    procCall v.View.init(w, r)
+method init*(v: OutlineView, gfx: GraphicsContext, r: Rect) =
+    procCall v.View.init(gfx, r)
     v.rootItem = ItemNode.new()
     v.rootItem.expandable = true
     v.rootItem.expanded = true
@@ -68,7 +68,7 @@ proc configureCellAUX(v: OutlineView, n: ItemNode, y: Coord, indexPath: IndexPat
 
 proc drawNode(v: OutlineView, n: ItemNode, y: var Coord, indexPath: var IndexPath) =
     if n.filtered: return
-    let c = v.window.gfxCtx
+    template c: untyped = v.gfx
     v.configureCellAUX(n, y, indexPath)
     n.cell.drawWithinSuperview()
     if n.expandable and n.children.len > 0:

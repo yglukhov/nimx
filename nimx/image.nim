@@ -274,7 +274,7 @@ method serialize*(s: Serializer, v: Image) {.base.} =
         path = v.SelfContainedImage.mFilePath
     s.serialize("imagePath", path)
 
-method deserialize*(s: Deserializer, v: var Image) {.base.} =
+method deserialize*(s: Deserializer, v: var Image, gfx: RootRef) {.base.} =
     var imagePath: string
     s.deserialize("imagePath", imagePath)
     if imagePath.len > 0:
@@ -458,7 +458,7 @@ when not web and not defined(ios):
 const asyncResourceLoad = not web and not defined(nimxAvoidSDL) and compileOption("threads")
 
 when asyncResourceLoad:
-    const loadAsyncTextureInMainThread = defined(android) or defined(ios)
+    const loadAsyncTextureInMainThread = true#defined(android) or defined(ios)
 
     import perform_on_main_thread, sdl2
     import private/worker_queue

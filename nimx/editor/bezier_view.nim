@@ -51,14 +51,14 @@ method onTouchEv*(v: BezierView, e: var Event): bool  =
 
     result = true
 
-method init*(v: BezierView, w: Window, r: Rect)=
-    procCall v.View.init(w, r)
+method init*(v: BezierView, gfx: GraphicsContext, r: Rect)=
+    procCall v.View.init(gfx, r)
     v.backgroundColor = newColor(0.7, 0.7, 0.7, 1.0)
 
 method draw*(v: BezierView, r: Rect) =
     procCall v.View.draw(r)
 
-    let c = v.window.gfxCtx
+    template c: untyped = v.gfx
 
     let botLeft = newPoint(0, v.bounds.height)
     let topRight = newPoint(v.bounds.width, 0.0)

@@ -13,7 +13,7 @@ type
 
     ImageRenderTarget* = ref ImageRenderTargetObj
     ImageRenderTargetObj = object
-        gfxCtx*: GraphicsContext
+        gfx*: GraphicsContext
         framebuffer*: FramebufferRef
         depthbuffer*: RenderbufferRef
         stencilbuffer*: RenderbufferRef
@@ -23,7 +23,7 @@ type
         needsDepthStencil*: bool
 
 proc disposeObj(r: var ImageRenderTargetObj) =
-    let gl = r.gfxCtx.gl
+    template gl: untyped = r.gfx.gl
     if r.framebuffer != invalidFrameBuffer:
         gl.deleteFramebuffer(r.framebuffer)
         r.framebuffer = invalidFrameBuffer
@@ -47,11 +47,11 @@ proc newImageRenderTarget*(ctx: GraphicsContext, needsDepthStencil: bool = true)
             result.new()
         else:
             result.new(dispose)
-    result.gfxCtx = ctx
+    result.gfx = ctx
     result.needsDepthStencil = needsDepthStencil
 
 proc init(rt: ImageRenderTarget, texWidth, texHeight: int16) =
-    let gl = rt.gfxCtx.gl
+    template gl: untyped = rt.gfx.gl
     rt.texWidth = texWidth
     rt.texHeight = texHeight
     rt.framebuffer = gl.createFramebuffer()
@@ -99,7 +99,7 @@ proc init(rt: ImageRenderTarget, texWidth, texHeight: int16) =
         gl.bindRenderbuffer(gl.RENDERBUFFER, oldRB)
 
 proc resize(rt: ImageRenderTarget, texWidth, texHeight: int16) =
-    let gl = rt.gfxCtx.gl
+    template gl: untyped = rt.gfx.gl
     rt.texWidth = max(rt.texWidth, texWidth)
     rt.texHeight = max(rt.texHeight, texHeight)
 
@@ -119,7 +119,7 @@ proc resize(rt: ImageRenderTarget, texWidth, texHeight: int16) =
 proc setImage*(rt: ImageRenderTarget, i: SelfContainedImage) =
     assert(i.texWidth != 0 and i.texHeight != 0)
 
-    let gl = rt.gfxCtx.gl
+    template gl: untyped = rt.gfx.gl
     var texCoords: array[4, GLfloat]
     var texture = i.getTextureQuad(gl, texCoords)
     if texture.isEmpty:
@@ -152,7 +152,7 @@ proc setImage*(rt: ImageRenderTarget, i: SelfContainedImage) =
 proc beginDraw*(t: ImageRenderTarget, state: var RTIContext) =
     assert(t.vpW != 0 and t.vpH != 0)
 
-    let gl = t.gfxCtx.gl
+    template gl: untyped = t.gfx.gl
     state.framebuffer = gl.boundFramebuffer()
     state.viewportSize = gl.getViewport()
     state.bStencil = gl.getParamb(gl.STENCIL_TEST)
@@ -173,7 +173,7 @@ proc beginDrawNoClear*(t: ImageRenderTarget, state: var RTIContext) =
     t.beginDraw(state)
 
 proc endDraw*(t: ImageRenderTarget, state: var RTIContext) =
-    let gl = t.gfxCtx.gl
+    template gl: untyped = t.gfx.gl
     if state.bStencil:
         gl.enable(gl.STENCIL_TEST)
     if not state.skipClear:
@@ -186,7 +186,7 @@ template draw*(rt: ImageRenderTarget, sci: SelfContainedImage, drawBody: untyped
     rt.setImage(sci)
     rt.beginDraw(gfs)
 
-    rt.gfxCtx.withTransform ortho(0, sci.size.width, sci.size.height, 0, -1, 1):
+    rt.gfx.withTransform ortho(0, sci.size.width, sci.size.height, 0, -1, 1):
         drawBody
 
     rt.endDraw(gfs)

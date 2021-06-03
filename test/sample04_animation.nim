@@ -6,12 +6,12 @@ type AnimationSampleView = ref object of View
     rotation: Coord
     animation: Animation
 
-method init*(v: AnimationSampleView, w: Window, r: Rect) =
-    procCall v.View.init(w, r)
+method init*(v: AnimationSampleView, gfx: GraphicsContext, r: Rect) =
+    procCall v.View.init(gfx, r)
     v.animation = newAnimation()
 
     # Start/Stop button
-    let startStopButton = newButton(w, newRect(20, 20, 50, 50))
+    let startStopButton = newButton(gfx, newRect(20, 20, 50, 50))
     startStopButton.title = "Stop"
     startStopButton.onAction do():
         if v.animation.finished:
@@ -29,7 +29,7 @@ method init*(v: AnimationSampleView, w: Window, r: Rect) =
         startStopButton.title = "Start"
     #v.animation.numberOfLoops = 2
 
-    let playPauseButton = newButton(w, newRect(80, 20, 70, 50))
+    let playPauseButton = newButton(gfx, newRect(80, 20, 70, 50))
     playPauseButton.title = "Pause"
     playPauseButton.onAction do():
         if playPauseButton.title == "Pause":
@@ -41,7 +41,7 @@ method init*(v: AnimationSampleView, w: Window, r: Rect) =
     v.addSubview(playPauseButton)
 
 
-    let progressBar = ProgressIndicator.new(w, newRect(160, 20, 90, 20))
+    let progressBar = ProgressIndicator.new(gfx, newRect(160, 20, 90, 20))
     v.addSubview(progressBar)
 
     # Loop progress handlers are called when animation reaches specified loop progress.
@@ -54,7 +54,7 @@ method init*(v: AnimationSampleView, w: Window, r: Rect) =
     v.animation.continueUntilEndOfLoopOnCancel = true
 
 method draw(v: AnimationSampleView, r: Rect) =
-    let c = v.window.gfxCtx
+    template c: untyped = v.gfx
     c.fillColor = newGrayColor(0.5)
     var tmpTransform = c.transform
     tmpTransform.translate(newVector3(v.bounds.width/2, v.bounds.height/3, 0))

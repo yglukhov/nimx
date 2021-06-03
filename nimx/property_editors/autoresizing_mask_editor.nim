@@ -8,15 +8,15 @@ import nimx/property_editors/propedit_registry
 
 import variant
 
-proc newAutoresizingMaskPropertyView(w: Window, setter: proc(s: set[AutoresizingFlag]), getter: proc(): set[AutoresizingFlag]): PropertyEditorView =
-    result = PropertyEditorView.new(w, newRect(0, 0, 208, editorRowHeight))
+proc newAutoresizingMaskPropertyView(gfx: GraphicsContext, setter: proc(s: set[AutoresizingFlag]), getter: proc(): set[AutoresizingFlag]): PropertyEditorView =
+    result = PropertyEditorView.new(gfx, newRect(0, 0, 208, editorRowHeight))
 
-    let horLayout = newHorizontalLayout(w, newRect(0, 0, 208, editorRowHeight))
+    let horLayout = newHorizontalLayout(gfx, newRect(0, 0, 208, editorRowHeight))
     horLayout.autoresizingMask = {afFlexibleWidth, afFlexibleMaxY}
     result.addSubview(horLayout)
 
     var val = getter()
-    let horEdit = PopupButton.new(w, newRect(0, 0, 40, editorRowHeight))
+    let horEdit = PopupButton.new(gfx, newRect(0, 0, 40, editorRowHeight))
     horEdit.items = @["flexible left", "flexible width", "flexible right"]
     horEdit.onAction do():
         var newFlag = afFlexibleMaxX
@@ -36,7 +36,7 @@ proc newAutoresizingMaskPropertyView(w: Window, setter: proc(s: set[Autoresizing
 
     horLayout.addSubview(horEdit)
 
-    let vertEdit = PopupButton.new(w, newRect(40, 0, 40, editorRowHeight))
+    let vertEdit = PopupButton.new(gfx, newRect(40, 0, 40, editorRowHeight))
     vertEdit.items = @["flexible top", "flexible height", "flexible bottom"]
     vertEdit.selectedIndex = 0
     vertEdit.onAction do():

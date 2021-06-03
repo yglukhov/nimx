@@ -1,4 +1,4 @@
-import view, scroll_bar, event, layout_vars
+import context, view, scroll_bar, event, layout_vars
 import kiwi
 import math
 export view
@@ -15,15 +15,15 @@ type ScrollView* = ref object of View
 
 const scrollBarWidth = 12.Coord
 
-method init*(v: ScrollView, w: Window, r: Rect) =
-    procCall v.View.init(w, r)
+method init*(v: ScrollView, gfx: GraphicsContext, r: Rect) =
+    procCall v.View.init(gfx, r)
 
     if v.usesNewLayout:
         # Assume new layout
         v.xPos = newVariable()
         v.yPos = newVariable()
-        v.addSubview(ScrollBar.new(w, newRect(0, 0, 10, 0)))
-        v.addSubview(ScrollBar.new(w, newRect(0, 0, 0, 10)))
+        v.addSubview(ScrollBar.new(gfx, newRect(0, 0, 10, 0)))
+        v.addSubview(ScrollBar.new(gfx, newRect(0, 0, 0, 10)))
 
 proc onScrollBar(v: ScrollView, sb: ScrollBar)
 
@@ -73,20 +73,20 @@ template verticalScrollBar*(v: ScrollView): ScrollBar = v.mVerticalScrollBar
 
 proc recalcScrollKnobSizes(v: ScrollView)
 
-proc newScrollView*(w: Window, r: Rect): ScrollView {.deprecated.} =
+proc newScrollView*(gfx: GraphicsContext, r: Rect): ScrollView {.deprecated.} =
     result.new()
     result.name = "scrollView"
-    result.init(w, r)
+    result.init(gfx, r)
 
-    var sb = ScrollBar.new(w, newRect(0, r.height - scrollBarWidth, 0, scrollBarWidth))
+    var sb = ScrollBar.new(gfx, newRect(0, r.height - scrollBarWidth, 0, scrollBarWidth))
     sb.autoresizingMask = {afFlexibleWidth, afFlexibleMinY}
     result.horizontalScrollBar = sb
 
-    sb = ScrollBar.new(w, newRect(r.width - scrollBarWidth, 0, scrollBarWidth, 0))
+    sb = ScrollBar.new(gfx, newRect(r.width - scrollBarWidth, 0, scrollBarWidth, 0))
     sb.autoresizingMask = {afFlexibleMinX, afFlexibleHeight}
     result.verticalScrollBar = sb
 
-    result.clipView = newClipView(w, zeroRect)
+    result.clipView = newClipView(gfx, zeroRect)
     result.addSubview(result.clipView)
     result.relayout()
 
@@ -115,9 +115,9 @@ proc `contentView=`*(v: ScrollView, c: View) =
     v.clipView.addSubview(c)
     v.recalcScrollKnobSizes()
 
-proc newScrollView*(w: Window, v: View): ScrollView {.deprecated.} =
+proc newScrollView*(gfx: GraphicsContext, v: View): ScrollView {.deprecated.} =
     # Create a scrollview by wrapping v into it
-    result = newScrollView(w, v.frame)
+    result = newScrollView(gfx, v.frame)
     result.autoresizingMask = v.autoresizingMask
     result.contentView = v
     #v.autoresizingMask = { afFlexibleMaxX, afFlexibleMaxY }

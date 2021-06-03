@@ -10,8 +10,8 @@ type ScrollBar* = ref object of Slider
                     # document is 0.5.
     trackingPos: Coord # Position of mouse coordinate (x or y depending on orientation) within knob
 
-method init*(s: ScrollBar, w: Window, r: Rect) =
-    procCall s.Slider.init(w, r)
+method init*(s: ScrollBar, gfx: GraphicsContext, r: Rect) =
+    procCall s.Slider.init(gfx, r)
     s.mKnobSize = 0.2
 
 proc knobRect(s: ScrollBar): Rect =
@@ -32,7 +32,7 @@ proc knobRect(s: ScrollBar): Rect =
 method draw*(s: ScrollBar, r: Rect) =
     let bezelRect = s.bounds.inset(1, 1)
     var radius = min(bezelRect.width, bezelRect.height) / 2
-    let c = s.window.gfxCtx
+    template c: untyped = s.gfx
     c.fillColor = newGrayColor(0.85, 0.5)
     c.strokeColor = newGrayColor(0.5, 0.5)
     c.strokeWidth = 0.5
