@@ -23,8 +23,8 @@ import nimx/property_editors/propedit_registry
 import variant
 
 when defined(js):
-    from dom import alert
-elif not defined(android) and not defined(ios) and not defined(emscripten):
+    from dom import alert, window
+elif not defined(android) and not defined(ios):
     import os_files/dialog
 
 template toStr(v: SomeFloat, precision: uint): string = formatFloat(v, ffDecimal, precision)
@@ -223,7 +223,7 @@ when not defined(android) and not defined(ios):
         b.title = "Open image..."
         b.onAction do():
             when defined(js):
-                alert("Files can be opened only in native editor version")
+                alert(window, "Files can be opened only in native editor version")
             elif defined(emscripten):
                 discard
             else:
