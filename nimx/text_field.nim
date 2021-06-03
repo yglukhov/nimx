@@ -267,7 +267,15 @@ method draw*(t: TextField, r: Rect) =
         t.mText.overrideColor = whiteColor()
     else:
         t.mText.overrideColor.a = 0
-    c.drawText(pt, t.mText)
+
+    var visibleRect = t.bounds
+    if visibleRect.height > t.window.bounds.height:
+        let wndRect = t.convertRectToWindow(t.bounds)
+        let wndBounds = t.window.bounds
+        let offY = if wndRect.y < 0.0: abs(wndRect.y) else: 0.0
+        let trimY = max(wndRect.y, 0.0)
+        visibleRect = newRect(0.0, offY, t.bounds.width, min(t.bounds.height, wndBounds.height) + offY - trimY)
+    c.drawText(visibleRect, pt, t.mText)
 
     if t.isEditing:
         if t.hasBezel:
