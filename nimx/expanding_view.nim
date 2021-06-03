@@ -47,21 +47,21 @@ proc updateFrame(v: ExpandingView) =
     elif not v.contentView.superview.isNil:
         v.contentView.removeFromSuperView()
 
-proc init*(v: ExpandingView, w: Window, r: Rect, hasOffset: bool) =
-    procCall v.View.init(w, r)
+proc init*(v: ExpandingView, gfx: GraphicsContext, r: Rect, hasOffset: bool) =
+    procCall v.View.init(gfx, r)
     v.backgroundColor = newColor(0.2, 0.2, 0.2, 1.0)
     v.title = "Expanded View"
 
     v.hasOffset = hasOffset
     if v.hasOffset:
-        v.contentView = newStackView(w, newRect(expandButtonSize, titleSize, r.width - expandButtonSize, r.height - titleSize))
+        v.contentView = newStackView(gfx, newRect(expandButtonSize, titleSize, r.width - expandButtonSize, r.height - titleSize))
     else:
-        v.contentView = newStackView(w, newRect(0, titleSize, r.width, r.height - titleSize))
+        v.contentView = newStackView(gfx, newRect(0, titleSize, r.width, r.height - titleSize))
     v.contentView.name = "contentView"
     v.contentView.resizingMask = "wb"
     v.addSubview(v.contentView)
 
-    v.expandBut = newExpandButton(v, w, newRect(0.0, 0.0, expandButtonSize, expandButtonSize))
+    v.expandBut = newExpandButton(v, gfx, newRect(0.0, 0.0, expandButtonSize, expandButtonSize))
     v.expandBut.onExpandAction =  proc(state: bool) =
         v.expanded = state
         v.updateFrame()
@@ -75,14 +75,14 @@ proc expand*(v: ExpandingView) =
     v.updateFrame()
     v.expandBut.expanded = true
 
-proc newExpandingView*(w: Window, r: Rect, hasOffset: bool = false): ExpandingView =
+proc newExpandingView*(gfx: GraphicsContext, r: Rect, hasOffset: bool = false): ExpandingView =
     result.new()
-    result.init(w, r, hasOffset)
+    result.init(gfx, r, hasOffset)
     result.name = "expandingView"
 
 method draw(v: ExpandingView, r: Rect) =
-    template gfxCtx: untyped = v.window.gfxCtx
-    template fontCtx: untyped = gfxCtx.fontCtx
+    template gfx: untyped = v.gfx
+    template fontCtx: untyped = gfx.fontCtx
     procCall v.View.draw(r)
 
     # title
@@ -90,11 +90,11 @@ method draw(v: ExpandingView, r: Rect) =
     titleRect.size.width = r.width
     titleRect.size.height = titleSize
 
-    gfxCtx.fillColor = v.titleBarColor
-    gfxCtx.drawRect(titleRect)
+    gfx.fillColor = v.titleBarColor
+    gfx.drawRect(titleRect)
 
-    gfxCtx.fillColor = v.titleTextColor
-    gfxCtx.drawText(systemFontOfSize(fontCtx, 14.0), newPoint(25, 1), v.title)
+    gfx.fillColor = v.titleTextColor
+    gfx.drawText(systemFontOfSize(fontCtx, 14.0), newPoint(25, 1), v.title)
 
 
     v.contentView.hidden = not v.expanded

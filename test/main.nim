@@ -54,22 +54,22 @@ proc startApplication() =
             #     width == mainWindow.bounds.width - 100
             #     height == mainWindow.bounds.height
 
-    var currentView = View.new(mainWindow, newRect(0, 0, mainWindow.bounds.width - 100, mainWindow.bounds.height))
+    var currentView = View.new(mainWindow.gfx, newRect(0, 0, mainWindow.bounds.width - 100, mainWindow.bounds.height))
 
-    let splitView = newHorizontalLayout(mainWindow, mainWindow.bounds)
+    let splitView = newHorizontalLayout(mainWindow.gfx, mainWindow.bounds)
     splitView.resizingMask = "wh"
     splitView.userResizeable = true
     mainWindow.addSubview(splitView)
 
-    let tableView = newTableView(mainWindow, newRect(0, 0, 120, mainWindow.bounds.height))
+    let tableView = newTableView(mainWindow.gfx, newRect(0, 0, 120, mainWindow.bounds.height))
     tableView.resizingMask = "rh"
-    splitView.addSubview(newScrollView(mainWindow, tableView))
+    splitView.addSubview(newScrollView(mainWindow.gfx, tableView))
     splitView.addSubview(currentView)
     splitView.setDividerPosition(120, 0)
 
     tableView.numberOfRows = proc: int = allSamples.len
     tableView.createCell = proc (): TableViewCell =
-        result = newTableViewCell(mainWindow, newLabel(mainWindow, newRect(0, 0, 120, 20)))
+        result = newTableViewCell(mainWindow.gfx, newLabel(mainWindow.gfx, newRect(0, 0, 120, 20)))
     tableView.configureCell = proc (c: TableViewCell) =
         TextField(c.subviews[0]).text = allSamples[c.row].name
     tableView.onSelectionChange = proc() =
@@ -77,7 +77,7 @@ proc startApplication() =
         if selectedRows.len > 0:
             let firstSelectedRow = selectedRows[0]
             let nv = View(newObjectOfClass(allSamples[firstSelectedRow].className))
-            nv.init(mainWindow, currentView.frame)
+            nv.init(mainWindow.gfx, currentView.frame)
             nv.resizingMask = "wh"
             splitView.replaceSubview(currentView, nv)
             currentView = nv

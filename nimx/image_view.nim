@@ -21,14 +21,14 @@ type
         imageMarginTop*: Coord
         imageMarginBottom*: Coord
 
-proc newImageView*(w: Window, r: Rect, image: Image = nil, fillRule = ImageFillRule.NoFill): ImageView =
+proc newImageView*(gfx: GraphicsContext, r: Rect, image: Image = nil, fillRule = ImageFillRule.NoFill): ImageView =
     result.new
     result.image = image
     result.fillRule = fillRule
-    result.init(w, r)
+    result.init(gfx, r)
 
-method init*(v: ImageView, w: Window, r: Rect) =
-    procCall v.View.init(w, r)
+method init*(v: ImageView, gfx: GraphicsContext, r: Rect) =
+    procCall v.View.init(gfx, r)
 
 proc image*(v: ImageView): Image = v.image
 proc `image=`*(v: ImageView, image: Image) =
@@ -44,7 +44,7 @@ method clipType*(v: ImageView): ClipType = ctDefaultClip
 
 method draw(v: ImageView, r: Rect) =
     procCall v.View.draw(r)
-    let c = v.window.gfxCtx
+    template c: untyped = v.gfx
 
     if v.image.isNil():
         c.drawRect(r)

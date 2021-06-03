@@ -40,13 +40,13 @@ const
 
 proc updateLayout*(v: CollectionView)
 
-proc newCollectionView*(w: Window, r: Rect, itemSize: Size, layoutDirection: LayoutDirection, layoutWidth: int = LayoutWidthAuto): CollectionView =
+proc newCollectionView*(gfx: GraphicsContext, r: Rect, itemSize: Size, layoutDirection: LayoutDirection, layoutWidth: int = LayoutWidthAuto): CollectionView =
     ## CollectionView constructor
     result.new()
     result.layoutDirection = layoutDirection
     result.layoutWidth = layoutWidth
     result.itemSize = itemSize
-    result.init(w, r)
+    result.init(gfx, r)
 
 method clipType*(v: CollectionView): ClipType = ctDefaultClip
 
@@ -162,8 +162,8 @@ proc updateLayout*(v: CollectionView) =
    v.scrollOffset = 0.0
    v.update()
 
-method init*(v: CollectionView, w: Window, r: Rect) =
-    procCall v.View.init(w, r)
+method init*(v: CollectionView, gfx: GraphicsContext, r: Rect) =
+    procCall v.View.init(gfx, r)
     v.rangeCache.dirty = true
     v.offset = 2.0
     let scrollListener = new(CollectionScrollListener)

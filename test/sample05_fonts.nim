@@ -10,10 +10,10 @@ type FontsView = ref object of View
     baseline: Baseline
 
 template createSlider(fv: FontsView, title: string, y: var Coord, fr, to: Coord, val: typed) =
-    let lb = newLabel(fv.window, newRect(20, y, 120, 20))
+    let lb = newLabel(fv.gfx, newRect(20, y, 120, 20))
     lb.text = title & ":"
-    let s = Slider.new(fv.window, newRect(140, y, 120, 20))
-    let ef = newTextField(fv.window, newRect(280, y, 120, 20))
+    let s = Slider.new(fv.gfx, newRect(140, y, 120, 20))
+    let ef = newTextField(fv.gfx, newRect(280, y, 120, 20))
     s.onAction do():
         let v = fr + (to - fr) * s.value
         ef.text = $v
@@ -32,9 +32,9 @@ template createSlider(fv: FontsView, title: string, y: var Coord, fr, to: Coord,
     fv.addSubview(ef)
     y += 22
 
-method init(v: FontsView, w: Window, r: Rect) =
-    procCall v.View.init(w, r)
-    let captionTf = newTextField(w, newRect(20, 20, r.width - 40, 20))
+method init(v: FontsView, gfx: GraphicsContext, r: Rect) =
+    procCall v.View.init(gfx, r)
+    let captionTf = newTextField(gfx, newRect(20, 20, r.width - 40, 20))
     captionTf.autoresizingMask = { afFlexibleWidth, afFlexibleMaxY }
     captionTf.text = "A Quick Brown $@#&¿"
     captionTf.onAction do():
@@ -46,7 +46,7 @@ method init(v: FontsView, w: Window, r: Rect) =
     var y = 44.Coord
     v.createSlider("size", y, 8.0, 80.0, v.curFontSize)
 
-    let showBaselineBtn = newCheckbox(w, newRect(20, y, 120, 16))
+    let showBaselineBtn = newCheckbox(gfx, newRect(20, y, 120, 16))
     showBaselineBtn.title = "Show baseline"
     showBaselineBtn.onAction do():
         v.showBaseline = showBaselineBtn.boolValue
@@ -55,7 +55,7 @@ method init(v: FontsView, w: Window, r: Rect) =
     v.addSubview(showBaselineBtn)
     y += 16 + 5
 
-    let baselineSelector = PopupButton.new(w, newRect(20, y, 120, 20))
+    let baselineSelector = PopupButton.new(gfx, newRect(20, y, 120, 20))
     var items = newSeq[string]()
     for i in Baseline.low .. Baseline.high:
         items.add($i)
@@ -66,9 +66,9 @@ method init(v: FontsView, w: Window, r: Rect) =
     v.addSubview(baselineSelector)
 
 method draw(v: FontsView, r: Rect) =
-    template gfxCtx: untyped = v.window.gfxCtx
-    template fontCtx: untyped = gfxCtx.fontCtx
-    template gl: untyped = gfxCtx.gl
+    template gfx: untyped = v.gfx
+    template fontCtx: untyped = gfx.fontCtx
+    template gl: untyped = gfx.gl
 
     if v.curFont.isNil:
         v.curFont = systemFontOfSize(fontCtx, v.curFontSize)
@@ -78,13 +78,13 @@ method draw(v: FontsView, r: Rect) =
     var origin = s.centerInRect(v.bounds)
 
     if v.showBaseline:
-        gfxCtx.fillColor = newGrayColor(0.5)
-        gfxCtx.drawRect(newRect(origin, newSize(s.width, 1)))
+        gfx.fillColor = newGrayColor(0.5)
+        gfx.drawRect(newRect(origin, newSize(s.width, 1)))
 
-    gfxCtx.fillColor = blackColor()
+    gfx.fillColor = blackColor()
     let oldBaseline = v.curFont.baseline
     v.curFont.baseline = v.baseline
-    gfxCtx.drawText(v.curFont, origin, v.caption)
+    gfx.drawText(v.curFont, origin, v.caption)
     v.curFont.baseline = oldBaseline
 
 registerSample(FontsView, "Fonts")

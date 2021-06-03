@@ -3,7 +3,7 @@ export view
 
 import composition
 import animation
-import abstract_window
+import window
 
 import times
 import math
@@ -67,15 +67,15 @@ void compose() {
 }
 """
 
-method init(v: ProgressIndicator, w: Window, r: Rect) =
-    procCall v.View.init(w, r)
+method init(v: ProgressIndicator, gfx: GraphicsContext, r: Rect) =
+    procCall v.View.init(gfx, r)
     v.animation = newAnimation()
     v.animation.finished = true
     v.animation.onAnimate = proc(p: float) =
         v.setNeedsDisplay()
 
 method draw*(v: ProgressIndicator, r: Rect) =
-    let c = v.window.gfxCtx
+    template c: untyped = v.gfx
     if v.mIndeterminate:
         draw c, indeterminateComposition, v.bounds:
             setUniform("uPosition", float32(epochTime() mod 1.0))

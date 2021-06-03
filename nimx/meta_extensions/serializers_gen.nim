@@ -3,23 +3,25 @@ import nimx / ui_resource
 export ui_resource
 import macros
 
-proc genSerializeCall(view, serializer, field: NimNode, isSerialize: bool): NimNode {.compileTime.}=
-    let call = if isSerialize: ident("serialize") else: ident("deserialize")
+proc genSerializeCall(view, serializer, field: NimNode): NimNode {.compileTime.}=
+    let call = ident("serialize")
     let fieldLit = newLit($field)
-    # if isSerialize:
     result = quote do:
         `serializer`.`call`(`fieldLit`, `view`.`field`)
-    # else:
-    #     result = quote do:
-    #         `serializer`.`call`(`view`.`field`)
 
-    # echo "genSerializeCall ", repr(result)
+proc genDeserializeCall(view, deserializer, field: NimNode): NimNode {.compileTime.}=
+    let call = ident("deserialize")
+    let gfx = ident("gfx")
+    let fieldLit = newLit($field)
+    result = quote do:
+        `deserializer`.`call`(`fieldLit`, `view`.`field`, `gfx`)
 
 macro genSerializers(typdesc: typed{nkSym}): untyped=
     result = nnkStmtList.newNimNode()
 
     let viewArg = ident("v")
     let serArg = ident("s")
+    let gfxArg = ident("gfx")
 
     var serializerBody = nnkStmtList.newNimNode()
     var deserializerBody = nnkStmtList.newNimNode()
@@ -33,11 +35,11 @@ macro genSerializers(typdesc: typed{nkSym}): untyped=
             procCall `viewArg`.`parent`.serializeFields(`serArg`)
 
         deserializerBody.add quote do:
-            procCall `viewArg`.`parent`.deserializeFields(`serArg`)
+            procCall `viewArg`.`parent`.deserializeFields(`serArg`, `gfxArg`)
 
     for p in typdesc.propertyDescs():
-        let serCall = genSerializeCall(viewArg, serArg, ident(p.name), true)
-        let desCall = genSerializeCall(viewArg, serArg, ident(p.name), false)
+        let serCall = genSerializeCall(viewArg, serArg, ident(p.name))
+        let desCall = genDeserializeCall(viewArg, serArg, ident(p.name))
         serializerBody.add quote do:
             `serCall`
         deserializerBody.add quote do:
@@ -47,8 +49,9 @@ macro genSerializers(typdesc: typed{nkSym}): untyped=
         method serializeFields*(`viewArg`: `typdesc`, `serArg`: Serializer) =
             `serializerBody`
 
-        method deserializeFields*(`viewArg`: `typdesc`, `serArg`: Deserializer)=
+        method deserializeFields*(`viewArg`: `typdesc`, `serArg`: Deserializer, `gfxArg`: GraphicsContext)=
             `deserializerBody`
+    echo repr result
 
 template genSerializeCodeForView*(c: typed)=
     import nimx / serializers

@@ -207,7 +207,7 @@ proc initCommon(w: AppkitWindow, r: view.Rect) =
     w.mNativeView = nativeView
 
     # The context has to be inited before makeKeyAndOrderFront.
-    w.gfxCtx = newGraphicsContext()
+    w.gfx = newGraphicsContext()
     {.emit: """
     [win makeKeyAndOrderFront:nil];
     """.}
@@ -219,7 +219,7 @@ template nativeView(w: AppkitWindow): NSView = cast[NSView](w.mNativeView)
 proc initFullscreen*(w: AppkitWindow) =
     w.initCommon(newRect(0, 0, 800, 600))
 
-method init*(w: AppkitWindow, _: Window, r: view.Rect) =
+method init*(w: AppkitWindow, _: GraphicsContext, r: view.Rect) =
     w.initCommon(r)
 
 proc newFullscreenAppkitWindow(): AppkitWindow =
@@ -241,7 +241,7 @@ method drawWindow(w: AppkitWindow) =
         let s = w.nativeView.bounds.size
         w.onResize(newSize(s.width, s.height))
 
-    let c = w.gfxCtx
+    template c: untyped = w.gfx
     c.gl.clear(c.gl.COLOR_BUFFER_BIT or c.gl.STENCIL_BUFFER_BIT or c.gl.DEPTH_BUFFER_BIT)
 
     c.withTransform ortho(0, w.frame.width, w.frame.height, 0, -1, 1):

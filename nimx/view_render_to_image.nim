@@ -1,7 +1,7 @@
 import nimx / [ view, render_to_image, image, types, context ]
 
 proc renderToImage*(v: View, image: SelfContainedImage)=
-    draw v.window.gfxCtx, image:
+    draw v.gfx, image:
         v.recursiveDrawSubviews()
 
 proc screenShot*(v: View):SelfContainedImage=

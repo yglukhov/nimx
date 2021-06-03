@@ -19,9 +19,9 @@ var allWindows {.threadvar.}: seq[X11Window]
 
 proc newXWindow(d: PDisplay, w: x.Window, r: Rect): X11Window =
   result = X11Window(xdisplay: d, xwindow: w)
-  result.gfxCtx = newGraphicsContext()
+  result.gfx = newGraphicsContext()
   allWindows.add(result)
-  result.init(w, r)
+  result.init(gfx, r)
   mainApplication().addWindow(result)
 
 proc chooseVisual(d: PDisplay, screenId: cint): PXVisualInfo =
@@ -233,7 +233,7 @@ template runApplication*(initCode: typed) =
     runForever()
 
 method draw*(w: X11Window, r: Rect) =
-  let c = w.gfxCtx
+  template c: untyped = w.gfx
   let gl = c.gl
   if w.mActiveBgColor != w.backgroundColor:
     gl.clearColor(w.backgroundColor.r, w.backgroundColor.g, w.backgroundColor.b, w.backgroundColor.a)
@@ -244,7 +244,7 @@ method draw*(w: X11Window, r: Rect) =
 
 method drawWindow(w: X11Window) =
   # discard glMakeCurrent(w.impl, w.sdlGlContext)
-  let c = w.gfxCtx
+  template c: untyped = w.gfx
   c.withTransform ortho(0, w.frame.width, w.frame.height, 0, -1, 1):
     procCall w.Window.drawWindow()
   glXSwapBuffers(w.xdisplay, w.xwindow)

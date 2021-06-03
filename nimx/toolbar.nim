@@ -5,8 +5,8 @@ import nimx/linear_layout
 
 type Toolbar* = ref object of LinearLayout
 
-method init*(v: Toolbar, w: Window, r: Rect) =
-    procCall v.LinearLayout.init(w, r)
+method init*(v: Toolbar, gfx: GraphicsContext, r: Rect) =
+    procCall v.LinearLayout.init(gfx, r)
     v.horizontal = true
     v.leftMargin = 10
     v.padding = 3
@@ -16,7 +16,7 @@ method init*(v: Toolbar, w: Window, r: Rect) =
     v.enableDraggingByBackground()
 
 method draw*(view: Toolbar, rect: Rect) =
-    let c = view.window.gfxCtx
+    template c: untyped = view.gfx
     c.strokeWidth = 2
     c.strokeColor = newGrayColor(0.6, 0.7)
     c.fillColor = newGrayColor(0.3, 0.7)

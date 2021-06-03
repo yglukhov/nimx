@@ -109,7 +109,7 @@ template resetDIPValue*(ctx: GraphicsContext) =
     ctx.DIPValue = 0
 
 template pushPostEffect*(pe: PostEffect, args: varargs[untyped]) =
-    let ctx = pe.window.gfxCtx
+    template ctx: untyped = pe.gfx
     let stackLen = postEffectIdStack.len
     ctx.postEffectStack.add(PostEffectStackElem(postEffect: pe, setupProc: proc(cc: CompiledComposition) =
         let gl = ctx.gl

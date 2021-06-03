@@ -7,19 +7,19 @@ type TableViewCell* = ref object of View
     row*, col*: int
     selected*: bool
 
-proc newTableViewCell*(w: Window): TableViewCell =
+proc newTableViewCell*(gfx: GraphicsContext): TableViewCell =
     result.new()
-    result.init(w, zeroRect)
+    result.init(gfx, zeroRect)
 
-proc newTableViewCell*(w: Window, r: Rect): TableViewCell =
+proc newTableViewCell*(gfx: GraphicsContext, r: Rect): TableViewCell =
     result.new()
-    result.init(w, r)
+    result.init(gfx, r)
 
-proc newTableViewCell*(w: Window, s: Size): TableViewCell =
-    newTableViewCell(w, newRect(zeroPoint, s))
+proc newTableViewCell*(gfx: GraphicsContext, s: Size): TableViewCell =
+    newTableViewCell(gfx, newRect(zeroPoint, s))
 
-proc newTableViewCell*(w: Window, v: View): TableViewCell =
-    result = newTableViewCell(w, v.frame.size)
+proc newTableViewCell*(gfx: GraphicsContext, v: View): TableViewCell =
+    result = newTableViewCell(gfx, v.frame.size)
     v.autoresizingMask = { afFlexibleWidth, afFlexibleHeight }
     result.addSubview(v)
 
@@ -30,11 +30,11 @@ proc enclosingTableViewCell*(v: View): TableViewCell {.inline.} =
     v.enclosingViewOfType(TableViewCell)
 
 method draw*(c: TableViewCell, r: Rect) =
-    template gfxCtx: untyped = c.window.gfxCtx
+    template gfx: untyped = c.gfx
     if c.selected:
-        gfxCtx.fillColor = c.selectionColor()
-        gfxCtx.strokeWidth = 0
-        gfxCtx.drawRect(c.bounds)
+        gfx.fillColor = c.selectionColor()
+        gfx.strokeWidth = 0
+        gfx.drawRect(c.bounds)
     procCall c.View.draw(r)
 
 registerClass(TableViewCell)

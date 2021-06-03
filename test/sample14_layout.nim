@@ -8,7 +8,7 @@ type LayoutSampleView = ref object of View
 type TestView = ref object of View
 method draw*(v: TestView, r: Rect) =
   procCall v.View.draw(r)
-  let c = v.window.gfxCtx
+  template c: untyped = v.gfx
   c.strokeWidth = 2
   c.strokeColor = blackColor()
   let b = v.bounds
@@ -44,7 +44,7 @@ reg "Hello world":
         text: "Hello, world!"
         y == 10.0
         height == 25.0
-      - newButton(wnd, zeroRect) as mybu:
+      - newButton(wnd.gfx, zeroRect) as mybu:
         title: "btn1"
         onAction do():
           echo "hi btn1"
@@ -200,7 +200,7 @@ reg "Table in SplitView":
               tableValues.len
 
             createCell do() -> TableViewCell:
-              result = TableViewCell.new(wnd, zeroRect)
+              result = TableViewCell.new(wnd.gfx, zeroRect)
               result.makeLayout:
                 top == super
                 bottom == super
@@ -256,13 +256,13 @@ reg "Autoresizing Frame":
         frame == autoresizingFrame(NaN, 100, 10, NaN, 100, 10)
         backgroundColor: green
 
-method init(v: LayoutSampleView, w: Window, r: Rect) =
-  procCall v.View.init(w, r)
+method init(v: LayoutSampleView, gfx: GraphicsContext, r: Rect) =
+  procCall v.View.init(gfx, r)
   var by = 5'f32
   for i in 0 .. testLayoutRegistry.high:
     closureScope:
       let c = testLayoutRegistry[i]
-      let b = Button.new(w, newRect(10, by, 150, 25))
+      let b = Button.new(gfx, newRect(10, by, 150, 25))
       b.title = c.name
       by += 30
       b.onAction do():

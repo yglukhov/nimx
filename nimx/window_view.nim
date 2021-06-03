@@ -2,7 +2,7 @@ import view
 
 type
     Window* = ref object of View
-        gfxCtx*: GraphicsContext
+        gfx*: GraphicsContext
         firstResponder*: View       ## handler of untargeted (keyboard and menu) input
         animationRunners*: seq[AnimationRunner]
         needsDisplay*: bool

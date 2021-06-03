@@ -6,7 +6,7 @@ import serializers
 import kiwi
 import notification_center
 
-export types
+export types, context
 export animation_runner, class_registry
 
 const NimxFristResponderChangedInWindow* = "NimxFristResponderChangedInWindow"
@@ -54,9 +54,9 @@ type
         usesNewLayout*: bool
         dragDestination*: DragDestinationDelegate
         layout*: LayoutInfo
+        gfx*: GraphicsContext
 
     Window* = ref object of View
-        gfxCtx*: GraphicsContext
         firstResponder*: View       ## handler of untargeted (keyboard and menu) input
         animationRunners*: seq[AnimationRunner]
         needsDisplay*: bool
@@ -166,8 +166,9 @@ proc constraints*(v: View): seq[Constraint] =
     result = newSeqOfCap[Constraint](v.layout.constraints.len)
     for c in v.layout.constraints: result.add(c.proto)
 
-method init*(v: View, w: Window, frame: Rect) {.base.} =
-    v.window = w
+method init*(v: View, gfx: GraphicsContext, frame: Rect) {.base.} =
+    assert not gfx.isNil
+    v.gfx = gfx
     v.frame = frame
     v.layout.init()
     v.bounds = newRect(0, 0, frame.width, frame.height)
@@ -206,13 +207,13 @@ proc removeGestureDetector*(v: View, d: GestureDetector) =
 
 proc removeAllGestureDetectors*(v: View) = v.gestureDetectors.setLen(0)
 
-proc new*[V](v: typedesc[V], w: Window, frame: Rect): V {.deprecated.} =
+proc new*[V](v: typedesc[V], gfx: GraphicsContext, frame: Rect): V {.deprecated.} =
     result.new()
-    result.init(w, frame)
+    result.init(gfx, frame)
 
-proc newView*(w: Window, frame: Rect): View {.deprecated.} =
+proc newView*(gfx: GraphicsContext, frame: Rect): View {.deprecated.} =
     result.new()
-    result.init(w, frame)
+    result.init(gfx, frame)
 
 method convertPointToParent*(v: View, p: Point): Point {.base.} = p + v.frame.origin - v.bounds.origin
 method convertPointFromParent*(v: View, p: Point): Point {.base.} = p - v.frame.origin + v.bounds.origin
@@ -394,7 +395,7 @@ proc drawWithinSuperview*(v: View) =
     # Assume current coordinate system is superview
     if v.hidden: return
 
-    let c = v.window.gfxCtx
+    template c: untyped = v.gfx
     var tmpTransform = c.transform
     if v.bounds.size == v.frame.size:
         # Common case: bounds scale is 1.0
@@ -413,7 +414,7 @@ proc drawWithinSuperview*(v: View) =
             v.recursiveDrawSubviews()
 
 method draw*(view: View, rect: Rect) {.base.} =
-    let c = view.window.gfxCtx
+    template c: untyped = view.gfx
     if view.backgroundColor.a > 0.001:
         c.fillColor = view.backgroundColor
         c.strokeWidth = 0
@@ -430,7 +431,7 @@ proc recursiveDrawSubviews*(view: View) =
     view.drawSubviews()
 
 proc drawFocusRing*(v: View) =
-    let c = v.window.gfxCtx
+    template c: untyped = v.gfx
     c.fillColor = clearColor()
     c.strokeColor = newColor(0.59, 0.76, 0.95, 0.9)
     c.strokeWidth = 3

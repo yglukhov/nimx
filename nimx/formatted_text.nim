@@ -664,10 +664,10 @@ void compose()
 }
 """, false, "mediump")
 
-type ForEachLineAttributeCallback = proc(gfxCtx: GraphicsContext, t: FormattedText, p: var Point, curLine, endIndex: int, str: string) {.nimcall.}
-proc forEachLineAttribute(gfxCtx: GraphicsContext, inRect: Rect, origP: Point, t: FormattedText, cb: ForEachLineAttributeCallback) =
-    template fontCtx: untyped = gfxCtx.fontCtx
-    template gl: untyped = gfxCtx.gl
+type ForEachLineAttributeCallback = proc(gfx: GraphicsContext, t: FormattedText, p: var Point, curLine, endIndex: int, str: string) {.nimcall.}
+proc forEachLineAttribute(gfx: GraphicsContext, inRect: Rect, origP: Point, t: FormattedText, cb: ForEachLineAttributeCallback) =
+    template fontCtx: untyped = gfx.fontCtx
+    template gl: untyped = gfx.gl
     var p = origP
     let numLines = t.lines.len
     var curLine = 0
@@ -691,7 +691,7 @@ proc forEachLineAttribute(gfxCtx: GraphicsContext, inRect: Rect, origP: Point, t
 
         for curAttrIndex, attrStartIndex, attrEndIndex in t.attrsInLine(curLine):
             if not lastAttrFont.isNil:
-                cb(gfxCtx, t, p, curLine, lastCurAttrIndex, t.mText.substr(lastAttrStartIndex, lastAttrEndIndex))
+                cb(gfx, t, p, curLine, lastCurAttrIndex, t.mText.substr(lastAttrStartIndex, lastAttrEndIndex))
 
             lastCurAttrIndex = curAttrIndex
             lastAttrStartIndex = attrStartIndex
@@ -738,21 +738,21 @@ proc forEachLineAttribute(gfxCtx: GraphicsContext, inRect: Rect, origP: Point, t
                     p.x = t.mBoundingSize.width - width
 
                 if not isCut:
-                    cb(gfxCtx, t, p, curLine, lastCurAttrIndex, t.mText.substr(lastAttrStartIndex, lastAttrEndIndex))
+                    cb(gfx, t, p, curLine, lastCurAttrIndex, t.mText.substr(lastAttrStartIndex, lastAttrEndIndex))
                 else:
-                    cb(gfxCtx, t, p, curLine, lastCurAttrIndex, t.mText.substr(lastAttrStartIndex, lastAttrEndIndex) & symbols)
+                    cb(gfx, t, p, curLine, lastCurAttrIndex, t.mText.substr(lastAttrStartIndex, lastAttrEndIndex) & symbols)
                     break
             else:
-                cb(gfxCtx, t, p, curLine, lastCurAttrIndex, t.mText.substr(lastAttrStartIndex, lastAttrEndIndex))
+                cb(gfx, t, p, curLine, lastCurAttrIndex, t.mText.substr(lastAttrStartIndex, lastAttrEndIndex))
 
         curLine.inc
 
 
-proc drawShadow(gfxCtx: GraphicsContext, inRect: Rect, origP: Point, t: FormattedText) =
+proc drawShadow(gfx: GraphicsContext, inRect: Rect, origP: Point, t: FormattedText) =
     # TODO: Optimize heavily
-    forEachLineAttribute(gfxCtx, inRect, origP, t) do(gfxCtx: GraphicsContext, t: FormattedText, p: var Point, curLine, curAttrIndex: int, str: string):
-        template gl: untyped = gfxCtx.gl
-        gfxCtx.fillColor = t.mAttributes[curAttrIndex].shadowColor
+    forEachLineAttribute(gfx, inRect, origP, t) do(gfx: GraphicsContext, t: FormattedText, p: var Point, curLine, curAttrIndex: int, str: string):
+        template gl: untyped = gfx.gl
+        gfx.fillColor = t.mAttributes[curAttrIndex].shadowColor
         let font = t.mAttributes[curAttrIndex].font
         let oldBaseline = font.baseline
         font.baseline = bAlphabetic
@@ -766,34 +766,34 @@ proc drawShadow(gfxCtx: GraphicsContext, inRect: Rect, origP: Point, t: Formatte
         if t.mAttributes[curAttrIndex].shadowRadius > 0.0 or t.mAttributes[curAttrIndex].shadowSpread > 0.0:
             var options = SOFT_SHADOW_ENABLED
             gradientAndStrokeComposition.options = options
-            var cc = getCompiledComposition(gfxCtx, gradientAndStrokeComposition)
+            var cc = getCompiledComposition(gfx, gradientAndStrokeComposition)
 
             gl.useProgram(cc.program)
 
-            compositionDrawingDefinitions(cc, gfxCtx, gl)
+            compositionDrawingDefinitions(cc, gfx, gl)
 
             const minShadowSpread = 0.17 # make shadow border smooth and great again
 
             setUniform("shadowRadius", t.mAttributes[curAttrIndex].shadowRadius / 8.0)
             setUniform("shadowSpread", t.mAttributes[curAttrIndex].shadowSpread + minShadowSpread)
-            setUniform("fillColor", gfxCtx.fillColor)
+            setUniform("fillColor", gfx.fillColor)
 
-            gl.uniformMatrix4fv(uniformLocation("uModelViewProjectionMatrix"), false, gfxCtx.transform)
-            setupPosteffectUniforms(gfxCtx, cc)
+            gl.uniformMatrix4fv(uniformLocation("uModelViewProjectionMatrix"), false, gfx.transform)
+            setupPosteffectUniforms(gfx, cc)
 
             gl.activeTexture(GLenum(int(gl.TEXTURE0) + cc.iTexIndex))
             gl.uniform1i(uniformLocation("texUnit"), cc.iTexIndex)
 
-            gfxCtx.drawTextBase(font, pp, str)
+            gfx.drawTextBase(font, pp, str)
         else:
-            gfxCtx.drawText(font, pp, str)
+            gfx.drawText(font, pp, str)
 
         font.baseline = oldBaseline
         p.x += pp.x - ppp.x
 
-proc drawStroke(gfxCtx: GraphicsContext, inRect: Rect, origP: Point, t: FormattedText) =
+proc drawStroke(gfx: GraphicsContext, inRect: Rect, origP: Point, t: FormattedText) =
     # TODO: Optimize heavily
-    forEachLineAttribute(gfxCtx, inRect, origP, t) do(gfxCtx: GraphicsContext, t: FormattedText, p: var Point, curLine, curAttrIndex: int, str: string):
+    forEachLineAttribute(gfx, inRect, origP, t) do(gfx: GraphicsContext, t: FormattedText, p: var Point, curLine, curAttrIndex: int, str: string):
         const magicStrokeMaxSizeCoof = 0.46
         let font = t.mAttributes[curAttrIndex].font
 
@@ -803,12 +803,12 @@ proc drawStroke(gfxCtx: GraphicsContext, inRect: Rect, origP: Point, t: Formatte
                 options = options or GRADIENT_ENABLED
 
             gradientAndStrokeComposition.options = options
-            let gl = gfxCtx.gl
-            var cc = getCompiledComposition(gfxCtx, gradientAndStrokeComposition)
+            let gl = gfx.gl
+            var cc = getCompiledComposition(gfx, gradientAndStrokeComposition)
 
             gl.useProgram(cc.program)
 
-            compositionDrawingDefinitions(cc, gfxCtx, gl)
+            compositionDrawingDefinitions(cc, gfx, gl)
 
             setUniform("strokeSize", min(t.mAttributes[curAttrIndex].strokeSize / 15, magicStrokeMaxSizeCoof))
 
@@ -820,61 +820,61 @@ proc drawStroke(gfxCtx: GraphicsContext, inRect: Rect, origP: Point, t: Formatte
             else:
                 setUniform("fillColor", t.mAttributes[curAttrIndex].strokeColor1)
 
-            gl.uniformMatrix4fv(uniformLocation("uModelViewProjectionMatrix"), false, gfxCtx.transform)
-            setupPosteffectUniforms(gfxCtx, cc)
+            gl.uniformMatrix4fv(uniformLocation("uModelViewProjectionMatrix"), false, gfx.transform)
+            setupPosteffectUniforms(gfx, cc)
 
             gl.activeTexture(GLenum(int(gl.TEXTURE0) + cc.iTexIndex))
             gl.uniform1i(uniformLocation("texUnit"), cc.iTexIndex)
 
             let oldBaseline = font.baseline
             font.baseline = bAlphabetic
-            gfxCtx.drawTextBase(font, p, str)
+            gfx.drawTextBase(font, p, str)
             font.baseline = oldBaseline
         else:
-            gfxCtx.fillColor = newColor(0, 0, 0, 0)
+            gfx.fillColor = newColor(0, 0, 0, 0)
             # Dirty hack to advance x position. Should be optimized, of course.
-            gfxCtx.drawText(font, p, str)
+            gfx.drawText(font, p, str)
 
-proc drawText*(gfxCtx: GraphicsContext, origP: Point, t: FormattedText, inRect: Rect = zeroRect) =
-    template fontCtx: untyped = gfxCtx.fontCtx
-    template gl: untyped = gfxCtx.gl
+proc drawText*(gfx: GraphicsContext, origP: Point, t: FormattedText, inRect: Rect = zeroRect) =
+    template fontCtx: untyped = gfx.fontCtx
+    template gl: untyped = gfx.gl
     updateCacheIfNeeded(fontCtx, gl, t)
 
     if t.overrideColor.a == 0:
-        if t.shadowAttrs.len > 0: gfxCtx.drawShadow(inRect, origP, t)
-        if t.strokeAttrs.len > 0: gfxCtx.drawStroke(inRect, origP, t)
+        if t.shadowAttrs.len > 0: gfx.drawShadow(inRect, origP, t)
+        if t.strokeAttrs.len > 0: gfx.drawStroke(inRect, origP, t)
 
-    forEachLineAttribute(gfxCtx, inRect, origP, t) do(gfxCtx: GraphicsContext, t: FormattedText, p: var Point, curLine, curAttrIndex: int, str: string):
+    forEachLineAttribute(gfx, inRect, origP, t) do(gfx: GraphicsContext, t: FormattedText, p: var Point, curLine, curAttrIndex: int, str: string):
         let font = t.mAttributes[curAttrIndex].font
         let oldBaseline = font.baseline
         font.baseline = bAlphabetic
         if t.mAttributes[curAttrIndex].isTextGradient:
             gradientAndStrokeComposition.options = GRADIENT_ENABLED
-            let gl = gfxCtx.gl
-            var cc = getCompiledComposition(gfxCtx, gradientAndStrokeComposition)
+            let gl = gfx.gl
+            var cc = getCompiledComposition(gfx, gradientAndStrokeComposition)
 
             gl.useProgram(cc.program)
 
-            compositionDrawingDefinitions(cc, gfxCtx, gl)
+            compositionDrawingDefinitions(cc, gfx, gl)
 
             setUniform("point_y", p.y - t.lines[curLine].baseline)
             setUniform("size_y", t.lines[curLine].height)
             setUniform("colorFrom", t.mAttributes[curAttrIndex].textColor)
             setUniform("colorTo", t.mAttributes[curAttrIndex].textColor2)
 
-            gl.uniformMatrix4fv(uniformLocation("uModelViewProjectionMatrix"), false, gfxCtx.transform)
-            setupPosteffectUniforms(gfxCtx, cc)
+            gl.uniformMatrix4fv(uniformLocation("uModelViewProjectionMatrix"), false, gfx.transform)
+            setupPosteffectUniforms(gfx, cc)
 
             gl.activeTexture(GLenum(int(gl.TEXTURE0) + cc.iTexIndex))
             gl.uniform1i(uniformLocation("texUnit"), cc.iTexIndex)
 
-            gfxCtx.drawTextBase(font, p, str)
+            gfx.drawTextBase(font, p, str)
         else:
             if t.overrideColor.a != 0:
-                gfxCtx.fillColor = t.overrideColor
+                gfx.fillColor = t.overrideColor
             else:
-                gfxCtx.fillColor = t.mAttributes[curAttrIndex].textColor
-            gfxCtx.drawText(font, p, str)
+                gfx.fillColor = t.mAttributes[curAttrIndex].textColor
+            gfx.drawText(font, p, str)
 
         font.baseline = oldBaseline
 

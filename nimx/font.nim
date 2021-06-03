@@ -65,7 +65,8 @@ func newFontContext*: FontContext =
     result.new()
     result.enableSubpixelDrawing = true
 
-template bakedChars(ci: CharInfo): GlyphMetrics = ci.data.glyphMetrics
+template bakedChars(ci: CharInfo): GlyphMetrics =
+    ci.data.glyphMetrics
 
 template charHeightForSize(s: float): float =
     #if s > 128: 128

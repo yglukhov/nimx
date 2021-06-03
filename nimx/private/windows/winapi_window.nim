@@ -76,19 +76,19 @@ proc setUpContext(w: WinAPiWindow)=
     if res == 0:
         warn "Can't make current ", res, " context ", w.hglrc
 
-    w.gfxCtx = newGraphicsContext()
-    if w.gfxCtx.isNil:
+    w.gfx = newGraphicsContext()
+    if w.gfx.isNil:
         warn "Can't create GraphicsContext "
     else:
         info "GraphicsContext created!"
 
     # discard ReleaseDC(w.hwnd, w.hDC)
 
-method init*(w: WinAPiWindow, _: Window, r: types.Rect)=
-    procCall w.Window.init(w, r)
+method init*(w: WinAPiWindow, _: GraphicsContext, r: types.Rect)=
+    procCall w.Window.init(gfx, r)
 
 method draw*(w: WinAPiWindow, r: types.Rect) =
-    let c = w.gfxCtx
+    template c: untyped = w.gfx
     let gl = c.gl
     if w.mActiveBgColor != w.backgroundColor:
         gl.clearColor(w.backgroundColor.r, w.backgroundColor.g, w.backgroundColor.b, w.backgroundColor.a)
@@ -99,7 +99,7 @@ method draw*(w: WinAPiWindow, r: types.Rect) =
     gl.stencilMask(0x00)
 
 method drawWindow(w: WinAPiWindow) =
-    let c = w.gfxCtx
+    template c: untyped = w.gfx
     c.withTransform ortho(0, w.frame.width, w.frame.height, 0, -1, 1):
         procCall w.Window.drawWindow()
     if SwapBuffers(w.hDC) == 0:
@@ -112,7 +112,7 @@ method onResize*(w: WinAPiWindow, newSize: Size) =
 
 proc newWinApiWindow(r: types.Rect): WinAPiWindow=
     result.new()
-    result.init(w, r)
+    result.init(gfx, r)
     registerWinApinClass()
     if defaultWindow.isNil:
         defaultWindow = result

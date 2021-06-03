@@ -52,38 +52,38 @@ Button.properties:
     imageMarginLeft
     image
 
-proc newButton*(w: Window, r: Rect): Button =
+proc newButton*(gfx: GraphicsContext, r: Rect): Button =
     result.new()
-    result.init(w, r)
+    result.init(gfx, r)
 
-proc newButton*(parent: View = nil, w: Window, position: Point = newPoint(0, 0), size: Size = newSize(100, 20), title: string = "Button"): Button =
-    result = newButton(w, newRect(position.x, position.y, size.width, size.height))
+proc newButton*(parent: View = nil, gfx: GraphicsContext, position: Point = newPoint(0, 0), size: Size = newSize(100, 20), title: string = "Button"): Button =
+    result = newButton(gfx, newRect(position.x, position.y, size.width, size.height))
     result.title = title
     if not isNil(parent):
         parent.addSubview(result)
 
-proc newCheckbox*(w: Window, r: Rect): Button =
-    result = newButton(w, r)
+proc newCheckbox*(gfx: GraphicsContext, r: Rect): Button =
+    result = newButton(gfx, r)
     result.style = bsCheckbox
     result.behavior = bbToggle
 
-proc newRadiobox*(w: Window, r: Rect): Button =
-    result = newButton(w, r)
+proc newRadiobox*(gfx: GraphicsContext, r: Rect): Button =
+    result = newButton(gfx, r)
     result.style = bsRadiobox
     result.behavior = bbToggle
 
-proc newImageButton*(w: Window, r: Rect): Button =
-    result = newButton(w, r)
+proc newImageButton*(gfx: GraphicsContext, r: Rect): Button =
+    result = newButton(gfx, r)
     result.style = bsImage
 
-proc newImageButton*(parent: View = nil, w: Window, position: Point = newPoint(0, 0), size: Size = newSize(100, 20), image: Image = nil): Button =
-    result = newImageButton(w, newRect(position.x, position.y, size.width, size.height))
+proc newImageButton*(parent: View = nil, gfx: GraphicsContext, position: Point = newPoint(0, 0), size: Size = newSize(100, 20), image: Image = nil): Button =
+    result = newImageButton(gfx, newRect(position.x, position.y, size.width, size.height))
     result.image = image
     if not isNil(parent):
         parent.addSubview(result)
 
-method init*(b: Button, w: Window, frame: Rect) =
-    procCall b.Control.init(w, frame)
+method init*(b: Button, gfx: GraphicsContext, frame: Rect) =
+    procCall b.Control.init(gfx, frame)
     b.state = bsUp
     b.enabled = true
     b.backgroundColor = whiteColor()
@@ -93,22 +93,22 @@ method init*(b: Button, w: Window, frame: Rect) =
     b.imageMarginTop = 2
     b.imageMarginBottom = 2
 
-method init*(b: Checkbox, w: Window, frame: Rect) =
-    procCall b.Button.init(w, frame)
+method init*(b: Checkbox, gfx: GraphicsContext, frame: Rect) =
+    procCall b.Button.init(gfx, frame)
     b.style = bsCheckbox
     b.behavior = bbToggle
 
-method init*(b: Radiobox, w: Window, frame: Rect) =
-    procCall b.Button.init(w, frame)
+method init*(b: Radiobox, gfx: GraphicsContext, frame: Rect) =
+    procCall b.Button.init(gfx, frame)
     b.style = bsRadiobox
     b.behavior = bbToggle
 
 proc drawTitle(b: Button, xOffset: Coord) =
-    template gfxCtx: untyped = b.window.gfxCtx
-    template fontCtx: untyped = b.window.gfxCtx.fontCtx
-    template gl: untyped = b.window.gfxCtx.gl
+    template gfx: untyped = b.gfx
+    template fontCtx: untyped = b.gfx.fontCtx
+    template gl: untyped = b.gfx.gl
     if b.title.len != 0:
-        gfxCtx.fillColor = if b.state == bsDown and b.style == bsRegular:
+        gfx.fillColor = if b.state == bsDown and b.style == bsRegular:
                 whiteColor()
             else:
                 blackColor()
@@ -117,7 +117,7 @@ proc drawTitle(b: Button, xOffset: Coord) =
         var titleRect = b.bounds
         var pt = centerInRect(sizeOfString(fontCtx, gl, font, b.title), titleRect)
         if pt.x < xOffset: pt.x = xOffset
-        gfxCtx.drawText(font, pt, b.title)
+        gfx.drawText(font, pt, b.title)
 
 var regularButtonComposition = newComposition """
 uniform vec4 uStrokeColor;
@@ -136,7 +136,7 @@ void compose() {
 """
 
 proc drawRegularBezel(b: Button) =
-    draw b.window.gfxCtx, regularButtonComposition, b.bounds:
+    draw b.gfx, regularButtonComposition, b.bounds:
         if b.state == bsUp:
             setUniform("uStrokeColor", newGrayColor(0.78))
             setUniform("uFillColorStart", if b.enabled: b.backgroundColor else: grayColor())
@@ -164,7 +164,7 @@ proc drawCheckboxStyle(b: Button, r: Rect) =
     let
         size = b.bounds.height
         bezelRect = newRect(0, 0, size, size)
-        c = b.window.gfxCtx
+        c = b.gfx
 
     if b.value != 0:
         draw c, checkButtonComposition, bezelRect:
@@ -208,7 +208,7 @@ void compose() {
 
 proc drawRadioboxStyle(b: Button, r: Rect) =
     let bezelRect = newRect(0, 0, b.bounds.height, b.bounds.height)
-    let c = b.window.gfxCtx
+    template c: untyped = b.gfx
 
     # Selected
     if b.value != 0:
@@ -227,7 +227,7 @@ proc drawRadioboxStyle(b: Button, r: Rect) =
     b.drawTitle(bezelRect.width + 1)
 
 proc drawImage(b: Button) =
-    let c = b.window.gfxCtx
+    template c: untyped = b.gfx
     let r = b.bounds
     if b.imageMarginLeft != 0 or b.imageMarginRight != 0 or
             b.imageMarginTop != 0 or b.imageMarginBottom != 0:
