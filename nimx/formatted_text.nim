@@ -650,13 +650,16 @@ proc forEachLineAttribute(c: GraphicsContext, inRect: Rect, origP: Point, t: For
     let numLines = t.lines.len
     var curLine = 0
     let top = t.topOffset() + origP.y
+    let inRectValid = (inRect.y + inRect.height) > 0.01
 
     while curLine < numLines:
         p.x = origP.x + t.lineLeft(curLine)
         p.y = t.lines[curLine].top + t.lines[curLine].baseline + top
-        if not inRect.contains(p):
-            curLine.inc
-            continue
+        if inRectValid:
+            if p.y < inRect.y:
+                curLine.inc
+                continue
+            elif p.y > inRect.height: break
 
         var lastCurAttrIndex: int
         var lastAttrStartIndex: int
@@ -809,7 +812,7 @@ proc drawStroke(c: GraphicsContext, inRect: Rect, origP: Point, t: FormattedText
             # Dirty hack to advance x position. Should be optimized, of course.
             c.drawText(font, p, str)
 
-proc drawText*(c: GraphicsContext, inRect: Rect, origP: Point, t: FormattedText) =
+proc drawText*(c: GraphicsContext, origP: Point, t: FormattedText, inRect: Rect = zeroRect) =
     t.updateCacheIfNeeded()
 
     if t.overrideColor.a == 0:
