@@ -186,7 +186,7 @@ proc updatePixelRatio(w: SdlWindow) {.inline.} =
         w.pixelRatio = w.scaleFactor()
         w.viewportPixelRatio = w.pixelRatio
 
-proc initSdlWindow(w: SdlWindow, r: view.Rect) =
+proc initSdlWindow(w: SdlWindow, gfx: GraphicsContext, r: view.Rect) =
     initSDLIfNeeded()
     when defined(ios) or defined(android):
         w.isFullscreen = true
@@ -210,13 +210,13 @@ proc initSdlWindow(w: SdlWindow, r: view.Rect) =
     if w.sdlGlContext == nil:
         error "Could not create context!"
     discard glMakeCurrent(w.impl, w.sdlGlContext)
-    w.gfx = newGraphicsContext()
+    w.gfx = if gfx.isNil: newGraphicsContext() else: gfx
 
     mainApplication().addWindow(w)
     discard w.impl.setData("__nimx_wnd", cast[pointer](w))
 
 method init*(w: SdlWindow, gfx: GraphicsContext, r: view.Rect) =
-    w.initSdlWindow(r)
+    w.initSdlWindow(gfx, r)
     let r = w.getOsWindowFrame()
     procCall w.Window.init(w.gfx, r)
     w.onResize(r.size)
@@ -241,9 +241,10 @@ proc newSdlWindow*(r: view.Rect): SdlWindow =
     newSdlWindow(nil, r)
 
 method show*(w: SdlWindow)=
-    if w.impl.isNil:
-        w.initSdlWindow(w.frame)
-        w.setFrameOrigin zeroPoint
+    assert not w.impl.isNil
+    # if w.impl.isNil:
+    #     w.initSdlWindow(w.frame)
+    #     w.setFrameOrigin zeroPoint
 
     w.impl.showWindow()
     w.impl.raiseWindow()
