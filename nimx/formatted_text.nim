@@ -645,15 +645,22 @@ void compose()
 """, false, "mediump")
 
 type ForEachLineAttributeCallback = proc(c: GraphicsContext, t: FormattedText, p: var Point, curLine, endIndex: int, str: string) {.nimcall.}
-proc forEachLineAttribute(c: GraphicsContext, origP: Point, t: FormattedText, cb: ForEachLineAttributeCallback) =
+proc forEachLineAttribute(c: GraphicsContext, inRect: Rect, origP: Point, t: FormattedText, cb: ForEachLineAttributeCallback) =
     var p = origP
     let numLines = t.lines.len
     var curLine = 0
     let top = t.topOffset() + origP.y
+    let inRectValid = (inRect.y + inRect.height) > 0.01
 
     while curLine < numLines:
         p.x = origP.x + t.lineLeft(curLine)
         p.y = t.lines[curLine].top + t.lines[curLine].baseline + top
+        if inRectValid:
+            if p.y < inRect.y:
+                curLine.inc
+                continue
+            elif p.y > inRect.height:
+                break
 
         var lastCurAttrIndex: int
         var lastAttrStartIndex: int
@@ -719,9 +726,9 @@ proc forEachLineAttribute(c: GraphicsContext, origP: Point, t: FormattedText, cb
         curLine.inc
 
 
-proc drawShadow(c: GraphicsContext, origP: Point, t: FormattedText) =
+proc drawShadow(c: GraphicsContext, inRect: Rect, origP: Point, t: FormattedText) =
     # TODO: Optimize heavily
-    forEachLineAttribute(c, origP, t) do(c: GraphicsContext, t: FormattedText, p: var Point, curLine, curAttrIndex: int, str: string):
+    forEachLineAttribute(c, inRect, origP, t) do(c: GraphicsContext, t: FormattedText, p: var Point, curLine, curAttrIndex: int, str: string):
         c.fillColor = t.mAttributes[curAttrIndex].shadowColor
         let font = t.mAttributes[curAttrIndex].font
         let oldBaseline = font.baseline
@@ -762,9 +769,9 @@ proc drawShadow(c: GraphicsContext, origP: Point, t: FormattedText) =
         font.baseline = oldBaseline
         p.x += pp.x - ppp.x
 
-proc drawStroke(c: GraphicsContext, origP: Point, t: FormattedText) =
+proc drawStroke(c: GraphicsContext, inRect: Rect, origP: Point, t: FormattedText) =
     # TODO: Optimize heavily
-    forEachLineAttribute(c, origP, t) do(c: GraphicsContext, t: FormattedText, p: var Point, curLine, curAttrIndex: int, str: string):
+    forEachLineAttribute(c, inRect, origP, t) do(c: GraphicsContext, t: FormattedText, p: var Point, curLine, curAttrIndex: int, str: string):
         const magicStrokeMaxSizeCoof = 0.46
         let font = t.mAttributes[curAttrIndex].font
 
@@ -806,14 +813,14 @@ proc drawStroke(c: GraphicsContext, origP: Point, t: FormattedText) =
             # Dirty hack to advance x position. Should be optimized, of course.
             c.drawText(font, p, str)
 
-proc drawText*(c: GraphicsContext, origP: Point, t: FormattedText) =
+proc drawText*(c: GraphicsContext, origP: Point, t: FormattedText, inRect: Rect = zeroRect) =
     t.updateCacheIfNeeded()
 
     if t.overrideColor.a == 0:
-        if t.shadowAttrs.len > 0: c.drawShadow(origP, t)
-        if t.strokeAttrs.len > 0: c.drawStroke(origP, t)
+        if t.shadowAttrs.len > 0: c.drawShadow(inRect, origP, t)
+        if t.strokeAttrs.len > 0: c.drawStroke(inRect, origP, t)
 
-    forEachLineAttribute(c, origP, t) do(c: GraphicsContext, t: FormattedText, p: var Point, curLine, curAttrIndex: int, str: string):
+    forEachLineAttribute(c, inRect, origP, t) do(c: GraphicsContext, t: FormattedText, p: var Point, curLine, curAttrIndex: int, str: string):
         let font = t.mAttributes[curAttrIndex].font
         let oldBaseline = font.baseline
         font.baseline = bAlphabetic

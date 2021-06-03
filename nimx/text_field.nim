@@ -246,6 +246,15 @@ proc drawSelection(t: TextField) {.inline.} =
         r.size.width = endOff
         c.drawRect(r)
 
+#todo: replace by generic visibleRect which should be implemented in future
+proc visibleRect(t: TextField): Rect =
+    let wndRect = t.convertRectToWindow(t.bounds)
+    let wndBounds = t.window.bounds
+
+    result.origin.y = if wndRect.y < 0.0: abs(wndRect.y) else: 0.0
+    result.size.width = t.bounds.width
+    result.size.height = min(t.bounds.height, wndBounds.height) + result.y - max(wndRect.y, 0.0)
+
 method draw*(t: TextField, r: Rect) =
     procCall t.View.draw(r)
 
@@ -267,7 +276,11 @@ method draw*(t: TextField, r: Rect) =
         t.mText.overrideColor = whiteColor()
     else:
         t.mText.overrideColor.a = 0
-    c.drawText(pt, t.mText)
+
+    if t.bounds.height > t.window.bounds.height:
+        c.drawText(pt, t.mText, t.visibleRect())
+    else:
+        c.drawText(pt, t.mText)
 
     if t.isEditing:
         if t.hasBezel:
