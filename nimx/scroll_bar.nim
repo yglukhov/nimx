@@ -1,4 +1,4 @@
-import slider, animation
+import slider
 export slider
 
 import composition, context, view_event_handling
