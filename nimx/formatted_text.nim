@@ -659,7 +659,8 @@ proc forEachLineAttribute(c: GraphicsContext, inRect: Rect, origP: Point, t: For
             if p.y < inRect.y:
                 curLine.inc
                 continue
-            elif p.y > inRect.height: break
+            elif p.y > inRect.height:
+                break
 
         var lastCurAttrIndex: int
         var lastAttrStartIndex: int

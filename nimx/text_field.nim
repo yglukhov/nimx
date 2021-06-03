@@ -277,11 +277,10 @@ method draw*(t: TextField, r: Rect) =
     else:
         t.mText.overrideColor.a = 0
 
-
     if t.bounds.height > t.window.bounds.height:
         c.drawText(pt, t.mText, t.visibleRect())
     else:
-        c.drawText(pt, t.mText, t.visibleRect())
+        c.drawText(pt, t.mText)
 
     if t.isEditing:
         if t.hasBezel:
