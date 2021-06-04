@@ -1,4 +1,5 @@
 import json
+
 type Serializer* = ref object of RootObj
     curKey*: string
 
@@ -89,6 +90,9 @@ type Deserializer* = ref object of RootObj
     curKey*: string
     curIndex*: int
 
+type ContextFree = bool | int8 | int16 | int32 | int64 | uint8 | uint16 |
+                   uint32 | uint64 | float32 | float64 | string | int
+
 # Methods to override
 method deserialize*(s: Deserializer, v: var bool) {.base.} = abstractCall()
 
@@ -121,20 +125,24 @@ template deserialize*(s: Deserializer, v: var int) =
         s.deserialize(t)
         v = int(t)
 
-template deserialize*(s: Deserializer, k: string,  v: untyped) =
+template deserialize*(s: Deserializer, k: string, v: untyped, gfx: RootRef = nil) =
     var desv: type(v)
-    s.deserialize(k, desv)
+    s.deserialize(k, desv, gfx)
     v = desv
 
-proc deserialize*[T](s: Deserializer, k: string, v: var T) {.inline.} =
+proc deserialize*(s: Deserializer, k: string, v: var ContextFree, gfx: RootRef = nil) {.inline.} =
     s.curKey = k
     s.deserialize(v)
 
-method deserializeFields*(o: RootRef, s: Deserializer) {.base.} = discard
+proc deserialize*[T: not ContextFree](s: Deserializer, k: string, v: var T, gfx: RootRef) {.inline.} =
+    s.curKey = k
+    s.deserialize(v, gfx)
+
+method deserializeFields*(o: RootRef, s: Deserializer, gfx: RootRef) {.base.} = discard
 
 template typeOfSetElem[T](s: set[T]): typedesc = T
 
-proc deserialize*[T](s: Deserializer, o: var T) =
+proc deserialize*[T](s: Deserializer, o: var T, gfx: RootRef) =
     when o is object | tuple:
         s.beginObject()
         for k, v in fieldPairs(o):
@@ -152,7 +160,7 @@ proc deserialize*[T](s: Deserializer, o: var T) =
         o.setLen(ln)
         for i in 0 ..< ln:
             s.curIndex = i
-            s.deserialize(o[i])
+            s.deserialize(o[i], gfx)
         s.endObjectOrArray()
     elif o is ref object:
         # TODO: Implement shared references...
@@ -161,7 +169,7 @@ proc deserialize*[T](s: Deserializer, o: var T) =
             var cn : string
             s.deserialize("_c", cn)
             o = T(newObjectOfClass(cn))
-            o.deserializeFields(s)
+            o.deserializeFields(s, gfx)
         else:
             for k, v in fieldPairs(o[]):
                 when compiles(s.deserialize(k, v)):
@@ -353,5 +361,15 @@ when isMainModule:
     var s: JsonSerializer
     s.new()
 
-    s.serialize(o)
+    s.serialize(42)
     echo s.jsonNode()
+    # let d = newJsonDeserializer(s.jsonNode())
+    # var deserialized: MyObj2
+    # deserialize[MyObj2](d, deserialized, nil)
+    # echo repr o
+
+    # var contextFree: int
+    # var ss = newJsonSerializer()
+    # let c = 42
+    # serialize(ss, c)
+    # newJsonDeserializer(ss.jsonNode()).deserialize(contextFree)

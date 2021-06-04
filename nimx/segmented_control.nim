@@ -48,20 +48,22 @@ proc `segments=`*(s: SegmentedControl, segs: seq[string]) =
 
 template segments*(s: SegmentedControl): seq[string] = s.mSegments
 
-method init*(s: SegmentedControl, r: Rect) =
-    procCall s.Control.init(r)
+method init*(s: SegmentedControl, gfx: GraphicsContext, r: Rect) =
+    procCall s.Control.init(gfx, r)
     s.segments = @["hello", "world", "yo"]
 
 method updateLayout*(s: SegmentedControl) =
     s.widthsValid = false
 
 proc recalculateSegmentWidths(s: SegmentedControl) =
+    template fontCtx: untyped = s.gfx.fontCtx
+    template gl: untyped = s.gfx.gl
     s.widths.setLen(s.mSegments.len)
 
-    let font = systemFont()
+    let font = systemFont(fontCtx)
     var totalWidth = 0.Coord
     for i, seg in s.mSegments:
-        let w = font.sizeOfString(seg).width
+        let w = sizeOfString(fontCtx, gl, font, seg).width
         s.widths[i] = w
         totalWidth += w
     s.padding = (s.bounds.width - totalWidth) / s.mSegments.len.Coord
@@ -76,10 +78,12 @@ proc recalculateSegmentWidths(s: SegmentedControl) =
     s.widthsValid = true
 
 method draw*(s: SegmentedControl, r: Rect) =
+    template gfx: untyped = s.gfx
+    template fontCtx: untyped = gfx.fontCtx
     if not s.widthsValid:
         s.recalculateSegmentWidths()
 
-    scComposition.draw s.bounds:
+    draw gfx, scComposition, s.bounds:
         if s.mSelectedSegment < s.widths.len and s.mSelectedSegment >= 0:
             setUniform("uSelectedRect",
                 newRect(s.selectedSegmentOffset, 0, s.widths[s.mSelectedSegment] + s.padding, s.bounds.height))
@@ -89,23 +93,22 @@ method draw*(s: SegmentedControl, r: Rect) =
             setUniform("uSelectedRect", zeroRect)
             setUniform("uTrackedRect", zeroRect)
 
-    let font = systemFont()
-    let c = currentContext()
+    let font = systemFont(fontCtx)
     var r = newRect(0, 0, 0, s.bounds.height)
     var strSize = newSize(0, font.height)
-    c.strokeWidth = 0
+    gfx.strokeWidth = 0
     for i, w in s.widths:
         if i == s.mSelectedSegment:
-            c.fillColor = whiteColor()
+            gfx.fillColor = whiteColor()
         else:
-            c.fillColor = blackColor()
+            gfx.fillColor = blackColor()
         r.size.width = w + s.padding
         strSize.width = w
-        c.drawText(font, strSize.centerInRect(r), s.mSegments[i])
+        gfx.drawText(font, strSize.centerInRect(r), s.mSegments[i])
         if i != 0 and i != s.mSelectedSegment and i - 1 != s.mSelectedSegment and
                 i != s.trackedSegment and i - 1 != s.trackedSegment:
-            c.fillColor = newGrayColor(0.78)
-            c.drawRect(newRect(r.origin.x - 1, 1, 1, r.height - 2))
+            gfx.fillColor = newGrayColor(0.78)
+            gfx.drawRect(newRect(r.origin.x - 1, 1, 1, r.height - 2))
         r.origin.x += r.size.width
 
 template selectedSegment*(s: SegmentedControl): int = s.mSelectedSegment

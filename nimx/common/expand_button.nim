@@ -5,8 +5,8 @@ type ExpandButton* = ref object of Button
     expanded*: bool
     onExpandAction*: proc(state: bool)
 
-method init*(b: ExpandButton, r: Rect) =
-    procCall b.Button.init(r)
+method init*(b: ExpandButton, gfx: GraphicsContext, r: Rect) =
+    procCall b.Button.init(gfx, r)
 
     b.enable()
     b.onAction() do():
@@ -14,15 +14,15 @@ method init*(b: ExpandButton, r: Rect) =
         if not b.onExpandAction.isNil:
             b.onExpandAction(b.expanded)
 
-proc newExpandButton*(r: Rect): ExpandButton =
+proc newExpandButton*(gfx: GraphicsContext, r: Rect): ExpandButton =
     result.new()
-    result.init(r)
+    result.init(gfx, r)
 
-proc newExpandButton*(v: View, r: Rect): ExpandButton =
-    result = newExpandButton(r)
+proc newExpandButton*(v: View, gfx: GraphicsContext, r: Rect): ExpandButton =
+    result = newExpandButton(gfx, r)
     v.addSubview(result)
 
 method draw*(b: ExpandButton, r: Rect) =
-    let c = currentContext()
+    template c: untyped = b.gfx
     c.fillColor = newColor(0.9, 0.9, 0.9)
     c.drawTriangle(r, if b.expanded: Coord(PI / 2.0) else: Coord(0))

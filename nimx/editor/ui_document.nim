@@ -14,7 +14,7 @@ when savingAndLoadingEnabled:
 proc newUIDocument*(e: Editor): UIDocument =
     result.new()
     result.undoManager = newUndoManager()
-    result.view = new(View, e.workspace.bounds)
+    result.view = new(View, e.workspace.gfx, e.workspace.bounds)
     result.view.autoResizingMask = {afFlexibleWidth, afFlexibleHeight}
 
 proc defaultName*(ui: UIDocument, className: string): string =
@@ -74,23 +74,23 @@ when savingAndLoadingEnabled:
             d.save()
 
 
-    proc loadViewToEditAsync(path: string): Future[View] =
+    proc loadViewToEditAsync(path: string, gfx: GraphicsContext): Future[View] =
         when defined js:
             newPromise() do (resolve: proc(response: View)):
                 loadAsset[JsonNode]("file://" & path) do(jn: JsonNode, err: string):
-                    resolve(deserializeView(jn))
+                    resolve(deserializeView(jn, gfx))
         else:
             var r = newFuture[View]()
             loadAsset[JsonNode]("file://" & path) do(jn: JsonNode, err: string):
-                r.complete(deserializeView(jn))
+                r.complete(deserializeView(jn, gfx))
             result = r
 
-    proc loadFromPath*(d: UIDocument, path: string) {.async.}=
+    proc loadFromPath*(d: UIDocument, path: string, gfx: GraphicsContext) {.async.}=
         d.path = path
         if d.path.len > 0:
             let superview = d.view.superview
             d.view.removeFromSuperview()
-            d.view = await loadViewToEditAsync(path)
+            d.view = await loadViewToEditAsync(path, gfx)
             doAssert(not d.view.isNil)
             if not superview.isNil:
 
@@ -108,7 +108,7 @@ when savingAndLoadingEnabled:
 
                 superview.addSubview(d.view)
 
-    proc open*(d: UIDocument) =
+    proc open*(d: UIDocument, gfx: GraphicsContext) =
         var di: DialogInfo
         di.extension = "nimx"
         di.kind = dkOpenFile
@@ -117,4 +117,4 @@ when savingAndLoadingEnabled:
 
         var path = di.show()
         if path.len > 0:
-            asyncCheck d.loadFromPath(path)
+            asyncCheck d.loadFromPath(path, gfx)

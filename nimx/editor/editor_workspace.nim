@@ -6,6 +6,6 @@ method draw*(v: EditorWorkspace, r: Rect)=
     procCall v.View.draw(r)
 
     if v.gridSize != zeroSize:
-        drawGrid(v.bounds, v.gridSize)
+        drawGrid(v.gfx, v.bounds, v.gridSize)
 
 

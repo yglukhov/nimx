@@ -19,23 +19,23 @@ proc moveSubviewToBack(v, s: View) =
 proc onPropertyChanged*(i: InspectorPanel, cb: proc(name: string)) =
     i.mOnPropertyChanged = cb
 
-method init*(i: InspectorPanel, r: Rect) =
+method init*(i: InspectorPanel, gfx: GraphicsContext, r: Rect) =
     i.draggable = false
-    procCall i.PanelView.init(r)
+    procCall i.PanelView.init(gfx, r)
     i.collapsible = true
     i.collapsed = true
-    let title = newLabel(newRect(22, 6, 96, 15))
+    let title = newLabel(gfx, newRect(22, 6, 96, 15))
     title.textColor = whiteColor()
     title.text = "Properties"
     i.addSubview(title)
     i.autoresizingMask = { afFlexibleMaxX }
-    i.inspectorView = InspectorView.new(newRect(0, i.titleHeight, r.width, r.height - i.titleHeight))
+    i.inspectorView = InspectorView.new(gfx, newRect(0, i.titleHeight, r.width, r.height - i.titleHeight))
     i.inspectorView.autoresizingMask = {afFlexibleWidth, afFlexibleMaxY}
     i.inspectorView.onPropertyChanged = proc(name: string) =
         if not i.mOnPropertyChanged.isNil:
             i.mOnPropertyChanged(name)
 
-    let sv = newScrollView(i.inspectorView)
+    let sv = newScrollView(gfx, i.inspectorView)
     sv.horizontalScrollBar = nil
     sv.autoresizingMask = {afFlexibleWidth, afFlexibleHeight}
     sv.setFrameOrigin(newPoint(sv.frame.x, i.titleHeight))

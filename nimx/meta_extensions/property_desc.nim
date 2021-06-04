@@ -1,4 +1,4 @@
-import macros, tables, typetraits
+import macros, tables
 import nimx/class_registry
 
 export class_registry

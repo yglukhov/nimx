@@ -1,5 +1,5 @@
 import macros, logging, strutils
-import nimx / [ timer, app, event, abstract_window, button ]
+import nimx / [ backends, timer, app, event, window, button ]
 
 type UITestSuiteStep* = tuple
     code : proc()
@@ -9,8 +9,6 @@ type UITestSuiteStep* = tuple
 type UITestSuite* = ref object
     name: string
     steps: seq[UITestSuiteStep]
-
-const web = defined(js) or defined(emscripten) or defined(wasm)
 
 when web:
     when defined(emscripten) or defined(wasm):

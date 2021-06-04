@@ -27,8 +27,8 @@ template collapsed*(v: PanelView): bool = v.mCollapsed
 
 # PanelView implementation
 
-method init*(v: PanelView, r: Rect) =
-    procCall v.View.init(r)
+method init*(v: PanelView, gfx: GraphicsContext, r: Rect) =
+    procCall v.View.init(gfx, r)
     v.backgroundColor = newColor(0.5, 0.5, 0.5, 0.5)
     v.mCollapsed = false
     v.collapsible = false
@@ -59,7 +59,7 @@ void compose() {
 
 method draw(v: PanelView, r: Rect) =
     # Draws Panel View
-    let c = currentContext()
+    template c: untyped = v.gfx
 
     # Top label
     c.fillColor = newGrayColor(0.05, 0.8)

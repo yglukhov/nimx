@@ -13,16 +13,15 @@ type
   X11Window = ref object of Window
     xdisplay: PDisplay
     xwindow: x.Window
-    renderingContext: GraphicsContext
 
 var defaultDisplay: PDisplay
 var allWindows {.threadvar.}: seq[X11Window]
 
 proc newXWindow(d: PDisplay, w: x.Window, r: Rect): X11Window =
   result = X11Window(xdisplay: d, xwindow: w)
-  result.renderingContext = newGraphicsContext()
+  result.gfx = newGraphicsContext()
   allWindows.add(result)
-  result.init(r)
+  result.init(gfx, r)
   mainApplication().addWindow(result)
 
 proc chooseVisual(d: PDisplay, screenId: cint): PXVisualInfo =
@@ -234,7 +233,7 @@ template runApplication*(initCode: typed) =
     runForever()
 
 method draw*(w: X11Window, r: Rect) =
-  let c = currentContext()
+  template c: untyped = w.gfx
   let gl = c.gl
   if w.mActiveBgColor != w.backgroundColor:
     gl.clearColor(w.backgroundColor.r, w.backgroundColor.g, w.backgroundColor.b, w.backgroundColor.a)
@@ -245,13 +244,11 @@ method draw*(w: X11Window, r: Rect) =
 
 method drawWindow(w: X11Window) =
   # discard glMakeCurrent(w.impl, w.sdlGlContext)
-  let c = w.renderingContext
-  let oldContext = setCurrentContext(c)
+  template c: untyped = w.gfx
   c.withTransform ortho(0, w.frame.width, w.frame.height, 0, -1, 1):
     procCall w.Window.drawWindow()
   glXSwapBuffers(w.xdisplay, w.xwindow)
   # w.impl.glSwapWindow() # Swap the front and back frame buffers (double buffering)
-  setCurrentContext(oldContext)
 
 proc scaleFactor(w: X11Window): float =
   var dpi = 96.0

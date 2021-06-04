@@ -11,13 +11,13 @@ type NumericTextField* = ref object of TextField
     touchAnim: Animation
     directionLeft: bool
 
-proc newNumericTextField*(r: Rect, precision: uint = 2): NumericTextField =
+proc newNumericTextField*(gfx: GraphicsContext, r: Rect, precision: uint = 2): NumericTextField =
     result.new()
-    result.init(r)
+    result.init(gfx, r)
     result.precision = precision
 
-method init*(v: NumericTextField, r: Rect) =
-    procCall v.TextField.init(r)
+method init*(v: NumericTextField, gfx: GraphicsContext, r: Rect) =
+    procCall v.TextField.init(gfx, r)
     v.precision = 2
     v.formattedText.horizontalAlignment = haCenter
 
@@ -54,9 +54,10 @@ void compose() {
 
 proc drawArrows(v: NumericTextField) =
     const arrowMargin = 10
-    arrowComposition.draw newRect(0, 0, arrowMargin, v.bounds.height):
+    template c: untyped = v.gfx
+    draw c, arrowComposition, newRect(0, 0, arrowMargin, v.bounds.height):
         setUniform("uAngle", Coord(PI))
-    arrowComposition.draw newRect(v.bounds.width - arrowMargin, 0, arrowMargin, v.bounds.height):
+    draw c, arrowComposition, newRect(v.bounds.width - arrowMargin, 0, arrowMargin, v.bounds.height):
         setUniform("uAngle", Coord(0))
 
 method draw*(t: NumericTextField, r: Rect) =

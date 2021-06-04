@@ -1,4 +1,4 @@
-import view, scroll_bar, event, layout_vars
+import context, view, scroll_bar, event, layout_vars
 import kiwi
 import math
 export view
@@ -7,7 +7,7 @@ import clip_view # [Deprecated old layout]
 
 type ScrollView* = ref object of View
     mContentView: View
-    clipView: ClipView # [Deprecated old layout]
+    clipView {.deprecated.} : ClipView
     mHorizontalScrollBar, mVerticalScrollBar: ScrollBar
     mOnScrollCallback: proc()
     constraints: seq[Constraint]
@@ -15,22 +15,22 @@ type ScrollView* = ref object of View
 
 const scrollBarWidth = 12.Coord
 
-method init*(v: ScrollView, r: Rect) =
-    procCall v.View.init(r)
+method init*(v: ScrollView, gfx: GraphicsContext, r: Rect) =
+    procCall v.View.init(gfx, r)
 
     if v.usesNewLayout:
         # Assume new layout
         v.xPos = newVariable()
         v.yPos = newVariable()
-        v.addSubview(ScrollBar.new(newRect(0, 0, 10, 0)))
-        v.addSubview(ScrollBar.new(newRect(0, 0, 0, 10)))
+        v.addSubview(ScrollBar.new(gfx, newRect(0, 0, 10, 0)))
+        v.addSubview(ScrollBar.new(gfx, newRect(0, 0, 0, 10)))
 
 proc onScrollBar(v: ScrollView, sb: ScrollBar)
 
 proc onScroll*(v: ScrollView, cb: proc())=
     v.mOnScrollCallback = cb
 
-proc relayout(v: ScrollView) = # [Deprecated old layout]
+proc relayout(v: ScrollView) {.deprecated.} =
     var cvs = v.bounds.size
 
     if not v.mVerticalScrollBar.isNil:
@@ -73,20 +73,20 @@ template verticalScrollBar*(v: ScrollView): ScrollBar = v.mVerticalScrollBar
 
 proc recalcScrollKnobSizes(v: ScrollView)
 
-proc newScrollView*(r: Rect): ScrollView = # [Deprecated old layout]
+proc newScrollView*(gfx: GraphicsContext, r: Rect): ScrollView {.deprecated.} =
     result.new()
     result.name = "scrollView"
-    result.init(r)
+    result.init(gfx, r)
 
-    var sb = ScrollBar.new(newRect(0, r.height - scrollBarWidth, 0, scrollBarWidth))
+    var sb = ScrollBar.new(gfx, newRect(0, r.height - scrollBarWidth, 0, scrollBarWidth))
     sb.autoresizingMask = {afFlexibleWidth, afFlexibleMinY}
     result.horizontalScrollBar = sb
 
-    sb = ScrollBar.new(newRect(r.width - scrollBarWidth, 0, scrollBarWidth, 0))
+    sb = ScrollBar.new(gfx, newRect(r.width - scrollBarWidth, 0, scrollBarWidth, 0))
     sb.autoresizingMask = {afFlexibleMinX, afFlexibleHeight}
     result.verticalScrollBar = sb
 
-    result.clipView = newClipView(zeroRect)
+    result.clipView = newClipView(gfx, zeroRect)
     result.addSubview(result.clipView)
     result.relayout()
 
@@ -115,9 +115,9 @@ proc `contentView=`*(v: ScrollView, c: View) =
     v.clipView.addSubview(c)
     v.recalcScrollKnobSizes()
 
-proc newScrollView*(v: View): ScrollView = # [Deprecated old layout]
+proc newScrollView*(gfx: GraphicsContext, v: View): ScrollView {.deprecated.} =
     # Create a scrollview by wrapping v into it
-    result = newScrollView(v.frame)
+    result = newScrollView(gfx, v.frame)
     result.autoresizingMask = v.autoresizingMask
     result.contentView = v
     #v.autoresizingMask = { afFlexibleMaxX, afFlexibleMaxY }
@@ -228,7 +228,7 @@ proc onScrollBar(v: ScrollView, sb: ScrollBar) =
 
         v.clipView.setBoundsOrigin(o)
 
-method subviewDidChangeDesiredSize*(v: ScrollView, sub: View, desiredSize: Size) = # [Deprecated old layout]
+method subviewDidChangeDesiredSize*(v: ScrollView, sub: View, desiredSize: Size) {.deprecated.} =
     if not v.usesNewLayout:
         let cvBounds = v.clipView.bounds
         var boundsOrigin = cvBounds.origin
@@ -245,7 +245,7 @@ method subviewDidChangeDesiredSize*(v: ScrollView, sub: View, desiredSize: Size)
         v.recalcScrollKnobSizes()
         v.recalcScrollbarKnobPositions()
 
-proc recalcScrollKnobSizes(v: ScrollView) = # [Deprecated old layout]
+proc recalcScrollKnobSizes(v: ScrollView) {.deprecated.} =
     var cs = v.contentSize
     if not v.mHorizontalScrollBar.isNil and cs.width != 0.0:
         v.mHorizontalScrollBar.knobSize = v.bounds.width / cs.width
@@ -254,7 +254,7 @@ proc recalcScrollKnobSizes(v: ScrollView) = # [Deprecated old layout]
         v.mVerticalScrollBar.knobSize = v.bounds.height / cs.height
         v.mVerticalScrollBar.hidden = v.mVerticalScrollBar.knobSize == 1.0
 
-method resizeSubviews*(v: ScrollView, oldSize: Size) = # [Deprecated old layout]
+method resizeSubviews*(v: ScrollView, oldSize: Size) {.deprecated.} =
     procCall v.View.resizeSubviews(oldSize)
     if not v.usesNewLayout:
         v.recalcScrollKnobSizes()

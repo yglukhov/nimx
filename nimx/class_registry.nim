@@ -96,12 +96,12 @@ template registerClass*(a: typedesc) =
         return res
     registerClass(a, c)
 
-template isClassRegistered*(name: string): bool = name in classFactory
-
 proc newObjectOfClass*(name: string): RootRef =
     let c = classFactory.getOrDefault(name)
     if c.creatorProc.isNil: raise newException(Exception, "Class '" & name & "' is not registered")
     result = c.creatorProc()
+
+template isClassRegistered*(name: string): bool = name in classFactory
 
 iterator registeredClasses*(): string =
     for k in classFactory.keys: yield k

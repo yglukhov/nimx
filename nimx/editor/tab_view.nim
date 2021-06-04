@@ -50,8 +50,8 @@ proc updateSubviewConstraintProtos(v: TabView) =
     orientationOption(left, v.tabBarThickness)
     orientationOption(right, -v.tabBarThickness)
 
-method init*(v: TabView, r: Rect) =
-    procCall v.View.init(r)
+method init*(v: TabView, gfx: GraphicsContext, r: Rect) =
+    procCall v.View.init(gfx, r)
     v.tabs = @[]
     v.tabBarThickness = 25
     v.mTabBarOrientation = TabBarOrientation.top
@@ -182,7 +182,7 @@ proc removeFromSplitViewSystem*(v: View)
 proc userConfigurable*(v: TabView): bool = not v.configurationButton.isNil
 proc `userConfigurable=`*(v: TabView, b: bool) =
     if b and v.configurationButton.isNil:
-        v.configurationButton = Button.new(newRect(0, 0, 15, 15))
+        v.configurationButton = Button.new(v.gfx, newRect(0, 0, 15, 15))
         v.configurationButton.title = "c"
         v.updateConfigurationButtonLayout()
         v.configurationButton.onAction do():
@@ -214,7 +214,10 @@ proc `userConfigurable=`*(v: TabView, b: bool) =
         v.configurationButton = nil
 
 proc updateTabFrames(v: TabView) =
-    let f = systemFont()
+    template gfx: untyped = v.gfx
+    template fontCtx: untyped = gfx.fontCtx
+    template gl: untyped = gfx.gl
+    let f = systemFont(fontCtx)
     case v.tabBarOrientation
     of TabBarOrientation.top, TabBarOrientation.bottom:
         var top = 0.Coord
@@ -226,7 +229,7 @@ proc updateTabFrames(v: TabView) =
                 v.tabs[i].frame.origin.x = 0
             else:
                 v.tabs[i].frame.origin.x = v.tabs[i - 1].frame.maxX
-            v.tabs[i].frame.size.width = f.sizeOfString(v.tabs[i].title).width + 10
+            v.tabs[i].frame.size.width = sizeOfString(fontCtx, gl, f, v.tabs[i].title).width + 10
             v.tabs[i].frame.size.height = v.tabBarThickness
     of TabBarOrientation.left, TabBarOrientation.right:
         var left = 0.Coord
@@ -238,7 +241,7 @@ proc updateTabFrames(v: TabView) =
                 v.tabs[i].frame.origin.y = 0
             else:
                 v.tabs[i].frame.origin.y = v.tabs[i - 1].frame.maxY
-            v.tabs[i].frame.size.height = f.sizeOfString(v.tabs[i].title).width + 10
+            v.tabs[i].frame.size.height = sizeOfString(fontCtx, gl, f, v.tabs[i].title).width + 10
             v.tabs[i].frame.size.width = v.tabBarThickness
 
 proc tabsCount*(v: TabView): int = v.tabs.len
@@ -253,27 +256,29 @@ template updateTabFramesIfNeeded(v: TabView) =
         v.updateTabFrames()
 
 method draw*(v: TabView, r: Rect) =
+    template gfx: untyped = v.gfx
+    template fontCtx: untyped = gfx.fontCtx
+    template gl: untyped = gfx.gl
     procCall v.View.draw(r)
     v.updateTabFramesIfNeeded()
-    let c = currentContext()
-    let f = systemFont()
+    let f = systemFont(fontCtx)
     for i in 0 .. v.tabs.high:
         let t = v.tabs[i].title
         if i == v.selectedTab:
-            c.fillColor = newGrayColor(0.2)
-            c.drawRect(v.tabs[i].frame)
-            c.fillColor = newGrayColor(0.8)
+            gfx.fillColor = newGrayColor(0.2)
+            gfx.drawRect(v.tabs[i].frame)
+            gfx.fillColor = newGrayColor(0.8)
         else:
-            c.fillColor = blackColor()
+            gfx.fillColor = blackColor()
 
         if v.tabBarOrientation == TabBarOrientation.left or v.tabBarOrientation == TabBarOrientation.right:
-            var tmpTransform = c.transform
+            var tmpTransform = gfx.transform
             tmpTransform.translate(newVector3(v.tabs[i].frame.x + v.tabBarThickness, v.tabs[i].frame.y))
             tmpTransform.rotateZ(PI/2)
-            c.withTransform tmpTransform:
-                c.drawText(f, newPoint(5, 5), t)
+            gfx.withTransform tmpTransform:
+                gfx.drawText(f, newPoint(5, 5), t)
         else:
-            c.drawText(f, newPoint(v.tabs[i].frame.x + 5, v.tabs[i].frame.y + 5), t)
+            gfx.drawText(f, newPoint(v.tabs[i].frame.x + 5, v.tabs[i].frame.y + 5), t)
 
 proc tabBarRect(v: TabView): Rect =
     result = v.bounds
@@ -311,33 +316,35 @@ proc findSubviewOfTypeAtPoint[T](v: View, p: Point): T =
     result = findSubviewOfTypeAtPointAux[T](v, p)
     if not result.isNil and View(result) == v: result = nil
 
-proc newDraggingView(tab: Tab): TabDraggingView =
-    result = TabDraggingView.new(newRect(0, 0, 400, 400))
+proc newDraggingView(gfx: GraphicsContext, tab: Tab): TabDraggingView =
+    result = TabDraggingView.new(gfx, newRect(0, 0, 400, 400))
     result.title = tab.title
     tab.view.setFrame(newRect(0, 25, 400, 400 - 25))
     result.addSubview(tab.view)
 
 method draw(v: TabDraggingView, r: Rect) =
+    template gfx: untyped = v.gfx
+    template fontCtx: untyped = gfx.fontCtx
+    template gl: untyped = gfx.gl
     procCall v.View.draw(r)
-    let c = currentContext()
-    let f = systemFont()
+    let f = systemFont(fontCtx)
     var titleRect: Rect
-    titleRect.size.width = f.sizeOfString(v.title).width + 10
+    titleRect.size.width = sizeOfString(fontCtx, gl, f, v.title).width + 10
     titleRect.size.height = 25
-    c.fillColor = newColor(0.4, 0.4, 0.4)
-    c.drawRect(titleRect)
-    c.fillColor = newColor(1, 0, 0)
-    c.drawText(f, newPoint(5, 0), v.title)
+    gfx.fillColor = newColor(0.4, 0.4, 0.4)
+    gfx.drawRect(titleRect)
+    gfx.fillColor = newColor(1, 0, 0)
+    gfx.drawText(f, newPoint(5, 0), v.title)
 
-proc newTabViewForSplit(sz: Size, tab: Tab, prototype: TabView): TabView =
-    result = TabView.new(newRect(zeroPoint, sz))
+proc newTabViewForSplit(gfx: GraphicsContext, sz: Size, tab: Tab, prototype: TabView): TabView =
+    result = TabView.new(gfx, newRect(zeroPoint, sz))
     result.addTab(tab.title, tab.view)
     result.dockingTabs = prototype.dockingTabs
     result.tabBarOrientation = prototype.tabBarOrientation
     result.userConfigurable = prototype.userConfigurable
 
-proc newSplitView(r: Rect, horizontal: bool): LinearLayout =
-    result = LinearLayout.new(r)
+proc newSplitView(gfx: GraphicsContext, r: Rect, horizontal: bool): LinearLayout =
+    result = LinearLayout.new(gfx, r)
     result.horizontal = horizontal
     result.autoresizingMask = {afFlexibleWidth, afFlexibleHeight}
     result.userResizeable = true
@@ -358,7 +365,7 @@ proc splitNew(v: TabView, horizontally, before: bool, tab: Tab) =
         sz.height /= 2
         dividerPos = sz.height
 
-    let ntv = newTabViewForSplit(zeroSize, tab, v)
+    let ntv = newTabViewForSplit(v.gfx, zeroSize, tab, v)
     ntv.onSplit = v.onSplit
     ntv.onRemove = v.onRemove
     ntv.onClose = v.onClose
@@ -372,7 +379,7 @@ proc splitNew(v: TabView, horizontally, before: bool, tab: Tab) =
             s.insertSubviewAfter(ntv, v)
 
     else:
-        let vl = SplitView.new(zeroRect)
+        let vl = SplitView.new(v.gfx, zeroRect)
         vl.vertical = not horizontally
         vl.addConstraints(v.constraints)
         s.replaceSubview(v, vl)
@@ -394,7 +401,7 @@ proc splitOld(v: TabView, horizontally, before: bool, tab: Tab) =
     else:
         sz.height /= 2
 
-    let ntv = newTabViewForSplit(sz, tab, v)
+    let ntv = newTabViewForSplit(v.gfx, sz, tab, v)
     ntv.onSplit = v.onSplit
     ntv.onRemove = v.onRemove
     ntv.onClose = v.onClose
@@ -409,7 +416,7 @@ proc splitOld(v: TabView, horizontally, before: bool, tab: Tab) =
             s.insertSubviewAfter(ntv, v)
     else:
         let fr = v.frame
-        let vl = newSplitView(fr, horizontally)
+        let vl = newSplitView(v.gfx, fr, horizontally)
         s.replaceSubview(v, vl)
         v.setFrameSize(sz)
         if before:
@@ -438,7 +445,7 @@ proc trackDocking(v: TabView, tab: int): proc(e: Event): bool =
     var tabOwner = v
     var indexOfTabInOwner = tab
     var draggingView: View
-    var dropOverlayView = View.new(zeroRect)
+    var dropOverlayView = View.new(v.gfx, zeroRect)
     dropOverlayView.backgroundColor = newColor(0, 0, 1, 0.5)
 
     const margin = 50
@@ -496,7 +503,7 @@ proc trackDocking(v: TabView, tab: int): proc(e: Event): bool =
                 draggingView = nil
             elif tabOwner.isNil and draggingView.isNil:
                 # Create dragging view
-                draggingView = newDraggingView(trackedTab)
+                draggingView = newDraggingView(v.gfx, trackedTab)
                 e.window.addSubview(draggingView)
 
             if not draggingView.isNil:

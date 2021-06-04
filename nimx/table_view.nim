@@ -43,14 +43,14 @@ proc `createCell=`*(v: TableView, p: proc(): TableViewCell) =
 proc `createCell=`*(v: TableView, p: proc(column: int): TableViewCell) =
     v.mCreateCell = p
 
-proc newTableView*(r: Rect): TableView = # [Deprecated old layout]
+proc newTableView*(gfx: GraphicsContext, r: Rect): TableView = # [Deprecated old layout]
     result.new()
-    result.init(r)
+    result.init(gfx, r)
 
 proc rebuildConstraints(v: TableView)
 
-method init*(v: TableView, r: Rect) =
-    procCall v.View.init(r)
+method init*(v: TableView, gfx: GraphicsContext, r: Rect) =
+    procCall v.View.init(gfx, r)
     v.numberOfColumns = 1
     v.defaultRowHeight = 30
     v.defaultColWidth = 50
@@ -176,7 +176,7 @@ proc configureRow(r: TableRow, top, height: Coord) {.inline.} =
 proc createRow(v: TableView): TableRow =
     let newLayout = v.usesNewLayout
     if newLayout:
-        result = TableRow.new(zeroRect)
+        result = TableRow.new(v.gfx, zeroRect)
 #        result.addConstraint(result.layout.vars.height == height)
         result.addConstraint(result.layout.vars.leading == superPHS.leading)
         result.addConstraint(result.layout.vars.trailing == superPHS.trailing)
@@ -195,7 +195,7 @@ proc createRow(v: TableView): TableRow =
         lastCell.addConstraint(lastCell.layout.vars.trailing == superPHS.trailing)
 
     else:
-        result = TableRow.new(newRect(0, 0, if v.numberOfColumns == 1: v.bounds.width else: (v.numberOfColumns.Coord * v.defaultColWidth).Coord, v.defaultRowHeight))
+        result = TableRow.new(v.gfx, newRect(0, 0, if v.numberOfColumns == 1: v.bounds.width else: (v.numberOfColumns.Coord * v.defaultColWidth).Coord, v.defaultRowHeight))
         result.setFrame(newRect(0, 0, v.bounds.width, 50))
 
         var px = 0.0
@@ -311,12 +311,12 @@ method draw*(v: TableView, r: Rect) =
     procCall v.View.draw(r)
     if not v.usesNewLayout:
         var needsDisplay = false
-        if not v.window.isNil:
+        if not v.superview.isNil:
             needsDisplay = v.window.needsDisplay
 
         v.updateCellsInVisibleRect()
 
-        if not v.window.isNil:
+        if not v.superview.isNil:
             v.window.needsDisplay = needsDisplay
 
 proc isRowSelected*(t: TableView, row: int): bool = t.selectedRows.contains(row)

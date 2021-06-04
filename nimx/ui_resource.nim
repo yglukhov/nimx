@@ -21,41 +21,45 @@ type
 proc `@`(str: string): UIResID =
   UIResID(hash(str))
 
-proc deserializeView*(jn: JsonNode): View = newJsonDeserializer(jn).deserialize(result)
-proc deserializeView*(data: string): View = deserializeView(parseJson(data))
+proc deserializeView*(jn: JsonNode, gfx: GraphicsContext): View =
+  newJsonDeserializer(jn).deserialize(result, gfx)
 
-proc loadAUX[T](path: string, deser: proc(j: JsonNode): T, onLoad: proc(v: T))=
+proc deserializeView*(data: string, gfx: GraphicsContext): View =
+  deserializeView(parseJson(data), gfx)
+
+proc loadAUX[T](path: string, deser: proc(j: JsonNode, gfx: GraphicsContext): T, gfx: GraphicsContext, onLoad: proc(v: T))=
   loadAsset[JsonNode]("res://" & path) do(jn: JsonNode, err: string):
-    onLoad(deser(jn))
+    onLoad(deser(jn, gfx))
 
-proc loadAUXAsync[T](path: string, deser: proc(j: JsonNode): T): Future[T] =
+proc loadAUXAsync[T](path: string, deser: proc(j: JsonNode, gfx: GraphicsContext): T, gfx: GraphicsContext): Future[T] =
   when defined js:
     newPromise() do (resolve: proc(response: T)):
-      loadAUX[T](path, deser) do(v: T):
+      loadAUX[T](path, deser, gfx) do(v: T):
           resolve(v)
   else:
     let resf = newFuture[T]()
-    loadAUX[T](path, deser) do(v: T):
+    loadAUX[T](path, deser, gfx) do(v: T):
       resf.complete(v)
     return resf
 
-proc loadView*(path: string, onLoad: proc(v: View))=
-  loadAUX[View](path, deserializeView, onLoad)
+proc loadView*(path: string, gfx: GraphicsContext, onLoad: proc(v: View)) =
+  loadAUX[View](path, deserializeView, gfx, onLoad)
 
-proc loadViewAsync*(path: string): Future[View] =
-  result = loadAUXAsync[View](path, deserializeView)
+proc loadViewAsync*(path: string, gfx: GraphicsContext): Future[View] =
+  result = loadAUXAsync[View](path, deserializeView, gfx)
 
 
-method deserializeFields*(v: View, s: Deserializer) =
+method deserializeFields*(v: View, s: Deserializer, gfx: RootRef) =
+  assert not gfx.isNil
   var fr: Rect
   s.deserialize("frame", fr)
-  v.init(fr)
+  v.init(GraphicsContext(gfx), fr)
   var bounds:Rect
   s.deserialize("bounds", bounds)
   v.setBounds(bounds)
 
   var subviews: seq[View]
-  s.deserialize("subviews", subviews)
+  s.deserialize("subviews", subviews, GraphicsContext(gfx))
   for sv in subviews:
       doAssert(not sv.isNil)
       v.addSubview(sv)
@@ -77,20 +81,21 @@ proc newJUIResourceDeserializer*(n: JsonNode): UIResourceDeserializer =
   result.new()
   result.init(n)
 
-proc deserializeUIResource*(jn: JsonNode): UIResource =
+proc deserializeUIResource*(jn: JsonNode, gfx: GraphicsContext): UIResource =
   result.new()
   let deser = newJUIResourceDeserializer(jn)
-  deser.deserialize(result.mView)
+  deser.deserialize(result.mView, gfx)
   result.outlets = deser.deserTable
   result.actions = initTable[UIResID, UIActionCallback]()
 
-proc deserializeUIResource*(data: string): UIResource = deserializeUIResource(parseJson(data))
+proc deserializeUIResource*(data: string, gfx: GraphicsContext): UIResource =
+  deserializeUIResource(parseJson(data), gfx)
 
-proc loadUiResource*(path: string, onLoad: proc(v: UIResource)) =
-  loadAUX[UIResource](path, deserializeUIResource, onLoad)
+proc loadUiResource*(path: string, gfx: GraphicsContext, onLoad: proc(v: UIResource)) =
+  loadAUX[UIResource](path, deserializeUIResource, gfx, onLoad)
 
-proc loadUiResourceAsync*(path: string): Future[UIResource] =
-  result = loadAUXAsync[UIResource](path, deserializeUIResource)
+proc loadUiResourceAsync*(path: string, gfx: GraphicsContext): Future[UIResource] =
+  result = loadAUXAsync[UIResource](path, deserializeUIResource, gfx)
 
 proc getView(ui: UIResource, T: typedesc, id: UIResID): T =
   result = ui.outlets.getOrDefault(id).T

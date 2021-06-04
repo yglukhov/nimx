@@ -1,6 +1,6 @@
 import sdl2 except Event, Rect, Point
 
-import nimx/[ abstract_window, system_logger, view, context, event, app, screen,
+import nimx/[ abstract_window, view, context, event, app,
                 linkage_details, portable_gl ]
 import nimx/private/sdl_vk_map
 import opengl
@@ -46,7 +46,6 @@ proc initSDLIfNeeded() =
 type SdlWindow* = ref object of Window
     impl: WindowPtr
     sdlGlContext: GlContextPtr
-    renderingContext: GraphicsContext
     isFullscreen: bool
 
 when defined(ios) or defined(android):
@@ -116,9 +115,9 @@ method animationStateChanged*(w: SdlWindow, state: bool) =
 var defaultWindow: SdlWindow
 
 proc flags(w: SdlWindow): cuint=
-    result = SDL_WINDOW_OPENGL or SDL_WINDOW_RESIZABLE or SDL_WINDOW_ALLOW_HIGHDPI or SDL_WINDOW_HIDDEN
+    result = SDL_WINDOW_OPENGL or SDL_WINDOW_ALLOW_HIGHDPI or SDL_WINDOW_HIDDEN or SDL_WINDOW_RESIZABLE
     if w.isFullscreen:
-        result = result or SDL_WINDOW_FULLSCREEN_DESKTOP
+        result = result or SDL_WINDOW_FULLSCREEN
     # else:
         # result = result or SDL_WINDOW_HIDDEN
 
@@ -187,7 +186,7 @@ proc updatePixelRatio(w: SdlWindow) {.inline.} =
         w.pixelRatio = w.scaleFactor()
         w.viewportPixelRatio = w.pixelRatio
 
-proc initSdlWindow(w: SdlWindow, r: view.Rect) =
+proc initSdlWindow(w: SdlWindow, gfx: GraphicsContext, r: view.Rect) =
     initSDLIfNeeded()
     when defined(ios) or defined(android):
         w.isFullscreen = true
@@ -211,34 +210,41 @@ proc initSdlWindow(w: SdlWindow, r: view.Rect) =
     if w.sdlGlContext == nil:
         error "Could not create context!"
     discard glMakeCurrent(w.impl, w.sdlGlContext)
-    w.renderingContext = newGraphicsContext()
+    w.gfx = if gfx.isNil: newGraphicsContext() else: gfx
 
     mainApplication().addWindow(w)
     discard w.impl.setData("__nimx_wnd", cast[pointer](w))
 
-method init*(w: SdlWindow, r: view.Rect) =
-    w.initSdlWindow(r)
+method init*(w: SdlWindow, gfx: GraphicsContext, r: view.Rect) =
+    w.initSdlWindow(gfx, r)
     let r = w.getOsWindowFrame()
-    procCall w.Window.init(r)
+    procCall w.Window.init(w.gfx, r)
     w.onResize(r.size)
 
-proc newFullscreenSdlWindow*(): SdlWindow =
+proc newFullscreenSdlWindow*(gfx: GraphicsContext): SdlWindow =
     initSDLIfNeeded()
 
     var displayMode : DisplayMode
     discard getDesktopDisplayMode(0, displayMode)
 
     result.new()
-    result.init(newRect(0, 0, displayMode.w.Coord, displayMode.h.Coord))
+    result.init(gfx, newRect(0, 0, displayMode.w.Coord, displayMode.h.Coord))
+
+proc newFullscreenSdlWindow*(): SdlWindow =
+    newFullscreenSdlWindow(nil)
+
+proc newSdlWindow*(gfx: GraphicsContext, r: view.Rect): SdlWindow =
+    result.new()
+    result.init(gfx, r)
 
 proc newSdlWindow*(r: view.Rect): SdlWindow =
-    result.new()
-    result.init(r)
+    newSdlWindow(nil, r)
 
 method show*(w: SdlWindow)=
-    if w.impl.isNil:
-        w.initSdlWindow(w.frame)
-        w.setFrameOrigin zeroPoint
+    assert not w.impl.isNil
+    # if w.impl.isNil:
+    #     w.initSdlWindow(w.frame)
+    #     w.setFrameOrigin zeroPoint
 
     w.impl.showWindow()
     w.impl.raiseWindow()
@@ -251,14 +257,19 @@ method hide*(w: SdlWindow)=
     w.impl.destroyWindow()
     w.impl = nil
     w.sdlGlContext = nil
-    w.renderingContext = nil
+    w.gfx = nil
 
-newWindow = proc(r: view.Rect): Window =
+newWindow = proc(r: Rect): Window =
     result = newSdlWindow(r)
     result.show()
-
+newWindowWithGfxContext = proc(gfx: GraphicsContext, r: Rect): Window =
+    result = newSdlWindow(gfx, r)
+    result.show()
 newFullscreenWindow = proc(): Window =
     result = newFullscreenSdlWindow()
+    result.show()
+newFullscreenWindowWithGfxContext = proc(gfx: GraphicsContext): Window =
+    result = newFullscreenSdlWindow(gfx)
     result.show()
 
 method `title=`*(w: SdlWindow, t: string) =
@@ -267,7 +278,7 @@ method `title=`*(w: SdlWindow, t: string) =
 method title*(w: SdlWindow): string = $w.impl.getTitle()
 
 method draw*(w: SdlWindow, r: Rect) =
-    let c = currentContext()
+    template c: untyped = w.gfx
     let gl = c.gl
     if w.mActiveBgColor != w.backgroundColor:
         gl.clearColor(w.backgroundColor.r, w.backgroundColor.g, w.backgroundColor.b, w.backgroundColor.a)
@@ -278,12 +289,10 @@ method draw*(w: SdlWindow, r: Rect) =
 
 method drawWindow(w: SdlWindow) =
     discard glMakeCurrent(w.impl, w.sdlGlContext)
-    let c = w.renderingContext
-    let oldContext = setCurrentContext(c)
+    template c: untyped = w.gfx
     c.withTransform ortho(0, w.frame.width, w.frame.height, 0, -1, 1):
         procCall w.Window.drawWindow()
     w.impl.glSwapWindow() # Swap the front and back frame buffers (double buffering)
-    setCurrentContext(oldContext)
 
 proc windowFromSDLEvent[T](event: T): SdlWindow =
     let sdlWndId = event.windowID

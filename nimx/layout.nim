@@ -165,7 +165,9 @@ proc layoutAux(rootView: NimNode, body: NimNode): NimNode =
 
     for i in 1 ..< numViews:
         if initializers[i].identOrSym: # Explicit type. Need to cal init()
-            result.add(newCall("init", ids[i], newIdentNode("zeroRect")))
+            template x: untyped = ids[i]
+            result.add quote do:
+                init(`x`, `rootView`.gfx, `zeroRect`)
 
     for i in 1 ..< numViews:
         result.add(newCall("addSubview", ids[childParentRelations[i]], ids[i]))

@@ -613,7 +613,8 @@ proc makeEmscriptenPreloadData(b: Builder): string =
     result = b.nimcachePath / "preload.js"
     let packagerPy = emcc.parentDir() / "tools" / "file_packager.py"
     createDir(b.nimcachePath)
-    var args = @["python", packagerPy.quoteShell(), b.buildRoot / "main.data", "--js-output=" & result]
+    let python = getEnv("PYTHON", "python")
+    var args = @[python, packagerPy.quoteShell(), b.buildRoot / "main.data", "--js-output=" & result]
     for p in b.emscriptenPreloadFiles:
         args.add(["--preload", p])
     direShell(args)
@@ -813,9 +814,9 @@ proc build*(b: Builder) =
     if b.avoidSDL: b.nimFlags.add("-d:nimxAvoidSDL")
 
     if b.debugMode:
-        b.nimFlags.add(["-d:debug"])
-        if b.platform != "js":
-            b.nimFlags.add(["--stackTrace:on", "--lineTrace:on"])
+        b.nimFlags.add(["--debugger:on"])
+        if b.platform == "js":
+            b.nimFlags.add(["--stackTrace:off", "--lineTrace:off"])
     else:
         b.nimFlags.add(["-d:release", "--opt:speed", "-d:noAutoGLerrorCheck"])
 

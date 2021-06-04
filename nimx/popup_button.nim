@@ -10,12 +10,12 @@ type PopupButton* = ref object of Control
     mItems: seq[MenuItem]
     mSelectedIndex: int
 
-proc newPopupButton(r: Rect): PopupButton =
+proc newPopupButton(gfx: GraphicsContext, r: Rect): PopupButton =
     result.new()
-    result.init(r)
+    result.init(gfx, r)
 
-method init*(b: PopupButton, r: Rect) =
-    procCall b.Control.init(r)
+method init*(b: PopupButton, gfx: GraphicsContext, r: Rect) =
+    procCall b.Control.init(gfx, r)
     b.mSelectedIndex = -1
 
 proc `items=`*(b: PopupButton, items: openarray[string]) =
@@ -35,8 +35,8 @@ proc `items=`*(b: PopupButton, items: openarray[string]) =
                 b.sendAction(Event(kind: etUnknown))
                 b.setNeedsDisplay()
 
-proc newPopupButton*(parent: View = nil, position: Point = newPoint(0, 0), size: Size = newSize(100, 20), items: openarray[string]=[], selectedIndex: int=0): PopupButton =
-    result = newPopupButton(newRect(position.x, position.y, size.width, size.height))
+proc newPopupButton*(parent: View = nil, gfx: GraphicsContext, position: Point = newPoint(0, 0), size: Size = newSize(100, 20), items: openarray[string]=[], selectedIndex: int=0): PopupButton =
+    result = newPopupButton(gfx, newRect(position.x, position.y, size.width, size.height))
     result.mSelectedIndex = selectedIndex
     result.items = items
     if not isNil(parent):
@@ -83,14 +83,15 @@ void compose() {
 """
 
 method draw(b: PopupButton, r: Rect) =
-    pbComposition.draw b.bounds:
+    template gfx: untyped = b.gfx
+    template fontCtx: untyped = gfx.fontCtx
+    draw gfx, pbComposition, b.bounds:
         setUniform("uFillColorStart", newColor(0.31, 0.60, 0.98))
         setUniform("uFillColorEnd", newColor(0.09, 0.42, 0.88))
     if b.mSelectedIndex >= 0 and b.mSelectedIndex < b.mItems.len:
-        let c = currentContext()
-        c.fillColor = blackColor()
-        let font = systemFont()
-        c.drawText(font, newPoint(4, b.bounds.y + (b.bounds.height - font.height) / 2), b.mItems[b.mSelectedIndex].title)
+        gfx.fillColor = blackColor()
+        let font = systemFont(fontCtx)
+        gfx.drawText(font, newPoint(4, b.bounds.y + (b.bounds.height - font.height) / 2), b.mItems[b.mSelectedIndex].title)
 
 method onTouchEv(b: PopupButton, e: var Event): bool =
     if b.mItems.len > 0:

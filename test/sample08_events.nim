@@ -23,28 +23,28 @@ type DraggedButton = ref object of Button
 
 
 ########################
-method init(v: ContentView, r: Rect) =
-    procCall v.View.init(r)
+method init(v: ContentView, gfx: GraphicsContext, r: Rect) =
+    procCall v.View.init(gfx, r)
 
-proc newContentView*(frame: Rect): ContentView =
+proc newContentView*(gfx: GraphicsContext, frame: Rect): ContentView =
     result.new()
-    result.init(frame)
+    result.init(gfx, frame)
 
-method init(v: ScissorView, r: Rect) =
-    procCall v.View.init(r)
+method init(v: ScissorView, gfx: GraphicsContext, r: Rect) =
+    procCall v.View.init(gfx, r)
 
-proc newScissorView*(frame: Rect): ScissorView =
+proc newScissorView*(gfx: GraphicsContext, frame: Rect): ScissorView =
     result.new()
-    result.init(frame)
+    result.init(gfx, frame)
 
 method clipType*(v: ScissorView): ClipType = ctDefaultClip
 
-method init(b: DraggedButton, r: Rect) =
-    procCall b.Button.init(r)
+method init(b: DraggedButton, gfx: GraphicsContext, r: Rect) =
+    procCall b.Button.init(gfx, r)
 
-proc newDraggedButton*(r: Rect): DraggedButton =
+proc newDraggedButton*(gfx: GraphicsContext, r: Rect): DraggedButton =
     result.new()
-    result.init(r)
+    result.init(gfx, r)
 
 ########################
 
@@ -96,11 +96,11 @@ method onTapUp*(lis: MyDragListener, dx, dy : float32, e : var Event) =
 
 ########################
 
-method init(v: EventsPriorityView, r: Rect) =
-    procCall v.View.init(r)
+method init(v: EventsPriorityView, gfx: GraphicsContext, r: Rect) =
+    procCall v.View.init(gfx, r)
 
-    var scissorView = newScissorView(newRect(0, 25 , 360, 250))
-    var contentView = newContentView(newRect(0, 25 , 360, 250))
+    var scissorView = newScissorView(gfx, newRect(0, 25 , 360, 250))
+    var contentView = newContentView(gfx, newRect(0, 25 , 360, 250))
     var sl : MyScrollListener
     new(sl)
     sl.updatedView = contentView
@@ -111,14 +111,14 @@ method init(v: EventsPriorityView, r: Rect) =
 
     for i in 0 .. 10:
         closureScope:
-            let button = newButton(newRect(5.Coord, (i * 20).Coord, 150.Coord, 20.Coord))
+            let button = newButton(gfx, newRect(5.Coord, (i * 20).Coord, 150.Coord, 20.Coord))
             button.title = "Button " & intToStr(i)
             button.onAction do():
                 echo "Click ", button.title
                 bttnMesage = "Click " & button.title
             contentView.addSubview(button)
 
-    let button = newButton(newRect(170.Coord, 20, 50.Coord, 50.Coord))
+    let button = newButton(gfx, newRect(170.Coord, 20, 50.Coord, 50.Coord))
     button.title = "dragged"
     button.onAction do():
         echo "Click ", button.title
@@ -132,10 +132,11 @@ method init(v: EventsPriorityView, r: Rect) =
 
 
 method draw(v: EventsPriorityView, r: Rect) =
-    let c = currentContext()
+    template gfx: untyped = v.gfx
+    template fontCtx: untyped = gfx.fontCtx
     if v.welcomeFont.isNil:
-        v.welcomeFont = systemFontOfSize(20)
-    c.fillColor = blackColor()
-    c.drawText(v.welcomeFont, newPoint(10, 5), bttnMesage)
+        v.welcomeFont = systemFontOfSize(fontCtx, 20)
+    gfx.fillColor = blackColor()
+    gfx.drawText(v.welcomeFont, newPoint(10, 5), bttnMesage)
 
 registerSample(EventsPriorityView, "EventsPriority")

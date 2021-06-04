@@ -1,11 +1,12 @@
+import context
 import nimx / view
 import nimx / meta_extensions / [ property_desc, visitors_gen, serializers_gen ]
 
 type ClipView* = ref object of View
 
-proc newClipView*(r: Rect): ClipView =
+proc newClipView*(gfx: GraphicsContext, r: Rect): ClipView =
     result.new()
-    result.init(r)
+    result.init(gfx, r)
     result.autoresizingMask = { afFlexibleWidth, afFlexibleHeight }
 
 method subviewDidChangeDesiredSize*(v: ClipView, sub: View, desiredSize: Size) =
