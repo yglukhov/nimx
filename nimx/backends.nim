@@ -28,6 +28,7 @@ type AudioApi* {.pure.} = enum
   sdl
   appkit
   winapi
+  alsa
 
 type Backend* = tuple
   os: OsApi
@@ -48,13 +49,22 @@ const backend*: Backend =
   elif defined android:
     (OsApi.android, WindowApi.sdl, InputApi.sdl, GraphicApi.opengles2, AudioApi.sdl)
   elif defined macosx:
-    (OsApi.macosx, WindowApi.sdl, InputApi.sdl, GraphicApi.opengles2, AudioApi.sdl)
+    when defined nimxAvoidSDL:
+      (OsApi.macosx, WindowApi.appkit, InputApi.appkit, GraphicApi.opengles2, AudioApi.appkit)
+    else:
+      (OsApi.macosx, WindowApi.sdl, InputApi.sdl, GraphicApi.opengles2, AudioApi.sdl)
   elif defined linux:
-    (OsApi.linux, WindowApi.sdl, InputApi.sdl, GraphicApi.opengles2, AudioApi.sdl)
+    when defined nimxAvoidSDL:
+      (OsApi.linux, WindowApi.xll, InputApi.xll, GraphicApi.opengles2, AudioApi.alsa)
+    else:
+      (OsApi.linux, WindowApi.sdl, InputApi.sdl, GraphicApi.opengles2, AudioApi.sdl)
   elif defined windows:
-    (OsApi.windows, WindowApi.sdl, InputApi.sdl, GraphicApi.opengles2, AudioApi.sdl)
+    when defined nimxAvoidSDL:
+      (OsApi.windows, WindowApi.winapi, InputApi.winapi, GraphicApi.opengles2, AudioApi.winapi)
+    else:
+      (OsApi.windows, WindowApi.sdl, InputApi.sdl, GraphicApi.opengles2, AudioApi.sdl)
   else: {.error: "unknown backend".}
-
 
 const web* = backend.os == OsApi.web
 const mobile* = defined(ios) or defined(android)
+const desktop* = not web and not mobile

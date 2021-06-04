@@ -22,7 +22,7 @@ proc `@`(str: string): UIResID =
   UIResID(hash(str))
 
 proc deserializeView*(jn: JsonNode, gfx: GraphicsContext): View =
-  newJsonDeserializer(jn).deserialize(result, RootRef(gfx))
+  newJsonDeserializer(jn).deserialize(result, gfx)
 
 proc deserializeView*(data: string, gfx: GraphicsContext): View =
   deserializeView(parseJson(data), gfx)
