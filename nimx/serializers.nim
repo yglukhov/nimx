@@ -134,7 +134,7 @@ proc deserialize*(s: Deserializer, k: string, v: var ContextFree, gfx: RootRef =
     s.curKey = k
     s.deserialize(v)
 
-proc deserialize*[T](s: Deserializer, k: string, v: var T, gfx: RootRef) {.inline.} =
+proc deserialize*[T: not ContextFree](s: Deserializer, k: string, v: var T, gfx: RootRef) {.inline.} =
     s.curKey = k
     s.deserialize(v, gfx)
 
