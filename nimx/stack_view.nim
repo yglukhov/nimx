@@ -40,6 +40,10 @@ method didAddSubview*(v: StackView, subView: View) =
     v.recalculateContent()
     v.subviewDidChangeDesiredSize(nil, v.frame().size)
 
+method didRemoveSubview*(v: StackView, subView: View) =
+    v.recalculateContent()
+    v.subviewDidChangeDesiredSize(nil, v.frame().size)
+
 proc popupAtPoint*(ip: StackView, v: View, p: Point) =
     ip.removeFromSuperview()
     var origin: Point

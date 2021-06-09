@@ -1,6 +1,6 @@
 import times, mini_profiler
 
-when defined(js) or defined(emscripten):
+when defined(js) or defined(emscripten) or defined(wasm):
     import jsbind
     type TimerID = ref object of JSObj
 elif defined(macosx):
@@ -51,7 +51,7 @@ when profileTimers or defined(debugLeaks):
     else:
         proc finalizeTimer(t: Timer) = destroyAux(t[])
 
-when defined(js) or defined(emscripten):
+when defined(js) or defined(emscripten) or defined(wasm):
     proc setInterval(p: proc(), timeout: float): TimerID {.jsImportg.}
     proc setTimeout(p: proc(), timeout: float): TimerID {.jsImportg.}
     proc clearInterval(t: TimerID) {.jsImportg.}
@@ -194,7 +194,7 @@ proc newTimer*(interval: float, repeat: bool, callback: proc()): Timer =
         result.instantiationStackTrace = getStackTrace()
         allTimers.add(cast[pointer](result))
 
-    when defined(js) or defined(emscripten):
+    when defined(js) or defined(emscripten) or defined(wasm):
         result.origCallback = proc() =
             callback()
     else:

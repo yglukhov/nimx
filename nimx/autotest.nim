@@ -10,8 +10,10 @@ type UITestSuite* = ref object
     name: string
     steps: seq[UITestSuiteStep]
 
-when defined(js) or defined(emscripten):
-    when defined(emscripten):
+const web = defined(js) or defined(emscripten) or defined(wasm)
+
+when web:
+    when defined(emscripten) or defined(wasm):
         import jsbind/emscripten
 
     # When testing on Firefox, we have to use window.dump instead of console.log
@@ -114,7 +116,7 @@ when true:
                 if not result.isNil: break
 
     proc quitApplication*() =
-        when defined(js) or defined(emscripten) or defined(android):
+        when web or defined(android):
             # Hopefully we're using nimx automated testing in Firefox
             info "---AUTO-TEST-QUIT---"
         else:
@@ -132,7 +134,7 @@ when true:
             if maxTries != -1:
                 if testRunnerContext.waitTries + 2 > maxTries:
                     testRunnerContext.waitTries = -1
-                    when defined(js) or defined(emscripten) or defined(android):
+                    when web or defined(android):
                         info "---AUTO-TEST-FAIL---"
                     else:
                         raise newException(Exception, "Wait tries exceeded!")
@@ -157,7 +159,7 @@ when false:
 
     registerTest(myTest)
 
-when defined(js) or defined(emscripten):
+when web:
     import nimx/pathutils
 elif defined(android):
     import jnim
@@ -170,7 +172,7 @@ proc getAllTestNames(): seq[string] =
     for i, t in registeredTests: result[i] = t.name
 
 proc getTestsToRun*(): seq[string] =
-    when defined(js) or defined(emscripten):
+    when web:
         let testsStr = getCurrentHref().uriParam("nimxAutoTest")
         if testsStr.len != 0:
             result = testsStr.split(',')
@@ -196,7 +198,7 @@ proc haveTestsToRun*(): bool =
     getTestsToRun().len != 0
 
 proc startTest*(t: UITestSuite, onComplete: proc() = nil) =
-    when defined(js) or defined(emscripten): setupLogger()
+    when web: setupLogger()
     testRunnerContext.new()
     testRunnerContext.curTimeout = 0.5
     testRunnerContext.waitTries = -1

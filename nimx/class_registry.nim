@@ -78,7 +78,7 @@ proc isSubtypeOf(tself, tsuper: TypeId): bool = tself != tsuper and isTypeOf(tse
 
 {.pop.}
 
-template registerClass*(a: typedesc, creator: (proc(): RootRef)) =
+template registerClass*(a: typedesc, creator: proc(): RootRef) =
     const TName = typetraits.name(a)
     const tid = getTypeId(a)
     method className*(o: a): string = TName

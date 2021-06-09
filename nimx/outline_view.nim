@@ -351,8 +351,11 @@ method onTouchEv*(v: OutlineView, e: var Event): bool =
     #     let i = v.itemAtPos(pos, v.tempIndexPath, y)
 
     #     if not v.touchTarget.isNil:
-    #         e.localPosition = v.touchTarget.convertPointFromParent(pos)
+    #         if not i.isNil and i.cell.View != v.touchTarget:
+    #             e.localPosition = i.cell.convertPointFromParent(pos)
+    #         e.localPosition = v.touchTarget.convertPointFromParent(e.localPosition)
     #         if v.touchTarget.processTouchEvent(e):
+    #             v.setNeedsDisplay()
     #             return true
 
     #     v.touchTarget = nil
@@ -391,13 +394,17 @@ method onTouchEv*(v: OutlineView, e: var Event): bool =
     #             v.draggedElemIndexPath = v.tempIndexPath
 
     #     if not i.isNil:
-    #         configureCellAux(v, i.cell, i)
+    #         v.configureCellAUX(i, y, v.tempIndexPath)
     #         e.localPosition = i.cell.convertPointFromParent(pos)
     #         if e.localPosition.inRect(i.cell.bounds):
     #             result = i.cell.processTouchEvent(e)
     #             if result:
-    #                 v.touchTarget = i.cell
+    #                 if i.cell.touchTarget.isNil:
+    #                     v.touchTarget = i.cell
+    #                 else:
+    #                     v.touchTarget = i.cell.touchTarget
     #                 discard v.touchTarget.makeFirstResponder()
+    #                 v.setNeedsDisplay()
     #                 return result
 
     #     e.localPosition = pos
@@ -461,7 +468,6 @@ method onTouchEv*(v: OutlineView, e: var Event): bool =
 
     #         result = true
 
-
 method acceptsFirstResponder*(v: OutlineView): bool = true
 
 proc hasChildren(n: ItemNode): bool =
@@ -499,7 +505,7 @@ proc moveSelectionDown(v: OutlineView, path: var IndexPath) =
     var nodeAtPath = v.nodeAtIndexPath(path)
     if nodeAtPath.isNil:
         path.add(0)
-        v.selectItemAtIndexPath(path)
+
         return
 
     elif nodeAtPath.hasChildren:

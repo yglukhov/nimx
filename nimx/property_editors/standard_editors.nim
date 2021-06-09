@@ -21,8 +21,8 @@ import nimx/property_editors/propedit_registry
 import variant
 
 when defined(js):
-    from dom import alert
-elif not defined(android) and not defined(ios) and not defined(emscripten):
+    from dom import alert, window
+elif not defined(android) and not defined(ios):
     import os_files/dialog
 
 template toStr(v: SomeFloat, precision: uint): string = formatFloat(v, ffDecimal, precision)
@@ -207,8 +207,6 @@ when not defined(android) and not defined(ios):
             pv.addSubview(removeButton)
             removeButton.onAction do():
                 setter(nil)
-                if not pv.onChange.isNil:
-                    pv.onChange()
                 if not pv.changeInspector.isNil:
                     pv.changeInspector()
         else:
@@ -219,7 +217,7 @@ when not defined(android) and not defined(ios):
         b.title = "Open image..."
         b.onAction do():
             when defined(js):
-                alert("Files can be opened only in native editor version")
+                alert(window, "Files can be opened only in native editor version")
             elif defined(emscripten):
                 discard
             else:
@@ -238,8 +236,6 @@ when not defined(android) and not defined(ios):
                         logi "Image could not be loaded: ", path
                     if not i.isNil:
                         setter(i)
-                        if not pv.onChange.isNil:
-                            pv.onChange()
                         if not pv.changeInspector.isNil:
                             pv.changeInspector()
 
@@ -254,10 +250,6 @@ proc newBoolPropertyView(setter: proc(s: bool), getter: proc(): bool): PropertyE
     cb.value = if getter(): 1 else: 0
     cb.onAction do():
         setter(cb.boolValue)
-
-        if not pv.onChange.isNil:
-            pv.onChange()
-
     result = pv
     result.addSubview(cb)
 
@@ -432,3 +424,16 @@ registerPropertyEditor(newScalarSeqPropertyView[float])
 registerPropertyEditor(newSeqPropertyView[TVector[4, Coord]])
 registerPropertyEditor(newSeqPropertyView[TVector[5, Coord]])
 registerPropertyEditor(newFontPropertyView)
+
+
+template initPropertyEditor*(v: View, eo: untyped, propName: string, property: untyped)=
+    var o = newVariant(eo)
+    var visitor : PropertyVisitor
+    visitor.requireName = true
+    visitor.requireSetter = true
+    visitor.requireGetter = true
+    visitor.flags = { pfEditable }
+    visitor.commit = proc() =
+        v.addSubview(propertyEditorForProperty(o, visitor.name, visitor.setterAndGetter))
+
+    visitor.visitProperty(propName, property)

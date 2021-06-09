@@ -735,8 +735,6 @@ proc build*(b: Builder) =
         b.nimFlags.add(["--os:linux", "-d:android", "--cc:clang", "--dynlibOverride:SDL2"])
         b.compilerFlags.add("-fPIC")
         b.compilerFlags.add("-g") # Here we rely on gradle to strip everything debug when needed.
-    of "js":
-        b.executablePath = b.buildRoot / "main.js"
     of "linux":
         b.linkerFlags.add(["-L/usr/local/lib", "-Wl,-rpath,/usr/local/lib", "-lpthread"])
     of "windows":
@@ -752,7 +750,11 @@ proc build*(b: Builder) =
                     quit 1
             b.nimFlags.add(["--cpu:i386", "--os:windows", "--cc:gcc", "--gcc.exe:" & mxeBin, "--gcc.linkerexe:" & mxeBin])
         b.makeWindowsResource()
+    of "js":
+        b.nimFlags.add("-d:nimExperimentalAsyncjsThen")
+        b.executablePath = b.buildRoot / "main.js"
     of "emscripten", "wasm":
+        b.nimFlags.add("-d:nimExperimentalAsyncjsThen")
         let emcc = emccWrapperPath()
         b.emscriptenPreloadFiles.add(b.originalResourcePath & "/OpenSans-Regular.ttf@/res/OpenSans-Regular.ttf")
         b.executablePath = b.buildRoot / "main.js"

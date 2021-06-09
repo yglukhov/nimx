@@ -1,9 +1,10 @@
-import math, strutils, tables, streams, logging
+import math, tables, streams, logging
 import types, portable_gl, mini_profiler
 import opengl
 
 import nimx / assets / [ asset_loading, url_stream, asset_manager ]
-const web = defined(js) or defined(emscripten)
+import nimx / serializers
+const web = defined(js) or defined(emscripten) or defined(wasm)
 
 when web:
     import jsbind
@@ -18,7 +19,8 @@ type
         mSize: Size
         texWidth*, texHeight*: int16
 
-    SelfContainedImage* = ref object of Image
+    SelfContainedImage* = ref SelfContainedImageObj
+    SelfContainedImageObj = object of Image
         texture*: TextureRef
         mFilePath: string
 
@@ -46,17 +48,24 @@ method filePath*(i: SelfContainedImage): string = i.mFilePath
 
 when not defined(js):
     let totalImages = sharedProfiler().newDataSource(int, "Images")
-    proc finalize(i: SelfContainedImage) =
+
+    proc `=destroy`(i: var SelfContainedImageObj) =
         if i.texture != invalidTexture:
             glDeleteTextures(1, addr i.texture)
         dec totalImages
+
+    proc finalize(i: SelfContainedImage) =
+        `=destroy`(i[])
 
 proc newSelfContainedImage(): SelfContainedImage {.inline.} =
     when defined(js):
         result.new()
     else:
         inc totalImages
-        result.new(finalize)
+        when defined(gcDestructors):
+            result = SelfContainedImage()
+        else:
+            result.new(finalize)
 
 when not web:
     type DecodedImageData = object
@@ -259,7 +268,24 @@ method isLoaded*(i: FixedTexCoordSpriteImage): bool = i.spriteSheet.isLoaded
 method getTextureQuad*(i: Image, gl: GL, texCoords: var array[4, GLfloat]): TextureRef {.base.} =
     raise newException(Exception, "Abstract method called!")
 
+method serialize*(s: Serializer, v: Image) {.base.} =
+    var path = ""
+    if v of SelfContainedImage:
+        path = v.SelfContainedImage.mFilePath
+    s.serialize("imagePath", path)
+
+method deserialize*(s: Deserializer, v: var Image) {.base.} =
+    var imagePath: string
+    s.deserialize("imagePath", imagePath)
+    if imagePath.len > 0:
+        when not web:
+            v = imageWithContentsOfFile(imagePath)
+        else:
+            v = imageWithResource(imagePath)
+
 when defined(js):
+    import strutils
+
     proc initWithJSImage(i: SelfContainedImage, gl: GL, jsImg: RootRef) =
         var width, height : Coord
         {.emit: """
@@ -504,7 +530,7 @@ when asyncResourceLoad:
             let p = cast[pointer](loadComplete)
             performOnMainThread(cast[proc(data: pointer){.cdecl, gcsafe.}](p), ctx)
 
-when defined(emscripten):
+when defined(emscripten) or defined(wasm):
     import jsbind/emscripten
 
     type ImageLoadingCtx = ref object

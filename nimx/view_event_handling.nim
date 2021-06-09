@@ -17,7 +17,7 @@ method onTouchEv*(v: View, e: var Event): bool {.base.} =
         result = result or r
 
     if e.buttonState == bsDown:
-        if v.acceptsFirstResponder:
+        if v.acceptsFirstResponder and not v.isFirstResponder:
             result = v.makeFirstResponder()
 
 method onInterceptTouchEv*(v: View, e: var Event): bool {.base.} =

@@ -163,7 +163,7 @@ proc createQuadBuffer(c: GraphicsContext): BufferRef =
 proc newGraphicsContext*(canvas: ref RootObj = nil): GraphicsContext =
     result.new()
     result.gl = newGL(canvas)
-    when not defined(ios) and not defined(android) and not defined(js) and not defined(emscripten):
+    when not defined(ios) and not defined(android) and not defined(js) and not defined(emscripten) and not defined(wasm):
         loadExtensions()
 
     result.gl.clearColor(0, 0, 0, 0.0)
@@ -318,11 +318,6 @@ void main() {
 }
 """,
 """
-#ifdef GL_ES
-#extension GL_OES_standard_derivatives : enable
-precision mediump float;
-#endif
-
 varying vec2 vTexCoord;
 
 uniform sampler2D texUnit;

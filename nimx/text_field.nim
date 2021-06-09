@@ -16,6 +16,8 @@ import key_commands
 import formatted_text
 import scroll_view
 
+import nimx / meta_extensions / [ property_desc, visitors_gen, serializers_gen ]
+
 export control
 
 type
@@ -244,6 +246,15 @@ proc drawSelection(t: TextField) {.inline.} =
         r.size.width = endOff
         c.drawRect(r)
 
+#todo: replace by generic visibleRect which should be implemented in future
+proc visibleRect(t: TextField): Rect =
+    let wndRect = t.convertRectToWindow(t.bounds)
+    let wndBounds = t.window.bounds
+
+    result.origin.y = if wndRect.y < 0.0: abs(wndRect.y) else: 0.0
+    result.size.width = t.bounds.width
+    result.size.height = min(t.bounds.height, wndBounds.height) + result.y - max(wndRect.y, 0.0)
+
 method draw*(t: TextField, r: Rect) =
     procCall t.View.draw(r)
 
@@ -265,7 +276,11 @@ method draw*(t: TextField, r: Rect) =
         t.mText.overrideColor = whiteColor()
     else:
         t.mText.overrideColor.a = 0
-    c.drawText(pt, t.mText)
+
+    if not t.window.isNil and t.bounds.height > t.window.bounds.height:
+        c.drawText(pt, t.mText, t.visibleRect())
+    else:
+        c.drawText(pt, t.mText)
 
     if t.isEditing:
         if t.hasBezel:
@@ -504,21 +519,19 @@ method viewDidBecomeFirstResponder*(t: TextField) =
     cursorPos = if t.mText.isNil: 0 else: t.mText.runeLen
     t.updateCursorOffset()
     t.bumpCursorVisibility()
+
     t.selectAll()
 
-method visitProperties*(v: TextField, pv: var PropertyVisitor) =
-    procCall v.Control.visitProperties(pv)
-    pv.visitProperty("text", v.text)
-    pv.visitProperty("editable", v.editable)
-
-# method serializeFields*(v: TextField, s: Serializer) =
-#     procCall v.View.serializeFields(s)
-#     s.serialize("text", v.text)
-#     s.serialize("editable", v.editable)
-
-# method deserializeFields*(v: TextField, s: Deserializer) =
-#     procCall v.View.deserializeFields(s)
-#     s.deserialize("text", v.mText)
-#     s.deserialize("editable", v.editable)
+TextField.properties:
+    editable
+    continuous
+    mSelectable
+    isSelecting
+    # mFont
+    multiline
+    hasBezel
+    text
 
 registerClass(TextField)
+genVisitorCodeForView(TextField)
+genSerializeCodeForView(TextField)

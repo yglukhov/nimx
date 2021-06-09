@@ -18,7 +18,7 @@ type WebAssetBundle* = ref object of AssetBundle
 
 proc newWebAssetBundle*(): WebAssetBundle =
     result.new()
-    result.mHref = getCurrentHref().parentDir()
+    result.mHref = urlParentDir(getCurrentHref())
     result.mBaseUrl = result.mHref & "/res"
 
 method urlForPath*(ab: WebAssetBundle, path: string): string =

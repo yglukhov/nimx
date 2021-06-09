@@ -11,7 +11,6 @@ else:
     type GlyphProvider = StbTtfGlyphProvider
 
     import os
-    import write_image_impl
 
 import ttf/edtaa3func
 import private/simple_table
@@ -153,7 +152,7 @@ when not defined(js):
 
 var sysFont : Font
 
-const preferredFonts = when defined(js) or defined(windows) or defined(emscripten):
+const preferredFonts = when defined(js) or defined(windows) or defined(emscripten) or defined(wasm):
         [
             "Arial",
             "OpenSans-Regular"

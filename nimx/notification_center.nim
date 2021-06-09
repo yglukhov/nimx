@@ -1,7 +1,10 @@
-import tables, sequtils, macros, logging
+import tables, sequtils, macros
 
 import variant # for legacy api
 export variant
+
+when defined(debugNC):
+    import logging
 
 type
     NotificationCenter* = ref object

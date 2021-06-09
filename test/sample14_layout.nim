@@ -260,7 +260,8 @@ reg "Autoresizing Frame":
 method init(v: LayoutSampleView, r: Rect) =
   procCall v.View.init(r)
   var by = 5'f32
-  for i in testLayoutRegistry:
+  for ii in testLayoutRegistry:
+    let i = ii
     capture i:
       v.makeLayout:
         - Button:
