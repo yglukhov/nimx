@@ -58,6 +58,10 @@ proc init(rt: ImageRenderTarget, texWidth, texHeight: int16) =
         let oldFramebuffer = gl.boundFramebuffer()
         let oldRB = gl.boundRenderBuffer()
         gl.bindFramebuffer(gl.FRAMEBUFFER, rt.framebuffer)
+        when defined(ios):
+            # SDL on iOS relies on its renderbuffer bound after drawing the frame before swapping buffers.
+            # See swapBuffers in SDL_uikitopenglview.m
+            let oldRenderBuffer = gl.boundRenderBuffer()
 
         let depthBuffer = gl.createRenderbuffer()
         gl.bindRenderbuffer(gl.RENDERBUFFER, depthBuffer)
@@ -95,12 +99,18 @@ proc init(rt: ImageRenderTarget, texWidth, texHeight: int16) =
 
         gl.bindFramebuffer(gl.FRAMEBUFFER, oldFramebuffer)
         gl.bindRenderbuffer(gl.RENDERBUFFER, oldRB)
+        when defined(ios):
+            gl.bindRenderbuffer(gl.RENDERBUFFER, oldRenderBuffer)
 
 proc resize(rt: ImageRenderTarget, texWidth, texHeight: int16) =
     let gl = sharedGL()
     rt.texWidth = max(rt.texWidth, texWidth)
     rt.texHeight = max(rt.texHeight, texHeight)
 
+    when defined(ios):
+        # SDL on iOS relies on its renderbuffer bound after drawing the frame before swapping buffers.
+        # See swapBuffers in SDL_uikitopenglview.m
+        let oldRenderBuffer = gl.boundRenderBuffer()
     if rt.depthbuffer != invalidRenderbuffer:
         let depthStencilFormat = if rt.stencilbuffer == invalidRenderbuffer:
                 when defined(js) or defined(emscripten): gl.DEPTH_STENCIL else: gl.DEPTH24_STENCIL8
@@ -113,6 +123,8 @@ proc resize(rt: ImageRenderTarget, texWidth, texHeight: int16) =
     if rt.stencilBuffer != invalidRenderbuffer:
         gl.bindRenderbuffer(gl.RENDERBUFFER, rt.stencilBuffer)
         gl.renderbufferStorage(gl.RENDERBUFFER, gl.STENCIL_INDEX8, rt.texWidth, rt.texHeight)
+    when defined(ios):
+        gl.bindRenderbuffer(gl.RENDERBUFFER, oldRenderBuffer)
 
 proc setImage*(rt: ImageRenderTarget, i: SelfContainedImage) =
     assert(i.texWidth != 0 and i.texHeight != 0)
