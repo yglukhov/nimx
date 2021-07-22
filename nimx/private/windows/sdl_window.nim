@@ -33,7 +33,10 @@ proc initSDLIfNeeded() =
             if glSetAttribute(SDL_GL_RED_SIZE, 8) == 0 and
                 glSetAttribute(SDL_GL_GREEN_SIZE, 8) == 0 and
                 glSetAttribute(SDL_GL_BLUE_SIZE, 8) == 0:
-                info "supported color format RGB888"
+                    if glSetAttribute(SDL_GL_ALPHA_SIZE, 8) == 0:
+                        info "supported color format RGBA8888"
+                    else:
+                        info "supported color format RGB888"
             else: #if RGB888 not support
                 discard glSetAttribute(SDL_GL_RED_SIZE, 5)
                 discard glSetAttribute(SDL_GL_GREEN_SIZE, 6)
