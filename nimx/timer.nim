@@ -100,7 +100,8 @@ elif defined(macosx):
     proc CFRelease(o: CFTypeRef) {.importc.}
 
     proc cftimerCallback(cfTimer: CFRunLoopTimerRef, t: pointer) {.cdecl.} =
-        cast[ptr TimerObj](t).callback()
+        let t = cast[Timer](t)
+        t.callback()
 
     proc schedule(t: Timer) =
         var interval = t.interval
@@ -136,7 +137,7 @@ else:
     import perform_on_main_thread
 
     proc fireCallback(timer: pointer) {.cdecl.} =
-        var t = cast[ptr TimerObj](timer)
+        let t = cast[Timer](timer)
         if t.state == tsRunning:
             t.callback()
             t.ready = true
