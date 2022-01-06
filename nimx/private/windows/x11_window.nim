@@ -10,20 +10,13 @@ import nimx/private/x11_vk_map
 # X11 impl. Nice tutorial: https://github.com/gamedevtech/X11OpenGLWindow
 
 type
-  X11Window = ref object of Window
+  X11Window* = ref object of Window
     xdisplay: PDisplay
     xwindow: x.Window
     renderingContext: GraphicsContext
 
 var defaultDisplay: PDisplay
 var allWindows {.threadvar.}: seq[X11Window]
-
-proc newXWindow(d: PDisplay, w: x.Window, r: Rect): X11Window =
-  result = X11Window(xdisplay: d, xwindow: w)
-  result.renderingContext = newGraphicsContext()
-  allWindows.add(result)
-  result.init(r)
-  mainApplication().addWindow(result)
 
 proc chooseVisual(d: PDisplay, screenId: cint): PXVisualInfo =
   var majorGLX, minorGLX: cint
@@ -43,7 +36,7 @@ proc chooseVisual(d: PDisplay, screenId: cint): PXVisualInfo =
     None]
   result = glXChooseVisual(d, screenId, addr glxAttribs[0])
 
-proc newXWindow(d: PDisplay, f: Rect): X11Window =
+proc initX11Window(w: X11Window, d: PDisplay, f: Rect) =
   let s = DefaultScreenOfDisplay(d)
   let r = RootWindowOfScreen(s)
   let blk = XBlackPixelOfScreen(s)
@@ -58,16 +51,30 @@ proc newXWindow(d: PDisplay, f: Rect): X11Window =
     PointerMotionMask or ButtonPressMask or ButtonReleaseMask or EnterWindowMask or LeaveWindowMask or
     ExposureMask
 
-  let w = XCreateWindow(d, r, f.x.cint, f.y.cint, f.width.cuint, f.height.cuint, 0, visual.depth, InputOutput, visual.visual, CWBackPixel or CWColormap or CWBorderPixel or CWEventMask or CWOverrideRedirect, addr attrs)
+  let xw = XCreateWindow(d, r, f.x.cint, f.y.cint, f.width.cuint, f.height.cuint, 0, visual.depth, InputOutput, visual.visual, CWBackPixel or CWColormap or CWBorderPixel or CWEventMask or CWOverrideRedirect, addr attrs)
 
   let ctx = glXCreateContext(d, visual, nil, 1)
-  discard glXMakeCurrent(d, w, ctx)
+  discard glXMakeCurrent(d, xw, ctx)
 
-  discard XClearWindow(d, w)
-  discard XMapRaised(d, w)
+  discard XClearWindow(d, xw)
+  discard XMapRaised(d, xw)
   discard XFlush(d)
 
-  newXWindow(d, w, f)
+  w.xdisplay = d
+  w.xwindow = xw
+  w.renderingContext = newGraphicsContext()
+  allWindows.add(w)
+  mainApplication().addWindow(w)
+  # newXWindow(d, xw, f)
+
+proc registerDisplayInDispatcher(d: PDisplay)
+
+method init*(w: X11Window, r: Rect) =
+  if defaultDisplay.isNil:
+    defaultDisplay = XOpenDisplay(nil)
+    registerDisplayInDispatcher(defaultDisplay)
+  w.initX11Window(defaultDisplay, r)
+  procCall w.Window.init(r)
 
 proc destroy(w: X11Window) =
   discard XDestroyWindow(w.xdisplay, w.xwindow)
@@ -217,16 +224,14 @@ proc registerDisplayInDispatcher(d: PDisplay) =
       onXSocket(d)
 
 proc newXWindow(r: Rect): X11Window =
-  if defaultDisplay.isNil:
-    defaultDisplay = XOpenDisplay(nil)
-    registerDisplayInDispatcher(defaultDisplay)
-  newXWindow(defaultDisplay, r)
+  result.new()
+  result.init(r)
 
-newWindow = proc(r: view.Rect): Window =
-    result = newXWindow(r)
+newWindow = proc(r: Rect): Window =
+  newXWindow(r)
 
 newFullscreenWindow = proc(): Window =
-    result = newXWindow(zeroRect)
+  newXWindow(zeroRect)
 
 template runApplication*(initCode: typed) =
   block:
@@ -315,10 +320,7 @@ method animationStateChanged*(w: X11Window, state: bool) =
     asyncCheck animationLoop()
 
 when isMainModule:
-  let d = XOpenDisplay(nil)
-  registerDisplayInDispatcher(d)
-
-  let w = newXWindow(d, newRect(50, 50, 500, 500))
+  let w = newWindow(newRect(50, 50, 500, 500))
   w.setTitle("nimx test")
   echo "sz: ", getOsFrame(w)
   echo "wnd created"
@@ -329,4 +331,3 @@ when isMainModule:
   runForever()
 
   w.destroy()
-  discard XCloseDisplay(d)
