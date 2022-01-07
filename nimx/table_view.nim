@@ -351,6 +351,10 @@ proc selectRow*(t: TableView, row: int) =
     t.selectedRows = initIntSet()
     t.setRowSelected(row, true)
 
+proc clearSelection*(t: TableView) =
+    t.selectedRows = initIntSet()
+    t.setRowsSelected(0 .. -1, false)
+
 proc selectRows(t: TableView, rows: Slice[int]) =
     t.setRowsSelected(rows, true)
 

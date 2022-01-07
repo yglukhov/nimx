@@ -1,13 +1,22 @@
-import strutils
+import strutils, algorithm, intsets
 import sample_registry
 import variant
 import nimx / [ table_view, scroll_view, button, layout, text_field, table_view_cell ]
 
-import intsets
-
 type
   TableViewSampleView = ref object of View
     data: seq[string]
+
+proc delete[T](s: var seq[T], indexes: IntSet) =
+  var sortedIndexes = newSeq[int](indexes.len)
+  var i = 0
+  for ii in indexes:
+    sortedIndexes[i] = ii
+    inc i
+
+  sortedIndexes.sort()
+  for i in countdown(sortedIndexes.high, sortedIndexes.low):
+    s.delete(sortedIndexes[i])
 
 method init(v: TableViewSampleView, r: Rect) =
   procCall v.View.init(r)
@@ -19,6 +28,7 @@ method init(v: TableViewSampleView, r: Rect) =
     - ScrollView:
       frame == inset(super, 0, 0, 0, 25)
       - TableView as tableView:
+        width == super
         selectionMode: smMultipleSelection
         defaultRowHeight: 20
         numberOfRows do() -> int:
@@ -54,7 +64,9 @@ method init(v: TableViewSampleView, r: Rect) =
       frame == autoresizingFrame(25, 25, NaN, NaN, 25, 0)
       onAction:
         echo "selected rows: ", tableView.selectedRows
-        discard
+        v.data.delete(tableView.selectedRows)
+        tableView.clearSelection()
+        tableView.reloadData()
         # var selection = tableView.selectedIndexPaths(allowOverlap = true)
 
         # for indexPath in selection:
@@ -63,9 +75,6 @@ method init(v: TableViewSampleView, r: Rect) =
         #   n.children.add(Node(text: "Node " & $sz))
 
         # tableView.reloadIndexPaths(selection)
-
-
-  # tableView.addSubview(asdf)
 
   tableView.reloadData()
 

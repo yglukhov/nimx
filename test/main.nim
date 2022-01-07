@@ -42,7 +42,7 @@ proc startApplication() =
             size == super
 
             - ScrollView:
-                width >= 80
+                width >= 120
                 width <= super / 3 @ MEDIUM
                 - TableView as tableView:
 

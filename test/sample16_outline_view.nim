@@ -33,6 +33,7 @@ method init(v: OutlineViewSampleView, r: Rect) =
     - ScrollView:
       frame == inset(super, 0, 0, 0, 25)
       - OutlineView as outlineView:
+        width == super
         defaultRowHeight: 20
         numberOfChildren do(i: Node, indexPath: IndexPath) -> int:
           i.children.len
