@@ -151,7 +151,7 @@ proc eventWithXEvent(d: PDisplay, ev: var TXEvent, result: var seq[Event]) =
         e = newEvent(etTextInput)
         e.text = str
         e.window = wnd
-        result.add(e)
+        result.insert(e, 0)
 
   of KeyRelease:
     let wnd = findWindowWithX(d, ev.xkey.window)
@@ -163,16 +163,28 @@ proc eventWithXEvent(d: PDisplay, ev: var TXEvent, result: var seq[Event]) =
     result.add(e)
 
   of ButtonPress, ButtonRelease:
-    let state = if ev.theType == ButtonPress: bsDown else: bsUp
     let wnd = findWindowWithX(d, ev.xbutton.window)
-    let button = case ev.xbutton.button
-      of 1: VirtualKey.MouseButtonPrimary
-      of 2: VirtualKey.MouseButtonMiddle
-      of 3: VirtualKey.MouseButtonSecondary
-      else: VirtualKey.Unknown
     let pos = newPoint(ev.xbutton.x.Coord, ev.xbutton.y.Coord) / wnd.pixelRatio
-    e = newMouseButtonEvent(pos, button, state)
-    e.window = wnd
+    if ev.xbutton.button in 4.cuint .. 7.cuint:
+      # This is a scroll event
+      e = newEvent(etScroll, pos)
+      e.window = wnd
+      const multiplierX = 30.0
+      const multiplierY = -30.0
+      case ev.xbutton.button
+      of 4: e.offset.y = multiplierY
+      of 5: e.offset.y = -multiplierY
+      of 6: e.offset.x = multiplierX
+      of 7: e.offset.x = -multiplierY
+      else: discard # Can't happen
+    else:
+      let state = if ev.theType == ButtonPress: bsDown else: bsUp
+      let button = case ev.xbutton.button
+        of 1: VirtualKey.MouseButtonPrimary
+        of 2: VirtualKey.MouseButtonMiddle
+        of 3: VirtualKey.MouseButtonSecondary
+        else: VirtualKey.Unknown
+      e = newMouseButtonEvent(pos, button, state)
     result.add(e)
 
   of MotionNotify:
