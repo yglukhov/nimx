@@ -23,6 +23,7 @@ type VirtualKey* {.pure.} = enum
     MouseButtonSecondary
     MouseButtonMiddle
     Escape
+    Zero
     One
     Two
     Three
@@ -32,46 +33,46 @@ type VirtualKey* {.pure.} = enum
     Seven
     Eight
     Nine
-    Zero
     Minus
     Equals
     Backspace
     Tab
-    Q
-    W
-    E
-    R
-    T
-    Y
-    U
-    I
-    O
-    P
     LeftBracket
     RightBracket
     Return
 
     A
-    S
+    B
+    C
     D
+    E
     F
     G
     H
+    I
     J
     K
     L
+    M
+    N
+    O
+    P
+    Q
+    R
+    S
+    T
+    U
+    V
+    W
+    X
+    Y
+    Z
+
     Semicolon
     Apostrophe
     Backtick
 
     BackSlash
-    Z
-    X
-    C
-    V
-    B
-    N
-    M
     Comma
     Period
     Slash
@@ -142,7 +143,6 @@ type VirtualKey* {.pure.} = enum
     Lang2
     International3
 
-
     Stop
     Again
     Undo
@@ -193,8 +193,19 @@ type ModifiersSet* = distinct int16
 
 {.push inline.}
 
-proc isModifier*(vk:VirtualKey):bool =
-    result = vk.int >= VirtualKey.LeftControl.int and vk.int <= VirtualKey.RightGUI.int
+proc isModifier*(vk: VirtualKey): bool =
+    vk in VirtualKey.LeftControl .. VirtualKey.RightGUI
+
+proc toAscii*(vk: VirtualKey): char =
+    case vk
+    of VirtualKey.A .. VirtualKey.Z:
+        char(ord(vk) - ord(VirtualKey.A) + ord('a'))
+    of VirtualKey.Zero .. VirtualKey.Nine:
+        char(ord(vk) - ord(VirtualKey.Zero) + ord('0'))
+    of VirtualKey.Space:
+        ' '
+    else:
+        char(0)
 
 proc incl*(s: var ModifiersSet, vk: VirtualKey) =
     assert(vk.isModifier)
@@ -206,19 +217,19 @@ proc excl*(s: var ModifiersSet, vk: VirtualKey) =
 
 proc contains*(s: ModifiersSet, vk: VirtualKey): bool =
     assert(vk.isModifier)
-    result = ((s.int16 shr vk.int16) and 1).bool
+    ((s.int16 shr vk.int16) and 1).bool
 
-proc anyCtrl*(s: ModifiersSet): bool=
-    result = VirtualKey.LeftControl in s or VirtualKey.RightControl in s
+proc anyCtrl*(s: ModifiersSet): bool =
+    VirtualKey.LeftControl in s or VirtualKey.RightControl in s
 
-proc anyAlt*(s: ModifiersSet): bool=
-    result = VirtualKey.LeftAlt in s or VirtualKey.RightAlt in s
+proc anyAlt*(s: ModifiersSet): bool =
+    VirtualKey.LeftAlt in s or VirtualKey.RightAlt in s
 
 proc anyGui*(s: ModifiersSet): bool =
-    result = VirtualKey.LeftGUI in s or VirtualKey.RightGUI in s
+    VirtualKey.LeftGUI in s or VirtualKey.RightGUI in s
 
 proc anyShift*(s: ModifiersSet): bool =
-    result = VirtualKey.LeftShift in s or VirtualKey.RightShift in s
+    VirtualKey.LeftShift in s or VirtualKey.RightShift in s
 
 proc anyOsModifier*(s: ModifiersSet): bool =
     # Cmd for MacOS, else Ctrl
@@ -234,5 +245,6 @@ proc anyOsModifier*(s: ModifiersSet): bool =
         s.anyCtrl()
 
 proc isEmpty*(s: ModifiersSet): bool = s.int16 == 0
+
 
 {.pop.}

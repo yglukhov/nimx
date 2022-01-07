@@ -10,20 +10,13 @@ import nimx/private/x11_vk_map
 # X11 impl. Nice tutorial: https://github.com/gamedevtech/X11OpenGLWindow
 
 type
-  X11Window = ref object of Window
+  X11Window* = ref object of Window
     xdisplay: PDisplay
     xwindow: x.Window
     renderingContext: GraphicsContext
 
 var defaultDisplay: PDisplay
 var allWindows {.threadvar.}: seq[X11Window]
-
-proc newXWindow(d: PDisplay, w: x.Window, r: Rect): X11Window =
-  result = X11Window(xdisplay: d, xwindow: w)
-  result.renderingContext = newGraphicsContext()
-  allWindows.add(result)
-  result.init(r)
-  mainApplication().addWindow(result)
 
 proc chooseVisual(d: PDisplay, screenId: cint): PXVisualInfo =
   var majorGLX, minorGLX: cint
@@ -43,7 +36,7 @@ proc chooseVisual(d: PDisplay, screenId: cint): PXVisualInfo =
     None]
   result = glXChooseVisual(d, screenId, addr glxAttribs[0])
 
-proc newXWindow(d: PDisplay, f: Rect): X11Window =
+proc initX11Window(w: X11Window, d: PDisplay, f: Rect) =
   let s = DefaultScreenOfDisplay(d)
   let r = RootWindowOfScreen(s)
   let blk = XBlackPixelOfScreen(s)
@@ -58,16 +51,30 @@ proc newXWindow(d: PDisplay, f: Rect): X11Window =
     PointerMotionMask or ButtonPressMask or ButtonReleaseMask or EnterWindowMask or LeaveWindowMask or
     ExposureMask
 
-  let w = XCreateWindow(d, r, f.x.cint, f.y.cint, f.width.cuint, f.height.cuint, 0, visual.depth, InputOutput, visual.visual, CWBackPixel or CWColormap or CWBorderPixel or CWEventMask or CWOverrideRedirect, addr attrs)
+  let xw = XCreateWindow(d, r, f.x.cint, f.y.cint, f.width.cuint, f.height.cuint, 0, visual.depth, InputOutput, visual.visual, CWBackPixel or CWColormap or CWBorderPixel or CWEventMask or CWOverrideRedirect, addr attrs)
 
   let ctx = glXCreateContext(d, visual, nil, 1)
-  discard glXMakeCurrent(d, w, ctx)
+  discard glXMakeCurrent(d, xw, ctx)
 
-  discard XClearWindow(d, w)
-  discard XMapRaised(d, w)
+  discard XClearWindow(d, xw)
+  discard XMapRaised(d, xw)
   discard XFlush(d)
 
-  newXWindow(d, w, f)
+  w.xdisplay = d
+  w.xwindow = xw
+  w.renderingContext = newGraphicsContext()
+  allWindows.add(w)
+  mainApplication().addWindow(w)
+  # newXWindow(d, xw, f)
+
+proc registerDisplayInDispatcher(d: PDisplay)
+
+method init*(w: X11Window, r: Rect) =
+  if defaultDisplay.isNil:
+    defaultDisplay = XOpenDisplay(nil)
+    registerDisplayInDispatcher(defaultDisplay)
+  w.initX11Window(defaultDisplay, r)
+  procCall w.Window.init(r)
 
 proc destroy(w: X11Window) =
   discard XDestroyWindow(w.xdisplay, w.xwindow)
@@ -144,7 +151,7 @@ proc eventWithXEvent(d: PDisplay, ev: var TXEvent, result: var seq[Event]) =
         e = newEvent(etTextInput)
         e.text = str
         e.window = wnd
-        result.add(e)
+        result.insert(e, 0)
 
   of KeyRelease:
     let wnd = findWindowWithX(d, ev.xkey.window)
@@ -156,16 +163,28 @@ proc eventWithXEvent(d: PDisplay, ev: var TXEvent, result: var seq[Event]) =
     result.add(e)
 
   of ButtonPress, ButtonRelease:
-    let state = if ev.theType == ButtonPress: bsDown else: bsUp
     let wnd = findWindowWithX(d, ev.xbutton.window)
-    let button = case ev.xbutton.button
-      of 1: VirtualKey.MouseButtonPrimary
-      of 2: VirtualKey.MouseButtonMiddle
-      of 3: VirtualKey.MouseButtonSecondary
-      else: VirtualKey.Unknown
     let pos = newPoint(ev.xbutton.x.Coord, ev.xbutton.y.Coord) / wnd.pixelRatio
-    e = newMouseButtonEvent(pos, button, state)
-    e.window = wnd
+    if ev.xbutton.button in 4.cuint .. 7.cuint:
+      # This is a scroll event
+      e = newEvent(etScroll, pos)
+      e.window = wnd
+      const multiplierX = 30.0
+      const multiplierY = -30.0
+      case ev.xbutton.button
+      of 4: e.offset.y = multiplierY
+      of 5: e.offset.y = -multiplierY
+      of 6: e.offset.x = multiplierX
+      of 7: e.offset.x = -multiplierY
+      else: discard # Can't happen
+    else:
+      let state = if ev.theType == ButtonPress: bsDown else: bsUp
+      let button = case ev.xbutton.button
+        of 1: VirtualKey.MouseButtonPrimary
+        of 2: VirtualKey.MouseButtonMiddle
+        of 3: VirtualKey.MouseButtonSecondary
+        else: VirtualKey.Unknown
+      e = newMouseButtonEvent(pos, button, state)
     result.add(e)
 
   of MotionNotify:
@@ -217,16 +236,14 @@ proc registerDisplayInDispatcher(d: PDisplay) =
       onXSocket(d)
 
 proc newXWindow(r: Rect): X11Window =
-  if defaultDisplay.isNil:
-    defaultDisplay = XOpenDisplay(nil)
-    registerDisplayInDispatcher(defaultDisplay)
-  newXWindow(defaultDisplay, r)
+  result.new()
+  result.init(r)
 
-newWindow = proc(r: view.Rect): Window =
-    result = newXWindow(r)
+newWindow = proc(r: Rect): Window =
+  newXWindow(r)
 
 newFullscreenWindow = proc(): Window =
-    result = newXWindow(zeroRect)
+  newXWindow(zeroRect)
 
 template runApplication*(initCode: typed) =
   block:
@@ -315,10 +332,7 @@ method animationStateChanged*(w: X11Window, state: bool) =
     asyncCheck animationLoop()
 
 when isMainModule:
-  let d = XOpenDisplay(nil)
-  registerDisplayInDispatcher(d)
-
-  let w = newXWindow(d, newRect(50, 50, 500, 500))
+  let w = newWindow(newRect(50, 50, 500, 500))
   w.setTitle("nimx test")
   echo "sz: ", getOsFrame(w)
   echo "wnd created"
@@ -329,4 +343,3 @@ when isMainModule:
   runForever()
 
   w.destroy()
-  discard XCloseDisplay(d)
