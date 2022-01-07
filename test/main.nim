@@ -72,7 +72,7 @@ proc startApplication() =
                 discard
 
     tableView.reloadData()
-    tableView.selectRow(allSamples.high)
+    tableView.selectRow(9)
 
     uiTest generalUITest:
         sendMouseDownEvent(mainWindow, newPoint(50, 60))

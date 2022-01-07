@@ -268,8 +268,8 @@ proc rebuildConstraints(v: ScrollView) =
 
     let cv = v.mContentView
     if not cv.isNil:
-        v.constraints.add(cv.layout.vars.left == v.xPos)
-        v.constraints.add(cv.layout.vars.top == v.yPos)
+        v.constraints.add(cv.layout.vars.left == v.layout.vars.left + v.xPos)
+        v.constraints.add(cv.layout.vars.top == v.layout.vars.top + v.yPos)
         v.constraints.add(cv.layout.vars.top <= v.layout.vars.top)
         v.constraints.add(cv.layout.vars.left <= v.layout.vars.left)
         var c = cv.layout.vars.bottom >= v.layout.vars.bottom
@@ -336,22 +336,25 @@ method viewWillMoveToWindow*(v: ScrollView, w: Window) =
     if v.usesNewLayout:
         let wnd = v.window
         if not wnd.isNil:
-            wnd.layoutSolver.removeEditVariable(v.xPos)
-            wnd.layoutSolver.removeEditVariable(v.yPos)
+            let s = wnd.layoutSolver
+            s.removeEditVariable(v.xPos)
+            s.removeEditVariable(v.yPos)
 
 method viewDidMoveToWindow*(v: ScrollView) =
     procCall v.View.viewDidMoveToWindow()
     if v.usesNewLayout:
         let wnd = v.window
         if not wnd.isNil:
-            wnd.layoutSolver.addEditVariable(v.xPos, WEAK)
-            wnd.layoutSolver.addEditVariable(v.yPos, WEAK)
+            let s = wnd.layoutSolver
+            s.addEditVariable(v.xPos, WEAK)
+            s.addEditVariable(v.yPos, WEAK)
 
 proc scrollToRect*(v: ScrollView, r: Rect) =
     ## If necessary scrolls to reveal the rect `r` which is in content bounds
     ## coordinates.
     if v.usesNewLayout:
-        doAssert(false, "Not implemented")
+        echo "scrollToRect is not implemented with new layout"
+        writeStackTrace()
     else:
         let cvBounds = v.clipView.bounds
         var o = cvBounds.origin
