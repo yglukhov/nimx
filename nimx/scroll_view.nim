@@ -353,8 +353,28 @@ proc scrollToRect*(v: ScrollView, r: Rect) =
     ## If necessary scrolls to reveal the rect `r` which is in content bounds
     ## coordinates.
     if v.usesNewLayout:
-        echo "scrollToRect is not implemented with new layout"
-        writeStackTrace()
+        let cv = v.mContentView
+        if not cv.isNil:
+            let cvBounds = cv.frame
+            var o = cvBounds.origin
+            if o.x + r.x < 0:
+                o.x = -r.x
+            elif r.maxX + o.x > v.bounds.maxX:
+                o.x = v.bounds.width - r.maxX
+            if o.y + r.y < 0:
+                o.y = -r.y
+            elif r.maxY + o.y > v.bounds.maxY:
+                o.y = v.bounds.height - r.maxY
+
+            let w = v.window
+            let s = if not w.isNil: w.layoutSolver else: nil
+            if s.isNil:
+                v.xPos.value = o.x
+                v.yPos.value = o.y
+            else:
+                s.suggestValue(v.xPos, o.x)
+                s.suggestValue(v.yPos, o.y)
+                v.setNeedsLayout()
     else:
         let cvBounds = v.clipView.bounds
         var o = cvBounds.origin
@@ -371,19 +391,13 @@ proc scrollToRect*(v: ScrollView, r: Rect) =
         v.recalcScrollbarKnobPositions()
 
 proc scrollToBottom*(v: ScrollView)=
-    doAssert(not v.usesNewLayout, "Not implemented")
-
     let rect = newRect(0, v.contentSize.height - v.clipView.bounds.height, v.clipView.bounds.width, v.clipView.bounds.height)
     v.scrollToRect(rect)
 
 proc scrollToTop*(v: ScrollView)=
-    doAssert(not v.usesNewLayout, "Not implemented")
-
     v.scrollToRect(newRect(0, 0, v.clipView.bounds.width, v.clipView.bounds.height))
 
 proc scrollPageUp*(v: ScrollView)=
-    doAssert(not v.usesNewLayout, "Not implemented")
-
     let cvBounds = v.clipView.bounds
     var o = cvBounds.origin
     if o.y > 0:
@@ -392,8 +406,6 @@ proc scrollPageUp*(v: ScrollView)=
     v.scrollToRect(rect)
 
 proc scrollPageDown*(v: ScrollView)=
-    doAssert(not v.usesNewLayout, "Not implemented")
-
     let cvBounds = v.clipView.bounds
     var o = cvBounds.origin
     if o.y < cvBounds.maxY:

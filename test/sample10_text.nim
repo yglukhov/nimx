@@ -31,13 +31,11 @@ method init(v: TextSampleView, r: Rect) =
     procCall v.View.init(r)
     v.makeLayout:
         - ScrollView:
-            leading == super + 50
-            trailing == super - 50
-            top == super + 50
-            bottom == super - 50
+            frame == inset(super, 50)
 
             - TextField as tv:
-                backgroundColor: newColor(0.5, 0, 0, 0.5)
+                width == super
+                backgroundColor: newColor(1.0, 0.9, 0.9)
                 multiline: true
                 text: textSample
 
