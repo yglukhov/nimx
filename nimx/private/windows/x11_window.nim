@@ -49,7 +49,7 @@ proc initX11Window(w: X11Window, d: PDisplay, f: Rect) =
   attrs.event_mask =
     KeyPressMask or KeyReleaseMask or KeymapStateMask or
     PointerMotionMask or ButtonPressMask or ButtonReleaseMask or EnterWindowMask or LeaveWindowMask or
-    ExposureMask
+    StructureNotifyMask
 
   let xw = XCreateWindow(d, r, f.x.cint, f.y.cint, f.width.cuint, f.height.cuint, 0, visual.depth, InputOutput, visual.visual, CWBackPixel or CWColormap or CWBorderPixel or CWEventMask or CWOverrideRedirect, addr attrs)
 
@@ -195,16 +195,16 @@ proc eventWithXEvent(d: PDisplay, ev: var TXEvent, result: var seq[Event]) =
     result.add(e)
 
   of EnterNotify:
-    echo "Mouse enter"
+    discard "Mouse enter"
 
   of LeaveNotify:
-    echo "Mouse leave"
+    discard "Mouse leave"
 
-  of Expose:
-    let wnd = findWindowWithX(d, ev.xexpose.window)
+  of ConfigureNotify:
+    let wnd = findWindowWithX(d, ev.xconfigure.window)
     e = newEvent(etWindowResized)
     e.window = wnd
-    e.position = newPoint(ev.xexpose.width.Coord, ev.xexpose.height.Coord) / wnd.pixelRatio
+    e.position = newPoint(ev.xconfigure.width.Coord, ev.xconfigure.height.Coord) / wnd.pixelRatio
     result.add(e)
 
   else:
