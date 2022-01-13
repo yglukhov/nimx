@@ -422,6 +422,8 @@ proc eventWithSDLEvent(event: ptr sdl2.Event): Event =
             # redraw.
             if not defaultWindow.isNil:
                 defaultWindow.setNeedsDisplay()
+        of KeymapChanged:
+            discard # What should we do with it?
         else:
             info "Unknown event: ", event.kind
             discard
