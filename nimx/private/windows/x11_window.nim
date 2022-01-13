@@ -142,7 +142,7 @@ proc eventWithXEvent(d: PDisplay, ev: var TXEvent, result: var seq[Event]) =
 
       # Some keycodes like Backspace still trigger an XLookupChars event, but we
       # don't want to generate an input event for that, so stop here
-      if e.keyCode in {Backspace}:
+      if e.keyCode in {Backspace, Return}:
         return
 
     if st in {XLookupChars, XLookupBoth} and sz != 0:
@@ -168,7 +168,6 @@ proc eventWithXEvent(d: PDisplay, ev: var TXEvent, result: var seq[Event]) =
     if ev.xbutton.button in 4.cuint .. 7.cuint:
       # This is a scroll event
       e = newEvent(etScroll, pos)
-      e.window = wnd
       const multiplierX = 30.0
       const multiplierY = -30.0
       case ev.xbutton.button
@@ -185,6 +184,7 @@ proc eventWithXEvent(d: PDisplay, ev: var TXEvent, result: var seq[Event]) =
         of 3: VirtualKey.MouseButtonSecondary
         else: VirtualKey.Unknown
       e = newMouseButtonEvent(pos, button, state)
+    e.window = wnd
     result.add(e)
 
   of MotionNotify:
