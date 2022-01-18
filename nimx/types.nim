@@ -53,8 +53,8 @@ proc union*(r : var Rect, x , y : Coord) =
 proc union*(r : var Rect, p: Point) =
     r.union(p.x, p.y)
 
-proc centerPoint*(r : var Rect) : Point =
-    result = newPoint(r.origin.x + r.size.width / 2, r.origin.y + r.size.height / 2 )
+proc centerPoint*(r: Rect) : Point =
+    newPoint(r.origin.x + r.size.width / 2, r.origin.y + r.size.height / 2)
 
 const zeroRect* = newRect(zeroPoint, zeroSize)
 
