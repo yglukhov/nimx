@@ -98,7 +98,7 @@ proc setDividerPosition*(v: SplitView, pos: Coord, i: int) =
 
 proc dividerPositions*(v: SplitView): seq[Coord] =
     let ln = v.subviews.len - 1
-    result = newSeq[Coord](ln)
+    result.setLen(ln)
     for i in 0 ..< ln:
         result[i] = v.dividerPosition(i)
 

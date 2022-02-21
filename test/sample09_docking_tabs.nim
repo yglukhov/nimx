@@ -1,6 +1,6 @@
 import random
 import sample_registry
-import nimx / [ view, linear_layout, button, layout ]
+import nimx / [ view, button, layout ]
 import nimx/editor/tab_view
 
 type DockingTabsSampleView = ref object of View
@@ -19,10 +19,7 @@ proc newTab(v: DockingTabsSampleView): View =
 
     proc indexOfPaneInTabView(): int =
         let tv = TabView(pane.superview)
-        for i in 0 ..< tv.tabsCount:
-            if tv.viewOfTab(i) == pane:
-                return i
-        result = -1
+        tv.tabIndex(pane)
 
     result.makeLayout:
         backgroundColor: newRandomColor()

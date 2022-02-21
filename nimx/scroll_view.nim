@@ -128,19 +128,24 @@ proc contentSize(v: ScrollView): Size =
     if not cv.isNil:
         result = cv.frame.size
 
-proc scrollPosition*(v: ScrollView): Point=
+proc scrollPosition*(v: ScrollView): Point =
     ## Result: Point where x and y between 0.0 .. 1.0
     if v.usesNewLayout:
-        doAssert(false, "Not implemented")
+        let cs = v.contentSize
+        let b = v.bounds
+        let csx = cs.width - b.width
+        let csy = cs.height - b.height
+        result.x = if csx > 0.0: b.x / csx else: 0
+        result.y = if csy > 0.0: b.y / csy else: 0
     else:
-        var cs = v.contentSize
-        result = newPoint(0.0, 0.0)
+        let cs = v.contentSize
         let csx = cs.width - v.clipView.bounds.width
         let csy = cs.height - v.clipView.bounds.height
         result.x = if csx > 0.0: v.clipView.bounds.x / csx else: 0
         result.y = if csy > 0.0: v.clipView.bounds.y / csy else: 0
 
 proc recalcScrollbarKnobPositions(v: ScrollView) =
+    echo "RECALC!"
     let sp = v.scrollPosition()
     if not v.mHorizontalScrollBar.isNil:
         v.mHorizontalScrollBar.value = sp.x
@@ -152,10 +157,13 @@ method updateLayout*(v: ScrollView) =
     if v.usesNewLayout:
         let cs = v.contentSize
         let cvBounds = v.bounds.size
+        # echo "Update"
         if not v.mVerticalScrollBar.isNil:
             v.mVerticalScrollBar.knobSize = cvBounds.height / cs.height
             v.mVerticalScrollBar.value = (v.layout.vars.y.value - v.yPos.value) / (cs.height - cvBounds.height)
             v.mVerticalScrollBar.hidden = v.mVerticalScrollBar.knobSize == 1.0
+            # echo "KS: ", v.mVerticalScrollBar.knobSize
+            # echo "CS: ", cs.height
         if not v.mHorizontalScrollBar.isNil:
             v.mHorizontalScrollBar.knobSize = cvBounds.width / cs.width
             v.mHorizontalScrollBar.value = (v.layout.vars.x.value - v.xPos.value) / (cs.width - cvBounds.width)
@@ -375,6 +383,8 @@ proc scrollToRect*(v: ScrollView, r: Rect) =
                 s.suggestValue(v.xPos, o.x)
                 s.suggestValue(v.yPos, o.y)
                 v.setNeedsLayout()
+            v.recalcScrollbarKnobPositions()
+        echo "SCROLL"
     else:
         let cvBounds = v.clipView.bounds
         var o = cvBounds.origin
