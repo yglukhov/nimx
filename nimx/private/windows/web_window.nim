@@ -245,7 +245,7 @@ proc setupEventHandlers(
   """.}
 
 proc requestAnimFrame(p: proc() {.nimcall}) {.importwasm: """
-window.requestAnimFrame(function(){try{_nime._dv(p)}catch(e) {_nime.nimerr()}})
+window.requestAnimFrame(function(){try{_nime._dv(p)}catch(e) {_nime.nimerr(); throw e;}})
 """.}
 
 proc animFrame() =
