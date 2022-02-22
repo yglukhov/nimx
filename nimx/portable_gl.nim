@@ -170,6 +170,9 @@ when defined js:
     template isEmpty*(obj: TextureRef or FramebufferRef or RenderbufferRef): bool = obj.isNil
 
 else:
+    when defined(wasm) and not defined(emscripten):
+        import wasmrt/gl
+
     type
         GL* = ref object
         FramebufferRef* = GLuint
