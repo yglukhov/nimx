@@ -396,6 +396,8 @@ proc checkSdlRoot(b: Builder) =
 proc buildSDLForDesktop(b: Builder): string =
     when defined(linux):
         result = "/usr/lib"
+    when defined(haiku):
+        result = "/system/develop/lib"
     elif defined(macosx):
         proc isValid(dir: string): bool =
             fileExists(dir / "libSDL2.a") or fileExists(dir / "libSDL2.dylib")
