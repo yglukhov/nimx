@@ -3,7 +3,12 @@ import unicode, streams, logging
 import nimx / [ types, timer, portable_gl ]
 import nimx/private/font/font_data
 
-when defined(js):
+const pureWasm = defined(wasm) and not defined(emscripten)
+
+when pureWasm:
+    import private/font/web_glyph_provider
+    type GlyphProvider = WebGlyphProvider
+elif defined(js):
     import private/font/js_glyph_provider
     type GlyphProvider = JsGlyphProvider
 else:
@@ -61,7 +66,7 @@ proc cachedImplForFont(face: string, sz: float): FontImpl =
         result.new()
         result.chars = newSimpleTable(int32, CharInfo)
         result.glyphProvider.new()
-        when defined(js):
+        when defined(js) or pureWasm:
             result.glyphProvider.setFace(face)
         else:
             result.glyphProvider.setPath(face)
@@ -141,7 +146,7 @@ proc bakeChars(f: Font, start: int32, res: CharInfo) =
     when dumpDebugBitmaps:
         dumpBitmaps("df", res.data.bitmap, res.data.bitmapWidth, res.data.bitmapHeight, start, fSize)
 
-when not defined(js):
+when not defined(js) and not pureWasm:
     proc newFontWithFile*(pathToTTFile: string, size: float): Font =
         result.new()
         result.isHorizontal = true # TODO: Support vertical fonts
@@ -181,7 +186,7 @@ when not defined(js):
 
 proc getAvailableFonts*(isSystem: bool = false): seq[string] =
     result = newSeq[string]()
-    when not defined(js) and not defined(android) and not defined(ios):
+    when not defined(js) and not defined(android) and not defined(ios) and not pureWasm:
         for f in walkFiles(getAppDir() /../ "Resources/*.ttf"):
             result.add(splitFile(f).name)
         for f in walkFiles(getAppDir() / "res/*.ttf"):
@@ -190,7 +195,7 @@ proc getAvailableFonts*(isSystem: bool = false): seq[string] =
             result.add(splitFile(f).name)
 
 proc newFontWithFace*(face: string, size: float): Font =
-    when defined(js):
+    when defined(js) or pureWasm:
         result.new()
         result.filePath = face
         result.face = face

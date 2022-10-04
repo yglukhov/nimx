@@ -187,7 +187,6 @@ proc `userConfigurable=`*(v: TabView, b: bool) =
         v.updateConfigurationButtonLayout()
         v.configurationButton.onAction do():
             let m = newMenu()
-            m.items = @[]
             template orientationItem(title: string, orientation: TabBarOrientation) =
                 let tm = newMenuItem("Tabs - " & title)
                 tm.action = proc() =

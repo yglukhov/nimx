@@ -18,6 +18,11 @@ elif defined(emscripten) or defined(wasm):
   [
     "res"
   ]
+elif defined(haiku):
+  [
+    "/system/data/fonts/otfonts",
+    "/system/data/fonts/ttfonts"
+  ]
 else:
   [
     "/usr/share/fonts/truetype",

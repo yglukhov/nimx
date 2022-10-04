@@ -275,6 +275,8 @@ proc newBuilder*(): Builder =
         newBuilder("macosx")
     elif defined(windows):
         newBuilder("windows")
+    elif defined(haiku):
+        newBuilder("haiku")
     else:
         newBuilder("linux")
 
@@ -422,6 +424,8 @@ proc buildSDLForDesktop(b: Builder): string =
                 return result
 
         assert(false, "Don't know where to find SDL. Consider setting SDL_HOME environment variable.")
+    elif defined(haiku):
+        result = "/system/develop/lib"
     else:
         assert(false, "Don't know where to find SDL")
 
