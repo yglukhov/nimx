@@ -202,8 +202,9 @@ proc toAscii*(vk: VirtualKey): char =
         char(ord(vk) - ord(VirtualKey.A) + ord('a'))
     of VirtualKey.Zero .. VirtualKey.Nine:
         char(ord(vk) - ord(VirtualKey.Zero) + ord('0'))
-    of VirtualKey.Space:
-        ' '
+    of VirtualKey.Space: ' '
+    of VirtualKey.RightBracket: ']'
+    of VirtualKey.LeftBracket: '['
     else:
         char(0)
 

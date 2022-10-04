@@ -640,10 +640,7 @@ else:
     proc loadImageFromURL*(url: string, callback: proc(i: Image)) =
         sendRequest("GET", url, "", []) do(r: Response):
             if r.statusCode >= 200 and r.statusCode < 300:
-                var data: string
-                shallowCopy(data, r.body)
-                shallow(data)
-                let s = newStringStream(data)
+                let s = newStringStream(r.body)
                 let i = newSelfContainedImage()
                 i.initWithStream(s)
                 i.setFilePath(url)

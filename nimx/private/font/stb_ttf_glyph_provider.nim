@@ -104,4 +104,7 @@ proc bakeChars*(p: StbTtfGlyphProvider, start: int32, data: var GlyphData) =
                     data.dfDoneForGlyph[indexOfGlyphInRange] = false
 
     p.clearCache()
-    shallowCopy(data.bitmap, temp_bitmap)
+    when defined(gcDestructors):
+        data.bitmap = move(temp_bitmap)
+    else:
+        shallowCopy(data.bitmap, temp_bitmap)
