@@ -32,7 +32,7 @@ method onDrop*(dd: MyDropDelegate, target: View, i: PasteboardItem) =
     let label = target.subviews[1].TextField
     label.text = "drag over: "
 
-    if i.data == "yelow":
+    if i.data == "yellow":
         target.backgroundColor = newColor(1.0, 1.0, 0.0, 1.0)
     if i.data == "green":
         target.backgroundColor = newColor(0.0, 1.0, 0.0, 1.0)
@@ -77,7 +77,7 @@ method init(v: DragAndDropView, r: Rect) =
     let draggedView1 = createDraggedView(newPoint(50, 10), "green")
     v.addSubView(draggedView1)
 
-    let draggedView2 = createDraggedView(newPoint(350, 10), "yelow")
+    let draggedView2 = createDraggedView(newPoint(350, 10), "yellow")
     draggedView2.backgroundColor = newColor(1.0, 1.0, 0.0, 1.0)
     v.addSubView(draggedView2)
 
