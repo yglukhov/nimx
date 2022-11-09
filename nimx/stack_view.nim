@@ -1,8 +1,4 @@
 import nimx/[button, view, types, color]
-import nimx/view
-import nimx/types
-import nimx/color
-
 
 type StackView* = ref object of View
 
@@ -10,7 +6,7 @@ method init*(v: StackView, r: Rect) =
     procCall v.View.init(r)
     v.backgroundColor = contentViewColor()
 
-proc recalculateContent(v: StackView)
+proc recalculateContent(v: StackView) {.gcsafe.}
 proc newStackView*(r: Rect): StackView =
     result.new()
     result.init(r)

@@ -42,7 +42,7 @@ method onScroll*(v: NumericTextField, e: var Event): bool =
         v.sendAction()
 ]#
 
-var arrowComposition = newComposition """
+const arrowComposition = newComposition """
 uniform float uAngle;
 
 void compose() {

@@ -67,7 +67,7 @@ proc initX11Window(w: X11Window, d: PDisplay, f: Rect) =
   mainApplication().addWindow(w)
   # newXWindow(d, xw, f)
 
-proc registerDisplayInDispatcher(d: PDisplay)
+proc registerDisplayInDispatcher(d: PDisplay) {.gcsafe.}
 
 method init*(w: X11Window, r: Rect) =
   if defaultDisplay.isNil:

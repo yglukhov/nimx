@@ -2,7 +2,6 @@
 import view, animation, context, font, composition, image, notification_center,
     mini_profiler, portable_gl, drag_and_drop
 import times, tables
-import image
 import kiwi
 export view
 
@@ -14,8 +13,8 @@ const DEFAULT_RUNNER = 0
 const AW_FOCUS_ENTER* = "AW_FOCUS_ENTER"
 const AW_FOCUS_LEAVE* = "AW_FOCUS_LEAVE"
 
-method `title=`*(w: Window, t: string) {.base.} = discard
-method title*(w: Window): string {.base.} = ""
+method `title=`*(w: Window, t: string) {.base, gcsafe.} = discard
+method title*(w: Window): string {.base, gcsafe.} = ""
 
 method fullscreenAvailable*(w: Window): bool {.base.} = false
 method fullscreen*(w: Window): bool {.base.} = false
@@ -26,12 +25,14 @@ var lastTime = epochTime()
 var lastFrame = 0.0
 var totalAnims = 0
 
-let fps = sharedProfiler().newDataSource(int, "FPS")
+var fps {.threadvar.}: ProfilerDataSource[int]
 
 proc updateFps() {.inline.} =
     let curTime = epochTime()
     let deltaTime = curTime - lastTime
     lastFrame = (lastFrame * 0.9 + deltaTime * 0.1)
+    if fps.isNil:
+        fps = sharedProfiler().newDataSource(int, "FPS")
     fps.value = (1.0 / lastFrame).int
     lastTime = curTime
 
@@ -46,8 +47,8 @@ when false:
         return memory
 
 
-method show*(w: Window) {.base.} = discard
-method hide*(w: Window) {.base.} = discard
+method show*(w: Window) {.base, gcsafe.} = discard
+method hide*(w: Window) {.base, gcsafe.} = discard
 
 proc shouldUseConstraintSystem(w: Window): bool {.inline.} =
     # We assume that constraint system should not be used if there are no
@@ -68,7 +69,7 @@ proc updateWindowLayout*(w: Window) =
         if newSz != oldSz:
             discard # TODO: update window size
 
-method onResize*(w: Window, newSize: Size) {.base.} =
+method onResize*(w: Window, newSize: Size) {.base, gcsafe.} =
     if w.shouldUseConstraintSystem:
         w.layoutSolver.suggestValue(w.layout.vars.width, newSize.width)
         w.layoutSolver.suggestValue(w.layout.vars.height, newSize.height)
@@ -76,7 +77,7 @@ method onResize*(w: Window, newSize: Size) {.base.} =
     else:
         procCall w.View.setFrameSize(newSize)
 
-method drawWindow*(w: Window) {.base.} =
+method drawWindow*(w: Window) {.base, gcsafe.} =
     if w.needsLayout:
         w.updateWindowLayout()
 
@@ -141,8 +142,8 @@ proc enableAnimation*(w: Window, flag: bool) =
         w.mAnimationEnabled = flag
         w.animationStateChanged(flag)
 
-method startTextInput*(w: Window, r: Rect) {.base.} = discard
-method stopTextInput*(w: Window) {.base.} = discard
+method startTextInput*(w: Window, r: Rect) {.base, gcsafe.} = discard
+method stopTextInput*(w: Window) {.base, gcsafe.} = discard
 
 proc runAnimations*(w: Window) =
     # New animations can be added while in the following loop. They will
@@ -202,10 +203,10 @@ proc onFocusChange*(w: Window, inFocus: bool)=
     else:
         sharedNotificationCenter().postNotification(AW_FOCUS_LEAVE)
 
-var newWindow*: proc(r: Rect): Window
-var newFullscreenWindow*: proc(): Window
-var newWindowWithNative*: proc(handle: pointer, r: Rect): Window
-var newFullscreenWindowWithNative*: proc(handle: pointer): Window
+var newWindow* {.threadvar.}: proc(r: Rect): Window {.gcsafe.}
+var newFullscreenWindow* {.threadvar.}: proc(): Window {.gcsafe.}
+var newWindowWithNative* {.threadvar.}: proc(handle: pointer, r: Rect): Window {.gcsafe.}
+var newFullscreenWindowWithNative* {.threadvar.}: proc(handle: pointer): Window {.gcsafe.}
 
 method init*(w: Window, frame: Rect) =
     procCall w.View.init(frame)

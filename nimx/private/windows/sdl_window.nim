@@ -116,7 +116,7 @@ method animationStateChanged*(w: SdlWindow, state: bool) =
 
 # SDL does not provide window id in touch event info, so we add this workaround
 # assuming that touch devices may have only one window.
-var defaultWindow: SdlWindow
+var defaultWindow {.threadvar.}: SdlWindow
 
 proc flags(w: SdlWindow): cuint=
     result = SDL_WINDOW_OPENGL or SDL_WINDOW_RESIZABLE or SDL_WINDOW_ALLOW_HIGHDPI or SDL_WINDOW_HIDDEN

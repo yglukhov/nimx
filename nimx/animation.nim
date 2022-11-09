@@ -17,13 +17,13 @@ type CancelBehavior* = enum
     cbJumpToEnd
     cbContinueUntilEndOfLoop
 
-type TimingFunction* = proc(time: float): float
-type AnimationFunction* = proc(progress: float)
+type TimingFunction* = proc(time: float): float {.gcsafe.}
+type AnimationFunction* = proc(progress: float) {.gcsafe.}
 
 const MIN_LOOP_DURATION:float = 0.0
 
 type ProgressHandler = object
-    handler: proc()
+    handler: proc() {.gcsafe.}
     progress: float
     callIfCancelled: bool
 
@@ -49,7 +49,7 @@ type
     ComposeMarker* = ref object
         positionStart: float
         positionEnd: float
-        onMarkerActive: proc(p:float)
+        onMarkerActive: proc(p:float) {.gcsafe.}
         animation: Animation
         isActive: bool
 
@@ -77,12 +77,12 @@ proc addHandler(s: var seq[ProgressHandler], ph: ProgressHandler) =
     s.insert(ph,
         s.lowerBound(ph, proc (a, b: ProgressHandler): int = cmp(a.progress, b.progress)))
 
-proc addLoopProgressHandler*(a: Animation, progress: float, callIfCancelled: bool, handler: proc()) =
+proc addLoopProgressHandler*(a: Animation, progress: float, callIfCancelled: bool, handler: proc() {.gcsafe.}) =
     assert(not handler.isNil)
     addHandler(a.loopProgressHandlers, ProgressHandler(handler: handler, progress: progress,
         callIfCancelled: callIfCancelled))
 
-proc addTotalProgressHandler*(a: Animation, progress: float, callIfCancelled: bool, handler: proc()) =
+proc addTotalProgressHandler*(a: Animation, progress: float, callIfCancelled: bool, handler: proc() {.gcsafe.}) =
     assert(not handler.isNil)
     addHandler(a.totalProgressHandlers, ProgressHandler(handler: handler, progress: progress,
         callIfCancelled: callIfCancelled))
@@ -103,7 +103,7 @@ proc removeHandlers*(a: Animation) =
     a.removeTotalProgressHandlers()
     a.removeLoopProgressHandlers()
 
-method prepare*(a: Animation, st: float) {.base.} =
+method prepare*(a: Animation, st: float) {.base, gcsafe.} =
     a.finished = false
     a.startTime = st
     a.lphIt = 0
@@ -142,7 +142,7 @@ proc curvedProgress(a: Animation, p: float): float =
         curvedProgress = a.timingFunction(curvedProgress)
     result = curvedProgress
 
-method onProgress*(a: Animation, p: float) {.base.} =
+method onProgress*(a: Animation, p: float) {.base, gcsafe.} =
     if not a.onAnimate.isNil:
         a.onAnimate(a.curvedProgress(p))
 
@@ -160,7 +160,7 @@ proc totalProgress(a: Animation, t: float): float=
         if a.numberOfLoops > 0: (t - a.startTime) / (float(a.numberOfLoops) * a.loopDuration)
         else: 0.0
 
-method checkHandlers(a: Animation, oldLoop: int, lp, tp: float) {.base.} =
+method checkHandlers(a: Animation, oldLoop: int, lp, tp: float) {.base, gcsafe.} =
     if a.curLoop > oldLoop:
         if a.loopProgressHandlers.len != 0:
             processRemainingHandlersInLoop(a.loopProgressHandlers, a.lphIt, stopped=false)
@@ -192,7 +192,7 @@ proc loopFinishCheck(a: Animation, lp, tp: var float)=
         lp = 1.0
         tp = 1.0
 
-method tick*(a: Animation, t: float) {.base.} =
+method tick*(a: Animation, t: float) {.base, gcsafe.} =
     if a.pauseTime != 0: return
 
     let oldLoop = a.curLoop
@@ -209,7 +209,7 @@ proc cancel*(a: Animation) =
 
 proc isCancelled*(a: Animation): bool = a.cancelLoop != -1
 
-proc onComplete*(a: Animation, p: proc()) =
+proc onComplete*(a: Animation, p: proc() {.gcsafe.}) =
     a.addTotalProgressHandler(1.0, true, p)
 
 # Bezier curves timing stuff.
@@ -270,7 +270,7 @@ proc animateValue*[T](fromValue, toValue: T, cb: proc(value: T)): AnimationFunct
     result = proc(progress: float) =
         cb((toValue - fromValue) * progress)
 
-proc chainOnAnimate*(a: Animation, oa: proc(p: float)) {.deprecated.} = #use addOnAnimate instead of this proc
+proc chainOnAnimate*(a: Animation, oa: proc(p: float) {.gcsafe.}) {.deprecated.} = #use addOnAnimate instead of this proc
     if a.onAnimate.isNil:
         a.onAnimate = oa
     else:
@@ -279,7 +279,7 @@ proc chainOnAnimate*(a: Animation, oa: proc(p: float)) {.deprecated.} = #use add
             oldProc(p)
             oa(p)
 
-proc addOnAnimate*(a: Animation, oa: proc(p: float)): Animation =
+proc addOnAnimate*(a: Animation, oa: proc(p: float) {.gcsafe.}): Animation =
     result.new()
     result.numberOfLoops = a.numberOfLoops
     result.loopPattern = a.loopPattern
@@ -314,7 +314,7 @@ proc newComposeMarker*(pStart, pEnd: float, a: Animation): ComposeMarker=
     result.animation = a
 
 proc addComposeMarker(m: CompositAnimation, marker: ComposeMarker) =
-    marker.onMarkerActive = proc(p: float)=
+    marker.onMarkerActive = proc(p: float) =
         var a = marker.animation
         if marker.isActive:
             let diff = m.loopDuration * (p - marker.positionStart)
@@ -339,7 +339,7 @@ proc newCompositAnimation*(duration: float, markers: varargs[ComposeMarker]): Co
 
 proc newCompositAnimation*(parallelMode: bool, anims: varargs[Animation]): CompositAnimation =
     var duration = 0.0
-    var markers = newSeq[ComposeMarker]()
+    var markers: seq[ComposeMarker]
     if parallelMode:
         for a in anims:
             duration = max(a.loopDuration * a.numberOfLoops.float, duration)
@@ -373,7 +373,7 @@ proc isDirectionForward(m: CompositAnimation, p: float): bool =
     elif m.loopPattern == lpEndToStartToEnd and p < 0.5:
         result = false
 
-iterator markersAtProgress(m: CompositAnimation, p: float, directionChanged: bool): ComposeMarker=
+iterator markersAtProgress(m: CompositAnimation, p: float, directionChanged: bool): ComposeMarker =
     for marker in m.mMarkers:
         var m: ComposeMarker
         if (p >= marker.positionStart and p < marker.positionEnd) and not directionChanged:
@@ -409,7 +409,7 @@ method prepare*(m: CompositAnimation, t: float)=
         cm.animation.cancelLoop = -1
         cm.isActive = false
 
-method onProgress*(m: CompositAnimation, p: float) =
+method onProgress*(m: CompositAnimation, p: float) {.gcsafe.} =
     let cp = m.curvedProgress(p)
     var directionForward = m.isDirectionForward(p)
     let directionChangedR = m.mPrevDirection and directionForward == false

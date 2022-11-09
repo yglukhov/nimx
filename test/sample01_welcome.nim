@@ -54,7 +54,7 @@ method init(v: WelcomeView, r: Rect) =
     v.addSubview(cc)
     cc.trackMouseOver(true)
 
-var gradientComposition = newComposition """
+const gradientComposition = newComposition """
 void compose() {
     vec4 color = gradient(smoothstep(bounds.x, bounds.x + bounds.z, vPos.x),
         newGrayColor(0.7),

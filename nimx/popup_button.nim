@@ -52,7 +52,7 @@ proc `selectedIndex=`*(b: PopupButton, index: int) =
   b.mSelectedIndex = index
   b.setNeedsDisplay()
 
-var pbComposition = newComposition """
+const pbComposition = newComposition """
 uniform vec4 uFillColorStart;
 uniform vec4 uFillColorEnd;
 

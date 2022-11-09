@@ -90,26 +90,26 @@ type Deserializer* = ref object of RootObj
     curIndex*: int
 
 # Methods to override
-method deserialize*(s: Deserializer, v: var bool) {.base.} = abstractCall()
+method deserialize*(s: Deserializer, v: var bool) {.base, gcsafe.} = abstractCall()
 
-method deserialize(s: Deserializer, v: var int8) {.base.} = abstractCall()
-method deserialize(s: Deserializer, v: var int16) {.base.} = abstractCall()
-method deserialize(s: Deserializer, v: var int32) {.base.} = abstractCall()
-method deserialize(s: Deserializer, v: var int64) {.base.} = abstractCall()
+method deserialize(s: Deserializer, v: var int8) {.base, gcsafe.} = abstractCall()
+method deserialize(s: Deserializer, v: var int16) {.base, gcsafe.} = abstractCall()
+method deserialize(s: Deserializer, v: var int32) {.base, gcsafe.} = abstractCall()
+method deserialize(s: Deserializer, v: var int64) {.base, gcsafe.} = abstractCall()
 
-method deserialize(s: Deserializer, v: var uint8) {.base.} = abstractCall()
-method deserialize(s: Deserializer, v: var uint16) {.base.} = abstractCall()
-method deserialize(s: Deserializer, v: var uint32) {.base.} = abstractCall()
-method deserialize(s: Deserializer, v: var uint64) {.base.} = abstractCall()
+method deserialize(s: Deserializer, v: var uint8) {.base, gcsafe.} = abstractCall()
+method deserialize(s: Deserializer, v: var uint16) {.base, gcsafe.} = abstractCall()
+method deserialize(s: Deserializer, v: var uint32) {.base, gcsafe.} = abstractCall()
+method deserialize(s: Deserializer, v: var uint64) {.base, gcsafe.} = abstractCall()
 
-method deserialize(s: Deserializer, v: var float32) {.base.} = abstractCall()
-method deserialize(s: Deserializer, v: var float64) {.base.} = abstractCall()
+method deserialize(s: Deserializer, v: var float32) {.base, gcsafe.} = abstractCall()
+method deserialize(s: Deserializer, v: var float64) {.base, gcsafe.} = abstractCall()
 
-method deserialize*(s: Deserializer, v: var string) {.base.} = abstractCall()
+method deserialize*(s: Deserializer, v: var string) {.base, gcsafe.} = abstractCall()
 
-method beginObject*(s: Deserializer) {.base.} = abstractCall()
-method beginArray*(s: Deserializer): int {.base.} = -1
-method endObjectOrArray*(s: Deserializer) {.base.} = abstractCall()
+method beginObject*(s: Deserializer) {.base, gcsafe.} = abstractCall()
+method beginArray*(s: Deserializer): int {.base, gcsafe.} = -1
+method endObjectOrArray*(s: Deserializer) {.base, gcsafe.} = abstractCall()
 
 template deserialize*(s: Deserializer, v: var int) =
     when sizeof(int) <= 4:
@@ -126,15 +126,15 @@ template deserialize*(s: Deserializer, k: string,  v: untyped) =
     s.deserialize(k, desv)
     v = desv
 
-proc deserialize*[T](s: Deserializer, k: string, v: var T) {.inline.} =
+proc deserialize*[T](s: Deserializer, k: string, v: var T) {.inline, gcsafe.} =
     s.curKey = k
     s.deserialize(v)
 
-method deserializeFields*(o: RootRef, s: Deserializer) {.base.} = discard
+method deserializeFields*(o: RootRef, s: Deserializer) {.base, gcsafe.} = discard
 
 template typeOfSetElem[T](s: set[T]): typedesc = T
 
-proc deserialize*[T](s: Deserializer, o: var T) =
+proc deserialize*[T](s: Deserializer, o: var T) {.gcsafe.} =
     when o is object | tuple:
         s.beginObject()
         for k, v in fieldPairs(o):

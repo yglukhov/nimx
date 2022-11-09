@@ -71,7 +71,7 @@ type
         rightMargin:     Coord               ## Circle offset (layout-helper)
 
         # Callbacks
-        onColorSelected*: proc(c: Color)
+        onColorSelected*: proc(c: Color) {.gcsafe.}
 
 template enclosingColorPickerView(v: View): ColorPickerView = v.enclosingViewOfType(ColorPickerView)
 
@@ -146,7 +146,7 @@ proc newColorPickerH(r: Rect): ColorPickerH =
 method init(cph: ColorPickerH, r: Rect) =
     procCall cph.View.init(r)
 
-var cpHComposition = newComposition """
+const cpHComposition = newComposition """
     uniform float uChosenH;
 
     vec4 cHQuad() {
@@ -198,7 +198,7 @@ method onTextInput(ccf: ColorComponentTextField, s: string): bool =
 
     return true
 
-method onTouchEv(cph: ColorPickerH, e: var Event): bool =
+method onTouchEv(cph: ColorPickerH, e: var Event): bool {.gcsafe.}=
     let cpv = cph.enclosingColorPickerView()
 
     if e.buttonState == bsUp or true:
@@ -222,7 +222,7 @@ proc newColorPickerS(r: Rect): ColorPickerS =
 method init(cps: ColorPickerS, r: Rect) =
     procCall cps.View.init(r)
 
-var cpSComposition = newComposition """
+const cpSComposition = newComposition """
     uniform float uHcps;
     uniform float uChosenS;
 
@@ -271,7 +271,7 @@ proc newColorPickerV(r: Rect): ColorPickerV =
 method init(cpv: ColorPickerV, r: Rect) =
     procCall cpv.View.init(r)
 
-var cpVComposition = newComposition """
+const cpVComposition = newComposition """
     uniform float uHcpv;
     uniform float uChosenV;
 
@@ -320,7 +320,7 @@ proc newColorPickerCircle(defaultPalette: ColorPickerPalette, radius: Coord, fra
 proc radius*(cpc: ColorPickerCircle): Coord = cpc.radius
     ## Get Color Picker Circle Radius
 
-var hsvCircleComposition = newComposition """
+const hsvCircleComposition = newComposition """
     uniform float uHsvValue;
     uniform float uChosenH;
 

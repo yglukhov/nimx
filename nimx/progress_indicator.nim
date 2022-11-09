@@ -13,7 +13,7 @@ type ProgressIndicator* = ref object of View
     mIndeterminate: bool
     animation: Animation
 
-var piComposition = newComposition """
+const piComposition = newComposition """
 uniform float uPosition;
 
 float radius = 5.0;
@@ -35,7 +35,7 @@ void compose() {
 }
 """
 
-var indeterminateComposition = newComposition """
+const indeterminateComposition = newComposition """
 uniform float uPosition;
 
 float radius = 5.0;

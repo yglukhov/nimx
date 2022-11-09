@@ -46,7 +46,7 @@ method init*(v: PanelView, r: Rect) =
                 v.collapsed = not v.collapsed
     ))
 
-var gradientComposition = newComposition """
+const gradientComposition = newComposition """
 void compose() {
     vec4 color = gradient(
         smoothstep(bounds.y, 27.0, vPos.y),

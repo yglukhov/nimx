@@ -9,7 +9,7 @@ type ScrollView* = ref object of View
     mContentView: View
     clipView: ClipView # [Deprecated old layout]
     mHorizontalScrollBar, mVerticalScrollBar: ScrollBar
-    mOnScrollCallback: proc()
+    mOnScrollCallback: proc() {.gcsafe.}
     constraints: seq[Constraint]
     xPos, yPos: Variable # Scroll positions
 
@@ -25,9 +25,9 @@ method init*(v: ScrollView, r: Rect) =
         v.addSubview(ScrollBar.new(newRect(0, 0, 10, 0)))
         v.addSubview(ScrollBar.new(newRect(0, 0, 0, 10)))
 
-proc onScrollBar(v: ScrollView, sb: ScrollBar)
+proc onScrollBar(v: ScrollView, sb: ScrollBar) {.gcsafe.}
 
-proc onScroll*(v: ScrollView, cb: proc())=
+proc onScroll*(v: ScrollView, cb: proc() {.gcsafe.}) =
     v.mOnScrollCallback = cb
 
 proc relayout(v: ScrollView) = # [Deprecated old layout]
@@ -71,7 +71,7 @@ proc `verticalScrollBar=`*(v: ScrollView, s: ScrollBar) =
 template horizontalScrollBar*(v: ScrollView): ScrollBar = v.mHorizontalScrollBar
 template verticalScrollBar*(v: ScrollView): ScrollBar = v.mVerticalScrollBar
 
-proc recalcScrollKnobSizes(v: ScrollView)
+proc recalcScrollKnobSizes(v: ScrollView) {.gcsafe.}
 
 proc newScrollView*(r: Rect): ScrollView = # [Deprecated old layout]
     result.new()

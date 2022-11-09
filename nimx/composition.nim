@@ -257,7 +257,7 @@ const vertexShaderCode = getGLSLVertexShader(vertexShader)
 type
     PostEffect* = ref object
         source*: string
-        setupProc*: proc(cc: CompiledComposition)
+        setupProc*: proc(cc: CompiledComposition) {.gcsafe.}
         mainProcName*: string
         seenFlag: bool # Used on compilation phase, should not be used elsewhere.
         id*: int
@@ -274,10 +274,9 @@ type
         vsDefinition: string # Vertex shader source code
         precision: string
         requiresPrequel: bool
-        options*: int
         id*: int
 
-var programCache = initTable[Hash, CompiledComposition]()
+var programCache {.threadvar.}: Table[Hash, CompiledComposition]
 
 
 const posAttr : GLuint = 0
@@ -346,10 +345,10 @@ template newCompositionWithNimsl*(mainProc: typed): Composition =
 
 type PostEffectStackElem = object
     postEffect: PostEffect
-    setupProc*: proc(cc: CompiledComposition)
+    setupProc*: proc(cc: CompiledComposition) {.gcsafe.}
 
-var postEffectStack = newSeq[PostEffectStackElem]()
-var postEffectIdStack = newSeq[Hash]()
+var postEffectStack {.threadvar.}: seq[PostEffectStackElem]
+var postEffectIdStack {.threadvar.}: seq[Hash]
 
 proc getPostEffectUniformName(postEffectIndex, argIndex: int, output: var string) =
     output &= "uPE_"
@@ -361,7 +360,7 @@ proc postEffectUniformName(postEffectIndex, argIndex: int): string =
     result = ""
     getPostEffectUniformName(postEffectIndex, argIndex, result)
 
-proc compileComposition*(gl: GL, comp: Composition, cchash: Hash): CompiledComposition =
+proc compileComposition*(gl: GL, comp: Composition, cchash: Hash, compOptions: int): CompiledComposition =
     var fragmentShaderCode = ""
 
     if (comp.definition.len != 0 and comp.definition.find("GL_OES_standard_derivatives") < 0) or comp.requiresPrequel:
@@ -384,9 +383,9 @@ proc compileComposition*(gl: GL, comp: Composition, cchash: Hash): CompiledCompo
             colorOperations
 
     var options = ""
-    if comp.options != 0:
+    if compOptions != 0:
         for i in 0 ..< 32:
-            if ((1 shl i) and comp.options) != 0:
+            if ((1 shl i) and compOptions) != 0:
                 options &= "#define OPTION_" & $(i + 1) & "\n"
         fragmentShaderCode &= options
 
@@ -517,12 +516,12 @@ template popPostEffect*() =
 template hasPostEffect*(): bool =
     postEffectStack.len > 0
 
-template getCompiledComposition*(gl: GL, comp: Composition): CompiledComposition =
+template getCompiledComposition*(gl: GL, comp: Composition, options: int = 0): CompiledComposition =
     let pehash = if postEffectIdStack.len > 0: postEffectIdStack[^1] else: 0
-    let cchash = !$(pehash !& comp.id !& comp.options)
+    let cchash = !$(pehash !& comp.id !& options)
     var cc = programCache.getOrDefault(cchash)
     if cc.isNil:
-        cc = gl.compileComposition(comp, cchash)
+        cc = gl.compileComposition(comp, cchash, options)
     cc.iUniform = -1
     cc.iTexIndex = 0
     cc
@@ -544,7 +543,7 @@ template GetDIPValue*() : int =
 template ResetDIPValue*() =
     DIPValue = 0
 
-template draw*(comp: var Composition, r: Rect, code: untyped) =
+template draw*(comp: Composition, r: Rect, code: untyped) =
     block:
         let ctx = currentContext()
         let gl = ctx.gl
@@ -573,6 +572,6 @@ template draw*(comp: var Composition, r: Rect, code: untyped) =
         gl.drawArrays(gl.TRIANGLE_FAN, 0, vertexCount)
         gl.bindBuffer(gl.ARRAY_BUFFER, invalidBuffer)
 
-template draw*(comp: var Composition, r: Rect) =
+template draw*(comp: Composition, r: Rect) =
     comp.draw r:
         discard

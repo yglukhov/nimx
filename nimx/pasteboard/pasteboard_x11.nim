@@ -34,14 +34,17 @@ proc displayConnection(): (PDisplay, TWindow, TWindow) =
 
     let res = keyWnd.SdlWindow.getSDLWindow().getWMInfo(winInfo)
     let wi = cast[ptr WMinfoX11](addr winInfo)
-    let diplay = wi.display
+    let display = wi.display
 
-    if res == False32 or winInfo.subsystem != SysWM_X11 or diplay.isNil:
+    if res == False32 or winInfo.subsystem != SysWM_X11 or display.isNil:
         return
 
-    (diplay, wi.window, DefaultRootWindow(diplay))
+    var rw: TWindow
+    {.gcsafe.}:
+      rw = DefaultRootWindow(display)
+    (display, wi.window, rw)
 
-proc pbWrite(p: Pasteboard, pi_ar: varargs[PasteboardItem])=
+proc pbWrite(p: Pasteboard, pi_ar: varargs[PasteboardItem]) =
     let (display, window, rootWindow) = displayConnection()
     if display.isNil: return
 

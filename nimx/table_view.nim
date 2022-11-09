@@ -21,11 +21,11 @@ type
 
   TableView* = ref object of View
     numberOfColumns*: int
-    numberOfRows*: proc (): int
-    mCreateCell: proc(column: int): TableViewCell
-    configureCell*: proc (cell: TableViewCell)
-    heightOfRow*: proc (row: int): Coord
-    onSelectionChange*: proc()
+    numberOfRows*: proc (): int {.gcsafe.}
+    mCreateCell: proc(column: int): TableViewCell {.gcsafe.}
+    configureCell*: proc (cell: TableViewCell) {.gcsafe.}
+    heightOfRow*: proc (row: int): Coord {.gcsafe.}
+    onSelectionChange*: proc() {.gcsafe.}
 
     defaultRowHeight*: Coord
     defaultColWidth*: Coord
@@ -36,18 +36,18 @@ type
     initiallyClickedRow: int
     constraints: seq[Constraint]
 
-proc `createCell=`*(v: TableView, p: proc(): TableViewCell) =
+proc `createCell=`*(v: TableView, p: proc(): TableViewCell {.gcsafe.}) =
     v.mCreateCell = proc(c: int): TableViewCell =
         p()
 
-proc `createCell=`*(v: TableView, p: proc(column: int): TableViewCell) =
+proc `createCell=`*(v: TableView, p: proc(column: int): TableViewCell {.gcsafe.}) =
     v.mCreateCell = p
 
 proc newTableView*(r: Rect): TableView = # [Deprecated old layout]
     result.new()
     result.init(r)
 
-proc rebuildConstraints(v: TableView)
+proc rebuildConstraints(v: TableView) {.gcsafe.}
 
 method init*(v: TableView, r: Rect) =
     procCall v.View.init(r)

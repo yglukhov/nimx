@@ -9,7 +9,7 @@ type EventFilterControl* = enum
     efcContinue
     efcBreak
 
-type EventFilter* = proc(evt: var Event, control: var EventFilterControl): bool
+type EventFilter* = proc(evt: var Event, control: var EventFilterControl): bool {.gcsafe.}
 
 type Application* = ref object of RootObj
     windows : seq[Window]
@@ -25,7 +25,7 @@ proc newApplication(): Application =
     result.eventFilters = @[]
     result.inputState = {}
 
-var mainApp : Application
+var mainApp {.threadvar.}: Application
 
 proc mainApplication*(): Application =
     if mainApp.isNil:

@@ -95,7 +95,7 @@ proc newCursor*(k: CursorKind): Cursor =
         else:
             result.c = createSystemCursor(cursorKindToSdl(k))
 
-var gCursor: Cursor
+var gCursor {.threadvar.}: Cursor
 proc currentCursor*(): Cursor =
     if gCursor.isNil:
         gCursor = newCursor(ckArrow)

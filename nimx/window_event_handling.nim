@@ -61,7 +61,7 @@ method onKeyDown*(w: Window, e: var Event): bool =
 
         return true
 
-method handleEvent*(w: Window, e: var Event): bool {.base.} =
+method handleEvent*(w: Window, e: var Event): bool {.base, gcsafe.} =
     case e.kind:
         of etScroll:
             result = w.processMouseWheelEvent(e)

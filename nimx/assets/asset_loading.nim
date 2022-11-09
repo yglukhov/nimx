@@ -1,23 +1,23 @@
 import os, streams, variant, logging
 import asset_cache, url_stream
 
-type UrlLoaderProc* = proc(url, path: string, cache: AssetCache, handler: proc())
-type SimpleUrlLoaderProc*[T] = proc(url: string, handler: proc(v: T))
-type StreamLoaderProc* = proc(s: Stream, path: string, cache: AssetCache, handler: proc())
-type SimpleStreamLoaderProc*[T] = proc(s: Stream, handler: proc(v: T))
+type UrlLoaderProc* = proc(url, path: string, cache: AssetCache, handler: proc() {.gcsafe.}) {.gcsafe.}
+type SimpleUrlLoaderProc*[T] = proc(url: string, handler: proc(v: T) {.gcsafe.}) {.gcsafe.}
+type StreamLoaderProc* = proc(s: Stream, path: string, cache: AssetCache, handler: proc() {.gcsafe.}) {.gcsafe.}
+type SimpleStreamLoaderProc*[T] = proc(s: Stream, handler: proc(v: T) {.gcsafe.}) {.gcsafe.}
 
 
 const anyUrlScheme = "_"
 
-var assetLoaders = newSeq[tuple[urlSchemes: seq[string], extensions: seq[string], loader: UrlLoaderProc]]()
+var assetLoaders {.threadvar.}: seq[tuple[urlSchemes: seq[string], extensions: seq[string], loader: UrlLoaderProc]]
 
-var hackyResUrlLoader*: proc(url, path: string, cache: AssetCache, handler: proc(err: string))
+var hackyResUrlLoader* {.threadvar.}: proc(url, path: string, cache: AssetCache, handler: proc(err: string) {.gcsafe.}) {.gcsafe.}
 
 proc registerAssetLoader*(urlSchemes: openarray[string], fileExtensions: openarray[string], loader: UrlLoaderProc) =
     assetLoaders.add((@urlSchemes, @fileExtensions, loader))
 
 proc registerAssetLoader*[T](urlSchemes: openarray[string], fileExtensions: openarray[string], simpleLoader: SimpleUrlLoaderProc[T]) =
-    let loader = proc(url, path: string, cache: AssetCache, handler: proc()) =
+    let loader = proc(url, path: string, cache: AssetCache, handler: proc() {.gcsafe.}) =
         simpleLoader(url) do(v: T):
             cache.registerAsset(path, v)
             handler()
@@ -32,7 +32,7 @@ proc registerAssetLoader*[T](fileExtensions: openarray[string], loader: SimpleUr
 
 # Stream variants
 proc registerAssetLoader*(fileExtensions: openarray[string], streamLoader: StreamLoaderProc) =
-    let loader = proc(url, path: string, cache: AssetCache, handler: proc()) =
+    let loader = proc(url, path: string, cache: AssetCache, handler: proc() {.gcsafe.}) =
         openStreamForUrl(url) do(s: Stream, err: string):
             if err.len == 0:
                 streamLoader(s, path, cache, handler)
@@ -41,7 +41,7 @@ proc registerAssetLoader*(fileExtensions: openarray[string], streamLoader: Strea
     registerAssetLoader([anyUrlScheme], fileExtensions, loader)
 
 proc registerAssetLoader*[T](fileExtensions: openarray[string], streamLoader: SimpleStreamLoaderProc[T]) =
-    let loader = proc(url, path: string, cache: AssetCache, handler: proc()) =
+    let loader = proc(url, path: string, cache: AssetCache, handler: proc() {.gcsafe.}) =
         openStreamForUrl(url) do(s: Stream, err: string):
             if err.len == 0:
                 streamLoader(s) do(v: T):
@@ -60,7 +60,7 @@ proc urlScheme(s: string): string =
 proc getExt(path: string): string =
     path.splitFile().ext.substr(1)
 
-proc loadAsset*(url, path: string, cache: AssetCache, handler: proc()) =
+proc loadAsset*(url, path: string, cache: AssetCache, handler: proc() {.gcsafe.}) =
     let scheme = url.urlScheme()
     if scheme == "res":
         hackyResUrlLoader(url, path, cache) do(err: string):
@@ -84,7 +84,7 @@ proc loadAsset*(url, path: string, cache: AssetCache, handler: proc()) =
 
     raise newException(Exception, "No asset loader found for url: " & url)
 
-proc loadAsset*[T](url: string, handler: proc(a: T, err: string)) =
+proc loadAsset*[T](url: string, handler: proc(a: T, err: string) {.gcsafe.}) =
     let c = newAssetCache()
     loadAsset(url, "k", c) do():
         let v = c.getOrDefault("k")

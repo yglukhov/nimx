@@ -8,7 +8,7 @@ import view_event_handling
 type Slider* = ref object of Control
     mValue: Coord
 
-var sliderComposition = newComposition """
+const sliderComposition = newComposition """
 uniform float uPosition;
 
 void compose() {

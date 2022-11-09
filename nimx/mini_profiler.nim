@@ -3,7 +3,7 @@ import tables
 type
     ProfilerDataSourceBase {.inheritable, pure.} = ref object
         stringifiedValue: string
-        updateImpl: proc(ds: ProfilerDataSourceBase) {.nimcall.}
+        updateImpl: proc(ds: ProfilerDataSourceBase) {.nimcall, gcsafe.}
         isDirty: bool
 
     ProfilerDataSource*[T] = ref object of ProfilerDataSourceBase
@@ -16,10 +16,9 @@ type
 proc updateDataSource[T](ds: ProfilerDataSourceBase) {.nimcall.} =
     let ds = cast[ProfilerDataSource[T]](ds)
     ds.stringifiedValue = $ds.mValue
-    shallow(ds.stringifiedValue)
     ds.isDirty = false
 
-var gProfiler : Profiler
+var gProfiler {.threadvar.}: Profiler
 
 proc newProfiler*(): Profiler =
     result.new()

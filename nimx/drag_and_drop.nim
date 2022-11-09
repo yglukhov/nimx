@@ -13,7 +13,8 @@ type DragSystem* = ref object
     prevTarget*: View
     image*: Image
 
-var gDragSystem: DragSystem = nil
+var gDragSystem {.threadvar.}: DragSystem
+
 proc currentDragSystem*(): DragSystem =
     if gDragSystem.isNil:
         gDragSystem = new(DragSystem)
@@ -34,10 +35,10 @@ proc stopDrag*() =
 proc newDragDestinationDelegate*(): DragDestinationDelegate =
     result.new()
 
-method onDrag*(dd: DragDestinationDelegate, target: View, i: PasteboardItem) {.base.} = discard
-method onDrop*(dd: DragDestinationDelegate, target: View, i: PasteboardItem) {.base.} = discard
-method onDragEnter*(dd: DragDestinationDelegate, target: View, i: PasteboardItem) {.base.} = discard
-method onDragExit*(dd: DragDestinationDelegate, target: View, i: PasteboardItem) {.base.} = discard
+method onDrag*(dd: DragDestinationDelegate, target: View, i: PasteboardItem) {.base, gcsafe.} = discard
+method onDrop*(dd: DragDestinationDelegate, target: View, i: PasteboardItem) {.base, gcsafe.} = discard
+method onDragEnter*(dd: DragDestinationDelegate, target: View, i: PasteboardItem) {.base, gcsafe.} = discard
+method onDragExit*(dd: DragDestinationDelegate, target: View, i: PasteboardItem) {.base, gcsafe.} = discard
 
 proc findSubviewAtPoint*(v: View, p: Point, res: var View) =
     for i in countdown(v.subviews.len - 1, 0):

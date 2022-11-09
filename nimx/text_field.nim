@@ -38,9 +38,9 @@ type
 
 template len[T](s: Slice[T]): T = s.b - s.a
 
-var cursorPos = 0
-var cursorVisible = true
-var cursorUpdateTimer : Timer
+var cursorPos {.threadvar.}: int
+var cursorVisible {.threadvar.}: bool
+var cursorUpdateTimer {.threadvar.}: Timer
 
 proc selectable*(t: TextField): bool = t.mSelectable
 
@@ -60,11 +60,11 @@ proc `editable=`*(t: TextField, v: bool)=
         t.backgroundColor.a = 0.0
     t.mEditable = v
 
-var cursorOffset : Coord
+var cursorOffset {.threadvar.}: Coord
 
 const leftMargin = 3.0
 
-proc `cursorPosition=`*(t: TextField, pos: int)
+proc `cursorPosition=`*(t: TextField, pos: int) {.gcsafe.}
 
 proc `text=`*(tf: TextField, text: string) =
     tf.mText.text = text

@@ -5,7 +5,7 @@ type MenuItem* = ref object of RootObj
     title*: string
     children*: seq[MenuItem]
     # customView*: View
-    action*: proc()
+    action*: proc() {.gcsafe.}
 
 type Menu* {.deprecated.}  = MenuItem
 

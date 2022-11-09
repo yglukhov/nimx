@@ -20,7 +20,7 @@ type SegmentedControl* = ref object of Control
     clickedSegmentRect: Rect
     clickedSegment: int
 
-var scComposition = newComposition """
+const scComposition = newComposition """
 uniform vec4 uSelectedRect;
 uniform vec4 uTrackedRect;
 

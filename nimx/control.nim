@@ -3,10 +3,10 @@ import view, view_event_handling
 export view
 
 type Control* = ref object of View
-    actionHandler: proc(e: Event)
+    actionHandler: proc(e: Event) {.gcsafe.}
     clickable*: bool
 
-method sendAction*(c: Control, e: Event) {. base .} =
+method sendAction*(c: Control, e: Event) {.base, gcsafe.} =
     if not c.actionHandler.isNil:
         c.actionHandler(e)
 
@@ -14,10 +14,10 @@ proc sendAction*(c: Control) =
     # Send action with unknown event
     c.sendAction(newUnknownEvent())
 
-proc onAction*(c: Control, handler: proc(e: Event)) =
+proc onAction*(c: Control, handler: proc(e: Event) {.gcsafe.}) =
     c.actionHandler = handler
 
-proc onAction*(c: Control, handler: proc()) =
+proc onAction*(c: Control, handler: proc() {.gcsafe.}) =
     if handler.isNil:
         c.actionHandler = nil
     else:
