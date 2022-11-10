@@ -466,7 +466,7 @@ when asyncResourceLoad:
     import private/worker_queue
 
     var threadCtx : GlContextPtr
-    var loadingQueue: WorkerQueue
+    var loadingQueue {.threadvar.}: WorkerQueue
 
     type ImageLoadingCtx = ref object
         url: string
@@ -639,7 +639,7 @@ elif defined(js):
 
 else:
     import nimx/http_request
-    proc loadImageFromURL*(url: string, callback: proc(i: Image)) =
+    proc loadImageFromURL*(url: string, callback: proc(i: Image) {.gcsafe.}) =
         sendRequest("GET", url, "", []) do(r: Response):
             if r.statusCode >= 200 and r.statusCode < 300:
                 let s = newStringStream(r.body)
