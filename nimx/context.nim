@@ -390,13 +390,13 @@ proc drawNinePartImage*(c: GraphicsContext, i: Image, toRect: Rect, ml, mt, mr, 
         gl.uniform1i(uniformLocation("texUnit"), cc.iTexIndex)
         gl.bindTexture(gl.TEXTURE_2D, tex)
 
-        gl.enableVertexAttribArray(saPosition.GLuint)
+        gl.enableVertexAttribArray(ShaderAttribute.saPosition.GLuint)
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, c.gridIndexBuffer4x4)
 
         const componentsCount = 4
         const vertexCount = (4 - 1) * 4 * 2
         c.bindVertexData(componentsCount * vertexCount)
-        gl.vertexAttribPointer(saPosition.GLuint, componentsCount, gl.FLOAT, false, 0, 0)
+        gl.vertexAttribPointer(ShaderAttribute.saPosition.GLuint, componentsCount, gl.FLOAT, false, 0, 0)
         gl.drawElements(gl.TRIANGLE_STRIP, vertexCount, gl.UNSIGNED_SHORT)
 
 
@@ -448,9 +448,9 @@ proc drawBezier*(c: GraphicsContext, p0, p1, p2, p3: Point) =
     setupPosteffectUniforms(cc)
 
     const componentsCount = 2
-    gl.enableVertexAttribArray(saPosition.GLuint)
+    gl.enableVertexAttribArray(ShaderAttribute.saPosition.GLuint)
     c.bindVertexData(componentsCount * vertexCount)
-    gl.vertexAttribPointer(saPosition.GLuint, componentsCount, gl.FLOAT, false, 0, 0)
+    gl.vertexAttribPointer(ShaderAttribute.saPosition.GLuint, componentsCount, gl.FLOAT, false, 0, 0)
 
     gl.enable(GL_LINE_SMOOTH)
     when not defined(js):
