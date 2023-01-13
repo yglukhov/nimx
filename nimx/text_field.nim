@@ -82,6 +82,18 @@ proc `formattedText=`*(tf: TextField, t: FormattedText) =
 
 template formattedText*(tf: TextField): FormattedText = tf.mText
 
+template verticalAlignment*(tf: TextField): VerticalAlignment =
+    tf.mText.verticalAlignment
+
+proc `verticalAlignment=`*(tf: TextField, a: VerticalAlignment) =
+    tf.mText.verticalAlignment = a
+
+template horizontalAlignment*(tf: TextField): HorizontalTextAlignment =
+    tf.mText.horizontalAlignment
+
+proc `horizontalAlignment=`*(tf: TextField, a: HorizontalTextAlignment) =
+    tf.mText.horizontalAlignment = a 
+
 proc newTextField*(r: Rect): TextField =
     result.new()
     result.init(r)
