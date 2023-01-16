@@ -10,7 +10,7 @@ export layout_vars
 proc isViewDescNodeAux(n: NimNode): bool =
     n.kind == nnkPrefix and $n[0] == "-"
 
-proc identOrSym(n: NimNode): bool = n.kind in {nnkIdent, nnkSym}
+proc identOrSym(n: NimNode): bool = n.kind in {nnkIdent, nnkSym, nnkOpenSymChoice, nnkClosedSymChoice}
 
 proc isViewDescNode(n: NimNode): bool =
     isViewDescNodeAux(n) or
