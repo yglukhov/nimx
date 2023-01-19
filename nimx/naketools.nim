@@ -847,7 +847,7 @@ proc build*(b: Builder) =
 
     b.nimFlags.add("--putEnv:NIMX_RES_PATH=" & b.resourcePath)
     # Run Nim
-    var args = @[nimExe, command]
+    var args = @[findExe("nim").quoteShell(), command]
     args.add(b.nimFlags)
     args.add(b.nimbleOverrideFlags())
 

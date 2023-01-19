@@ -11,12 +11,12 @@ import nimx/private/x11_vk_map
 
 type
   X11Window* = ref object of Window
-    xdisplay: PDisplay
-    xwindow: x.Window
+    xdisplay*: PDisplay
+    xwindow*: x.Window
     renderingContext: GraphicsContext
 
 var defaultDisplay: PDisplay
-var allWindows {.threadvar.}: seq[X11Window]
+var allWindows* {.threadvar.}: seq[X11Window]
 
 proc chooseVisual(d: PDisplay, screenId: cint): PXVisualInfo =
   var majorGLX, minorGLX: cint
@@ -41,7 +41,7 @@ proc initX11Window(w: X11Window, d: PDisplay, f: Rect) =
   let r = RootWindowOfScreen(s)
   let blk = XBlackPixelOfScreen(s)
   let visual = chooseVisual(d, XScreenNumberOfScreen(s))
-  var attrs: TXSetWindowAttributes
+  var attrs: XSetWindowAttributes
   attrs.border_pixel = blk
   attrs.background_pixel = blk
   attrs.override_redirect = 0
@@ -69,11 +69,14 @@ proc initX11Window(w: X11Window, d: PDisplay, f: Rect) =
 
 proc registerDisplayInDispatcher(d: PDisplay) {.gcsafe.}
 
-method init*(w: X11Window, r: Rect) =
+proc getDefaultDisplay*(): PDisplay =
   if defaultDisplay.isNil:
     defaultDisplay = XOpenDisplay(nil)
     registerDisplayInDispatcher(defaultDisplay)
-  w.initX11Window(defaultDisplay, r)
+  defaultDisplay
+
+method init*(w: X11Window, r: Rect) =
+  w.initX11Window(getDefaultDisplay(), r)
   procCall w.Window.init(r)
 
 proc destroy(w: X11Window) =
@@ -109,11 +112,25 @@ method `title=`*(w: X11Window, t: string) =
 method title*(w: X11Window): string = getTitle(w)
 
 proc getOsFrame(w: X11Window): Rect =
-  var attrs: TXWindowAttributes
+  var attrs: XWindowAttributes
   discard XGetWindowAttributes(w.xdisplay, w.xwindow, addr attrs)
   newRect(attrs.x.Coord, attrs.y.Coord, attrs.width.Coord, attrs.height.Coord)
 
-proc eventWithXEvent(d: PDisplay, ev: var TXEvent, result: var seq[Event]) =
+proc modifiersFromXState(state: cuint): ModifiersSet =
+  if (state and ShiftMask) != 0:
+    result.incl(LeftShift)
+    result.incl(RightShift)
+  if (state and ControlMask) != 0:
+    result.incl(LeftControl)
+    result.incl(RightControl)
+  if (state and Mod1Mask) != 0:
+    result.incl(LeftAlt)
+    result.incl(RightAlt)
+  if (state and Mod4Mask) != 0:
+    result.incl(LeftGUI)
+    result.incl(RightGUI)
+
+proc eventWithXEvent(d: PDisplay, ev: var XEvent, result: var seq[Event]) =
   var e: Event
   case ev.theType
   of KeymapNotify:
@@ -121,8 +138,8 @@ proc eventWithXEvent(d: PDisplay, ev: var TXEvent, result: var seq[Event]) =
   of KeyPress:
 
     let im = XOpenIM(d, nil, nil, nil)
-    # var styles: ptr TXIMStyles
-    # var ximRequestedStyle: TXIMStyle
+    # var styles: ptr XIMStyles
+    # var ximRequestedStyle: XIMStyle
     # let failed = XGetIMValues(im, XNQueryInputStyle, addr styles, nil)
     # if not failed.isNil:
     #   echo "XIM Cant get styles"
@@ -138,6 +155,7 @@ proc eventWithXEvent(d: PDisplay, ev: var TXEvent, result: var seq[Event]) =
     if st in {XLookupKeySymVal, XLookupBoth}:
       e = newKeyboardEvent(virtualKeyFromNative(ks), bsDown, false)
       e.window = wnd
+      e.modifiers = modifiersFromXState(ev.xkey.state)
       result.add(e)
 
       # Some keycodes like Backspace still trigger an XLookupChars event, but we
@@ -159,6 +177,7 @@ proc eventWithXEvent(d: PDisplay, ev: var TXEvent, result: var seq[Event]) =
     var ks: TKeySym
     discard XLookupString(addr ev.xkey, addr str[0], str.len.cint, addr ks, nil).int
     e = newKeyboardEvent(virtualKeyFromNative(ks), bsUp, false)
+    e.modifiers = modifiersFromXState(ev.xkey.state)
     e.window = wnd
     result.add(e)
 
@@ -184,6 +203,7 @@ proc eventWithXEvent(d: PDisplay, ev: var TXEvent, result: var seq[Event]) =
         of 3: VirtualKey.MouseButtonSecondary
         else: VirtualKey.Unknown
       e = newMouseButtonEvent(pos, button, state)
+    e.modifiers = modifiersFromXState(ev.xbutton.state)
     e.window = wnd
     result.add(e)
 
@@ -191,6 +211,7 @@ proc eventWithXEvent(d: PDisplay, ev: var TXEvent, result: var seq[Event]) =
     let wnd = findWindowWithX(d, ev.xmotion.window)
     let pos = newPoint(ev.xmotion.x.Coord, ev.xmotion.y.Coord) / wnd.pixelRatio
     e = newMouseMoveEvent(pos)
+    e.modifiers = modifiersFromXState(ev.xmotion.state)
     e.window = wnd
     result.add(e)
 
@@ -216,7 +237,7 @@ proc animateAndDraw() =
   a.drawWindows()
 
 proc onXSocket(d: PDisplay) =
-  var ev: TXEvent
+  var ev: XEvent
   var evs = newSeqOfCap[Event](2)
   let app = mainApplication()
   while XPending(d) != 0:
@@ -279,7 +300,7 @@ proc scaleFactor(w: X11Window): float =
       XrmInitialize() # Need to initialize the DB before calling Xrm* functions
       let db = XrmGetStringDatabase(resourceString)
       if not db.isNil:
-        var value: TXrmValue
+        var value: XrmValue
         var typ: cstring
         if XrmGetResource(db, "Xft.dpi", "String", addr typ, addr value) != 0:
           if not value.address.isNil:

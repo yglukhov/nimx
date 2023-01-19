@@ -6,8 +6,14 @@ when defined(js) or defined(emscripten) or defined(wasm):
         import jsbind/emscripten
 elif appKit:
     import darwin/app_kit as apkt
-else:
+elif not defined(nimxAvoidSDL):
     import sdl2
+elif defined(linux):
+    import x11/[xlib, cursorfont]
+    import ./private/windows/x11_window
+else:
+    {.error.}
+
 
 type
     CursorKind* = enum
@@ -29,8 +35,10 @@ type
             c: jsstring
         elif appKit:
             c: pointer
-        else:
+        elif not defined(nimxAvoidSdl):
             c: CursorPtr
+        else:
+            c: cuint
 
 when defined(js) or defined(emscripten) or defined(wasm):
     proc cursorKindToCSSName(c: CursorKind): jsstring =
@@ -65,7 +73,7 @@ elif appKit:
 
     proc finalizeCursor(c: Cursor) =
         cast[NSCursor](c.c).release()
-else:
+elif not defined(nimxAvoidSdl):
     proc cursorKindToSdl(c: CursorKind): SystemCursor =
         case c
         of ckArrow: SDL_SYSTEM_CURSOR_ARROW
@@ -83,6 +91,24 @@ else:
 
     proc finalizeCursor(c: Cursor) =
         freeCursor(c.c)
+elif defined(linux):
+    proc cursorKindToX(c: CursorKind): cuint =
+        case c
+        of ckArrow: XC_arrow
+        of ckText: XC_xterm
+        of ckWait: XC_watch
+        of ckCrosshair: XC_crosshair
+        of ckWaitArrow: XC_arrow # ???
+        of ckSizeTRBL: XC_arrow # ???
+        of ckSizeTLBR: XC_arrow # ???
+        of ckSizeHorizontal: XC_sb_h_double_arrow
+        of ckSizeVertical: XC_sb_v_double_arrow
+        of ckSizeAll: XC_sizing
+        of ckNotAllowed: XC_cross_reverse
+        of ckHand: XC_hand1
+
+    proc finalizeCursor(c: Cursor) =
+        discard
 
 proc newCursor*(k: CursorKind): Cursor =
     when defined(js) or defined(emscripten) or defined(wasm):
@@ -92,8 +118,10 @@ proc newCursor*(k: CursorKind): Cursor =
         result.new(finalizeCursor)
         when appKit:
             result.c = NSCursorOfKind(k).retain()
-        else:
+        elif not defined(nimxAvoidSdl):
             result.c = createSystemCursor(cursorKindToSdl(k))
+        elif defined(linux):
+            result.c = cursorKindToX(k)
 
 var gCursor {.threadvar.}: Cursor
 proc currentCursor*(): Cursor =
@@ -114,5 +142,14 @@ proc setCurrent*(c: Cursor) =
         """, cstring(c.c))
     elif appKit:
         cast[NSCursor](c.c).setCurrent()
-    else:
+    elif not defined(nimxAvoidSdl):
         setCursor(c.c)
+    elif defined(linux):
+        if allWindows.len > 0:
+            let w = allWindows[0]
+            let d = w.xdisplay
+            let xw = w.xwindow
+
+            let cur = XCreateFontCursor(d, c.c)
+            discard XDefineCursor(d, xw, cur)
+            discard XFreeCursor(d, cur)
