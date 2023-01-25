@@ -43,12 +43,19 @@ proc rebuildConstraints(v: SplitView) =
     const minSeparatorGap = 30
 
     let numViews = v.subviews.len
-    if v.subviews.len > 0:
+    if numViews > 0:
         v.separatorPositions.setLen(numViews - 1)
+        let s = wnd.layoutSolver
+        var minPos = 400.0
         for i in 0 ..< numViews - 1:
-            if v.separatorPositions[i].isNil:
-                v.separatorPositions[i] = newVariable()
-            wnd.layoutSolver.addEditVariable(v.separatorPositions[i], 50)
+            var p = v.separatorPositions[i]
+            if p.isNil:
+                if i > 0:
+                    minPos += v.separatorPositions[i - 1].value
+                p = newVariable(minPos)
+                v.separatorPositions[i] = p
+            s.addEditVariable(p, 50)
+            s.suggestValue(p, p.value)
 
         if v.mVertical:
             # Vertical constraints
