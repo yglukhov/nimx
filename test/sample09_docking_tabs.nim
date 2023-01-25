@@ -12,7 +12,7 @@ proc newTabTitle(v: DockingTabsSampleView): string =
 
 proc newRandomColor(): Color = newColor(rand(1.0), rand(1.0), rand(1.0), 1.0)
 
-proc newTab(v: DockingTabsSampleView): View =
+proc newTab(v: DockingTabsSampleView): View {.gcsafe.} =
     result = View.new(zeroRect)
     const buttonSize = 20
     let pane = result

@@ -4,14 +4,11 @@ import logging
 
 type AnimationRunner* = ref object
     animations*: seq[Animation]
-    onAnimationAdded*: proc()
-    onAnimationRemoved*: proc()
+    onAnimationAdded*: proc() {.gcsafe.}
+    onAnimationRemoved*: proc() {.gcsafe.}
     paused: bool
 
-proc newAnimationRunner*(): AnimationRunner=
-    result = new(AnimationRunner)
-    result.animations = @[]
-    result.paused = false
+proc newAnimationRunner*(): AnimationRunner = AnimationRunner()
 
 proc pushAnimation*(ar: AnimationRunner, a: Animation) =
     if a.isNil:
@@ -60,7 +57,7 @@ proc removeAnimation*(ar: AnimationRunner, a: Animation) =
                 ar.onAnimationRemoved()
             break
 
-proc update*(ar: AnimationRunner)=
+proc update*(ar: AnimationRunner) =
 
     var index = 0
     let animLen = ar.animations.len

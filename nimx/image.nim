@@ -47,7 +47,7 @@ method filePath*(i: Image): string {.base.} = discard
 method filePath*(i: SelfContainedImage): string = i.mFilePath
 
 when not defined(js):
-    let totalImages = sharedProfiler().newDataSource(int, "Images")
+    var totalImages {.threadvar.}: ProfilerDataSource[int]
 
     proc `=destroy`(i: var SelfContainedImageObj) =
         if i.texture != invalidTexture:
@@ -61,6 +61,8 @@ proc newSelfContainedImage(): SelfContainedImage {.inline.} =
     when defined(js):
         result.new()
     else:
+        if totalImages.isNil:
+            totalImages = sharedProfiler().newDataSource(int, "Images")
         inc totalImages
         when defined(gcDestructors):
             result = SelfContainedImage()
@@ -253,7 +255,7 @@ proc imageWithSize*(size: Size): SelfContainedImage =
     result.texCoords[2] = size.width / result.texWidth.Coord
     result.texCoords[3] = size.height / result.texHeight.Coord
 
-method isLoaded*(i: Image): bool {.base.} = false
+method isLoaded*(i: Image): bool {.base, gcsafe.} = false
 
 method isLoaded*(i: SelfContainedImage): bool =
     when defined(js):
@@ -265,16 +267,16 @@ method isLoaded*(i: SelfContainedImage): bool =
 
 method isLoaded*(i: FixedTexCoordSpriteImage): bool = i.spriteSheet.isLoaded
 
-method getTextureQuad*(i: Image, gl: GL, texCoords: var array[4, GLfloat]): TextureRef {.base.} =
+method getTextureQuad*(i: Image, gl: GL, texCoords: var array[4, GLfloat]): TextureRef {.base, gcsafe.} =
     raise newException(Exception, "Abstract method called!")
 
-method serialize*(s: Serializer, v: Image) {.base.} =
+method serialize*(s: Serializer, v: Image) {.base, gcsafe.} =
     var path = ""
     if v of SelfContainedImage:
         path = v.SelfContainedImage.mFilePath
     s.serialize("imagePath", path)
 
-method deserialize*(s: Deserializer, v: var Image) {.base.} =
+method deserialize*(s: Deserializer, v: var Image) {.base, gcsafe.} =
     var imagePath: string
     s.deserialize("imagePath", imagePath)
     if imagePath.len > 0:
@@ -464,7 +466,7 @@ when asyncResourceLoad:
     import private/worker_queue
 
     var threadCtx : GlContextPtr
-    var loadingQueue: WorkerQueue
+    var loadingQueue {.threadvar.}: WorkerQueue
 
     type ImageLoadingCtx = ref object
         url: string
@@ -637,7 +639,7 @@ elif defined(js):
 
 else:
     import nimx/http_request
-    proc loadImageFromURL*(url: string, callback: proc(i: Image)) =
+    proc loadImageFromURL*(url: string, callback: proc(i: Image) {.gcsafe.}) =
         sendRequest("GET", url, "", []) do(r: Response):
             if r.statusCode >= 200 and r.statusCode < 300:
                 let s = newStringStream(r.body)
@@ -652,7 +654,7 @@ when web:
     registerAssetLoader(["file", "http", "https"], ["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga", "webp"]) do(url: string, handler: proc(i: Image)):
         loadImageFromURL(url, handler)
 else:
-    registerAssetLoader(["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga", "pvr", "webp"]) do(url: string, handler: proc(i: Image)):
+    registerAssetLoader(["png", "jpg", "jpeg", "gif", "tif", "tiff", "tga", "pvr", "webp"]) do(url: string, handler: proc(i: Image) {.gcsafe.}):
         when asyncResourceLoad:
             var ctx: ImageLoadingCtx
             ctx.new()

@@ -17,8 +17,8 @@ type
 
     CollectionView* = ref object of View
         # public
-        viewForItem*:   proc(i: int): View
-        numberOfItems*: proc(): int
+        viewForItem*:   proc(i: int): View {.gcsafe.}
+        numberOfItems*: proc(): int {.gcsafe.}
         offset*: Coord
 
         # properties

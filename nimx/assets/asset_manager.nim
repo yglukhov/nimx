@@ -142,7 +142,7 @@ proc cachedAsset*[T](am: AssetManager, path: string, default: T): T =
 proc cacheAsset*[T](am: AssetManager, path: string, v: T) {.inline.} =
     am.cacheAssetAux(path, newVariant(v))
 
-proc getAssetAtPathAux(am: AssetManager, path: string, putToCache: bool, handler: proc(res: Variant, err: string)) =
+proc getAssetAtPathAux(am: AssetManager, path: string, putToCache: bool, handler: proc(res: Variant, err: string) {.gcsafe.}) =
     let v = am.cachedAssetAux(path)
     if v.isEmpty:
         var (a, c, p, _) = am.mountForPath(path.normalizeSlashes)
@@ -159,7 +159,7 @@ proc getAssetAtPathAux(am: AssetManager, path: string, putToCache: bool, handler
     else:
         handler(v, "")
 
-proc getAssetAtPath*[T](am: AssetManager, path: string, putToCache: bool, handler: proc(res: T, err: string)) =
+proc getAssetAtPath*[T](am: AssetManager, path: string, putToCache: bool, handler: proc(res: T, err: string) {.gcsafe.}) =
     am.getAssetAtPathAux(path, putToCache) do(res: Variant, err: string):
         if err.len == 0:
             if res.ofType(T):
@@ -171,13 +171,13 @@ proc getAssetAtPath*[T](am: AssetManager, path: string, putToCache: bool, handle
             var v: T
             handler(v, err)
 
-proc getAssetAtPath*[T](am: AssetManager, path: string, handler: proc(res: T, err: string)) {.inline.} =
+proc getAssetAtPath*[T](am: AssetManager, path: string, handler: proc(res: T, err: string) {.gcsafe.}) {.inline.} =
     am.getAssetAtPath(path, true, handler)
 
 proc assetCacheForPath(am: AssetManager, path: string): AssetCache =
     result = am.mountForPath(path.normalizeSlashes).cache
 
-proc loadAssetsInBundles*(am: AssetManager, bundles: openarray[AssetBundle], onProgress: proc(p: float), onComplete: proc()) =
+proc loadAssetsInBundles*(am: AssetManager, bundles: openarray[AssetBundle], onProgress: proc(p: float) {.gcsafe.}, onComplete: proc() {.gcsafe.}) =
     let al = newAssetLoader()
     var tempCache = newAssetCache()
 
@@ -212,7 +212,7 @@ proc dump*(am: AssetManager): string =
 registerUrlHandler("res") do(url: string, handler: Handler) {.gcsafe.}:
     openStreamForUrl(sharedAssetManager().resolveUrl(url), handler)
 
-hackyResUrlLoader = proc(url, path: string, cache: AssetCache, handler: proc(err: string)) =
+hackyResUrlLoader = proc(url, path: string, cache: AssetCache, handler: proc(err: string) {.gcsafe.}) =
     const prefix = "res://"
     assert(url.startsWith(prefix))
     let p = url.substr(prefix.len)

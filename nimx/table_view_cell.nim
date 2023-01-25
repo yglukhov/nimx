@@ -23,7 +23,7 @@ proc newTableViewCell*(v: View): TableViewCell =
     v.autoresizingMask = { afFlexibleWidth, afFlexibleHeight }
     result.addSubview(v)
 
-method selectionColor*(c: TableViewCell): Color {.base.} =
+method selectionColor*(c: TableViewCell): Color {.base, gcsafe.} =
     return newColor(0.0, 0.0, 1.0)
 
 proc enclosingTableViewCell*(v: View): TableViewCell {.inline.} =

@@ -11,8 +11,8 @@ export pasteboard_item
 
 type
     Pasteboard* {.inheritable.} = ref object
-        writeImpl*: proc(pb: Pasteboard, pi: varargs[PasteboardItem] ) {.nimcall.}
-        readImpl*: proc(pb: Pasteboard, kind: string): PasteboardItem {.nimcall.}
+        writeImpl*: proc(pb: Pasteboard, pi: varargs[PasteboardItem] ) {.nimcall, gcsafe.}
+        readImpl*: proc(pb: Pasteboard, kind: string): PasteboardItem {.nimcall, gcsafe.}
 
 const PboardGeneral* = "__nimx.PboardGeneral"
 const PboardFont* = "__nimx.PboardFont"

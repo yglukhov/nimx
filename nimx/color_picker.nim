@@ -118,7 +118,7 @@ proc hsvToRgb(color: tuple[h: float, s: float, v: float]): Color =
 
 # ColorPickerH
 
-var cpHComposition = newComposition """
+const cpHComposition = newComposition """
     uniform float uChosenH;
 
     vec4 cHQuad() {
@@ -170,7 +170,7 @@ method onTextInput(ccf: ColorComponentTextField, s: string): bool =
 
     return true
 
-method onTouchEv(cph: ColorPickerH, e: var Event): bool =
+method onTouchEv(cph: ColorPickerH, e: var Event): bool {.gcsafe.}=
     let cpv = cph.enclosingColorPickerView()
 
     if e.buttonState == bsUp or true:
@@ -183,7 +183,7 @@ method onTouchEv(cph: ColorPickerH, e: var Event): bool =
     return true
 
 # ColorPickerS
-var cpSComposition = newComposition """
+const cpSComposition = newComposition """
     uniform float uHcps;
     uniform float uChosenS;
 
@@ -221,7 +221,7 @@ method onTouchEv(cps: ColorPickerS, e: var Event): bool =
     return true
 
 # ColorPickerV
-var cpVComposition = newComposition """
+const cpVComposition = newComposition """
     uniform float uHcpv;
     uniform float uChosenV;
 
@@ -260,7 +260,7 @@ method onTouchEv(cpva: ColorPickerV, e: var Event): bool =
 
 # ColorPickerCircle
 
-var hsvCircleComposition = newComposition """
+const hsvCircleComposition = newComposition """
     uniform float uHsvValue;
     uniform float uChosenH;
 

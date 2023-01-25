@@ -54,7 +54,7 @@ type FontImpl = ref object
     ascent: float32
     descent: float32
 
-var fontCache : SimpleTable[FastString, FontImpl]
+var fontCache {.threadvar.}: SimpleTable[FastString, FontImpl]
 
 proc cachedImplForFont(face: string, sz: float): FontImpl =
     if fontCache.isNil:
@@ -155,7 +155,7 @@ when not defined(js) and not pureWasm:
         result.size = size
         result.glyphMargin = 8
 
-var sysFont : Font
+var sysFont {.threadvar.}: Font
 
 const preferredFonts = when defined(js) or defined(windows) or defined(emscripten) or defined(wasm):
         [
@@ -244,7 +244,7 @@ proc systemFont*(): Font =
     if result == nil:
         warn "Could not create system font"
 
-var dfCtx : DistanceFieldContext[float32]
+var dfCtx {.threadvar.}: DistanceFieldContext[float32]
 
 proc generateDistanceFieldForGlyph(ch: CharInfo, index: int, uploadToTexture: bool) =
     if dfCtx.isNil:
@@ -274,8 +274,8 @@ proc generateDistanceFieldForGlyph(ch: CharInfo, index: int, uploadToTexture: bo
         if not dfCtx.output.isNil:
             dumpBitmaps("df" & $index, dfCtx.output, w, h, 0, 555.0)
 
-var glyphGenerationTimer: Timer
-var chunksToGen = newSeq[CharInfo]()
+var glyphGenerationTimer {.threadvar.}: Timer
+var chunksToGen {.threadvar.}: seq[CharInfo]
 
 proc generateDistanceFields() =
     let ch = chunksToGen[^1]

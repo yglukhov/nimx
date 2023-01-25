@@ -2,7 +2,7 @@ import macros, logging, strutils
 import nimx / [ timer, app, event, abstract_window, button ]
 
 type UITestSuiteStep* = tuple
-    code : proc()
+    code : proc() {.gcsafe.}
     astrepr: string
     lineinfo: string
 
@@ -52,15 +52,15 @@ type TestRunnerContext = ref object
     curTimeout: float
     waitTries: int
 
-var testRunnerContext : TestRunnerContext
-var registeredTests : seq[UITestSuite]
+var testRunnerContext {.threadvar.}: TestRunnerContext
+var registeredTests {.threadvar.}: seq[UITestSuite]
 
 proc newTestSuite(name: string, steps: openarray[UITestSuiteStep]): UITestSuite =
     result.new()
     result.name = name
     result.steps = @steps
 
-proc makeStep(code: proc(), astrepr, lineinfo: string): UITestSuiteStep {.inline.} =
+proc makeStep(code: proc() {.gcsafe.}, astrepr, lineinfo: string): UITestSuiteStep {.inline.} =
     result.code = code
     result.astrepr = astrepr
     result.lineinfo = lineinfo
@@ -197,7 +197,7 @@ proc getTestsToRun*(): seq[string] =
 proc haveTestsToRun*(): bool =
     getTestsToRun().len != 0
 
-proc startTest*(t: UITestSuite, onComplete: proc() = nil) =
+proc startTest*(t: UITestSuite, onComplete: proc() {.gcsafe.} = nil) =
     when web: setupLogger()
     testRunnerContext.new()
     testRunnerContext.curTimeout = 0.5
@@ -217,9 +217,9 @@ proc testWithName(name: string): UITestSuite =
     for t in registeredTests:
         if t.name == name: return t
 
-proc startTests(tests: seq[UITestSuite], onComplete: proc()) =
+proc startTests(tests: seq[UITestSuite], onComplete: proc() {.gcsafe.}) =
     var curTestSuite = 0
-    proc startNextSuite() =
+    proc startNextSuite() {.gcsafe.} =
         if curTestSuite < tests.len:
             startTest(tests[curTestSuite], startNextSuite)
             inc curTestSuite
@@ -227,7 +227,7 @@ proc startTests(tests: seq[UITestSuite], onComplete: proc()) =
             onComplete()
     startNextSuite()
 
-proc startRequestedTests*(onComplete: proc() = nil) =
+proc startRequestedTests*(onComplete: proc() {.gcsafe.} = nil) =
     let testsToRun = getTestsToRun()
     var tests = newSeq[UITestSuite](testsToRun.len)
     for i, n in testsToRun:
@@ -238,5 +238,5 @@ proc startRequestedTests*(onComplete: proc() = nil) =
 
     startTests(tests, onComplete)
 
-proc startRegisteredTests*(onComplete: proc() = nil) {.inline.} =
+proc startRegisteredTests*(onComplete: proc() {.gcsafe.} = nil) {.inline.} =
     startTests(registeredTests, onComplete)

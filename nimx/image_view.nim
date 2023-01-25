@@ -42,7 +42,7 @@ proc `fillRule=`*(v: ImageView, fillRule: ImageFillRule) =
 
 method clipType*(v: ImageView): ClipType = ctDefaultClip
 
-method draw(v: ImageView, r: Rect) =
+method draw*(v: ImageView, r: Rect) =
     procCall v.View.draw(r)
     let c = currentContext()
 

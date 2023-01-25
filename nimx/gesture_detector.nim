@@ -5,9 +5,9 @@ type
 
     OnScrollListener* = ref object of RootObj
     BaseScrollListener* = ref object of OnScrollListener
-        tapDownDelegate*:           proc(e : var Event)
-        scrollProgressDelegate*:    proc(dx, dy : float32, e : var Event)
-        tapUpDelegate*:             proc(dx, dy : float32, e : var Event)
+        tapDownDelegate*:           proc(e : var Event) {.gcsafe.}
+        scrollProgressDelegate*:    proc(dx, dy : float32, e : var Event) {.gcsafe.}
+        tapUpDelegate*:             proc(dx, dy : float32, e : var Event) {.gcsafe.}
     ScrollDetector* = ref object of BaseGestureDetector
         listener* : OnScrollListener
         tap_down : Point
@@ -17,7 +17,7 @@ type
         last_fired_dx, last_fired_dy : float32
         firing : bool
 
-    OnTapListener* = proc(tapPoint : Point)
+    OnTapListener* = proc(tapPoint : Point) {.gcsafe.}
     TapGestureDetector* = ref object of BaseGestureDetector
         tapListener* : OnTapListener
         down_timestamp: uint32
@@ -44,7 +44,7 @@ type
 
     OnFlingListener* = ref object of RootObj
     BaseFlingListener* = ref object of OnFlingListener
-        flingDelegate*: proc(vx, vy: float)
+        flingDelegate*: proc(vx, vy: float) {.gcsafe.}
     FlingGestureDetector* = ref object of BaseGestureDetector
         flingListener* : OnFlingListener
         prev_ev, this_ev: Event
@@ -90,9 +90,9 @@ method onTapUp*(ls: BaseScrollListener, dx, dy : float32, e : var Event) =
         ls.tapUpDelegate(dx,dy,e)
 
 proc newBaseScrollListener*(
-        tapD : proc(e : var Event),
-        scrollD: proc(dx, dy : float32, e : var Event),
-        tapUpD: proc(dx, dy : float32, e : var Event)
+        tapD : proc(e : var Event) {.gcsafe.},
+        scrollD: proc(dx, dy : float32, e : var Event) {.gcsafe.},
+        tapUpD: proc(dx, dy : float32, e : var Event) {.gcsafe.}
         ): BaseScrollListener =
     result.new
     result.tapDownDelegate = tapD
@@ -107,7 +107,7 @@ method onFling*(ls : BaseFlingListener, vx, vy: float) =
     if not ls.flingDelegate.isNil:
         ls.flingDelegate(vx,vy)
 
-proc newBaseFlingListener*(delegate: proc(vx, vy: float)): BaseFlingListener =
+proc newBaseFlingListener*(delegate: proc(vx, vy: float) {.gcsafe.}): BaseFlingListener =
     result.new
     result.flingDelegate = delegate
 
@@ -183,7 +183,7 @@ method onGestEvent*(d: ScrollDetector, e: var Event) : bool =
             d.listener.onScrollProgress(d.last_fired_dx, d.last_fired_dy, e)
 
 
-method onGestEvent*(d: TapGestureDetector, e: var Event) : bool =
+method onGestEvent*(d: TapGestureDetector, e: var Event): bool =
     result = true
     if numberOfActiveTouches() > 1: result = false
     else:

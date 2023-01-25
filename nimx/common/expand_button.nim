@@ -3,7 +3,7 @@ import math
 
 type ExpandButton* = ref object of Button
     expanded*: bool
-    onExpandAction*: proc(state: bool)
+    onExpandAction*: proc(state: bool) {.gcsafe.}
 
 method init*(b: ExpandButton, r: Rect) =
     procCall b.Button.init(r)

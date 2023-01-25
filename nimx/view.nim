@@ -165,7 +165,7 @@ proc constraints*(v: View): seq[Constraint] =
     result = newSeqOfCap[Constraint](v.layout.constraints.len)
     for c in v.layout.constraints: result.add(c.proto)
 
-method init*(v: View, frame: Rect) {.base.} =
+method init*(v: View, frame: Rect) {.base, gcsafe.} =
     v.frame = frame
     v.layout.init()
     v.bounds = newRect(0, 0, frame.width, frame.height)
@@ -212,8 +212,8 @@ proc newView*(frame: Rect): View = # Deprecated
     result.new()
     result.init(frame)
 
-method convertPointToParent*(v: View, p: Point): Point {.base.} = p + v.frame.origin - v.bounds.origin
-method convertPointFromParent*(v: View, p: Point): Point {.base.} = p - v.frame.origin + v.bounds.origin
+method convertPointToParent*(v: View, p: Point): Point {.base, gcsafe.} = p + v.frame.origin - v.bounds.origin
+method convertPointFromParent*(v: View, p: Point): Point {.base, gcsafe.} = p - v.frame.origin + v.bounds.origin
 
 proc convertPointToWindow*(v: View, p: Point): Point =
     var curV = v
@@ -237,9 +237,9 @@ proc convertRectFromWindow*(v: View, r: Rect): Rect =
     result.size = r.size
 
 # Responder chain implementation
-method acceptsFirstResponder*(v: View): bool {.base.} = false
-method viewShouldResignFirstResponder*(v, newFirstResponder: View): bool {.base.} = true
-method viewDidBecomeFirstResponder*(v: View) {.base.} = discard
+method acceptsFirstResponder*(v: View): bool {.base, gcsafe.} = false
+method viewShouldResignFirstResponder*(v, newFirstResponder: View): bool {.base, gcsafe.} = true
+method viewDidBecomeFirstResponder*(v: View) {.base, gcsafe.} = discard
 
 proc makeFirstResponder*(w: Window, responder: View): bool =
     var shouldChange = true
@@ -252,7 +252,7 @@ proc makeFirstResponder*(w: Window, responder: View): bool =
         sharedNotificationCenter().postNotification(NimxFristResponderChangedInWindow, newVariant(r))
         result = true
 
-method makeFirstResponder*(v: View): bool {.base.} =
+method makeFirstResponder*(v: View): bool {.base, gcsafe.} =
     let w = v.window
     if not w.isNil:
         result = w.makeFirstResponder(v)
@@ -261,8 +261,8 @@ template isFirstResponder*(v: View): bool =
     not v.window.isNil and v.window.firstResponder == v
 
 ####
-method viewWillMoveToSuperview*(v: View, s: View) {.base.} = discard
-method viewWillMoveToWindow*(v: View, w: Window) {.base.} =
+method viewWillMoveToSuperview*(v: View, s: View) {.base, gcsafe.} = discard
+method viewWillMoveToWindow*(v: View, w: Window) {.base, gcsafe.} =
     if not v.window.isNil:
         v.window.removeMouseOverListener(v)
         if v.window.firstResponder == v and w != v.window:
@@ -280,7 +280,7 @@ method viewWillMoveToWindow*(v: View, w: Window) {.base.} =
         s.window = v.window
         s.viewWillMoveToWindow(w)
 
-method viewDidMoveToWindow*(v: View){.base.} =
+method viewDidMoveToWindow*(v: View){.base, gcsafe.} =
     if not v.window.isNil:
         for c in v.layout.constraints.mitems:
             v.instantiateConstraint(c)
@@ -293,7 +293,7 @@ proc moveToWindow(v: View, w: Window) =
     for s in v.subviews:
         s.moveToWindow(w)
 
-method markNeedsDisplay*(w: Window) {.base.} =
+method markNeedsDisplay*(w: Window) {.base, gcsafe.} =
     # Should not be called directly
     discard
 
@@ -309,8 +309,8 @@ template setNeedsLayout*(v: View) =
     if not w.isNil:
         w.needsLayout = true
 
-method didAddSubview*(v, s: View) {.base.} = discard
-method didRemoveSubview*(v, s: View) {.base.} = discard
+method didAddSubview*(v, s: View) {.base, gcsafe.} = discard
+method didRemoveSubview*(v, s: View) {.base, gcsafe.} = discard
 
 proc removeSubview(v: View, s: View) =
     let i = v.subviews.find(s)
@@ -330,7 +330,7 @@ proc removeFromSuperview(v: View, callHandlers: bool) =
         v.viewDidMoveToWindow()
         v.superview = nil
 
-method removeFromSuperview*(v: View) {.base.} =
+method removeFromSuperview*(v: View) {.base, gcsafe.} =
     v.removeFromSuperview(true)
 
 proc removeAllSubviews*(v: View)=
@@ -366,7 +366,7 @@ proc insertSubviewAfter*(v, s, a: View) = v.insertSubview(s, v.subviews.find(a) 
 proc insertSubviewBefore*(v, s, a: View) = v.insertSubview(s, v.subviews.find(a))
 proc addSubview*(v: View, s: View) = v.insertSubview(s, v.subviews.len)
 
-method replaceSubview*(v: View, subviewIndex: int, withView: View) {.base.} =
+method replaceSubview*(v: View, subviewIndex: int, withView: View) {.base, gcsafe.} =
     v.subviews[subviewIndex].removeFromSuperview()
     v.insertSubview(withView, subviewIndex)
 
@@ -384,9 +384,9 @@ proc findSubview*(v: View, n: string): View=
 proc getSubview*[T](v: View, n: string): T =
     result = v.findSubviewWithName(n).T
 
-method clipType*(v: View): ClipType {.base.} = ctNone
+method clipType*(v: View): ClipType {.base, gcsafe.} = ctNone
 
-proc recursiveDrawSubviews*(view: View)
+proc recursiveDrawSubviews*(view: View) {.gcsafe.}
 
 proc drawWithinSuperview*(v: View) =
     # Assume current coordinate system is superview
@@ -410,7 +410,7 @@ proc drawWithinSuperview*(v: View) =
         else:
             v.recursiveDrawSubviews()
 
-method draw*(view: View, rect: Rect) {.base.} =
+method draw*(view: View, rect: Rect) {.base, gcsafe.} =
     let c = currentContext()
     if view.backgroundColor.a > 0.001:
         c.fillColor = view.backgroundColor
@@ -434,9 +434,9 @@ proc drawFocusRing*(v: View) =
     c.strokeWidth = 3
     c.drawRoundedRect(v.bounds.inset(-1, -1), 2)
 
-method setFrame*(v: View, r: Rect) {.base.} # Deprecated
+method setFrame*(v: View, r: Rect) {.base, gcsafe.} # Deprecated
 
-method resizeSubviews*(v: View, oldSize: Size) {.base.} = # Deprecated
+method resizeSubviews*(v: View, oldSize: Size) {.base, gcsafe.} = # Deprecated
     let sizeDiff = v.frame.size - oldSize
 
     for s in v.subviews:
@@ -453,7 +453,7 @@ method resizeSubviews*(v: View, oldSize: Size) {.base.} = # Deprecated
 
         s.setFrame(newRect)
 
-method updateLayout*(v: View) {.base.} = discard
+method updateLayout*(v: View) {.base, gcsafe.} = discard
 
 proc recursiveUpdateLayout*(v: View, relPoint: Point) =
     v.frame.origin.x = v.layout.vars.x.value - relPoint.x
@@ -466,13 +466,13 @@ proc recursiveUpdateLayout*(v: View, relPoint: Point) =
     for s in v.subviews:
         s.recursiveUpdateLayout(relPoint)
 
-method setBoundsSize*(v: View, s: Size) {.base.} = # Deprecated
+method setBoundsSize*(v: View, s: Size) {.base, gcsafe.} = # Deprecated
     let oldSize = v.bounds.size
     v.bounds.size = s
     v.setNeedsDisplay()
     v.resizeSubviews(oldSize)
 
-method setBoundsOrigin*(v: View, o: Point) {.base.} = # Deprecated
+method setBoundsOrigin*(v: View, o: Point) {.base, gcsafe.} = # Deprecated
     v.bounds.origin = o
     v.setNeedsDisplay()
 
@@ -480,11 +480,11 @@ proc setBounds*(v: View, b: Rect) = # Deprecated
     v.setBoundsOrigin(b.origin)
     v.setBoundsSize(b.size)
 
-method setFrameSize*(v: View, s: Size) {.base.} = # Deprecated
+method setFrameSize*(v: View, s: Size) {.base, gcsafe.} = # Deprecated
     v.frame.size = s
     v.setBoundsSize(s)
 
-method setFrameOrigin*(v: View, o: Point) {.base.} = # Deprecated
+method setFrameOrigin*(v: View, o: Point) {.base, gcsafe.} = # Deprecated
     v.frame.origin = o
     v.setNeedsDisplay()
 
@@ -494,10 +494,10 @@ method setFrame*(v: View, r: Rect) = # Deprecated
     if v.frame.size != r.size:
         v.setFrameSize(r.size)
 
-method frame*(v: View): Rect {.base.} = v.frame
-method bounds*(v: View): Rect {.base.} = v.bounds
+method frame*(v: View): Rect {.base, gcsafe.} = v.frame
+method bounds*(v: View): Rect {.base, gcsafe.} = v.bounds
 
-method subviewDidChangeDesiredSize*(v: View, sub: View, desiredSize: Size) {.base.} = discard # Deprecated
+method subviewDidChangeDesiredSize*(v: View, sub: View, desiredSize: Size) {.base, gcsafe.} = discard # Deprecated
 
 proc autoresizingMaskFromStrLit(s: string): set[AutoresizingFlag] {.compileTime.} = # Deprecated
     case s[0]
@@ -558,7 +558,7 @@ template originForEditor(v: View): Point = v.frame.origin
 template `sizeForEditor=`(v: View, p: Size) = v.setFrameSize(p)
 template sizeForEditor(v: View): Size = v.frame.size
 
-method visitProperties*(v: View, pv: var PropertyVisitor) {.base.} =
+method visitProperties*(v: View, pv: var PropertyVisitor) {.base, gcsafe.} =
     pv.visitProperty("name", v.name)
     pv.visitProperty("origin", v.originForEditor)
     pv.visitProperty("size", v.sizeForEditor)

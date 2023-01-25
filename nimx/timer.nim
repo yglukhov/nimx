@@ -16,13 +16,13 @@ type TimerState = enum
     tsPaused
 
 when defined(debugLeaks):
-    var allTimers = newSeq[pointer]()
+    var allTimers {.threadvar.}: seq[pointer]
 
 type
     Timer* = ref TimerObj
     TimerObj = object
-        callback: proc()
-        origCallback: proc()
+        callback: proc() {.gcsafe.}
+        origCallback: proc() {.gcsafe.}
         timer: TimerID
         interval: float
         isPeriodic: bool
@@ -37,7 +37,8 @@ type
 const profileTimers = not defined(js) and not defined(release)
 
 when profileTimers or defined(debugLeaks):
-    let totalTimers = sharedProfiler().newDataSource(int, "Timers")
+    var totalTimers {.threadvar.}: ProfilerDataSource[int]
+
     proc destroyAux(t: var TimerObj) =
         dec totalTimers
         when defined(debugLeaks):
@@ -180,13 +181,15 @@ proc clear*(t: Timer) =
             when not defined(js):
                 GC_unref(t)
 
-proc newTimer*(interval: float, repeat: bool, callback: proc()): Timer =
+proc newTimer*(interval: float, repeat: bool, callback: proc() {.gcsafe.}): Timer =
     assert(not callback.isNil)
     when profileTimers:
         when defined(gcDestructors):
             result.new()
         else:
             result.new(finalizeTimer)
+        if totalTimers.isNil:
+            totalTimers = sharedProfiler().newDataSource(int, "Timers")
         inc totalTimers
     else:
         result.new()
@@ -219,10 +222,10 @@ proc newTimer*(interval: float, repeat: bool, callback: proc()): Timer =
     result.state = tsRunning
     result.schedule()
 
-proc setTimeout*(interval: float, callback: proc()): Timer {.discardable.} =
+proc setTimeout*(interval: float, callback: proc() {.gcsafe.}): Timer {.discardable.} =
     newTimer(interval, false, callback)
 
-proc setInterval*(interval: float, callback: proc()): Timer {.discardable.} =
+proc setInterval*(interval: float, callback: proc() {.gcsafe.}): Timer {.discardable.} =
     newTimer(interval, true, callback)
 
 proc timeLeftUntilNextFire(t: Timer): float =

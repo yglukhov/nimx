@@ -26,7 +26,7 @@ type
         setterAndGetter*: Variant
 
         name*: string
-        commit*: proc()
+        commit*: proc() {.gcsafe.}
         onChangeCallback* {.deprecated.}: proc()
 
 proc clear*(p: var PropertyVisitor) =

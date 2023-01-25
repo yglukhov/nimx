@@ -86,7 +86,7 @@ type GraphicsContext* = ref object of RootObj
     sharedBuffer*: BufferRef
     vertexes*: array[4 * 4 * 128, Coord]
 
-var gCurrentContext: GraphicsContext
+var gCurrentContext {.threadvar.}: GraphicsContext
 
 proc transformToRef(t: Transform3D): Transform3DRef =
     when defined js:
@@ -223,7 +223,7 @@ template setPointUniform*(c: GraphicsContext, prog: ProgramRef, name: cstring, r
 
 import composition
 
-var roundedRectComposition = newComposition """
+const roundedRectComposition = newComposition """
 uniform vec4 uFillColor;
 uniform vec4 uStrokeColor;
 uniform float uStrokeWidth;
@@ -248,7 +248,7 @@ proc drawRect(bounds, uFillColor, uStrokeColor: Vec4,
     result.drawInitialShape(sdRect(vPos, bounds), uStrokeColor);
     result.drawShape(sdRect(vPos, insetRect(bounds, uStrokeWidth)), uFillColor);
 
-var rectComposition = newCompositionWithNimsl(drawRect)
+const rectComposition = newCompositionWithNimsl(drawRect)
 
 proc drawRect*(c: GraphicsContext, r: Rect) =
     rectComposition.draw r:
@@ -262,7 +262,7 @@ proc drawEllipse(bounds, uFillColor, uStrokeColor: Vec4,
     result.drawInitialShape(sdEllipseInRect(vPos, bounds), uStrokeColor);
     result.drawShape(sdEllipseInRect(vPos, insetRect(bounds, uStrokeWidth)), uFillColor);
 
-var ellipseComposition = newCompositionWithNimsl(drawEllipse)
+const ellipseComposition = newCompositionWithNimsl(drawEllipse)
 
 proc drawEllipseInRect*(c: GraphicsContext, r: Rect) =
     ellipseComposition.draw r:
@@ -279,7 +279,7 @@ proc imageVertexShader(aPosition: Vec2, uModelViewProjectionMatrix: Mat4, uBound
 
 const imageVertexShaderCode = getGLSLVertexShader(imageVertexShader)
 
-var imageComposition = newComposition(imageVertexShaderCode, """
+const imageComposition = newComposition(imageVertexShaderCode, """
 uniform sampler2D uImage_tex;
 uniform float uAlpha;
 varying vec2 vImageUV;
@@ -306,7 +306,7 @@ proc drawImage*(c: GraphicsContext, i: Image, toRect: Rect, fromRect: Rect = zer
             setUniform("uAlpha", alpha * c.alpha)
             setUniform("uFromRect", fr)
 
-let ninePartImageComposition = newComposition("""
+const ninePartImageComposition = newComposition("""
 attribute vec4 aPosition;
 
 uniform mat4 uModelViewProjectionMatrix;
@@ -390,17 +390,17 @@ proc drawNinePartImage*(c: GraphicsContext, i: Image, toRect: Rect, ml, mt, mr, 
         gl.uniform1i(uniformLocation("texUnit"), cc.iTexIndex)
         gl.bindTexture(gl.TEXTURE_2D, tex)
 
-        gl.enableVertexAttribArray(saPosition.GLuint)
+        gl.enableVertexAttribArray(ShaderAttribute.saPosition.GLuint)
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, c.gridIndexBuffer4x4)
 
         const componentsCount = 4
         const vertexCount = (4 - 1) * 4 * 2
         c.bindVertexData(componentsCount * vertexCount)
-        gl.vertexAttribPointer(saPosition.GLuint, componentsCount, gl.FLOAT, false, 0, 0)
+        gl.vertexAttribPointer(ShaderAttribute.saPosition.GLuint, componentsCount, gl.FLOAT, false, 0, 0)
         gl.drawElements(gl.TRIANGLE_STRIP, vertexCount, gl.UNSIGNED_SHORT)
 
 
-let simpleComposition = newComposition("""
+const simpleComposition = newComposition("""
 attribute vec4 aPosition;
 uniform mat4 uModelViewProjectionMatrix;
 
@@ -448,9 +448,9 @@ proc drawBezier*(c: GraphicsContext, p0, p1, p2, p3: Point) =
     setupPosteffectUniforms(cc)
 
     const componentsCount = 2
-    gl.enableVertexAttribArray(saPosition.GLuint)
+    gl.enableVertexAttribArray(ShaderAttribute.saPosition.GLuint)
     c.bindVertexData(componentsCount * vertexCount)
-    gl.vertexAttribPointer(saPosition.GLuint, componentsCount, gl.FLOAT, false, 0, 0)
+    gl.vertexAttribPointer(ShaderAttribute.saPosition.GLuint, componentsCount, gl.FLOAT, false, 0, 0)
 
     gl.enable(GL_LINE_SMOOTH)
     when not defined(js):
@@ -463,7 +463,7 @@ proc drawBezier*(c: GraphicsContext, p0, p1, p2, p3: Point) =
       glLineWidth(1.0)
 
 
-var lineComposition = newComposition """
+const lineComposition = newComposition """
 uniform float uStrokeWidth;
 uniform vec4  uStrokeColor;
 uniform vec2  A;
@@ -504,7 +504,7 @@ proc drawLine*(c: GraphicsContext, pointFrom: Point, pointTo: Point) =
         setUniform("A", pointFrom)
         setUniform("B", pointTo)
 
-var arcComposition = newComposition """
+const arcComposition = newComposition """
 uniform float uStrokeWidth;
 uniform vec4 uStrokeColor;
 uniform vec4 uFillColor;
@@ -549,7 +549,7 @@ proc drawArc*(c: GraphicsContext, center: Point, radius: Coord, fromAngle, toAng
         setUniform("uStartAngle", fromAngle)
         setUniform("uEndAngle", toAngle)
 
-var triangleComposition = newComposition """
+const triangleComposition = newComposition """
 uniform float uAngle;
 uniform vec4 uColor;
 void compose() {

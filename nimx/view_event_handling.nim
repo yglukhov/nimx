@@ -2,16 +2,16 @@ import view, event, drag_and_drop, tables
 
 export event
 
-method onKeyDown*(v: View, e: var Event): bool {.base.} = discard
-method onKeyUp*(v: View, e: var Event): bool {.base.} = discard
-method onTextInput*(v: View, s: string): bool {.base.} = discard
-method onGestEvent*(d: GestureDetector, e: var Event) : bool {.base.} = discard
-method onScroll*(v: View, e: var Event): bool {.base.} = discard
+method onKeyDown*(v: View, e: var Event): bool {.base, gcsafe.} = discard
+method onKeyUp*(v: View, e: var Event): bool {.base, gcsafe.} = discard
+method onTextInput*(v: View, s: string): bool {.base, gcsafe.} = discard
+method onGestEvent*(d: GestureDetector, e: var Event): bool {.base, gcsafe.} = discard
+method onScroll*(v: View, e: var Event): bool {.base, gcsafe.} = discard
 
 method name*(v: View): string {.base.} =
     result = "View"
 
-method onTouchEv*(v: View, e: var Event): bool {.base.} =
+method onTouchEv*(v: View, e: var Event): bool {.base, gcsafe.} =
     for d in v.gestureDetectors:
         let r = d.onGestEvent(e)
         result = result or r
@@ -20,22 +20,22 @@ method onTouchEv*(v: View, e: var Event): bool {.base.} =
         if v.acceptsFirstResponder and not v.isFirstResponder:
             result = v.makeFirstResponder()
 
-method onInterceptTouchEv*(v: View, e: var Event): bool {.base.} =
+method onInterceptTouchEv*(v: View, e: var Event): bool {.base, gcsafe.} =
     discard
 
-method onListenTouchEv*(v: View, e: var Event): bool {.base.} =
+method onListenTouchEv*(v: View, e: var Event): bool {.base, gcsafe.} =
     discard
 
 proc isMainWindow(v: View, e : var Event): bool =
     result = v == e.window
 
-method onMouseIn*(v: View, e: var Event) {.base.} =
+method onMouseIn*(v: View, e: var Event) {.base, gcsafe.} =
     discard
 
-method onMouseOver*(v: View, e: var Event) {.base.} =
+method onMouseOver*(v: View, e: var Event) {.base, gcsafe.} =
     discard
 
-method onMouseOut*(v: View, e: var Event) {.base.} =
+method onMouseOut*(v: View, e: var Event) {.base, gcsafe.} =
     discard
 
 proc handleMouseOverEvent(v: View, e : var Event) =
@@ -104,7 +104,7 @@ proc removeTouchTarget(e: Event)=
     let ct = e.getCurrentTouches()
     ct.del(e.pointerId)
 
-proc processTouchEvent*(v: View, e : var Event): bool =
+proc processTouchEvent*(v: View, e: var Event): bool =
     if e.buttonState == bsDown:
         if v.hidden: return false
         v.interceptEvents = false

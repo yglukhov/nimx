@@ -5,7 +5,7 @@ var textSubpixelDrawing = true
 proc enableTextSubpixelDrawing*(state: bool) =
     textSubpixelDrawing = state
 
-let fontComposition = newComposition("""
+const fontComposition = newComposition("""
 attribute vec4 aPosition;
 
 uniform mat4 uModelViewProjectionMatrix;
@@ -116,7 +116,7 @@ when false:
     }
     """, false)
 
-let fontSubpixelCompositionWithDynamicBase = newComposition("""
+const fontSubpixelCompositionWithDynamicBase = newComposition("""
 attribute vec4 aPosition;
 
 uniform mat4 uModelViewProjectionMatrix;

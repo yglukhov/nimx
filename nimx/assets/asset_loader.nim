@@ -11,8 +11,8 @@ type AssetLoader* = ref object
     loadedSize: int
     itemsToLoad: int
     itemsLoaded: int
-    onComplete*: proc()
-    onProgress*: proc(p: float)
+    onComplete*: proc() {.gcsafe.}
+    onProgress*: proc(p: float) {.gcsafe.}
     assetCache*: AssetCache # Cache to put the loaded resources to. If nil, default cache is used.
     when debugResCache:
         assetsToLoad: seq[string]
@@ -21,7 +21,7 @@ proc newAssetLoader*(): AssetLoader {.inline.} =
     result.new()
 
 when jsEnv:
-    proc loadNextAssets(ld: AssetLoader)
+    proc loadNextAssets(ld: AssetLoader) {.gcsafe.}
 
 proc onAssetLoaded(ld: AssetLoader, path: string) =
     when jsEnv: dec ld.itemsLoading

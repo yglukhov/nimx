@@ -38,7 +38,7 @@ proc inset*(fr: array[4, Expression], byX, byY: float32): array[4, Expression] {
 
 proc inset*(fr: array[4, Expression], by: float32): array[4, Expression] {.inline.} = inset(fr, by, by)
 
-var prevPHS*, nextPHS*, superPHS*, selfPHS*: LayoutVars
+var prevPHS* {.threadvar.}, nextPHS* {.threadvar.}, superPHS* {.threadvar.}, selfPHS* {.threadvar}: LayoutVars
 
 proc isNan(f: float32): bool {.inline.} = f != f
 

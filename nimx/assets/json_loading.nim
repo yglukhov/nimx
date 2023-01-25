@@ -4,7 +4,7 @@ import url_stream
 when defined(js) or defined(emscripten):
     import jsbind, web_url_handler
 
-proc loadJsonFromURL*(url: string, handler: proc(j: JsonNode)) =
+proc loadJsonFromURL*(url: string, handler: proc(j: JsonNode) {.gcsafe.}) =
     when defined(js):
         let reqListener = proc(str: JSObj) =
             handler(parseJson($(cast[cstring](str))))

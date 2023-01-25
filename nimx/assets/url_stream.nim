@@ -3,7 +3,7 @@ import streams, strutils, tables
 export streams
 
 type Error = string
-type Handler* = proc(s: Stream, error: Error)
+type Handler* = proc(s: Stream, error: Error) {.gcsafe.}
 type UrlHandler = proc(url: string, handler: Handler) {.gcsafe.}
 
 var urlHandlers: TableRef[string, UrlHandler]
@@ -22,7 +22,7 @@ proc urlScheme(s: string): string =
     if i > 0:
         result = s.substr(0, i)
 
-proc openStreamForUrl*(url: string, handler: Handler) {.gcsafe.} =
+proc openStreamForUrl*(url: string, handler: Handler) =
     assert(not handler.isNil)
     let scheme = url.urlScheme
     if scheme.len == 0:
@@ -45,7 +45,7 @@ proc getPathFromFileUrl(url: string): string =
     result = substr(url, prefixLen)
 
 when not defined(js) and not defined(emscripten):
-    registerUrlHandler("file") do(url: string, handler: Handler):
+    registerUrlHandler("file") do(url: string, handler: Handler) {.gcsafe.}:
         let p = getPathFromFileUrl(url)
         let s = newFileStream(p, fmRead)
         if s.isNil:

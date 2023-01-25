@@ -117,7 +117,7 @@ proc drawTitle(b: Button, xOffset: Coord) =
         if pt.x < xOffset: pt.x = xOffset
         c.drawText(font, pt, b.title)
 
-var regularButtonComposition = newComposition """
+const regularButtonComposition = newComposition """
 uniform vec4 uStrokeColor;
 uniform vec4 uFillColorStart;
 uniform vec4 uFillColorEnd;
@@ -146,7 +146,7 @@ proc drawRegularBezel(b: Button) =
             setUniform("uFillColorEnd", newColor(0.09, 0.42, 0.88))
             setUniform("uShadowOffset", 0.0'f32)
 
-var checkButtonComposition = newComposition """
+const checkButtonComposition = newComposition """
 uniform vec4 uStrokeColor;
 uniform vec4 uFillColor;
 
@@ -189,7 +189,7 @@ proc drawCheckboxStyle(b: Button, r: Rect) =
 
     b.drawTitle(bezelRect.width + 1)
 
-var radioButtonComposition = newComposition """
+const radioButtonComposition = newComposition """
 uniform vec4 uStrokeColor;
 uniform vec4 uFillColor;
 uniform float uRadioValue;

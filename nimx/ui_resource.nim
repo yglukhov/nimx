@@ -24,13 +24,13 @@ proc `@`(str: string): UIResID =
 proc deserializeView*(jn: JsonNode): View = newJsonDeserializer(jn).deserialize(result)
 proc deserializeView*(data: string): View = deserializeView(parseJson(data))
 
-proc loadAUX[T](path: string, deser: proc(j: JsonNode): T, onLoad: proc(v: T))=
+proc loadAUX[T](path: string, deser: proc(j: JsonNode): T {.gcsafe.}, onLoad: proc(v: T) {.gcsafe.})=
   loadAsset[JsonNode]("res://" & path) do(jn: JsonNode, err: string):
     onLoad(deser(jn))
 
-proc loadAUXAsync[T](path: string, deser: proc(j: JsonNode): T): Future[T] =
+proc loadAUXAsync[T](path: string, deser: proc(j: JsonNode): T {.gcsafe.}): Future[T] =
   when defined js:
-    newPromise() do (resolve: proc(response: T)):
+    newPromise() do (resolve: proc(response: T) {.gcsafe.}):
       loadAUX[T](path, deser) do(v: T):
           resolve(v)
   else:
@@ -39,7 +39,7 @@ proc loadAUXAsync[T](path: string, deser: proc(j: JsonNode): T): Future[T] =
       resf.complete(v)
     return resf
 
-proc loadView*(path: string, onLoad: proc(v: View))=
+proc loadView*(path: string, onLoad: proc(v: View) {.gcsafe.}) =
   loadAUX[View](path, deserializeView, onLoad)
 
 proc loadViewAsync*(path: string): Future[View] =
@@ -86,7 +86,7 @@ proc deserializeUIResource*(jn: JsonNode): UIResource =
 
 proc deserializeUIResource*(data: string): UIResource = deserializeUIResource(parseJson(data))
 
-proc loadUiResource*(path: string, onLoad: proc(v: UIResource)) =
+proc loadUiResource*(path: string, onLoad: proc(v: UIResource) {.gcsafe.}) =
   loadAUX[UIResource](path, deserializeUIResource, onLoad)
 
 proc loadUiResourceAsync*(path: string): Future[UIResource] =
@@ -108,7 +108,7 @@ proc onAction*(ui: UIResource, name: string, cb: proc()) =
 
 # default tabs hacky registering
 import nimx/assets/[asset_loading, json_loading]
-registerAssetLoader(["nimx"]) do(url: string, callback: proc(j: JsonNode)):
+registerAssetLoader(["nimx"]) do(url: string, callback: proc(j: JsonNode) {.gcsafe.}):
   loadJsonFromURL(url, callback)
 
 

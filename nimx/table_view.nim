@@ -21,11 +21,11 @@ type
 
   TableView* = ref object of View
     numberOfColumns*: int
-    numberOfRows*: proc (): int
-    mCreateCell: proc(column: int): TableViewCell
-    mConfigureCell: proc (cell: TableViewCell)
-    heightOfRow*: proc (row: int): Coord
-    onSelectionChange*: proc()
+    numberOfRows*: proc (): int {.gcsafe.}
+    mCreateCell: proc(column: int): TableViewCell {.gcsafe.}
+    mConfigureCell: proc (cell: TableViewCell) {.gcsafe.}
+    heightOfRow*: proc (row: int): Coord {.gcsafe.}
+    onSelectionChange*: proc() {.gcsafe.}
 
     defaultRowHeight*: Coord
     defaultColWidth*: Coord
@@ -37,24 +37,24 @@ type
     constraints: seq[Constraint]
 
     # Drag source
-    mOnDragStarted: proc(rows: IntSet): PasteboardItem
-    mOnDragComplete: proc(rows: IntSet, op: DragOperation)
+    mOnDragStarted: proc(rows: IntSet): PasteboardItem {.gcsafe.}
+    mOnDragComplete: proc(rows: IntSet, op: DragOperation) {.gcsafe.}
 
     # Drag destination
-    mAcceptDrop: proc(i: PasteboardItem, atRow: int, inside: bool): DragOperation
-    mOnDrop: proc(i: PasteboardItem, atRow: int, inside: bool)
+    mAcceptDrop: proc(i: PasteboardItem, atRow: int, inside: bool): DragOperation {.gcsafe.}
+    mOnDrop: proc(i: PasteboardItem, atRow: int, inside: bool) {.gcsafe.}
 
-proc `createCell=`*(v: TableView, p: proc(): TableViewCell) =
+proc `createCell=`*(v: TableView, p: proc(): TableViewCell {.gcsafe.}) =
     v.mCreateCell = proc(c: int): TableViewCell =
         p()
 
-proc `createCell=`*(v: TableView, p: proc(column: int): TableViewCell) =
+proc `createCell=`*(v: TableView, p: proc(column: int): TableViewCell {.gcsafe.}) =
     v.mCreateCell = p
 
-proc `configureCell=`*(v: TableView, p: proc (cell: TableViewCell)) =
+proc `configureCell=`*(v: TableView, p: proc (cell: TableViewCell) {.gcsafe.}) =
     v.mConfigureCell = p
 
-proc rebuildConstraints(v: TableView)
+proc rebuildConstraints(v: TableView) {.gcsafe.}
 
 method init*(v: TableView, r: Rect) =
     procCall v.View.init(r)

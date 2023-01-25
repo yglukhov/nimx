@@ -16,7 +16,7 @@ type
     ObserverId = int
     ObserversMap = TableRef[ObserverId, proc()]
 
-    NCCallback = proc(args: Variant) # legacy
+    NCCallback = proc(args: Variant) {.gcsafe.} # legacy
     NCCallbackTable = TableRef[ObserverId, NCCallback] # legacy
 
 
@@ -33,7 +33,7 @@ proc newNotificationCenter*(): NotificationCenter =
     result.notificationsMap = initTable[int, ObserversMap]()
     result.observers = initTable[string, NCCallbackTable]() # legacy
 
-var gNotifCenter: NotificationCenter
+var gNotifCenter {.threadvar.}: NotificationCenter
 
 proc sharedNotificationCenter*(): NotificationCenter =
     if gNotifCenter.isNil():
@@ -262,7 +262,7 @@ proc addObserver*(nc: NotificationCenter, ev: string, observerId: ref | SomeOrdi
         nc.observers[ev] = o
     o[obsId] = cb
 
-proc postNotification*(nc: NotificationCenter, ev: string, args: Variant) =
+proc postNotification*(nc: NotificationCenter, ev: string, args: Variant) {.gcsafe.} =
     let o = nc.observers.getOrDefault(ev)
     if not o.isNil:
         # Prevent reentrancy

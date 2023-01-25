@@ -9,7 +9,7 @@ type EventFilterControl* = enum
     efcContinue
     efcBreak
 
-type EventFilter* = proc(evt: var Event, control: var EventFilterControl): bool
+type EventFilter* = proc(evt: var Event, control: var EventFilterControl): bool {.gcsafe.}
 
 type Application* = ref object of RootObj
     windows : seq[Window]
@@ -25,7 +25,7 @@ proc newApplication(): Application =
     result.eventFilters = @[]
     result.inputState = {}
 
-var mainApp : Application
+var mainApp {.threadvar.}: Application
 
 proc mainApplication*(): Application =
     if mainApp.isNil:
@@ -58,19 +58,20 @@ proc handleEvent*(a: Application, e: var Event): bool =
 
     beginTouchProcessing(e)
 
-    if e.kind == etMouse or e.kind == etTouch or e.kind == etKeyboard:
-        let kc = e.keyCode
-        let isModifier = kc.isModifier
-        if e.buttonState == bsDown:
-            if isModifier:
-                a.modifiers.incl(kc)
-            a.inputState.incl(kc)
-        else:
-            if isModifier:
-                a.modifiers.excl(kc)
-            a.inputState.excl(kc)
+    when not defined(linux) or not defined(nimxAvoidSdl):
+        if e.kind == etMouse or e.kind == etTouch or e.kind == etKeyboard:
+            let kc = e.keyCode
+            let isModifier = kc.isModifier
+            if e.buttonState == bsDown:
+                if isModifier:
+                    a.modifiers.incl(kc)
+                a.inputState.incl(kc)
+            else:
+                if isModifier:
+                    a.modifiers.excl(kc)
+                a.inputState.excl(kc)
 
-    e.modifiers = a.modifiers
+        e.modifiers = a.modifiers
 
     var control = efcContinue
     var cleanupEventFilters = false

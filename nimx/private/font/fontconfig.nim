@@ -52,16 +52,16 @@ when useLibfontconfig:
 
     FontConfigLib = ptr object
       m: LibHandle
-      patternCreate: proc(): Pattern {.cdecl.}
-      patternAddString: proc(p: Pattern, k, v: cstring): cint {.cdecl.}
-      patternAddInteger: proc(p: Pattern, k: cstring, v: cint): cint {.cdecl.}
-      configSubstitute: proc(c: Config, p: Pattern, kind: cint): cint {.cdecl.}
-      defaultSubstitute: proc(p: Pattern) {.cdecl.}
-      fontMatch: proc(c: Config, p: Pattern, res: ptr cint): Pattern {.cdecl.}
-      patternGetString: proc(p: Pattern, obj: cstring, n: cint, s: var cstring): cint {.cdecl.}
-      patternGetInteger: proc(p: Pattern, obj: cstring, n: cint, s: var cint): cint {.cdecl.}
-      patternDestroy: proc(p: Pattern) {.cdecl.}
-      configAppFontAddDir: proc(c: Config, d: cstring): cint {.cdecl.}
+      patternCreate: proc(): Pattern {.cdecl, gcsafe.}
+      patternAddString: proc(p: Pattern, k, v: cstring): cint {.cdecl, gcsafe.}
+      patternAddInteger: proc(p: Pattern, k: cstring, v: cint): cint {.cdecl, gcsafe.}
+      configSubstitute: proc(c: Config, p: Pattern, kind: cint): cint {.cdecl, gcsafe.}
+      defaultSubstitute: proc(p: Pattern) {.cdecl, gcsafe.}
+      fontMatch: proc(c: Config, p: Pattern, res: ptr cint): Pattern {.cdecl, gcsafe.}
+      patternGetString: proc(p: Pattern, obj: cstring, n: cint, s: var cstring): cint {.cdecl, gcsafe.}
+      patternGetInteger: proc(p: Pattern, obj: cstring, n: cint, s: var cint): cint {.cdecl, gcsafe.}
+      patternDestroy: proc(p: Pattern) {.cdecl, gcsafe.}
+      configAppFontAddDir: proc(c: Config, d: cstring): cint {.cdecl, gcsafe.}
 
   var fcLib: FontConfigLib
 
@@ -118,16 +118,16 @@ when useLibfontconfig:
     let pat = fcLib.patternCreate()
     var face = face.toLowerAscii
     if getFcWeight(face, "black"):
-      discard fcLib.patternAddString(pat, "family", face)
+      discard fcLib.patternAddString(pat, "family", face.cstring)
       discard fcLib.patternAddInteger(pat, "weight", 210)
     elif getFcWeight(face, "bold"):
-      discard fcLib.patternAddString(pat, "family", face)
+      discard fcLib.patternAddString(pat, "family", face.cstring)
       discard fcLib.patternAddInteger(pat, "weight", 200)
     elif getFcWeight(face, "regular"):
-      discard fcLib.patternAddString(pat, "family", face)
+      discard fcLib.patternAddString(pat, "family", face.cstring)
       discard fcLib.patternAddInteger(pat, "weight", 80)
     else:
-      discard fcLib.patternAddString(pat, "family", face)
+      discard fcLib.patternAddString(pat, "family", face.cstring)
 
     discard fcLib.patternAddString(pat, "fontformat", "TrueType")
 

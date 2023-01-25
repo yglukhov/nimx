@@ -44,13 +44,13 @@ macro genSerializers(typdesc: typed{nkSym}): untyped=
             `desCall`
 
     result.add quote do:
-        method serializeFields*(`viewArg`: `typdesc`, `serArg`: Serializer) =
+        method serializeFields*(`viewArg`: `typdesc`, `serArg`: Serializer) {.gcsafe.} =
             `serializerBody`
 
-        method deserializeFields*(`viewArg`: `typdesc`, `serArg`: Deserializer)=
+        method deserializeFields*(`viewArg`: `typdesc`, `serArg`: Deserializer) {.gcsafe.}=
             `deserializerBody`
 
-template genSerializeCodeForView*(c: typed)=
+template genSerializeCodeForView*(c: typed) =
     import nimx / serializers
 
     genSerializers(c)

@@ -10,7 +10,7 @@ export layout_vars
 proc isViewDescNodeAux(n: NimNode): bool =
     n.kind == nnkPrefix and $n[0] == "-"
 
-proc identOrSym(n: NimNode): bool = n.kind in {nnkIdent, nnkSym}
+proc identOrSym(n: NimNode): bool = n.kind in {nnkIdent, nnkSym, nnkOpenSymChoice, nnkClosedSymChoice}
 
 proc isViewDescNode(n: NimNode): bool =
     isViewDescNodeAux(n) or
@@ -102,9 +102,9 @@ proc transformConstraintNode(cn, subject: NimNode): NimNode =
 
 template setControlHandlerBlock(c: View, p: untyped, a: untyped) =
     when compiles(c.p(nil)):
-        c.p() do(): a
+        c.p() do() {.gcsafe.}: a
     else:
-        c.p = proc() =
+        c.p = proc() {.gcsafe.} =
             a
 
 template setControlHandlerLambda(c: View, p: untyped, a: untyped) =

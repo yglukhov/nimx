@@ -18,7 +18,7 @@ type
         rootItem: ItemNode
         outlineColumn: int # index of column where disclosure triangles appear
         selectedIndexPath*: IndexPath
-        onDragAndDrop*: proc(fromIndexPath, toIndexPath: openarray[int])
+        onDragAndDrop*: proc(fromIndexPath, toIndexPath: openarray[int]) {.gcsafe.}
         tempIndexPath: IndexPath
         draggedElemIndexPath: IndexPath # Initial index path of the element that is currently being dragged
         droppedElemIndexPath: IndexPath # Initial index path of the element that is currently being dragged
@@ -30,15 +30,15 @@ type
 
     OutlineViewDatasourceBase = ref object of RootObj
         typeId: TypeId
-        mConfigureCellBase: proc(d: OutlineViewDatasourceBase, c: TableViewCell, i: ItemNode) {.nimcall.}
-        mReloadDataForNode: proc(d: OutlineViewDatasourceBase, item: ItemNode, ip: var IndexPath) {.nimcall.}
+        mConfigureCellBase: proc(d: OutlineViewDatasourceBase, c: TableViewCell, i: ItemNode) {.nimcall, gcsafe.}
+        mReloadDataForNode: proc(d: OutlineViewDatasourceBase, item: ItemNode, ip: var IndexPath) {.nimcall, gcsafe.}
 
     OutlineViewDatasource[T] = ref object of OutlineViewDatasourceBase
-        mNumberOfChildren: proc(i: T, ip: IndexPath): int
-        mRootItem: proc(): T
-        mChildOfItem: proc(i: T, ip: IndexPath): T
-        mConfigureCell: proc(i: T, c: TableViewCell)
-        mDisplayFilter: proc(i: T): bool
+        mNumberOfChildren: proc(i: T, ip: IndexPath): int {.gcsafe.}
+        mRootItem: proc(): T {.gcsafe.}
+        mChildOfItem: proc(i: T, ip: IndexPath): T {.gcsafe.}
+        mConfigureCell: proc(i: T, c: TableViewCell) {.gcsafe.}
+        mDisplayFilter: proc(i: T): bool {.gcsafe.}
 
     ItemNode = ref object
         expanded: bool
@@ -87,7 +87,7 @@ method draw*(c: OutlineCell, r: Rect) =
         ctx.fillColor = newColor(0.1, 0.1, 0.1)
     ctx.drawDisclosureTriangle(c.mItem.expanded, c.disclosureTriangleRect)
 
-proc reloadItemsForTableView(v: OutlineView)
+proc reloadItemsForTableView(v: OutlineView) {.gcsafe.}
 
 method onTouchEv*(v: OutlineCell, e: var Event): bool =
     result = procCall v.View.onTouchEv(e)
@@ -100,26 +100,6 @@ method onTouchEv*(v: OutlineCell, e: var Event): bool =
             it.expanded = not it.expanded
             v.outlineView.reloadItemsForTableView()
             result = true
-
-method init*(v: OutlineView, r: Rect) =
-    procCall v.TableView.init(r)
-    v.rootItem = ItemNode.new()
-    v.rootItem.expandable = true
-    v.rootItem.expanded = true
-    v.numberOfRows = proc(): int =
-        v.items.len
-
-    v.configureCell = proc(cell: TableViewCell) =
-        var cell = cell
-        let item = v.items[cell.row]
-        if cell.col == v.outlineColumn:
-            let oc = OutlineCell(cell)
-            let tc = TableViewCell(cell.subviews[0])
-            oc.item = item
-            tc.row = oc.row
-            tc.selected = oc.selected
-            cell = tc
-        v.mDataSource.mConfigureCellBase(v.mDataSource, cell, item)
 
 const rowHeight = 20.Coord
 
@@ -168,19 +148,19 @@ proc dataSource(v: OutlineView, T: typedesc): OutlineViewDatasource[T] =
         assert(v.mDataSource.typeId == tid)
         result = cast[OutlineViewDatasource[T]](v.mDataSource)
 
-proc `numberOfChildren=`*[T](v: OutlineView, cb: proc(i: T, ip: IndexPath): int) =
+proc `numberOfChildren=`*[T](v: OutlineView, cb: proc(i: T, ip: IndexPath): int {.gcsafe.}) =
     dataSource(v, T).mNumberOfChildren = cb
 
-proc `rootItem=`*[T](v: OutlineView, cb: proc(): T) =
+proc `rootItem=`*[T](v: OutlineView, cb: proc(): T {.gcsafe.}) =
     dataSource(v, T).mRootItem = cb
 
-proc `childOfItem=`*[T](v: OutlineView, cb: proc(i: T, indexPath: IndexPath): T) =
+proc `childOfItem=`*[T](v: OutlineView, cb: proc(i: T, indexPath: IndexPath): T {.gcsafe.}) =
     dataSource(v, T).mChildOfItem = cb
 
-proc `configureCell=`*[T](v: OutlineView, cb: proc(i: T, c: TableViewCell)) =
+proc `configureCell=`*[T](v: OutlineView, cb: proc(i: T, c: TableViewCell) {.gcsafe.}) =
     dataSource(v, T).mConfigureCell = cb
 
-proc `createCell=`*(v: OutlineView, cb: proc(col: int): TableViewCell) =
+proc `createCell=`*(v: OutlineView, cb: proc(col: int): TableViewCell {.gcsafe.}) =
     v.TableView.createCell = proc(col: int): TableViewCell =
         let tbvCell = cb(col)
         tbvCell.col = col
@@ -202,9 +182,29 @@ proc `createCell=`*(v: OutlineView, cb: proc(col: int): TableViewCell) =
         else:
             result = tbvCell
 
-proc `createCell=`*(v: OutlineView, cb: proc(): TableViewCell) =
+proc `createCell=`*(v: OutlineView, cb: proc(): TableViewCell {.gcsafe.}) =
     v.createCell = proc(col: int): TableViewCell =
         cb()
+
+method init*(v: OutlineView, r: Rect) =
+    procCall v.TableView.init(r)
+    v.rootItem = ItemNode.new()
+    v.rootItem.expandable = true
+    v.rootItem.expanded = true
+    v.numberOfRows = proc(): int =
+        v.items.len
+
+    v.configureCell = proc(cell: TableViewCell) {.gcsafe.}=
+        var cell = cell
+        let item = v.items[cell.row]
+        if cell.col == v.outlineColumn:
+            let oc = OutlineCell(cell)
+            let tc = TableViewCell(cell.subviews[0])
+            oc.item = item
+            tc.row = oc.row
+            tc.selected = oc.selected
+            cell = tc
+        v.mDataSource.mConfigureCellBase(v.mDataSource, cell, item)
 
 template xOffsetForIndexPath(ip: IndexPath): Coord =
     Coord(offsetOutline + ip.len * offsetOutline * 2)
@@ -473,7 +473,7 @@ method acceptsFirstResponder*(v: OutlineView): bool = true
 proc hasChildren(n: ItemNode): bool =
     n.expandable and n.expanded and n.children.len != 0
 
-proc moveSelectionUp(v: OutlineView, path: var IndexPath) =
+proc moveSelectionUp(v: OutlineView, path: var IndexPath) {.gcsafe.} =
     if path.len == 0:
         path.add(0)
         v.selectItemAtIndexPath(path)
@@ -559,7 +559,7 @@ proc moveSelectionRight(v: OutlineView) =
     else:
         v.moveSelectionDown(v.selectedIndexPath)
 
-method onKeyDown*(v: OutlineView, e: var Event): bool =
+method onKeyDown*(v: OutlineView, e: var Event): bool {.gcsafe.} =
     result = true
     case e.keyCode
     of VirtualKey.Up:

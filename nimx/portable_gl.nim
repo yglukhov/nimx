@@ -395,7 +395,7 @@ else:
     template isEmpty*(obj: TextureRef or FramebufferRef or RenderbufferRef): bool = obj == 0
 
 # TODO: This is a quick and dirty hack for render to texture.
-var globalGL: GL
+var globalGL {.threadvar.}: GL
 
 proc newGL*(canvas: ref RootObj): GL =
     when defined js:

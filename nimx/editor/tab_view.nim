@@ -15,13 +15,13 @@ type TabView* = ref object of View
     tabBarThickness: Coord
     mTabBarOrientation: TabBarOrientation
     selectedTab: int
-    mouseTracker: proc(e: Event): bool
+    mouseTracker: proc(e: Event): bool {.gcsafe.}
     tabFramesValid: bool
     dockingTabs*: bool
     configurationButton: Button
-    onSplit*: proc(v: TabView)
-    onRemove*: proc(v: TabView)
-    onClose*: proc(v: View)
+    onSplit*: proc(v: TabView) {.gcsafe.}
+    onRemove*: proc(v: TabView) {.gcsafe.}
+    onClose*: proc(v: View) {.gcsafe.}
     subviewConstraintProtos: seq[Constraint]
 
 proc contentFrame(v: TabView): Rect =
@@ -432,7 +432,7 @@ proc removeFromSplitViewSystem*(v: View) =
         s = s.superview
     s.removeFromSuperview()
 
-proc trackDocking(v: TabView, tab: int): proc(e: Event): bool =
+proc trackDocking(v: TabView, tab: int): proc(e: Event): bool {.gcsafe.} =
     var trackedTab = v.tabs[tab]
     var tabOwner = v
     var indexOfTabInOwner = tab

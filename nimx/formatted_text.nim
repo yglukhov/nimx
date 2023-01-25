@@ -554,7 +554,7 @@ const GRADIENT_ENABLED = (1 shl 0) # OPTION_1
 const STROKE_ENABLED = (1 shl 1) # OPTION_2
 const SOFT_SHADOW_ENABLED = (1 shl 2) # OPTION_3
 
-var gradientAndStrokeComposition = newComposition("""
+const gradientAndStrokeComposition = newComposition("""
 attribute vec4 aPosition;
 
 #ifdef OPTION_1
@@ -644,7 +644,7 @@ void compose()
 }
 """, false, "mediump")
 
-type ForEachLineAttributeCallback = proc(c: GraphicsContext, t: FormattedText, p: var Point, curLine, endIndex: int, str: string) {.nimcall.}
+type ForEachLineAttributeCallback = proc(c: GraphicsContext, t: FormattedText, p: var Point, curLine, endIndex: int, str: string) {.nimcall, gcsafe.}
 proc forEachLineAttribute(c: GraphicsContext, inRect: Rect, origP: Point, t: FormattedText, cb: ForEachLineAttributeCallback) =
     var p = origP
     let numLines = t.lines.len
@@ -742,9 +742,9 @@ proc drawShadow(c: GraphicsContext, inRect: Rect, origP: Point, t: FormattedText
 
         if t.mAttributes[curAttrIndex].shadowRadius > 0.0 or t.mAttributes[curAttrIndex].shadowSpread > 0.0:
             var options = SOFT_SHADOW_ENABLED
-            gradientAndStrokeComposition.options = options
+            # gradientAndStrokeComposition.options = options
             let gl = c.gl
-            var cc = gl.getCompiledComposition(gradientAndStrokeComposition)
+            var cc = gl.getCompiledComposition(gradientAndStrokeComposition, options)
 
             gl.useProgram(cc.program)
 
@@ -780,9 +780,9 @@ proc drawStroke(c: GraphicsContext, inRect: Rect, origP: Point, t: FormattedText
             if t.mAttributes[curAttrIndex].isStrokeGradient:
                 options = options or GRADIENT_ENABLED
 
-            gradientAndStrokeComposition.options = options
+            # gradientAndStrokeComposition.options = options
             let gl = c.gl
-            var cc = gl.getCompiledComposition(gradientAndStrokeComposition)
+            var cc = gl.getCompiledComposition(gradientAndStrokeComposition, options)
 
             gl.useProgram(cc.program)
 
@@ -825,9 +825,8 @@ proc drawText*(c: GraphicsContext, origP: Point, t: FormattedText, inRect: Rect 
         let oldBaseline = font.baseline
         font.baseline = bAlphabetic
         if t.mAttributes[curAttrIndex].isTextGradient:
-            gradientAndStrokeComposition.options = GRADIENT_ENABLED
             let gl = c.gl
-            var cc = gl.getCompiledComposition(gradientAndStrokeComposition)
+            var cc = gl.getCompiledComposition(gradientAndStrokeComposition, options = GRADIENT_ENABLED)
 
             gl.useProgram(cc.program)
 
