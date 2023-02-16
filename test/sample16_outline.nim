@@ -58,26 +58,17 @@ method init*(v: OutlineSampleView, r: Rect) =
         textField.text = node.name
 
     outline.onDragAndDrop = proc(fromPath, toPath: openArray[int]) =
+        echo fromPath, " >> ", toPath
+        var parentPos = @toPath[0..^2]
         let fromNode = outline.itemAtIndexPath(fromPath).get(DataItem)
-        let toNode = outline.itemAtIndexPath(toPath[0..^1]).get(DataItem)
-        let toIndex = toPath[^1]
-        if fromNode.parent == toNode:
-            let cIndex = toNode.children.find(fromNode)
-            if toIndex < cIndex:
-                toNode.children.delete(cIndex)
-                toNode.children.insert(fromNode, toIndex)
-            elif toIndex > cIndex:
-                toNode.children.delete(cIndex)
-                toNode.children.insert(fromNode, toIndex - 1)
-        else:
-            let fi = fromNode.parent.children.find(fromNode)
-            fromNode.parent.children.delete(fi)
-            fromNode.parent = toNode
-            toNode.children.insert(fromNode, toIndex)
+        let toNode = outline.itemAtIndexPath(parentPos).get(DataItem)
 
+        let fi = fromNode.parent.children.find(fromNode)
+        fromNode.parent.children.delete(fi)
+        fromNode.parent = toNode
+        let toIndex = clamp(toPath[^1], 0, toNode.children.len)
+        toNode.children.insert(fromNode, toIndex)
         outline.reloadData()
-
-        echo "drag ", fromPath, " >> ", toPath
 
     outline.onSelectionChanged = proc() =
         let ip = outline.selectedIndexPath
@@ -92,6 +83,9 @@ method init*(v: OutlineSampleView, r: Rect) =
 
     outline.reloadData()
 
+
+method draw(v: OutlineSampleView, r: Rect) =
+    v.setNeedsDisplay()
 
 
 registerSample(OutlineSampleView, "Outline")

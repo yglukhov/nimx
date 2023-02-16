@@ -172,7 +172,7 @@ method onTouchEv*(v: SplitView, e: var Event): bool =
 
 
 method onInterceptTouchEv*(v: SplitView, e: var Event): bool =
-    if v.hoveredDivider != -1:
+    if v.hoveredDivider != -1 and e.buttonState == bsDown:
         result = true
 
 method replaceSubview*(v: SplitView, subviewIndex: int, withView: View) =
