@@ -1,4 +1,4 @@
-import view, event, drag_and_drop, tables
+import view, event, drag_and_drop, tables, algorithm, sequtils
 
 export event
 
@@ -103,66 +103,75 @@ proc removeTouchTarget(e: Event)=
     let ct = e.getCurrentTouches()
     ct.del(e.pointerId)
 
-proc processTouchEvent*(v: View, e: var Event): bool =
-    if e.buttonState == bsDown:
-        if v.hidden: return false
-        v.interceptEvents = false
-        v.touchTarget = nil
-        if v.subviews.len == 0:
+iterator superviews(v: View): View =
+    var sv = v.superview
+    while not sv.isNil:
+        yield sv
+        sv = sv.superview
+
+proc processTouchEvent*(v: View, e: var Event): bool {.gcsafe.}
+
+proc handeBsDown(v: View, e: var Event): bool =
+    if v.hidden: return false
+    v.interceptEvents = false
+    v.touchTarget = nil
+    if v.subviews.len == 0:
+        result = v.onTouchEv(e)
+        if result:
+            e.setTouchTarget(v)
+    else:
+        if v.onInterceptTouchEv(e):
+            v.interceptEvents = true
             result = v.onTouchEv(e)
             if result:
                 e.setTouchTarget(v)
         else:
-            if v.onInterceptTouchEv(e):
-                v.interceptEvents = true
-                result = v.onTouchEv(e)
-            else:
-                let localPosition = e.localPosition
-                for i in countdown(v.subviews.high, 0):
-                    let s = v.subviews[i]
-                    e.localPosition = s.convertPointFromParent(localPosition)
-                    if e.localPosition.inRect(s.bounds):
-                        result = s.processTouchEvent(e)
-                        if result:
-                            v.touchTarget = s
-                            e.setTouchTarget(s)
-                            break
-
-                e.localPosition = localPosition
-                if result and v.onListenTouchEv(e):
-                    discard v.onTouchEv(e)
-                if not result:
-                    result = v.onTouchEv(e)
+            let localPosition = e.localPosition
+            for i in countdown(v.subviews.high, 0):
+                let s = v.subviews[i]
+                e.localPosition = s.convertPointFromParent(localPosition)
+                if e.localPosition.inRect(s.bounds):
+                    result = s.processTouchEvent(e)
                     if result:
-                        e.setTouchTarget(v)
-    else:
-        if numberOfActiveTouches() > 0:
-            if v.subviews.len == 0:
-                # single view
-                if not v.isMainWindow(e):
-                    result = v.onTouchEv(e)
-            else:
-                # group view
-                if v.interceptEvents:
-                    if not v.isMainWindow(e):
-                        result = v.onTouchEv(e)
-                else:
-                    if (not v.isMainWindow(e)) and v.onInterceptTouchEv(e):
-                        v.interceptEvents = true
-                        result = v.onTouchEv(e)
-                    else:
-                        var target = e.getTouchTarget()
-                        if not target.isNil:
-                            var localPosition = e.localPosition
-                            e.localPosition = target.convertPointFromWindow(localPosition)
-                            if v.onListenTouchEv(e):
-                                discard v.onTouchEv(e)
-                            result = target.onTouchEv(e)
-                            e.localPosition = localPosition
-                        else:
-                            if not v.isMainWindow(e):
-                                result = v.onTouchEv(e)
+                        v.touchTarget = s
+                        e.setTouchTarget(s)
+                        break
 
+            e.localPosition = localPosition
+            if result and v.onListenTouchEv(e):
+                discard v.onTouchEv(e)
+            if not result:
+                result = v.onTouchEv(e)
+                if result:
+                    e.setTouchTarget(v)
+
+proc handleBsUpUnknown(v: View, e: var Event): bool =
+    var target = e.getTouchTarget()
+    if v.subviews.len == 0 or target.isNil:
+        result = v.onTouchEv(e)
+    else:
+        var superviews = toSeq(target.superviews)
+        for i in countdown(high(superviews), 0):
+            let sv = superviews[i]
+            if sv.onInterceptTouchEv(e):
+                sv.interceptEvents = true
+                result = sv.onTouchEv(e)
+                if result:
+                    return
+
+        var localPosition = e.localPosition
+        e.localPosition = target.convertPointFromWindow(localPosition)
+        for sv in target.superviews:
+            if sv.onListenTouchEv(e):
+                discard sv.onTouchEv(e)
+        result = target.onTouchEv(e)
+        e.localPosition = localPosition
+
+proc processTouchEvent*(v: View, e: var Event): bool {.gcsafe.} =
+    if e.buttonState == bsDown:
+        result = v.handeBsDown(e)
+    elif numberOfActiveTouches() > 0:
+        result = v.handleBsUpUnknown(e)
     if e.buttonState == bsUp:
         if v.isMainWindow(e) and numberOfActiveTouches() == 1:
             v.touchTarget = nil
