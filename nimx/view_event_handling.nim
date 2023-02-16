@@ -119,31 +119,33 @@ proc handeBsDown(v: View, e: var Event): bool =
         result = v.onTouchEv(e)
         if result:
             e.setTouchTarget(v)
-    else:
-        if v.onInterceptTouchEv(e):
-            v.interceptEvents = true
-            result = v.onTouchEv(e)
-            if result:
-                e.setTouchTarget(v)
-        else:
-            let localPosition = e.localPosition
-            for i in countdown(v.subviews.high, 0):
-                let s = v.subviews[i]
-                e.localPosition = s.convertPointFromParent(localPosition)
-                if e.localPosition.inRect(s.bounds):
-                    result = s.processTouchEvent(e)
-                    if result:
-                        v.touchTarget = s
-                        e.setTouchTarget(s)
-                        break
+        return
 
-            e.localPosition = localPosition
-            if result and v.onListenTouchEv(e):
-                discard v.onTouchEv(e)
-            if not result:
-                result = v.onTouchEv(e)
-                if result:
-                    e.setTouchTarget(v)
+    if v.onInterceptTouchEv(e):
+        v.interceptEvents = true
+        result = v.onTouchEv(e)
+        if result:
+            e.setTouchTarget(v)
+        return
+
+    let localPosition = e.localPosition
+    for i in countdown(v.subviews.high, 0):
+        let s = v.subviews[i]
+        e.localPosition = s.convertPointFromParent(localPosition)
+        if e.localPosition.inRect(s.bounds):
+            result = s.processTouchEvent(e)
+            if result:
+                v.touchTarget = s
+                e.setTouchTarget(s)
+                break
+
+    e.localPosition = localPosition
+    if result and v.onListenTouchEv(e):
+        discard v.onTouchEv(e)
+    if not result:
+        result = v.onTouchEv(e)
+        if result:
+            e.setTouchTarget(v)
 
 proc handleBsUpUnknown(v: View, e: var Event): bool =
     var target = e.getTouchTarget()
@@ -157,6 +159,8 @@ proc handleBsUpUnknown(v: View, e: var Event): bool =
                 sv.interceptEvents = true
                 result = sv.onTouchEv(e)
                 if result:
+                    v.touchTarget = sv
+                    e.setTouchTarget(sv)
                     return
 
         var localPosition = e.localPosition
