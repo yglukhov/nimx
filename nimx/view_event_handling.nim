@@ -38,7 +38,7 @@ method onMouseOver*(v: View, e: var Event) {.base, gcsafe.} =
 method onMouseOut*(v: View, e: var Event) {.base, gcsafe.} =
     discard
 
-proc handleMouseOverEvent*(v: View, e: var Event) =
+proc handleMouseOverEvent*(v: Window, e: var Event) =
     let localPosition = e.localPosition
     for vi in v.window.mouseOverListeners:
         e.localPosition = vi.convertPointFromWindow(e.position)
