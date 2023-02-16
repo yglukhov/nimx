@@ -26,13 +26,13 @@ type
     OutlineView* = ref object of View
         rootItem: ItemNode
         selectedIndexPath*: IndexPath
-        numberOfChildrenInItem*: proc(item: Variant, indexPath: openarray[int]): int
-        mDisplayFilter: proc(item: Variant):bool
-        childOfItem*: proc(item: Variant, indexPath: openarray[int]): Variant
-        createCell*: proc(): TableViewCell
-        configureCell*: proc (cell: TableViewCell, indexPath: openarray[int])
-        onSelectionChanged*: proc()
-        onDragAndDrop*: proc(fromIndexPath, toIndexPath: openarray[int])
+        numberOfChildrenInItem*: proc(item: Variant, indexPath: openarray[int]): int {.gcsafe.}
+        mDisplayFilter: proc(item: Variant):bool {.gcsafe.}
+        childOfItem*: proc(item: Variant, indexPath: openarray[int]): Variant {.gcsafe.}
+        createCell*: proc(): TableViewCell {.gcsafe.}
+        configureCell*: proc (cell: TableViewCell, indexPath: openarray[int]) {.gcsafe.}
+        onSelectionChanged*: proc() {.gcsafe.}
+        onDragAndDrop*: proc(fromIndexPath, toIndexPath: openarray[int]) {.gcsafe.}
         tempIndexPath: IndexPath
         draggedElemIndexPath: IndexPath # Initial index path of the element that is currently being dragged
         droppedElemIndexPath: IndexPath # Initial index path of the element that is currently being dragged
@@ -58,7 +58,7 @@ proc drawDisclosureTriangle(disclosed: bool, r: Rect) =
 template xOffsetForIndexPath(ip: IndexPath): Coord =
     Coord(offsetOutline + ip.len * offsetOutline * 2)
 
-proc configureCellAUX(v: OutlineView, n: ItemNode, y: Coord, indexPath: IndexPath)=
+proc configureCellAUX(v: OutlineView, n: ItemNode, y: Coord, indexPath: IndexPath) =
     if n.cell.isNil:
         n.cell = v.createCell()
     n.cell.selected = indexPath == v.selectedIndexPath
@@ -237,7 +237,7 @@ proc reloadData*(v: OutlineView) =
     v.reloadDataForNode(v.rootItem, v.tempIndexPath)
     v.checkViewSize()
 
-proc setDisplayFilter*(v: OutlineView, f: proc(item: Variant):bool)=
+proc setDisplayFilter*(v: OutlineView, f: proc(item: Variant):bool {.gcsafe.} )=
     v.mDisplayFilter = f
     v.reloadData()
 
