@@ -40,7 +40,7 @@ method onMouseOut*(v: View, e: var Event) {.base, gcsafe.} =
 
 proc handleMouseOverEvent*(v: Window, e: var Event) =
     let localPosition = e.localPosition
-    for vi in v.window.mouseOverListeners:
+    for vi in v.mouseOverListeners:
         e.localPosition = vi.convertPointFromWindow(e.position)
         if e.localPosition.inRect(vi.bounds):
             if not vi.mouseInside:
