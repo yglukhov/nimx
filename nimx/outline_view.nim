@@ -398,7 +398,7 @@ method acceptsFirstResponder*(v: OutlineView): bool = true
 proc hasChildren(n: ItemNode): bool =
     n.expandable and n.expanded and n.children.len != 0
 
-proc moveSelectionUp(v: OutlineView, path: var IndexPath) =
+proc moveSelectionUp(v: OutlineView, path: var IndexPath) {.gcsafe.} =
     if path.len == 0:
         path.add(0)
         v.selectItemAtIndexPath(path)
@@ -406,7 +406,7 @@ proc moveSelectionUp(v: OutlineView, path: var IndexPath) =
 
     if path[^1] > 0:
         path[^1].dec
-        proc getLowestVisibleChildPath(v: OutlineView, path: var IndexPath) =
+        proc getLowestVisibleChildPath(v: OutlineView, path: var IndexPath) {.gcsafe.} =
             var nodeAtPath = v.nodeAtIndexPath(path)
             while nodeAtPath.filtered and path[^1] > 0:
                 path[^1].dec
@@ -484,7 +484,7 @@ proc moveSelectionRight(v: OutlineView) =
     else:
         v.moveSelectionDown(v.selectedIndexPath)
 
-method onKeyDown*(v: OutlineView, e: var Event): bool =
+method onKeyDown*(v: OutlineView, e: var Event): bool {.gcsafe.} =
     result = true
     case e.keyCode
     of VirtualKey.Up:
