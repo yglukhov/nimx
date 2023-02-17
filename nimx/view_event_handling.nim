@@ -85,9 +85,9 @@ proc getCurrentTouches(e: Event): TableRef[int, View] {.inline.}=
     assert(not e.window.isNil, "Internal error")
     result = e.window.mCurrentTouches
 
-proc setTouchTarget(e: Event, v: View)=
+proc setTouchTarget(e: Event, v: View, override = false)=
     let ct = e.getCurrentTouches()
-    if e.pointerId notin ct and not v.window.isNil:
+    if (override or e.pointerId notin ct) and not v.window.isNil:
         ct[e.pointerId] = v
 
 proc getTouchTarget(e: Event): View =
@@ -160,7 +160,7 @@ proc handleBsUpUnknown(v: View, e: var Event): bool =
                 result = sv.onTouchEv(e)
                 if result:
                     v.touchTarget = sv
-                    e.setTouchTarget(sv)
+                    e.setTouchTarget(sv, true)
                     return
 
         var localPosition = e.localPosition
