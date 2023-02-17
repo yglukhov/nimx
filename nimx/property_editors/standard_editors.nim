@@ -33,7 +33,7 @@ template toStr(v: SomeInteger): string = $v
 template fromStr(v: string, t: var SomeFloat) = t = v.parseFloat()
 template fromStr(v: string, t: var SomeInteger) = t = type(t)(v.parseInt())
 
-proc newScalarPropertyView[T](setter: proc(s: T), getter: proc(): T): PropertyEditorView =
+proc newScalarPropertyView[T](setter: proc(s: T) {.gcsafe.}, getter: proc(): T {.gcsafe.}): PropertyEditorView =
     result = PropertyEditorView.new(newRect(0, 0, 208, editorRowHeight))
     let tf = newNumericTextField(newRect(0, 0, 208, editorRowHeight))
     tf.autoresizingMask = {afFlexibleWidth, afFlexibleMaxY}
@@ -52,7 +52,7 @@ proc newScalarPropertyView[T](setter: proc(s: T), getter: proc(): T): PropertyEd
             discard
     result.addSubview(tf)
 
-proc newTextPropertyView(setter: proc(s: string), getter: proc(): string): PropertyEditorView =
+proc newTextPropertyView(setter: proc(s: string) {.gcsafe.}, getter: proc(): string {.gcsafe.}): PropertyEditorView {.gcsafe.} =
     result = PropertyEditorView.new(newRect(0, 0, 208, editorRowHeight))
     let textField = newTextField(newRect(0, 0, 208, editorRowHeight))
     textField.autoresizingMask = {afFlexibleWidth, afFlexibleMaxY}
@@ -63,7 +63,7 @@ proc newTextPropertyView(setter: proc(s: string), getter: proc(): string): Prope
 
     result.addSubview(textField)
 
-proc newVecPropertyView[T](setter: proc(s: T), getter: proc(): T): PropertyEditorView =
+proc newVecPropertyView[T](setter: proc(s: T) {.gcsafe.}, getter: proc(): T {.gcsafe.}): PropertyEditorView =
     result = PropertyEditorView.new(newRect(0, 0, 208, editorRowHeight))
     const vecLen = high(T) + 1
 
@@ -90,23 +90,23 @@ proc newVecPropertyView[T](setter: proc(s: T), getter: proc(): T): PropertyEdito
         horLayout.addSubview(textField)
 
 type ColorComponentTextField = ref object of NumericTextField
-    onBecomeFirstResponder: proc()
-    onResignFirstResponder: proc()
+    onBecomeFirstResponder: proc() {.gcsafe.}
+    onResignFirstResponder: proc() {.gcsafe.}
 
-method viewDidBecomeFirstResponder*(t: ColorComponentTextField) =
+method viewDidBecomeFirstResponder*(t: ColorComponentTextField) {.gcsafe.} =
     procCall t.NumericTextField.viewDidBecomeFirstResponder()
     if not t.onBecomeFirstResponder.isNil: t.onBecomeFirstResponder()
 
-method viewShouldResignFirstResponder*(t: ColorComponentTextField, newFirstResponder: View): bool =
+method viewShouldResignFirstResponder*(t: ColorComponentTextField, newFirstResponder: View): bool {.gcsafe.} =
     result = procCall t.NumericTextField.viewShouldResignFirstResponder(newFirstResponder)
     if result and not t.onResignFirstResponder.isNil: t.onResignFirstResponder()
 
-proc newColorPropertyView(setter: proc(s: Color), getter: proc(): Color): PropertyEditorView =
+proc newColorPropertyView(setter: proc(s: Color) {.gcsafe.}, getter: proc(): Color {.gcsafe.}): PropertyEditorView =
     result = PropertyEditorView.new(newRect(0, 0, 208, editorRowHeight))
     const vecLen = 3 + 1
 
-    var beginColorPicker: proc()
-    var colorInColorPickerSelected: proc(pc: Color)
+    var beginColorPicker: proc() {.gcsafe.}
+    var colorInColorPickerSelected: proc(pc: Color) {.gcsafe.}
 
     let colorView = Button.new(newRect(0, 0, editorRowHeight, editorRowHeight))
     colorView.backgroundColor = getter()
@@ -119,7 +119,7 @@ proc newColorPropertyView(setter: proc(s: Color), getter: proc(): Color): Proper
     result.addSubview(horLayout)
 
     let colorPicker = sharedColorPicker()
-    proc complexSetter() =
+    proc complexSetter() {.gcsafe.} =
         try:
             let c = newColor(
                 TextField(horLayout.subviews[0]).text.parseFloat(),
@@ -144,12 +144,12 @@ proc newColorPropertyView(setter: proc(s: Color), getter: proc(): Color): Proper
         setter(c)
         colorView.backgroundColor = c
 
-    beginColorPicker = proc() =
+    beginColorPicker = proc() {.gcsafe.} =
         colorPicker.color = getter()
         colorPicker.onColorSelected = colorInColorPickerSelected
         colorPicker.popupAtPoint(colorView, newPoint(0, colorView.bounds.maxY))
 
-    proc endColorPicker() =
+    proc endColorPicker() {.gcsafe.} =
         if colorPicker.onColorSelected == colorInColorPickerSelected:
             colorPicker.onColorSelected = nil
             colorPicker.removeFromSuperview()
@@ -166,23 +166,23 @@ proc newColorPropertyView(setter: proc(s: Color), getter: proc(): Color): Proper
         textField.continuous = true
         horLayout.addSubview(textField)
 
-proc newRectPropertyView(setter: proc(s: Rect), getter: proc(): Rect): PropertyEditorView =
+proc newRectPropertyView(setter: proc(s: Rect) {.gcsafe.}, getter: proc(): Rect {.gcsafe.}): PropertyEditorView =
     newVecPropertyView(
-        proc(v: Vector4) = setter(newRect(v.x, v.y, v.z, v.w)),
-        proc(): Vector4 =
+        proc(v: Vector4) {.gcsafe.} = setter(newRect(v.x, v.y, v.z, v.w)),
+        proc(): Vector4 {.gcsafe.} =
             let s = getter()
             result = newVector4(s.x, s.y, s.width, s.height)
             )
 
-proc newSizePropertyView(setter: proc(s: Size), getter: proc(): Size): PropertyEditorView =
+proc newSizePropertyView(setter: proc(s: Size) {.gcsafe.}, getter: proc(): Size {.gcsafe.}): PropertyEditorView =
     newVecPropertyView(
-        proc(v: Vector2) = setter(newSize(v.x, v.y)),
-        proc(): Vector2 =
+        proc(v: Vector2) {.gcsafe.} = setter(newSize(v.x, v.y)),
+        proc(): Vector2 {.gcsafe.} =
             let s = getter()
             result = newVector2(s.width, s.height)
             )
 
-proc newPointPropertyView(setter: proc(s: Point), getter: proc(): Point): PropertyEditorView =
+proc newPointPropertyView(setter: proc(s: Point) {.gcsafe.}, getter: proc(): Point {.gcsafe.}): PropertyEditorView =
     newVecPropertyView(
         proc(v: Vector2) = setter(newPoint(v.x, v.y)),
         proc(): Vector2 =
@@ -191,7 +191,7 @@ proc newPointPropertyView(setter: proc(s: Point), getter: proc(): Point): Proper
             )
 
 when not defined(android) and not defined(ios):
-    proc newImagePropertyView(setter: proc(s: Image), getter: proc(): Image): PropertyEditorView =
+    proc newImagePropertyView(setter: proc(s: Image) {.gcsafe.}, getter: proc(): Image {.gcsafe.}): PropertyEditorView =
         var loadedImage = getter()
         var pv: PropertyEditorView
         if not loadedImage.isNil:
@@ -211,7 +211,7 @@ when not defined(android) and not defined(ios):
             let removeButton = Button.new(newRect(previewSize + 5, editorRowHeight + 3, editorRowHeight, editorRowHeight))
             removeButton.title = "-"
             pv.addSubview(removeButton)
-            removeButton.onAction do():
+            removeButton.onAction do() {.gcsafe.}:
                 setter(nil)
                 if not pv.changeInspector.isNil:
                     pv.changeInspector()
@@ -250,7 +250,7 @@ when not defined(android) and not defined(ios):
 
     registerPropertyEditor(newImagePropertyView)
 
-proc newBoolPropertyView(setter: proc(s: bool), getter: proc(): bool): PropertyEditorView =
+proc newBoolPropertyView(setter: proc(s: bool) {.gcsafe.}, getter: proc(): bool {.gcsafe.} ): PropertyEditorView =
     let pv = PropertyEditorView.new(newRect(0, 0, 208, editorRowHeight))
     let cb = newCheckbox(newRect(0, 0, editorRowHeight, editorRowHeight))
     cb.value = if getter(): 1 else: 0
@@ -259,7 +259,7 @@ proc newBoolPropertyView(setter: proc(s: bool), getter: proc(): bool): PropertyE
     result = pv
     result.addSubview(cb)
 
-proc newEnumPropertyView(setter: proc(s: EnumValue), getter: proc(): EnumValue): PropertyEditorView =
+proc newEnumPropertyView(setter: proc(s: EnumValue) {.gcsafe.}, getter: proc(): EnumValue {.gcsafe.} ): PropertyEditorView =
     let pv = PropertyEditorView.new(newRect(0, 0, 208, editorRowHeight))
     var val = getter()
     var items = newSeq[string]()
@@ -287,7 +287,7 @@ proc newEnumPropertyView(setter: proc(s: EnumValue), getter: proc(): EnumValue):
 
     result = pv
 
-proc newScalarSeqPropertyView[T](setter: proc(s: seq[T]), getter: proc(): seq[T]): PropertyEditorView =
+proc newScalarSeqPropertyView[T](setter: proc(s: seq[T]) {.gcsafe.} , getter: proc(): seq[T] {.gcsafe.}): PropertyEditorView =
     var val = getter()
     var height = val.len() * 26 + 26
     let pv = PropertyEditorView.new(newRect(0, 0, 208, height.Coord))
@@ -332,16 +332,16 @@ proc newScalarSeqPropertyView[T](setter: proc(s: seq[T]), getter: proc(): seq[T]
     result = pv
 
 # proc newSeqPropertyView[I: static[int], T](setter: proc(s: seq[TVector[I, T]]), getter: proc(): seq[TVector[I, T]]): PropertyEditorView =
-proc newSeqPropertyView[T](setter: proc(s: seq[T]), getter: proc(): seq[T]): PropertyEditorView =
+proc newSeqPropertyView[T](setter: proc(s: seq[T]) {.gcsafe.}, getter: proc(): seq[T] {.gcsafe.}): PropertyEditorView =
     var val = getter()
     var height = val.len() * 26 + 26
     let pv = PropertyEditorView.new(newRect(0, 0, 208, height.Coord))
     const vecLen = high(T) + 1
 
-    proc onValChange() =
+    proc onValChange() {.gcsafe.} =
         setter(val)
 
-    proc onSeqChange() =
+    proc onSeqChange() {.gcsafe.} =
         onValChange()
         if not pv.changeInspector.isNil:
             pv.changeInspector()
@@ -386,7 +386,7 @@ proc newSeqPropertyView[T](setter: proc(s: seq[T]), getter: proc(): seq[T]): Pro
 
     result = pv
 
-proc newFontPropertyView(setter: proc(s: Font), getter: proc(): Font): PropertyEditorView =
+proc newFontPropertyView(setter: proc(s: Font) {.gcsafe.}, getter: proc(): Font {.gcsafe.}): PropertyEditorView =
     result = PropertyEditorView.new(newRect(0, 0, 208, editorRowHeight))
     var val = getter()
     var items = getAvailableFonts()

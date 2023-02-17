@@ -6,9 +6,9 @@ type
         pointOne: Point
         pointTwo: Point
         key: bool
-        mOnAction: proc()
+        mOnAction: proc() {.gcsafe.}
 
-proc onAction*(v: BezierView, cb: proc())=
+proc onAction*(v: BezierView, cb: proc() {.gcsafe.})=
     v.mOnAction = cb
 
 proc p1*(v: BezierView): float = v.pointOne.x / v.bounds.width

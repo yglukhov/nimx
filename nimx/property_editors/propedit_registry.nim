@@ -8,17 +8,20 @@ import variant
 
 type
     PropertyEditorView* = ref object of View
-        onChange*: proc()
-        changeInspector*: proc()
-    PropertyEditorCreatorWO*[T] = proc(editedObject: Variant, setter: proc(s: T), getter: proc(): T): PropertyEditorView
-    PropertyEditorCreator*[T] = proc(setter: proc(s: T), getter: proc(): T): PropertyEditorView
+        onChange*: proc() {.gcsafe.}
+        changeInspector*: proc() {.gcsafe.}
+    PropertyEditorCreatorWO*[T] = proc(editedObject: Variant, setter: proc(s: T) {.gcsafe.}, getter: proc(): T {.gcsafe.}): PropertyEditorView {.gcsafe.}
+    PropertyEditorCreator*[T] = proc(setter: proc(s: T) {.gcsafe.}, getter: proc(): T {.gcsafe.}): PropertyEditorView {.gcsafe.}
+    RegistryTableEntry = proc(editedObject: Variant, v: Variant): PropertyEditorView {.gcsafe.}
 
-var propEditors = initTable[TypeId, proc(editedObject: Variant, v: Variant): PropertyEditorView]()
+var propEditors {.threadvar.}: Table[TypeId, RegistryTableEntry]
+propEditors = initTable[TypeId, RegistryTableEntry]()
+
 proc registerPropertyEditorAUX[T, C](createView: C) =
-    propEditors[getTypeId(SetterAndGetter[T])] = proc(n: Variant, v: Variant): PropertyEditorView =
+    propEditors[getTypeId(SetterAndGetter[T])] = proc(n: Variant, v: Variant): PropertyEditorView {.gcsafe.} =
         let sng = v.get(SetterAndGetter[T])
         var r: PropertyEditorView
-        proc setterAUX(s: T) =
+        proc setterAUX(s: T) {.gcsafe.} =
             sng.setter(s)
             if not r.isNil and not r.onChange.isNil:
                 r.onChange()
@@ -34,9 +37,9 @@ proc registerPropertyEditor*[T](createView: PropertyEditorCreatorWO[T]) =
 proc registerPropertyEditor*[T](createView: PropertyEditorCreator[T]) =
     registerPropertyEditorAUX[T, PropertyEditorCreator[T]](createView)
 
-var gEditorFont: Font
+var gEditorFont {.threadvar.}: Font
 
-proc editorFont*(): Font =
+proc editorFont*(): Font {.gcsafe.} =
     if gEditorFont.isNil: gEditorFont = systemFontOfSize(14)
     result = gEditorFont
 
@@ -58,7 +61,7 @@ template createEditorAUX(r: Rect) =
     editor.changeInspector = changeInspectorCallback
     editor.onChange = onChange
 
-proc propertyEditorForProperty*(editedObject: Variant, title: string, v: Variant, onChange, changeInspectorCallback: proc() = nil): View =
+proc propertyEditorForProperty*(editedObject: Variant, title: string, v: Variant, onChange, changeInspectorCallback: proc() {.gcsafe.} = nil): View =
     let creator = propEditors.getOrDefault(v.typeId)
     result = View.new(newRect(0, 0, 328, editorRowHeight))
     result.name = "'" & title & "'"
@@ -74,12 +77,12 @@ proc propertyEditorForProperty*(editedObject: Variant, title: string, v: Variant
     else:
         createEditorAUX(newRect(label.frame.width, 0, result.bounds.width - label.frame.width, result.bounds.height))
 
-proc propertyEditorForProperty*(editedObject: Variant, v: Variant, changeInspectorCallback: proc() = nil): View =
+proc propertyEditorForProperty*(editedObject: Variant, v: Variant, changeInspectorCallback: proc() {.gcsafe.} = nil): View =
     let creator = propEditors.getOrDefault(v.typeId)
     result = View.new(newRect(0, 0, 228, editorRowHeight))
     result.autoresizingMask = {afFlexibleWidth, afFlexibleMaxY}
     if creator.isNil:
         discard result.newLabel(newPoint(100, 0), newSize(128, editorRowHeight), "Unknown")
     else:
-        const onChange: proc() = nil
+        const onChange: proc() {.gcsafe.} = nil
         createEditorAUX(newRect(0,0, result.bounds.width, result.bounds.height))
