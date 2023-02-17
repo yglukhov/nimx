@@ -12,11 +12,13 @@ type SplitView* = ref object of View
     mVertical: bool
     mResizable: bool
     hoveredDivider: int
+    draggingDivider: int
     initialDragPos: Point
 
 method init*(v: SplitView, r: Rect) =
     procCall v.View.init(r)
     v.hoveredDivider = -1
+    v.draggingDivider = -1
     v.mResizable = true
     v.trackMouseOver(true)
 
@@ -142,32 +144,39 @@ proc dividerAtPoint(v: SplitView, p: Point): int =
     result = -1
 
 method onMouseOver*(v: SplitView, e: var Event) =
-    if v.resizable:
-        var nhv = v.dividerAtPoint(e.localPosition)
-        if nhv == -1 and v.hoveredDivider != -1:
-            newCursor(ckArrow).setCurrent()
-        elif nhv != v.hoveredDivider:
-            if v.mVertical:
-                newCursor(ckSizeVertical).setCurrent()
-            else:
-                newCursor(ckSizeHorizontal).setCurrent()
-        v.hoveredDivider = nhv
+    if not v.resizable or v.draggingDivider != -1:
+        return
+    var nhv = v.dividerAtPoint(e.localPosition)
+    if nhv == -1 and v.hoveredDivider != -1:
+        newCursor(ckArrow).setCurrent()
+    elif nhv != v.hoveredDivider:
+        if v.mVertical:
+            newCursor(ckSizeVertical).setCurrent()
+        else:
+            newCursor(ckSizeHorizontal).setCurrent()
+    v.hoveredDivider = nhv
 
 # TODO: We also need to reset the resizing mouse cursor onMouseOut.
 
 method onTouchEv*(v: SplitView, e: var Event): bool =
     result = procCall v.View.onTouchEv(e)
-    if v.resizable and v.hoveredDivider != -1:
-        result = true
-        case e.buttonState
-        of bsDown:
-            discard
-            v.initialDragPos = e.localPosition
-        of bsUp, bsUnknown:
-            if v.mVertical:
-                v.setDividerPosition(e.localPosition.y, v.hoveredDivider)
-            else:
-                v.setDividerPosition(e.localPosition.x, v.hoveredDivider)
+    if not v.resizable or v.hoveredDivider == -1:
+        return
+
+    case e.buttonState
+    of bsDown:
+        discard
+        v.initialDragPos = e.localPosition
+        v.draggingDivider = v.hoveredDivider
+    of bsUp, bsUnknown:
+        if v.mVertical:
+            v.setDividerPosition(e.localPosition.y, v.hoveredDivider)
+        else:
+            v.setDividerPosition(e.localPosition.x, v.hoveredDivider)
+        if e.buttonState == bsUp:
+            v.draggingDivider = -1
+    result = true
+
 
 method onInterceptTouchEv*(v: SplitView, e: var Event): bool =
     if v.hoveredDivider != -1:

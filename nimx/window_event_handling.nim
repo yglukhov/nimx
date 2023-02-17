@@ -67,6 +67,7 @@ method handleEvent*(w: Window, e: var Event): bool {.base, gcsafe.} =
             result = w.processMouseWheelEvent(e)
         of etMouse, etTouch:
             currentDragSystem().processDragEvent(e)
+            w.handleMouseOverEvent(e)
             result = w.processTouchEvent(e)
         of etKeyboard:
             result = w.propagateEventThroughResponderChain(e)

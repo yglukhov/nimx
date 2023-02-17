@@ -128,10 +128,10 @@ proc newRotateGestureDetector*(listener : OnRotateListener) : RotateGestureDetec
 
 proc getPointersCenter(arr : openarray[Event]) : Point =
     result = newPoint(0,0)
-    if  arr.len > 0:
-        var r = newRect(arr[0].localPosition)
+    if arr.len > 0:
+        var r = newRect(arr[0].position)
         for i in 1 ..< arr.len:
-            r.union(arr[i].localPosition)
+            r.union(arr[i].position)
         result = r.centerPoint()
 
 proc checkScroll(d : ScrollDetector, e : var Event) =
@@ -171,8 +171,7 @@ method onGestEvent*(d: ScrollDetector, e: var Event) : bool =
     elif e.buttonState == bsUnknown:
         for p in 0 ..< d.pointers.len:
             if d.pointers[p].pointerId == e.pointerId:
-                d.pointers.delete(p)
-                d.pointers.insert(e, p)
+                d.pointers[p] = e
                 break
 
     if d.pointers.len > 0:
@@ -181,7 +180,6 @@ method onGestEvent*(d: ScrollDetector, e: var Event) : bool =
             d.last_fired_dx = d.last_active_point.x - d.tap_down.x + d.dx_offset
             d.last_fired_dy = d.last_active_point.y - d.tap_down.y + d.dy_offset
             d.listener.onScrollProgress(d.last_fired_dx, d.last_fired_dy, e)
-
 
 method onGestEvent*(d: TapGestureDetector, e: var Event): bool =
     result = true

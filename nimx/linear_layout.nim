@@ -14,6 +14,7 @@ type
         mUserResizeable: bool
         hoveredDivider: int
         initialDragPos: Point
+        draggingDivider: int
 
 proc newHorizontalLayout*(r: Rect): LinearLayout =
     result = LinearLayout.new(r)
@@ -29,6 +30,7 @@ method init*(v: LinearLayout, r: Rect) =
     v.mPadding = 1
     v.mHorizontal = true
     v.hoveredDivider = -1
+    v.draggingDivider = -1
 
 proc `padding=`*(v: LinearLayout, p: Coord) =
     v.mPadding = p
@@ -218,6 +220,8 @@ proc dividerAtPoint(v: LinearLayout, p: Point): int =
     result = -1
 
 method onMouseOver*(v: LinearLayout, e: var Event) =
+    if v.draggingDivider != -1:
+        return
     var nhv = v.dividerAtPoint(e.localPosition)
     if nhv == -1 and v.hoveredDivider != -1:
         newCursor(ckArrow).setCurrent()
@@ -230,17 +234,21 @@ method onMouseOver*(v: LinearLayout, e: var Event) =
 
 method onTouchEv*(v: LinearLayout, e: var Event): bool =
     result = procCall v.View.onTouchEv(e)
-    if v.mUserResizeable and v.hoveredDivider != -1:
-        result = true
-        case e.buttonState
-        of bsDown:
-            discard
-            v.initialDragPos = e.localPosition
-        of bsUp, bsUnknown:
-            if v.mHorizontal:
-                v.setDividerPosition(e.localPosition.x, v.hoveredDivider)
-            else:
-                v.setDividerPosition(e.localPosition.y, v.hoveredDivider)
+    if not v.mUserResizeable or v.hoveredDivider == -1:
+        return
+
+    case e.buttonState
+    of bsDown:
+        v.initialDragPos = e.localPosition
+        v.draggingDivider = v.hoveredDivider
+    of bsUp, bsUnknown:
+        if v.mHorizontal:
+            v.setDividerPosition(e.localPosition.x, v.hoveredDivider)
+        else:
+            v.setDividerPosition(e.localPosition.y, v.hoveredDivider)
+        if e.buttonState == bsUp:
+            v.draggingDivider = -1
+    result = true
 
 method onInterceptTouchEv*(v: LinearLayout, e: var Event): bool =
     if v.mUserResizeable and v.hoveredDivider != -1:

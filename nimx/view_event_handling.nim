@@ -38,12 +38,11 @@ method onMouseOver*(v: View, e: var Event) {.base, gcsafe.} =
 method onMouseOut*(v: View, e: var Event) {.base, gcsafe.} =
     discard
 
-proc handleMouseOverEvent(v: View, e : var Event) =
+proc handleMouseOverEvent*(v: Window, e: var Event) =
     let localPosition = e.localPosition
-    for vi in v.window.mouseOverListeners:
-        let r = vi.convertRectToWindow(vi.bounds)
-        e.localPosition = vi.convertPointFromWindow(localPosition)
-        if localPosition.inRect(r):
+    for vi in v.mouseOverListeners:
+        e.localPosition = vi.convertPointFromWindow(e.position)
+        if e.localPosition.inRect(vi.bounds):
             if not vi.mouseInside:
                 vi.onMouseIn(e)
                 vi.mouseInside = true
@@ -113,7 +112,6 @@ proc processTouchEvent*(v: View, e: var Event): bool =
             result = v.onTouchEv(e)
             if result:
                 e.setTouchTarget(v)
-
         else:
             if v.onInterceptTouchEv(e):
                 v.interceptEvents = true
@@ -164,9 +162,6 @@ proc processTouchEvent*(v: View, e: var Event): bool =
                         else:
                             if not v.isMainWindow(e):
                                 result = v.onTouchEv(e)
-        else:
-            if v.isMainWindow(e):
-                v.handleMouseOverEvent(e)
 
     if e.buttonState == bsUp:
         if v.isMainWindow(e) and numberOfActiveTouches() == 1:
