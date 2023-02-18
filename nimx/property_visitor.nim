@@ -4,8 +4,8 @@ import tables
 import variant
 
 type
-    Setter*[T] = proc(v: T)
-    Getter*[T] = proc(): T
+    Setter*[T] = proc(v: T) {.gcsafe.}
+    Getter*[T] = proc(): T {.gcsafe.}
     SetterAndGetter*[T] = tuple[setter: Setter[T], getter: Getter[T]]
 
     PropertyFlag* = enum
@@ -47,10 +47,10 @@ template visitProperty*(p: PropertyVisitor, propName: string, s: untyped, defFla
 
         if p.requireSetter:
             when s is enum:
-                sng.setter = proc(v: EnumValue) =
+                sng.setter = proc(v: EnumValue) {.gcsafe.} =
                     s = type(s)(v.curValue)
             else:
-                sng.setter = proc(v: type(s)) = s = v
+                sng.setter = proc(v: type(s)) {.gcsafe.} = s = v
         if p.requireGetter:
             when s is enum:
                 sng.getter = proc(): EnumValue =
@@ -65,7 +65,7 @@ template visitProperty*(p: PropertyVisitor, propName: string, s: untyped, defFla
         p.setterAndGetter = newVariant(sng)
         p.commit()
 
-template visitProperty*(p: PropertyVisitor, propName: string, s: untyped, onChange: proc()) {.deprecated.} =
+template visitProperty*(p: PropertyVisitor, propName: string, s: untyped, onChange: proc() {.gcsafe.} ) {.deprecated.} =
     var defFlags = { pfEditable, pfAnimatable }
     if (defFlags * p.flags) != {}:
         when s is enum:
@@ -75,10 +75,10 @@ template visitProperty*(p: PropertyVisitor, propName: string, s: untyped, onChan
 
         if p.requireSetter:
             when s is enum:
-                sng.setter = proc(v: EnumValue) =
+                sng.setter = proc(v: EnumValue) {.gcsafe.} =
                     s = type(s)(v.curValue)
             else:
-                sng.setter = proc(v: type(s)) = s = v
+                sng.setter = proc(v: type(s)) {.gcsafe.} = s = v
         if p.requireGetter:
             when s is enum:
                 sng.getter = proc(): EnumValue =

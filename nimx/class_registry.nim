@@ -57,8 +57,10 @@ type ClassInfo = tuple
     creatorProc: proc(): RootRef {.nimcall.}
     typ: TypeId
 
-var classFactory = initTable[string, ClassInfo]()
-var superTypeRelations = initTable[TypeId, TypeId]()
+var classFactory {.threadvar.}: Table[string, ClassInfo]
+var superTypeRelations {.threadvar.}: Table[TypeId, TypeId]
+classFactory = initTable[string, ClassInfo]()
+superTypeRelations = initTable[TypeId, TypeId]()
 
 {.push, stackTrace: off.}
 
