@@ -1,4 +1,5 @@
 import sample_registry
+import asyncdispatch, httpclient
 
 import nimx / [ view, font, context, composition, button, autotest,
                 gesture_detector, view_event_handling ]
@@ -14,6 +15,15 @@ method onScroll*(v: CustomControl, e: var Event): bool =
     echo "custom scroll ", e.offset
     result = true
 
+proc test() {.async.} =
+    echo "test started"
+    let c = newAsyncHttpClient()
+    let co = await c.getContent("http://example.com")
+    echo "done: ", co.len
+    for i in 1 .. 5:
+        echo i
+        await sleepAsync(1000)
+
 method init(v: WelcomeView, r: Rect) =
     procCall v.View.init(r)
     let autoTestButton = newButton(newRect(20, 20, 150, 20))
@@ -28,6 +38,8 @@ method init(v: WelcomeView, r: Rect) =
         startRegisteredTests()
     secondTestButton.onAction do():
         echo "second click"
+        asyncCheck test()
+
     v.addSubview(autoTestButton)
     v.addSubview(secondTestButton)
     let vtapd = newTapGestureDetector do(tapPoint : Point):

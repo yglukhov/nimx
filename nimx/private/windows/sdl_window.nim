@@ -544,6 +544,41 @@ when defined(macosx): # Most likely should be enabled for linux and windows...
             discard handleEvent(event)
     {.pop.}
 
+import winlean, asyncdispatch, heapqueue
+import std/monotimes
+
+proc msgWaitForMultipleObjectsEx*(nCount: DWORD, pHandles: ptr Handle, dwMilliseconds: int32, dwWakeMask, dwFlags: DWORD): DWORD {.
+    stdcall, dynlib: "user32", importc: "MsgWaitForMultipleObjectsEx", sideEffect.}
+
+const
+    MWMO_ALERTABLE = 0x0002
+    MWMO_INPUTAVAILABLE = 0x0004
+    MWMO_WAITALL = 0x0001
+
+    QS_KEY = 0x0001 # 	A WM_KEYUP, WM_KEYDOWN, WM_SYSKEYUP, or WM_SYSKEYDOWN message is in the queue.
+    QS_MOUSEMOVE = 0x0002 # 	A WM_MOUSEMOVE message is in the queue.
+    QS_MOUSEBUTTON = 0x0004 #	A mouse-button message (WM_LBUTTONUP, WM_RBUTTONDOWN, and so on).
+    QS_POSTMESSAGE = 0x0008 #	A posted message (other than those listed here) is in the queue. For more information, see PostMessage.
+# This value is cleared when you call GetMessage or PeekMessage, whether or not you are filtering messages.
+    QS_TIMER = 0x0010 #	A WM_TIMER message is in the queue.
+    QS_PAINT = 0x0020 #	A WM_PAINT message is in the queue.
+    QS_SENDMESSAGE = 0x0040 #	A message sent by another thread or application is in the queue. For more information, see SendMessage.
+    QS_HOTKEY = 0x0080 #	A WM_HOTKEY message is in the queue.
+    QS_ALLPOSTMESSAGE = 0x0100 #	A posted message (other than those listed here) is in the queue. For more information, see PostMessage.
+#This value is cleared when you call GetMessage or PeekMessage without filtering messages.
+    QS_RAWINPUT = 0x0400 #	Windows XP and newer: A raw input message is in the queue. For more information, see Raw Input.
+    QS_TOUCH = 0x0800 #	Windows 8 and newer: A touch input message is in the queue. For more information, see Touch Input.
+    QS_POINTER = 0x1000 #	Windows 8 and newer: A pointer input message is in the queue. For more information, see Pointer Input.
+    QS_MOUSE = (QS_MOUSEMOVE or QS_MOUSEBUTTON) #	A WM_MOUSEMOVE message or mouse-button message (WM_LBUTTONUP, WM_RBUTTONDOWN, and so on).
+    QS_INPUT = (QS_MOUSE or QS_KEY or QS_RAWINPUT or QS_TOUCH or QS_POINTER) #	An input message is in the queue.
+    QS_ALLEVENTS = (QS_INPUT or QS_POSTMESSAGE or QS_TIMER or QS_PAINT or QS_HOTKEY) #	An input, WM_TIMER, WM_PAINT, WM_HOTKEY, or posted message is in the queue.
+    QS_ALLINPUT = (QS_INPUT or QS_POSTMESSAGE or QS_TIMER or QS_PAINT or QS_HOTKEY or QS_SENDMESSAGE)
+
+    WAIT_OBJECT_0 = 0
+    WAIT_TIMEOUT = 0x00000102
+    WAIT_ABANDONED = 0x00000080
+    WAIT_FAILED = 0xFFFFFFFF
+
 proc runUntilQuit*() =
     # Initialize fist dummy event. The kind should be any unused kind.
     var evt = sdl2.Event(kind: UserEvent1)
@@ -552,14 +587,44 @@ proc runUntilQuit*() =
 
     when defined(macosx):
         addEventWatch(resizeEventWatch, nil)
+
+    let disp = getGlobalDispatcher()
+    var ioPort = disp.getIoHandler()
+
     # Main loop
     while true:
-        when defined(nimxAsyncRunloop):
-            if hasPendingOperations():
-                drain(timeout = 0)
-        nextEvent(evt)
-        if evt.kind == QuitEvent:
-            break
+        var timeout = INFINITE
+        if disp.timers.len != 0:
+            timeout = inMilliseconds(disp.timers[0].finishAt - getMonoTime()).int32
+            # if timeout <= 0:
+            #     asyncdispatch.poll(0)
+            #     continue
+        let r = msgWaitForMultipleObjectsEx(1, addr ioPort, timeout, QS_ALLEVENTS, 0)
+        if r == WAIT_OBJECT_0 + 1:
+            # Message available
+            if waitEvent(evt):
+                discard handleEvent(addr evt)
+                if evt.kind == QuitEvent:
+                    break
+        elif r == WAIT_TIMEOUT:
+            # asyncdispatch timer fired
+            asyncdispatch.poll(0)
+        elif r == WAIT_OBJECT_0:
+            # ioPort completion...
+            asyncdispatch.poll(0)
+        else:
+            echo "RES: ", r
+            assert(false)
+
+        animateAndDraw()
+
+
+        # when defined(nimxAsyncRunloop):
+        #     if hasPendingOperations():
+        #         drain(timeout = 0)
+        # nextEvent(evt)
+        # if evt.kind == QuitEvent:
+        #     break
 
 template runApplication*(body: typed) =
     when defined(useRealtimeGC):
