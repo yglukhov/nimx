@@ -163,13 +163,12 @@ proc eventWithXEvent(d: PDisplay, ev: var XEvent, result: var seq[Event]) =
       if e.keyCode in {Backspace, Return}:
         return
 
-    if st in {XLookupChars, XLookupBoth} and sz != 0:
-      if sz != 0:
-        str.setLen(sz)
-        e = newEvent(etTextInput)
-        e.text = str
-        e.window = wnd
-        result.insert(e, 0)
+    if st in {XLookupChars, XLookupBoth} and (ev.xkey.state and ControlMask) == 0 and sz != 0:
+      str.setLen(sz)
+      e = newEvent(etTextInput)
+      e.text = str
+      e.window = wnd
+      result.insert(e, 0)
 
   of KeyRelease:
     let wnd = findWindowWithX(d, ev.xkey.window)
