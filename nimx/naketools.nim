@@ -743,6 +743,8 @@ proc build*(b: Builder) =
         b.linkerFlags.add(["-L/usr/local/lib", "-Wl,-rpath,/usr/local/lib", "-lpthread"])
     of "windows":
         b.executablePath &= ".exe"
+        if not b.debugMode:
+            b.nimFlags.add("--app:gui")
         when defined(macosx) or defined(linux):
             # We are trying to build for windows, but we're not on windows.
             # Use mxe cross-compiler
@@ -797,7 +799,7 @@ proc build*(b: Builder) =
 
     if b.platform notin ["js", "emscripten", "wasm"]:
         b.nimFlags.add("--threads:on")
-        if b.platform != "windows" and not b.avoidSDL:
+        if not b.avoidSDL:
             b.linkerFlags.add("-lSDL2")
 
     if b.runAfterBuild and b.platform notin ["android", "ios", "ios-sim",

@@ -7,8 +7,6 @@ import os
 {.pragma: user32, stdcall, dynlib: "user32" .}
 {.pragma: kernel32, stdcall, dynlib: "kernel32" .}
 
-const UniSuffix = when useWinUnicode: "W" else: "A"
-
 type
     LPVOID = pointer
     UINT = cuint
@@ -48,14 +46,14 @@ proc isClipboardFormatAvailable(format: UINT): WINBOOL {.user32, importc: "IsCli
 # UINT WINAPI RegisterClipboardFormat(
 #   _In_ LPCTSTR lpszFormat
 # );
-proc registerClipboardFormat(lpszFormat: pointer): UINT {.user32, importc: "RegisterClipboardFormat" & UniSuffix.}
+proc registerClipboardFormat(lpszFormat: pointer): UINT {.user32, importc: "RegisterClipboardFormatW".}
 
 # int WINAPI GetClipboardFormatName(
 #   _In_  UINT   format,
 #   _Out_ LPTSTR lpszFormatName,
 #   _In_  int    cchMaxCount
 # );
-proc getClipboardFormatName(uFormat: UINT, lpszFormatName: pointer, cchMaxCount: int32): int32 {.user32, importc: "GetClipboardFormatName" & UniSuffix.}
+proc getClipboardFormatName(uFormat: UINT, lpszFormatName: pointer, cchMaxCount: int32): int32 {.user32, importc: "GetClipboardFormatNameW".}
 
 # HGLOBAL WINAPI GlobalAlloc(
 #   _In_ UINT   uFlags,

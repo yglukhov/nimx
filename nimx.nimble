@@ -11,7 +11,8 @@ installDirs = @["nimx", "assets"]
 # Dependencies
 
 requires "sdl2"
-requires "opengl#head"
+requires "opengl"
+requires "winim"
 requires "nimsl >= 0.3"
 requires "jnim" # For android target
 requires "nake"
@@ -24,7 +25,8 @@ requires "https://github.com/yglukhov/async_http_request"
 requires "jsbind"
 requires "rect_packer"
 requires "https://github.com/yglukhov/android"
-requires "https://github.com/yglukhov/darwin"
+requires "darwin"
 requires "os_files"
 requires "https://github.com/tormund/nester"
 requires "nimwebp"
+requires "https://github.com/yglukhov/clipboard"

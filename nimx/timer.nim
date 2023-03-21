@@ -118,7 +118,7 @@ elif defined(macosx):
     proc cancel(t: Timer) {.inline.} =
         CFRunLoopTimerInvalidate(t.timer)
 
-elif defined(linux) and not defined(android) and defined(nimxAvoidSDL):
+elif defined(nimxAvoidSDL):
     import asyncdispatch
     proc runTimer(t: Timer) {.async.} =
         while t.state == tsRunning:
