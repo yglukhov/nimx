@@ -205,6 +205,8 @@ proc toAscii*(vk: VirtualKey): char =
     of VirtualKey.Space: ' '
     of VirtualKey.RightBracket: ']'
     of VirtualKey.LeftBracket: '['
+    of VirtualKey.Minus, VirtualKey.KeypadMinus: '-'
+    of VirtualKey.Equals: '='
     else:
         char(0)
 
