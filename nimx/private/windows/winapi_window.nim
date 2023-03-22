@@ -237,12 +237,13 @@ proc winEventProc(hwnd: HWND, msg: UINT, wparam: WPARAM, lparam: LPARAM): LRESUL
     of VK_BACK, VK_RETURN, VK_ESCAPE, VK_TAB, VK_SHIFT:
       discard
     else:
-      let text = newWideCString(1)
-      text[0] = wparam.Utf16Char
-      e = newEvent(etTextInput)
-      e.window = win
-      e.text = $text
-      # echo "WM_CHAR ", e.text, " wpb ", toBin(wparam, 16), " wp ", wparam, " ", IsWindowUnicode(hwnd)
+      if wparam >= 32:
+        let text = newWideCString(1)
+        text[0] = wparam.Utf16Char
+        e = newEvent(etTextInput)
+        e.window = win
+        e.text = $text
+        # echo "WM_CHAR \"", e.text, "\" wpb ", toBin(wparam, 16), " wp ", wparam
 
   of WM_DESTROY:
     # echo "DESTROY!"
