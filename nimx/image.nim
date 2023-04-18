@@ -504,6 +504,7 @@ when asyncResourceLoad:
             if err.len != 0:
                 error "Could not load url: ", url
                 error "Error: ", err
+                return
 
             let c = cast[ImageLoadingCtx](ctx)
 
