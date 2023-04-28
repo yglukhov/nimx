@@ -6,6 +6,10 @@ beforeBuild = proc(b: Builder) =
     b.mainFile = "test/main"
     b.originalResourcePath = "test/res"
     b.screenOrientation = "sensorLandscape"
+    b.additionalNimFlags = @["--gc:orc"]
+    #b.targetArchitectures = @["armeabi-v7a", "arm64-v8a", "x86_64"]
+    b.targetArchitectures = @["x86"]
+    b.androidApi = 21
 
 task "samples", "Build and run samples":
     newBuilder().build()
