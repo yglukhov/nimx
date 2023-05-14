@@ -8,7 +8,7 @@ import variant
 export linear_layout
 
 type InspectorView* = ref object of LinearLayout
-    onPropertyChanged*: proc(name: string)
+    onPropertyChanged*: proc(name: string) {.gcsafe.}
 
 method init*(v: InspectorView, r: Rect) =
     procCall v.LinearLayout.init(r)
@@ -18,9 +18,9 @@ proc setInspectedObject*[T](v: InspectorView, o: T) =
     v.removeAllSubviews()
     if o.isNil: return
 
-    proc onChanged(p: PropertyVisitor): proc() =
+    proc onChanged(p: PropertyVisitor): proc() {.gcsafe.} =
         let name = p.name
-        result = proc() =
+        result = proc() {.gcsafe.} =
             if not v.onPropertyChanged.isNil:
                 v.onPropertyChanged(name)
 
@@ -30,7 +30,7 @@ proc setInspectedObject*[T](v: InspectorView, o: T) =
     visitor.requireSetter = true
     visitor.requireGetter = true
     visitor.flags = { pfEditable }
-    visitor.commit = proc() =
+    visitor.commit = proc() {.gcsafe.} =
         v.addSubview(propertyEditorForProperty(oo, visitor.name, visitor.setterAndGetter, onChange = onChanged(visitor)))
 
     o.visitProperties(visitor)

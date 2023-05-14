@@ -7,7 +7,7 @@ export panel_view
 
 type InspectorPanel* = ref object of PanelView
     inspectorView: InspectorView
-    mOnPropertyChanged: proc(name: string)
+    mOnPropertyChanged: proc(name: string) {.gcsafe.}
 
 
 proc moveSubviewToBack(v, s: View) =
@@ -16,7 +16,7 @@ proc moveSubviewToBack(v, s: View) =
         v.subviews.delete(i)
         v.subviews.insert(s, 0)
 
-proc onPropertyChanged*(i: InspectorPanel, cb: proc(name: string)) =
+proc onPropertyChanged*(i: InspectorPanel, cb: proc(name: string) {.gcsafe.}) =
     i.mOnPropertyChanged = cb
 
 method init*(i: InspectorPanel, r: Rect) =
@@ -31,7 +31,7 @@ method init*(i: InspectorPanel, r: Rect) =
     i.autoresizingMask = { afFlexibleMaxX }
     i.inspectorView = InspectorView.new(newRect(0, i.titleHeight, r.width, r.height - i.titleHeight))
     i.inspectorView.autoresizingMask = {afFlexibleWidth, afFlexibleMaxY}
-    i.inspectorView.onPropertyChanged = proc(name: string) =
+    i.inspectorView.onPropertyChanged = proc(name: string) {.gcsafe.} =
         if not i.mOnPropertyChanged.isNil:
             i.mOnPropertyChanged(name)
 

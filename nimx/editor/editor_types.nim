@@ -9,9 +9,9 @@ import grid_drawing
 
 type
     EventCatchingView* = ref object of View
-        keyUpDelegate*: proc (event: var Event)
-        keyDownDelegate*: proc (event: var Event)
-        mouseScrrollDelegate*: proc (event: var Event)
+        keyUpDelegate*: proc (event: var Event) {.gcsafe.}
+        keyDownDelegate*: proc (event: var Event) {.gcsafe.}
+        mouseScrrollDelegate*: proc (event: var Event) {.gcsafe.}
         panningView*: View # View that we're currently moving/resizing with `panOp`
         editor*: Editor
         panOp*: PanOperation

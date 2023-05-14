@@ -273,6 +273,6 @@ proc drawText*(c: GraphicsContext, font: Font, pt: var Point, text: string) =
     if subpixelDraw:
         gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
 
-proc drawText*(c: GraphicsContext, font: Font, pt: Point, text: string) =
+proc drawText*(c: GraphicsContext, font: Font, pt: Point, text: string) {.gcsafe.}=
     var p = pt
     c.drawText(font, p, text)
