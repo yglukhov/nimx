@@ -6,8 +6,8 @@ type
         cursor: int
 
     UndoAction = object
-        redo: proc()
-        undo: proc()
+        redo: proc() {.gcsafe.}
+        undo: proc() {.gcsafe.}
         description: string
 
 var gUndoManager : UndoManager
@@ -21,14 +21,14 @@ proc sharedUndoManager*(): UndoManager =
         gUndoManager = newUndoManager()
     result = gUndoManager
 
-proc push*(u: UndoManager, description: string, redo: proc(), undo: proc()) {.inline.} =
+proc push*(u: UndoManager, description: string, redo: proc() {.gcsafe.}, undo: proc() {.gcsafe.}) {.inline.} =
     assert(not undo.isNil)
     if u.cursor != u.actions.len:
         u.actions.setLen(u.cursor)
     inc u.cursor
     u.actions.add(UndoAction(redo: redo, undo: undo, description: description))
 
-proc pushAndDo*(u: UndoManager, description: string, redo: proc(), undo: proc()) {.inline.} =
+proc pushAndDo*(u: UndoManager, description: string, redo: proc(){.gcsafe.}, undo: proc(){.gcsafe.}) {.inline.} =
     u.push(description, redo, undo)
     if not redo.isNil: redo()
 
@@ -41,11 +41,13 @@ proc canRedo*(u: UndoManager): bool =
 proc undo*(u: UndoManager) =
     assert(u.canUndo)
     dec u.cursor
-    u.actions[u.cursor].undo()
+    let action = u.actions[u.cursor]
+    action.undo()
 
 proc redo*(u: UndoManager) =
     assert(u.canRedo)
-    u.actions[u.cursor].redo()
+    let action = u.actions[u.cursor]
+    action.redo()
     inc u.cursor
 
 proc clear*(u: UndoManager) =
