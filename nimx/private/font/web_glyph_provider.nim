@@ -1,6 +1,6 @@
 # import dom
 
-import jsbind
+# import jsbind
 import wasmrt
 import nimx/private/font/font_data
 import rect_packer
@@ -9,8 +9,6 @@ type WebGlyphProvider* = ref object
     face: string
     size: float32
     glyphMargin*: int32
-
-type Element = JSObj
 
 proc setFace*(p: WebGlyphProvider, face: string) =
     p.face = face
@@ -23,9 +21,9 @@ proc cssFontName(p: WebGlyphProvider): string =
 
 template clearCache*(p: WebGlyphProvider) = discard
 
-proc calculateFontMetricsInCanvas(n: cstring, fontSize: int, o: pointer) {.importwasm: """
+proc calculateFontMetricsInCanvas(n: cstring, fontSize: int, o: pointer) {.importwasmraw: """
   // Idea borrowed from from https://github.com/Pomax/fontmetrics.js
-  var textstring = "Hl@¿Éq¶", n = _nimsj(n);
+  var textstring = "Hl@¿Éq¶", n = _nimsj($0);
   var canvas = document.createElement("canvas");
   var ctx = canvas.getContext("2d");
   ctx.font = n;
@@ -33,7 +31,7 @@ proc calculateFontMetricsInCanvas(n: cstring, fontSize: int, o: pointer) {.impor
 
   var padding = 100;
   canvas.width = m.width + padding;
-  canvas.height = 3*fontSize;
+  canvas.height = 3*$1;
   canvas.style.opacity = 1;
   ctx.font = n;
   var w = canvas.width,
@@ -63,7 +61,7 @@ proc calculateFontMetricsInCanvas(n: cstring, fontSize: int, o: pointer) {.impor
   while (--i > 0 && pixelData[i] === 255) {}
   var descent = (i/w4)|0;
 
-  _nimwf([baseline - ascent, descent - baseline], o);
+  _nimwf([baseline - ascent, descent - baseline], $2);
   """.}
 
 proc getFontMetrics*(p: WebGlyphProvider, oAscent, oDescent: var float32) =
@@ -72,8 +70,8 @@ proc getFontMetrics*(p: WebGlyphProvider, oAscent, oDescent: var float32) =
   oAscent = o[0]
   oDescent = -o[1]
 
-proc createAuxCanvas(n: cstring) {.importwasm: """
-  var fName = _nimsj(n);
+proc createAuxCanvas(n: cstring) {.importwasmraw: """
+  var fName = _nimsj($0);
   var r = document.createElement("canvas");
   var ctx = r.getContext('2d');
   r.style.font = fName;
@@ -82,26 +80,26 @@ proc createAuxCanvas(n: cstring) {.importwasm: """
   window.__nimx_font_aux_canvas = r;
   """.}
 
-proc measureChar(c: int32): int32 {.importwasm: """
-  return window.__nimx_font_aux_canvas.__nimx_ctx.measureText(String.fromCharCode(c)).width
+proc measureChar(c: int32): int32 {.importwasmraw: """
+  return window.__nimx_font_aux_canvas.__nimx_ctx.measureText(String.fromCharCode($0)).width
   """.}
 
-proc configureAuxCanvas(w, h: int32, f: cstring) {.importwasm: """
+proc configureAuxCanvas(w, h: int32, f: cstring) {.importwasmraw: """
   var c = window.__nimx_font_aux_canvas, x = c.__nimx_ctx;
-  c.width = w;
-  c.height = h;
+  c.width = $0;
+  c.height = $1;
   x.textBaseline = "top";
-  x.font = _nimsj(f)
+  x.font = _nimsj($2)
   """.}
 
-proc fillText(c, x, y: int32) {.importwasm: """
-  window.__nimx_font_aux_canvas.__nimx_ctx.fillText(String.fromCharCode(c), x, y)
+proc fillText(c, x, y: int32) {.importwasmraw: """
+  window.__nimx_font_aux_canvas.__nimx_ctx.fillText(String.fromCharCode($0), $1, $2)
   """.}
 
-proc getImageDataAndDeleteCanvas(w, h: int32, o: pointer) {.importwasm: """
-  var sz = w * h,
-    d = window.__nimx_font_aux_canvas.__nimx_ctx.getImageData(0, 0, w, h).data,
-    o = new Int8Array(_nima.buffer, o, sz);
+proc getImageDataAndDeleteCanvas(w, h: int32, o: pointer) {.importwasmraw: """
+  var sz = $0 * $1,
+    d = window.__nimx_font_aux_canvas.__nimx_ctx.getImageData(0, 0, $0, $1).data,
+    o = new Int8Array(_nima.buffer, $2, sz);
   for (var i = 3, j = 0; j < sz; i += 4, ++j) o[j] = d[i];
   delete window.__nimx_font_aux_canvas;
   """.}
