@@ -2,9 +2,9 @@ import nimx/keyboard
 import tables, hashes
 import x11/[x, keysym]
 
-# proc hash(s: TKeySym): Hash {.inline.} = hash(culong(s))
+# proc hash(s: KeySym): Hash {.inline.} = hash(culong(s))
 
-const virtualKeyMapping: Table[TKeySym, VirtualKey] = {
+const virtualKeyMapping: Table[KeySym, VirtualKey] = {
     XK_Escape:           VirtualKey.Escape,
     XK_1:                VirtualKey.One,
     XK_2:                VirtualKey.Two,
@@ -200,4 +200,4 @@ const virtualKeyMapping: Table[TKeySym, VirtualKey] = {
     XKc_Z:               VirtualKey.Z,
 }.toTable()
 
-template virtualKeyFromNative*(kc: TKeySym): VirtualKey = virtualKeyMapping.getOrDefault(kc)
+template virtualKeyFromNative*(kc: KeySym): VirtualKey = virtualKeyMapping.getOrDefault(kc)
