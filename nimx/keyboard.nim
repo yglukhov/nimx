@@ -239,7 +239,7 @@ proc anyOsModifier*(s: ModifiersSet): bool =
 
     when defined(macosx):
         s.anyGui()
-    elif defined(js) or defined(emscripten):
+    elif defined(js) or defined(emscripten) or defined(wasm):
         if isMacOs:
             s.anyGui()
         else:

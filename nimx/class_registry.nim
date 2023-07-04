@@ -50,8 +50,8 @@ proc superTypeAux(t: NimNode, indent: int): NimNode =
 
 macro superType*(t: typed): untyped = superTypeAux(t, 0)
 
-method className*(o: RootRef): string {.base.} = discard
-method classTypeId*(o: RootRef): TypeId {.base.} = getTypeId(RootRef)
+method className*(o: RootRef): string {.base, gcsafe.} = discard
+method classTypeId*(o: RootRef): TypeId {.base, gcsafe.} = getTypeId(RootRef)
 
 type ClassInfo = tuple
     creatorProc: proc(): RootRef {.nimcall.}
