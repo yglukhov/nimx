@@ -1,10 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="$(PACKAGE_ID)"
     android:versionCode="$(BUILD_NUMBER)"
     android:versionName="$(APP_VERSION)" >
 
-    <uses-sdk android:targetSdkVersion="19" android:minSdkVersion="18"/>
+    <uses-sdk android:targetSdkVersion="27" android:minSdkVersion="21"/>
 
     <!-- OpenGL ES 2.0 -->
     <uses-feature android:glEsVersion="0x00020000" />

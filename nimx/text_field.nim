@@ -1,20 +1,7 @@
-import control
-import context
-import font
-import types
-import event
-import abstract_window
-import unistring
+import control, context, font, types, event, abstract_window, unistring, timer, table_view_cell,
+    window_event_handling, property_visitor, serializers, key_commands, formatted_text, scroll_view, timer
 import unicode
-import timer
-import table_view_cell
-import window_event_handling
-import property_visitor
-import serializers
-import pasteboard/pasteboard
-import key_commands
-import formatted_text
-import scroll_view
+import clipboard
 
 import nimx / meta_extensions / [ property_desc, visitors_gen, serializers_gen ]
 
@@ -492,7 +479,7 @@ method onKeyDown*(t: TextField, e: var Event): bool =
         when defined(macosx) or defined(windows) or defined(linux):
             if cmd == kcPaste:
                 if t.editable:
-                    let s = pasteboardWithName(PboardGeneral).readString()
+                    let s = clipboardWithName(CboardGeneral).readString()
                     if s.len != 0:
                         t.insertText(s)
                     result = true
@@ -500,10 +487,9 @@ method onKeyDown*(t: TextField, e: var Event): bool =
             if cmd in { kcCopy, kcCut, kcUseSelectionForFind }:
                 let s = t.selectedText()
                 if s.len != 0:
-                    if cmd == kcUseSelectionForFind:
-                        pasteboardWithName(PboardFind).writeString(s)
-                    else:
-                        pasteboardWithName(PboardGeneral).writeString(s)
+                    let cbName = if cmd == kcUseSelectionForFind: CboardFind
+                                 else: CboardGeneral
+                    clipboardWithName(cbName).writeString(s)
                     if cmd == kcCut and t.editable:
                         t.clearSelection()
                 result = true

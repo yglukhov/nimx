@@ -13,6 +13,11 @@ proc y*(r: Rect): Coord = r.origin.y
 proc width*(r: Rect): Coord = r.size.width
 proc height*(r: Rect): Coord = r.size.height
 
+proc `x=`*(r: var Rect, v: Coord) = r.origin.x = v
+proc `y=`*(r: var Rect, v: Coord) = r.origin.y = v
+proc `width=`*(r: var Rect, v: Coord) = r.size.width = v
+proc `height=`*(r: var Rect, v: Coord) = r.size.height = v
+
 proc minX*(r: Rect): Coord = r.x
 proc maxX*(r: Rect): Coord = r.x + r.width
 proc minY*(r: Rect): Coord = r.y
@@ -27,9 +32,10 @@ proc newSize*(w, h: Coord): Size = (width: w, height: h)
 const zeroSize* = newSize(0, 0)
 
 proc newRect*(o: Point, s: Size = zeroSize): Rect = (origin: o, size: s)
+proc newRect*(x, y, w, h: Coord): Rect = newRect(newPoint(x, y), newSize(w, h))
 
-proc newRect*(x, y, w, h: Coord): Rect =
-    newRect(newPoint(x, y), newSize(w, h))
+proc rect*(o: Point, s: Size = zeroSize): Rect = (origin: o, size: s)
+proc rect*(x, y, w, h: Coord): Rect = rect(newPoint(x, y), newSize(w, h))
 
 proc newRectWithPoints*(p1, p2: Point): Rect =
     let minX = min(p1.x, p2.x)
@@ -151,3 +157,18 @@ proc centerInRect*(centerThis: Rect, inThis: Rect): Rect =
 proc intersect*(r: Rect, c: Rect): bool =
     if r.minX < c.maxX and c.minX < r.maxX and r.minY < c.maxY and c.minY < r.maxY:
         result = true
+
+proc trim*(r, c: Rect): Rect =
+    ## Trim r with c
+    result = r
+    if result.x < c.x:
+      result.size.width -= c.x - result.x
+      result.x = c.x
+    if result.maxX > c.maxX:
+      result.width = c.maxX - result.x
+
+    if result.y < c.y:
+      result.size.height -= c.y - result.y
+      result.x = c.x
+    if result.maxY > c.maxY:
+      result.height = c.maxY - result.y

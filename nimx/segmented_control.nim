@@ -75,7 +75,7 @@ proc recalculateSegmentWidths(s: SegmentedControl) =
         xOff += pw
     s.widthsValid = true
 
-method draw*(s: SegmentedControl, r: Rect) =
+method draw*(s: SegmentedControl, r: Rect) {.gcsafe.} =
     if not s.widthsValid:
         s.recalculateSegmentWidths()
 
@@ -157,7 +157,7 @@ method onTouchEv(s: SegmentedControl, e: var Event): bool =
             s.sendAction(e)
         result = false
 
-method visitProperties*(v: SegmentedControl, pv: var PropertyVisitor) =
+method visitProperties*(v: SegmentedControl, pv: var PropertyVisitor) {.gcsafe.}=
     procCall v.Control.visitProperties(pv)
     pv.visitProperty("segments", v.segments)
     pv.visitProperty("selected", v.mSelectedSegment)

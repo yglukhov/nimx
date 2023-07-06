@@ -399,8 +399,8 @@ proc drawWithinSuperview*(v: View) =
         # Simplify calculation
         tmpTransform.translate(newVector3(v.frame.x - v.bounds.x, v.frame.y - v.bounds.y))
     else:
-        echo "bounds: ", v.bounds
-        echo "frame: ", v.frame
+#        echo "bounds: ", v.bounds
+#        echo "frame: ", v.frame
         assert(false, "Not implemented")
 
     c.withTransform tmpTransform:

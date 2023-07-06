@@ -11,6 +11,9 @@ elif not defined(nimxAvoidSDL):
 elif defined(linux):
     import x11/[xlib, cursorfont]
     import ./private/windows/x11_window
+elif defined(windows):
+    import winim
+    var hCursor*: HCURSOR
 else:
     {.error.}
 
@@ -37,8 +40,10 @@ type
             c: pointer
         elif not defined(nimxAvoidSdl):
             c: CursorPtr
-        else:
+        elif defined(linux):
             c: cuint
+        elif defined(windows):
+            c: HCURSOR
 
 when defined(js) or defined(emscripten) or defined(wasm):
     proc cursorKindToCSSName(c: CursorKind): jsstring =
@@ -109,6 +114,24 @@ elif defined(linux):
 
     proc finalizeCursor(c: Cursor) =
         discard
+elif defined(windows):
+    proc cursorKindToWinapi(c: CursorKind): LPTSTR =
+        case c
+        of ckArrow: IDC_ARROW
+        of ckText: IDC_IBEAM
+        of ckWait: IDC_WAIT
+        of ckCrosshair: IDC_CROSS
+        of ckWaitArrow: IDC_APPSTARTING
+        of ckSizeTRBL: IDC_SIZENWSE
+        of ckSizeTLBR: IDC_SIZENESW
+        of ckSizeHorizontal: IDC_SIZEWE
+        of ckSizeVertical: IDC_SIZENS
+        of ckSizeAll: IDC_SIZEALL
+        of ckNotAllowed: IDC_NO
+        of ckHand: IDC_HAND
+
+    proc finalizeCursor(c: Cursor) =
+        discard
 
 proc newCursor*(k: CursorKind): Cursor =
     when defined(js) or defined(emscripten) or defined(wasm):
@@ -122,6 +145,8 @@ proc newCursor*(k: CursorKind): Cursor =
             result.c = createSystemCursor(cursorKindToSdl(k))
         elif defined(linux):
             result.c = cursorKindToX(k)
+        elif defined(windows):
+            result.c = LoadCursor(0, cursorKindToWinapi(k))
 
 var gCursor {.threadvar.}: Cursor
 proc currentCursor*(): Cursor =
@@ -153,3 +178,6 @@ proc setCurrent*(c: Cursor) =
             let cur = XCreateFontCursor(d, c.c)
             discard XDefineCursor(d, xw, cur)
             discard XFreeCursor(d, cur)
+    elif defined(windows):
+        hCursor = c.c
+        SetCursor(c.c)

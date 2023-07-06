@@ -219,7 +219,7 @@ proc initSdlWindow(w: SdlWindow, r: view.Rect) =
     mainApplication().addWindow(w)
     discard w.impl.setData("__nimx_wnd", cast[pointer](w))
 
-method init*(w: SdlWindow, r: view.Rect) =
+method init*(w: SdlWindow, r: view.Rect) {.gcsafe.} =
     w.initSdlWindow(r)
     let r = w.getOsWindowFrame()
     procCall w.Window.init(r)

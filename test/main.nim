@@ -25,7 +25,6 @@ import sample16_outline_view
 import sample17_table_view
 
 
-
 const isMobile = defined(ios) or defined(android)
 
 proc startApplication() =

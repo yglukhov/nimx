@@ -512,6 +512,7 @@ proc makeAndroidBuildDir(b: Builder): string =
         replaceVarsInFile buildDir/"jni/Application.mk", vars
         replaceVarsInFile buildDir/"src/main/AndroidManifest.xml", vars
         replaceVarsInFile buildDir/"src/main/res/values/strings.xml", vars
+        replaceVarsInFile buildDir/"build.gradle", vars
 
         for a in b.targetArchitectures:
             createDir(buildDir/"jni/src"/a)
@@ -627,12 +628,16 @@ proc targetArchToClangTriplet(arch: string): string =
     of "armeabi": "arm-linux-androideabi"
     of "armeabi-v7a": "armv7a-linux-androideabi"
     of "arm64-v8a": "aarch64-linux-android"
+    of "x86": "i686-linux-android"
+    of "x86_64": "x86_64-linux-android"
     else: raise newException(Exception, "Unknown target architecture: " & arch)
 
 proc targetArchToCpuType(arch: string): string =
     case arch
     of "armeabi", "armeabi-v7a": "arm"
     of "arm64-v8a": "arm64"
+    of "x86": "i386"
+    of "x86_64": "amd64"
     else: raise newException(Exception, "Unknown target architecture: " & arch)
 
 proc configure*(b: Builder) =
@@ -726,7 +731,7 @@ proc build*(b: Builder) =
             b.compilerFlags.add("-g")
     of "android":
         if b.androidApi == 0:
-            b.androidApi = 16
+            b.androidApi = 18
 
         let buildDir = b.makeAndroidBuildDir()
         b.nimcachePath = buildDir / "nimcache"
@@ -743,6 +748,8 @@ proc build*(b: Builder) =
         b.linkerFlags.add(["-L/usr/local/lib", "-Wl,-rpath,/usr/local/lib", "-lpthread"])
     of "windows":
         b.executablePath &= ".exe"
+        if not b.debugMode:
+            b.nimFlags.add("--app:gui")
         when defined(macosx) or defined(linux):
             # We are trying to build for windows, but we're not on windows.
             # Use mxe cross-compiler
@@ -797,7 +804,7 @@ proc build*(b: Builder) =
 
     if b.platform notin ["js", "emscripten", "wasm"]:
         b.nimFlags.add("--threads:on")
-        if b.platform != "windows" and not b.avoidSDL:
+        if not b.avoidSDL:
             b.linkerFlags.add("-lSDL2")
 
     if b.runAfterBuild and b.platform notin ["android", "ios", "ios-sim",

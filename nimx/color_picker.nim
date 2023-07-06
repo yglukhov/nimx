@@ -439,7 +439,7 @@ proc `color=`*(v: ColorPickerView, c: Color) =
 
 proc color*(v: ColorPickerView): Color = hsvToRGB(v.currentColor)
 
-var gColorPicker: ColorPickerView
+var gColorPicker {.threadvar.}: ColorPickerView
 
 proc sharedColorPicker*(): ColorPickerView =
     if gColorPicker.isNil:

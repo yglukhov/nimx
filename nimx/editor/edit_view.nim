@@ -19,7 +19,7 @@ template selectedView(e: EventCatchingView): View = e.editor.selectedView
 
 method acceptsFirstResponder(v: EventCatchingView): bool = true
 
-method onKeyUp(v: EventCatchingView, e : var Event): bool =
+method onKeyUp(v: EventCatchingView, e : var Event): bool {.gcsafe.} =
     # echo "editor onKeyUp ", e.keyCode
     if not v.keyUpDelegate.isNil:
         v.keyUpDelegate(e)
@@ -36,7 +36,7 @@ proc toggleGrid(v: EventCatchingView)=
     else:
         v.gridSize = 0.0
 
-method onKeyDown(v: EventCatchingView, e : var Event): bool =
+method onKeyDown(v: EventCatchingView, e : var Event): bool {.gcsafe.} =
     let u = v.editor.document.undoManager
     let cmd = commandFromEvent(e)
     case cmd

@@ -212,7 +212,7 @@ proc dump*(am: AssetManager): string =
 registerUrlHandler("res") do(url: string, handler: Handler) {.gcsafe.}:
     openStreamForUrl(sharedAssetManager().resolveUrl(url), handler)
 
-hackyResUrlLoader = proc(url, path: string, cache: AssetCache, handler: proc(err: string) {.gcsafe.}) =
+hackyResUrlLoader = proc(url, path: string, cache: AssetCache, handler: proc(err: string) {.gcsafe.}) {.gcsafe.} =
     const prefix = "res://"
     assert(url.startsWith(prefix))
     let p = url.substr(prefix.len)

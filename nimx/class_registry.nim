@@ -50,15 +50,17 @@ proc superTypeAux(t: NimNode, indent: int): NimNode =
 
 macro superType*(t: typed): untyped = superTypeAux(t, 0)
 
-method className*(o: RootRef): string {.base.} = discard
-method classTypeId*(o: RootRef): TypeId {.base.} = getTypeId(RootRef)
+method className*(o: RootRef): string {.base, gcsafe.} = discard
+method classTypeId*(o: RootRef): TypeId {.base, gcsafe.} = getTypeId(RootRef)
 
 type ClassInfo = tuple
     creatorProc: proc(): RootRef {.nimcall.}
     typ: TypeId
 
-var classFactory = initTable[string, ClassInfo]()
-var superTypeRelations = initTable[TypeId, TypeId]()
+var classFactory {.threadvar.}: Table[string, ClassInfo]
+var superTypeRelations {.threadvar.}: Table[TypeId, TypeId]
+classFactory = initTable[string, ClassInfo]()
+superTypeRelations = initTable[TypeId, TypeId]()
 
 {.push, stackTrace: off.}
 

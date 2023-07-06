@@ -147,8 +147,8 @@ proc eventWithXEvent(d: PDisplay, ev: var XEvent, result: var seq[Event]) =
     XSetICFocus(ic)
     let wnd = findWindowWithX(d, ev.xkey.window)
     var str = newString(25)
-    var ks: TKeySym
-    var st: TStatus
+    var ks: KeySym
+    var st: Status
     let sz = Xutf8LookupString(ic, addr ev.xkey, addr str[0], str.len.cint, addr ks, addr st).int
     XDestroyIC(ic)
 
@@ -163,18 +163,17 @@ proc eventWithXEvent(d: PDisplay, ev: var XEvent, result: var seq[Event]) =
       if e.keyCode in {Backspace, Return}:
         return
 
-    if st in {XLookupChars, XLookupBoth} and sz != 0:
-      if sz != 0:
-        str.setLen(sz)
-        e = newEvent(etTextInput)
-        e.text = str
-        e.window = wnd
-        result.insert(e, 0)
+    if st in {XLookupChars, XLookupBoth} and (ev.xkey.state and ControlMask) == 0 and sz != 0:
+      str.setLen(sz)
+      e = newEvent(etTextInput)
+      e.text = str
+      e.window = wnd
+      result.insert(e, 0)
 
   of KeyRelease:
     let wnd = findWindowWithX(d, ev.xkey.window)
     var str = newString(25)
-    var ks: TKeySym
+    var ks: KeySym
     discard XLookupString(addr ev.xkey, addr str[0], str.len.cint, addr ks, nil).int
     e = newKeyboardEvent(virtualKeyFromNative(ks), bsUp, false)
     e.modifiers = modifiersFromXState(ev.xkey.state)

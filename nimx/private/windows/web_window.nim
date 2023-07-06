@@ -17,52 +17,36 @@ type WebWindow* = ref object of Window
   # canvas: Element
   canvasId: string
 
-proc fullScreenAvailableAux(): int {.importwasm: """
-  var d = document, r = false;
-  if (d.fullscreenEnabled !== undefined)
-    r = d.fullscreenEnabled;
-  else if (d.webkitFullscreenEnabled !== undefined)
-    r = d.webkitFullscreenEnabled;
-  else if (d.mozFullScreenEnabled !== undefined)
-    r = d.mozFullScreenEnabled;
-  else if (d.msFullscreenEnabled !== undefined)
-    r = d.msFullscreenEnabled;
-  return r?1:0;
+proc fullScreenAvailableAux(): int {.importwasmraw: """
+  var d = document;
+  return d.fullscreenEnabled|d.webkitFullscreenEnabled
 """.}
 
 method fullscreenAvailable*(w: WebWindow): bool =
   fullScreenAvailableAux() != 0
 
-proc fullscreenAux(): int {.importwasm: """
-  var d = document, e = d.fullscreenElement || d.webkitFullscreenElement || d.mozFullScreenElement || d.msFullscreenElement;
-  return (e !== null && e !== undefined)?1:0;
+proc fullscreenAux(): bool {.importwasmraw: """
+  var d = document;
+  return !!(d.fullscreenElement || d.webkitFullscreenElement)
 """.}
 
 method fullscreen*(w: WebWindow): bool =
-  fullscreenAux() != 0
+  fullscreenAux()
 
-proc requestFullscreen() {.importwasm: """
-  var c = null; // TODO: Complete me! get canvas
+proc requestFullscreen(canvasId: cstring) {.importwasmraw: """
+  var c = document.getElementById(_nimsj($0));
   if (c.requestFullscreen)
     c.requestFullscreen();
   else if (c.webkitRequestFullscreen)
     c.webkitRequestFullscreen();
-  else if (c.mozRequestFullScreen)
-    c.mozRequestFullScreen();
-  else if (c.msRequestFullscreen)
-    c.msRequestFullscreen();
 """.}
 
-proc exitFullscreen() {.importwasm: """
+proc exitFullscreen() {.importwasmraw: """
   var d = document;
   if (d.exitFullscreen)
     d.exitFullscreen();
   else if (d.webkitExitFullscreen)
     d.webkitExitFullscreen();
-  else if (d.mozCancelFullScreen)
-    d.mozCancelFullScreen();
-  else if (d.msExitFullscreen)
-    d.msExitFullscreen();
 """.}
 
 method `fullscreen=`*(w: WebWindow, v: bool) =
@@ -70,7 +54,7 @@ method `fullscreen=`*(w: WebWindow, v: bool) =
   # let c = w.canvas
 
   if not isFullscreen and v:
-    requestFullscreen()
+    requestFullscreen(w.canvasId)
   elif isFullscreen and not v:
     exitFullscreen()
 
@@ -233,19 +217,19 @@ export abstract_window
 proc setupEventHandlers(
   c: cstring,
   m: proc(x, y: cdouble, buttonState, buttonCode: int32) {.nimcall.}
-     ) {.importwasm: """
-  var d = document, c = d.getElementById(_nimsj(c)),
+     ) {.importwasmraw: """
+  var d = document, c = d.getElementById(_nimsj($0)),
   om = (s, e) => {
     var r = c.getBoundingClientRect();
-    _nime._dvddii(m, e.clientX - r.left, e.clientY - r.top, s, e.button)
+    _nime._dvddii($1, e.clientX - r.left, e.clientY - r.top, s, e.button)
   };
   d.addEventListener('mousemove', e => om(0, e));
   d.addEventListener('mousedown', e => om(1, e));
   d.addEventListener('mouseup', e => om(2, e));
   """.}
 
-proc requestAnimFrame(p: proc() {.nimcall}) {.importwasm: """
-window.requestAnimFrame(function(){try{_nime._dv(p)}catch(e) {_nime.nimerr(); throw e;}})
+proc requestAnimFrame(p: proc() {.nimcall}) {.importwasmraw: """
+requestAnimationFrame(function(){try{_nime._dv($0)}catch(e) {console.log("Erro caught", e);_nime.nimerr(); throw e;}})
 """.}
 
 proc animFrame() =
@@ -253,9 +237,9 @@ proc animFrame() =
   mainApplication().drawWindows()
   requestAnimFrame(animFrame)
 
-proc getDocumentElementFloatProp(i, p: cstring): cdouble {.importwasm: "return document.getElementById(_nimsj(i))[_nimsj(p)]".}
-proc createCanvas(i: cstring, x, y: cfloat) {.importwasm: """
-var d = document, w = window, I = _nimsj(i), e = d.getElementById(I), pixelRatio = w.devicePixelRatio || 1;
+proc getDocumentElementFloatProp(i, p: cstring): cdouble {.importwasmraw: "return document.getElementById(_nimsj($0))[_nimsj($1)]".}
+proc createCanvas(i: cstring, x, y: cfloat) {.importwasmraw: """
+var d = document, w = window, I = _nimsj($0), e = d.getElementById(I), pixelRatio = w.devicePixelRatio || 1, x = $1, y = $2;
 if (!e) {
   e = d.createElement("canvas");
   e.id = I;
@@ -267,16 +251,6 @@ e.style.height = y + 'px';
 e.width = x * pixelRatio;
 e.height = y * pixelRatio;
 e.scaled = true;
-
-w.requestAnimFrame =
-  w.requestAnimationFrame ||
-  w.webkitRequestAnimationFrame ||
-  w.mozRequestAnimationFrame ||
-  w.oRequestAnimationFrame ||
-  w.msRequestAnimationFrame ||
-  function(callback, element) {
-    w.setTimeout(callback, 1000/60);
-  };
 
 if (!w.GLCtx) {
   var o = {stencil: true, alpha: false, premultipliedAlpha: false, antialias: false}, c = null;
@@ -427,12 +401,13 @@ method onResize*(w: WebWindow, newSize: Size) =
 # window.onload = () => _nime._dv(p)
 # TODO: the main code should be called upon window.onload, but it doesn't
 # get called for some reason. So we're just calling it immediately now.
-proc initMain(p: proc() {.nimcall.}) {.importwasm: """
-_nime._dv(p)
-""".}
+# proc initMain(p: proc() {.nimcall.}) {.importwasmraw: """
+# _nime._dv($0)
+# """.}
 
 template runApplication*(code: typed) =
   proc main() =
     code
-  defineDyncall("v")
-  initMain(main)
+  main()
+  # defineDyncall("v")
+  # initMain(main)

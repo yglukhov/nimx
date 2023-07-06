@@ -481,7 +481,7 @@ proc moveSelectionUp(v: OutlineView, path: var IndexPath) {.gcsafe.} =
 
     if path[^1] > 0:
         path[^1].dec
-        proc getLowestVisibleChildPath(v: OutlineView, path: var IndexPath) =
+        proc getLowestVisibleChildPath(v: OutlineView, path: var IndexPath) {.gcsafe.} =
             var nodeAtPath = v.nodeAtIndexPath(path)
             while nodeAtPath.filtered and path[^1] > 0:
                 path[^1].dec

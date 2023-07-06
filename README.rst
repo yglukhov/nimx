@@ -45,7 +45,7 @@ Running
 
 Supported target platforms
 ------------
-Nimx officially supports Linux, MacOS, Windows, Android, iOS, Javascript (with Nim JS backend) and Asm.js/WebAssembly (with Nim C backend and `Emscripten <http://emscripten.org>`_).
+Nimx officially supports Linux, MacOS, Windows, Android, iOS and WebAssembly (with Nim C backend and `Emscripten <http://emscripten.org>`_, and Emscripten-less compilation is experimental).
 
 Troubleshooting
 ------------

@@ -251,7 +251,7 @@ method onTouchEv*(v: LinearLayout, e: var Event): bool =
     result = true
 
 method onInterceptTouchEv*(v: LinearLayout, e: var Event): bool =
-    if v.mUserResizeable and v.hoveredDivider != -1:
+    if v.mUserResizeable and v.hoveredDivider != -1 and e.buttonState == bsDown:
         result = true
 
 method replaceSubview*(v: LinearLayout, subviewIndex: int, withView: View) =

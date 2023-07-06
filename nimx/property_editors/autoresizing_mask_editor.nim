@@ -7,7 +7,7 @@ import nimx/property_editors/propedit_registry
 
 import variant
 
-proc newAutoresizingMaskPropertyView(setter: proc(s: set[AutoresizingFlag]), getter: proc(): set[AutoresizingFlag]): PropertyEditorView =
+proc newAutoresizingMaskPropertyView(setter: proc(s: set[AutoresizingFlag]) {.gcsafe.}, getter: proc(): set[AutoresizingFlag] {.gcsafe.}): PropertyEditorView =
     result = PropertyEditorView.new(newRect(0, 0, 208, editorRowHeight))
 
     let horLayout = newHorizontalLayout(newRect(0, 0, 208, editorRowHeight))

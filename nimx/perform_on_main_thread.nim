@@ -31,7 +31,7 @@ when (defined(macosx) or defined(ios)) and defined(nimxAvoidSDL):
         [executor performSelectorOnMainThread: @selector(execute) withObject: nil waitUntilDone: NO];
         """.}
     {.pop.}
-elif defined(linux) and not defined(android) and defined(nimxAvoidSDL):
+elif (defined(linux) or defined(windows)) and not defined(android) and defined(nimxAvoidSDL):
     import locks, asyncdispatch
 
     type
