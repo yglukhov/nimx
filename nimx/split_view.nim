@@ -30,7 +30,7 @@ method init*(v: SplitView, r: Rect) =
 #     for i, s in v.separatorPositions:
 #         echo "sep[", i, "]: ", s.value
 
-proc rebuildConstraints(v: SplitView) =
+proc clearConstraints(v: SplitView) =
     let wnd = v.window
     if not wnd.isNil:
         for c in v.constraints:
@@ -38,9 +38,15 @@ proc rebuildConstraints(v: SplitView) =
 
         let s = wnd.layoutSolver
         for vv in v.separatorPositions:
-            s.removeEditVariable(vv)
+            if s.hasEditVariable(vv):
+                s.removeEditVariable(vv)
 
     v.constraints.setLen(0)
+
+proc rebuildConstraints(v: SplitView) =
+    v.clearConstraints()
+    let wnd = v.window
+    if wnd.isNil: return
 
     const minSeparatorGap = 30
 
@@ -88,6 +94,14 @@ proc rebuildConstraints(v: SplitView) =
 
         for c in v.constraints:
             v.addConstraint(c)
+
+method viewWillMoveToWindow*(v: SplitView, w: Window) =
+    v.clearConstraints()
+    procCall v.View.viewWillMoveToWindow(w)
+
+method viewDidMoveToWindow*(v: SplitView) =
+    procCall v.View.viewDidMoveToWindow()
+    v.rebuildConstraints()
 
 method didAddSubview*(v: SplitView, s: View) =
     procCall v.View.didAddSubview(s)
