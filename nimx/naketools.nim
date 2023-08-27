@@ -787,6 +787,8 @@ proc build*(b: Builder) =
         if not b.debugMode:
             b.additionalCompilerFlags.add("-Oz")
 
+        b.additionalLinkerFlags.add(["-s", "FORCE_FILESYSTEM=1"])
+
         if b.platform == "emscripten":
             if not b.disableClosureCompiler:
                 b.additionalLinkerFlags.add("-Oz")
