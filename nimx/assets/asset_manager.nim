@@ -125,7 +125,7 @@ proc cachedAssetAux(am: AssetManager, path: string): Variant =
     result = c.getOrDefault(p)
 
 proc cacheAssetAux(am: AssetManager, path: string, v: Variant) =
-    assert(not v.isEmpty)
+    assert(not v.isNil)
     let (_, c, p, _) = am.mountForPath(path.normalizeSlashes)
     c[p] = v
 
@@ -144,7 +144,7 @@ proc cacheAsset*[T](am: AssetManager, path: string, v: T) {.inline.} =
 
 proc getAssetAtPathAux(am: AssetManager, path: string, putToCache: bool, handler: proc(res: Variant, err: string) {.gcsafe.}) =
     let v = am.cachedAssetAux(path)
-    if v.isEmpty:
+    if v.isNil:
         var (a, c, p, _) = am.mountForPath(path.normalizeSlashes)
         let url = a.urlForPath(p)
         if not putToCache:
@@ -152,7 +152,7 @@ proc getAssetAtPathAux(am: AssetManager, path: string, putToCache: bool, handler
             c = newAssetCache()
         loadAsset(url, p, c) do():
             let v = c.getOrDefault(p)
-            if v.isEmpty:
+            if v.isNil:
                 handler(v, "Could not load asset " & path)
             else:
                 handler(v, "")
