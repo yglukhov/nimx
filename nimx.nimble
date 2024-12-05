@@ -18,7 +18,7 @@ requires "jnim" # For android target
 requires "nake"
 requires "closure_compiler >= 0.3.1"
 requires "plists"
-requires "variant >= 0.2 & < 0.3"
+requires "variant >= 0.2"
 requires "kiwi"
 requires "https://github.com/yglukhov/ttf >= 0.2.9 & < 0.3"
 requires "https://github.com/yglukhov/async_http_request"
