@@ -111,11 +111,20 @@ proc drawTitle(b: Button, xOffset: Coord) =
             else:
                 blackColor()
 
-        let font = systemFont()
-        var titleRect = b.bounds
-        var pt = centerInRect(font.sizeOfString(b.title), titleRect)
+        # truncate title to bounds if required
+        var
+            titleRect = b.bounds
+            title = b.title
+        let 
+            font = systemFont()
+            sz = font.sizeOfString(title)
+        # reduce by size of checkbox/radiobox
+        titleRect.size.width -= titleRect.size.height
+        if sz.width > titleRect.size.width:
+            title.setLen(int(title.len.float * titleRect.size.width / sz.width))
+        var pt = centerInRect(sz, titleRect)
         if pt.x < xOffset: pt.x = xOffset
-        c.drawText(font, pt, b.title)
+        c.drawText(font, pt, title)
 
 const regularButtonComposition = newComposition """
 uniform vec4 uStrokeColor;
