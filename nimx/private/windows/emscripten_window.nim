@@ -5,6 +5,14 @@ import unicode, times, logging
 import jsbind, jsbind/emscripten
 import nimx/private/js_vk_map
 
+import system, system/ansi_c
+
+proc globalExceptionHandler(errorMsg: string) =
+  cstderr.rawWrite(errorMsg)
+  emscripten_cancel_main_loop()
+
+onUnhandledException = globalExceptionHandler
+
 type EmscriptenWindow* = ref object of Window
     ctx: EMSCRIPTEN_WEBGL_CONTEXT_HANDLE
     renderingContext: GraphicsContext
@@ -76,6 +84,10 @@ method `fullscreen=`*(w: EmscriptenWindow, v: bool) =
 method animationStateChanged*(w: EmscriptenWindow, flag: bool) =
     discard
 
+template sdlNow():uint32 =
+    let t = getTime()
+    uint32(t.toUnix * 1000 + t.nanosecond div 1000000)
+
 proc getCanvasDimensions(id: cstring, cssRect: var Rect, virtualSize: var Size) {.inline.} =
     discard EM_ASM_INT("""
         var c = document.getElementById(UTF8ToString($0));
@@ -112,7 +124,7 @@ proc onMouseButton(eventType: cint, mouseEvent: ptr EmscriptenMouseEvent, userDa
         else: VirtualKey.Unknown
 
     let point = eventLocationFromJSEvent(mouseEvent, w, false)
-    var evt = newMouseButtonEvent(point, bcFromE(), bs, uint32(mouseEvent.timestamp))
+    var evt = newMouseButtonEvent(point, bcFromE(), bs, sdlNow())
     evt.window = w
     if mainApplication().handleEvent(evt): result = 1
 
@@ -152,7 +164,7 @@ proc onTouchEnd(eventType: cint, touchEvent: ptr EmscriptenTouchEvent, userData:
 proc onMouseMove(eventType: cint, mouseEvent: ptr EmscriptenMouseEvent, userData: pointer): EM_BOOL {.cdecl.} =
     let w = cast[EmscriptenWindow](userData)
     let point = eventLocationFromJSEvent(mouseEvent, w, false)
-    var evt = newMouseMoveEvent(point, uint32(mouseEvent.timestamp))
+    var evt = newMouseMoveEvent(point, sdlNow())
     evt.window = w
     if mainApplication().handleEvent(evt): result = 1
 
@@ -310,34 +322,41 @@ proc initCommon(w: EmscriptenWindow, r: view.Rect) =
     attrs.alpha = 0
     attrs.antialias = 0
     attrs.stencil = 1
-    w.ctx = emscripten_webgl_create_context(w.canvasId, addr attrs)
+  
+    # emscripten special selector, keep in sync with EMSCRIPTEN_EVENT_TARGET_DOCUMENT
+    # and EMSCRIPTEN_EVENT_TARGET_WINDOW in emscripten html.h
+    const documentSelector = "1"
+    const windowSelector = "2"
+    # regular css selector for the canvas
+    let canvasSelector = "#" & w.canvasId
+
+    w.ctx = emscripten_webgl_create_context(canvasSelector, addr attrs)
     if w.ctx <= 0:
         raise newException(Exception, "Could not create WebGL context: " & $w.ctx)
     discard emscripten_webgl_make_context_current(w.ctx)
     w.renderingContext = newGraphicsContext()
 
-    const docID = "#document"
-    discard emscripten_set_mousedown_callback(docID, cast[pointer](w), 0, onMouseDown)
-    discard emscripten_set_mouseup_callback(docID, cast[pointer](w), 0, onMouseUp)
-    discard emscripten_set_mousemove_callback(docID, cast[pointer](w), 0, onMouseMove)
-    discard emscripten_set_wheel_callback(w.canvasId, cast[pointer](w), 0, onMouseWheel)
+    discard emscripten_set_mousedown_callback(documentSelector, cast[pointer](w), 0, onMouseDown)
+    discard emscripten_set_mouseup_callback(documentSelector, cast[pointer](w), 0, onMouseUp)
+    discard emscripten_set_mousemove_callback(documentSelector, cast[pointer](w), 0, onMouseMove)
+    discard emscripten_set_wheel_callback(documentSelector, cast[pointer](w), 0, onMouseWheel)
 
-    discard emscripten_set_touchstart_callback(docID, cast[pointer](w), 0, onTouchStart)
-    discard emscripten_set_touchmove_callback(docID, cast[pointer](w), 0, onTouchMove)
-    discard emscripten_set_touchend_callback(docID, cast[pointer](w), 0, onTouchEnd)
-    discard emscripten_set_touchcancel_callback(docID, cast[pointer](w), 0, onTouchEnd)
+    discard emscripten_set_touchstart_callback(documentSelector, cast[pointer](w), 0, onTouchStart)
+    discard emscripten_set_touchmove_callback(documentSelector, cast[pointer](w), 0, onTouchMove)
+    discard emscripten_set_touchend_callback(documentSelector, cast[pointer](w), 0, onTouchEnd)
+    discard emscripten_set_touchcancel_callback(documentSelector, cast[pointer](w), 0, onTouchEnd)
 
-    discard emscripten_set_keydown_callback(docID, cast[pointer](w), 1, onKeyDown)
-    discard emscripten_set_keyup_callback(docID, cast[pointer](w), 1, onKeyUp)
+    discard emscripten_set_keydown_callback(documentSelector, cast[pointer](w), 1, onKeyDown)
+    discard emscripten_set_keyup_callback(documentSelector, cast[pointer](w), 1, onKeyUp)
 
-    discard emscripten_set_blur_callback(nil, cast[pointer](w), 1, onBlur)
-    discard emscripten_set_focus_callback(nil, cast[pointer](w), 1, onFocus)
+    discard emscripten_set_blur_callback(windowSelector, cast[pointer](w), 1, onBlur)
+    discard emscripten_set_focus_callback(windowSelector, cast[pointer](w), 1, onFocus)
 
-    discard emscripten_set_webglcontextlost_callback(w.canvasId, cast[pointer](w), 0, onContextLost)
+    discard emscripten_set_webglcontextlost_callback(canvasSelector, cast[pointer](w), 0, onContextLost)
 
-    discard emscripten_set_fullscreenchange_callback(docId, cast[pointer](w), 0, onFullscreenChange)
+    discard emscripten_set_fullscreenchange_callback(documentSelector, cast[pointer](w), 0, onFullscreenChange)
 
-    discard emscripten_set_resize_callback(nil, cast[pointer](w), 0, onResize)
+    discard emscripten_set_resize_callback(windowSelector, cast[pointer](w), 0, onResize)
 
     discard emscripten_set_orientationchange_callback(cast[pointer](w), 0, onOrientationChanged)
 
@@ -388,7 +407,8 @@ method onResize*(w: EmscriptenWindow, newSize: Size) =
     w.pixelRatio = screenScaleFactor()
     glViewport(0, 0, GLSizei(newSize.width * w.pixelRatio), GLsizei(newSize.height * w.pixelRatio))
 
-    info "EmscriptenWindow onResize viewport ", newSize.width * w.pixelRatio, " ", newSize.height * w.pixelRatio
+    #TODO: figure out why info creates UTF8ToString() error and single char garbage output
+    echo "EmscriptenWindow onResize viewport ", $(newSize.width * w.pixelRatio), " ", $(newSize.height * w.pixelRatio)
     procCall w.Window.onResize(newSize)
 
 proc nimx_OnTextInput(wnd: pointer, text: cstring) {.EMSCRIPTEN_KEEPALIVE.} =
