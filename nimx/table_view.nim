@@ -170,44 +170,25 @@ proc configureRow(r: TableRow, top, height: Coord) {.inline.} =
   r.addConstraint(r.heightConstraint)
 
 proc createRow(v: TableView): TableRow =
-  let newLayout = v.usesNewLayout
-  if newLayout:
-    result = TableRow.new(zeroRect)
-#    result.addConstraint(result.layout.vars.height == height)
-    result.addConstraint(result.layout.vars.leading == superPHS.leading)
-    result.addConstraint(result.layout.vars.trailing == superPHS.trailing)
-    for i in 0 ..< v.numberOfColumns:
-      let c = v.mCreateCell(i)
-      c.col = i
-      c.addConstraint(c.layout.vars.top == superPHS.top)
-      c.addConstraint(c.layout.vars.bottom == superPHS.bottom)
+  result = TableRow.new(zeroRect)
+  #result.addConstraint(result.layout.vars.height == height)
+  result.addConstraint(result.layout.vars.leading == superPHS.leading)
+  result.addConstraint(result.layout.vars.trailing == superPHS.trailing)
+  for i in 0 ..< v.numberOfColumns:
+    let c = v.mCreateCell(i)
+    c.col = i
+    c.addConstraint(c.layout.vars.top == superPHS.top)
+    c.addConstraint(c.layout.vars.bottom == superPHS.bottom)
 
-      if i == 0:
-        c.addConstraint(c.layout.vars.leading == superPHS.leading)
-      else:
-        c.addConstraint(c.layout.vars.leading == prevPHS.leading)
+    if i == 0:
+      c.addConstraint(c.layout.vars.leading == superPHS.leading)
+    else:
+      c.addConstraint(c.layout.vars.leading == prevPHS.leading)
 
-      result.addSubview(c)
+    result.addSubview(c)
 
-    let lastCell = result.subviews[^1]
-    lastCell.addConstraint(lastCell.layout.vars.trailing == superPHS.trailing)
-
-  else:
-    result = TableRow.new(newRect(0, 0, if v.numberOfColumns == 1: v.bounds.width else: (v.numberOfColumns.Coord * v.defaultColWidth).Coord, v.defaultRowHeight))
-    result.setFrame(newRect(0, 0, v.bounds.width, 50))
-
-    var px = 0.0
-    for i in 0 ..< v.numberOfColumns:
-      let c = v.mCreateCell(i)
-      c.col = i
-      c.resizingMask = "rh"
-      let width = if v.numberOfColumns == 1:
-        v.bounds.width
-        else:
-        c.frame.width
-      c.setFrame(newRect(px, 0, width, 50))
-      result.addSubview(c)
-      px += width
+  let lastCell = result.subviews[^1]
+  lastCell.addConstraint(lastCell.layout.vars.trailing == superPHS.trailing)
 
 proc dequeueReusableRow(v: TableView, cells: var seq[TableRow], row: int, top, height: Coord): TableRow =
   var needToAdd = false
@@ -225,13 +206,7 @@ proc dequeueReusableRow(v: TableView, cells: var seq[TableRow], row: int, top, h
     cell.row = row
     v.mConfigureCell(cell)
 
-  if v.usesNewLayout:
-    result.configureRow(top, height)
-  else:
-    var fr = result.frame
-    fr.origin.y = top
-    fr.size.height = height
-    result.setFrame(fr)
+  result.configureRow(top, height)
 
   if needToAdd:
     v.addSubview(result)
@@ -289,11 +264,7 @@ proc updateCellsInRect(v: TableView, vr: Rect) =
     c.removeFromSuperview()
 
 proc calculateVisibleRect(v: TableView): Rect =
-  if v.usesNewLayout:
-    result = visibleRect(v)
-  else:
-    let clipView = v.enclosingClipView()
-    result = if clipView.isNil: v.bounds else: clipView.bounds
+  visibleRect(v)
 
 proc updateCellsInVisibleRect(v: TableView) =
   let vr = v.calculateVisibleRect()
@@ -302,21 +273,10 @@ proc updateCellsInVisibleRect(v: TableView) =
     v.updateCellsInRect(vr)
 
 proc reloadData*(v: TableView) =
-  if v.usesNewLayout:
-    v.rebuildConstraints()
-  else:
-    let rowCount = v.numberOfRows()
-    var desiredSize = v.frame.size
-    desiredSize.height = v.requiredTotalHeight(rowCount)
-    if not v.superview.isNil:
-      v.superview.subviewDidChangeDesiredSize(v, desiredSize)
-    v.visibleRect = zeroRect
-  v.updateCellsInRect(v.calculateVisibleRect())
-  v.setNeedsDisplay()
+  v.rebuildConstraints()
 
 method updateLayout*(v: TableView) =
-  if v.usesNewLayout:
-    v.updateCellsInVisibleRect()
+  v.updateCellsInVisibleRect()
 
 proc isRowSelected*(t: TableView, row: int): bool = t.selectedRows.contains(row)
 

@@ -126,10 +126,6 @@ proc segmentAtPoint(s: SegmentedControl, p: Point, r: var Rect): int =
     r.origin.x += r.size.width
   return -1
 
-method setBoundsSize*(v: SegmentedControl, s: Size) =
-  procCall v.Control.setBoundsSize(s)
-  v.widthsValid = false
-
 method onTouchEv(s: SegmentedControl, e: var Event): bool =
   result = true
   case e.buttonState

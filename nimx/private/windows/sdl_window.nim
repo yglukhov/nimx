@@ -241,14 +241,14 @@ proc newSdlWindow*(r: view.Rect): SdlWindow =
 method show*(w: SdlWindow)=
   if w.impl.isNil:
     w.initSdlWindow(w.frame)
-    w.setFrameOrigin zeroPoint
+    # w.setFrameOrigin zeroPoint
 
   w.impl.showWindow()
   w.impl.raiseWindow()
 
 method hide*(w: SdlWindow)=
   let p = w.getOsWindowPos()
-  w.setFrameOrigin(p)
+  # w.setFrameOrigin(p)
 
   mainApplication().removeWindow(w)
   w.impl.destroyWindow()

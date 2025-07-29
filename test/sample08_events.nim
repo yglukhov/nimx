@@ -34,9 +34,6 @@ proc newContentView*(frame: Rect): ContentView =
   result.new()
   result.init(frame)
 
-method init(v: ScissorView, r: Rect) =
-  procCall v.View.init(r)
-
 proc newScissorView*(frame: Rect): ScissorView =
   result.new()
   result.init(frame)

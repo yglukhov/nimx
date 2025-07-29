@@ -50,36 +50,23 @@ when false:
 method show*(w: Window) {.base, gcsafe.} = discard
 method hide*(w: Window) {.base, gcsafe.} = discard
 
-proc shouldUseConstraintSystem(w: Window): bool {.inline.} =
-  # We assume that constraint system should not be used if there are no
-  # constraints in the solver.
-  # All of this is done to preserve temporary backwards compatibility with the
-  # legacy autoresizing masks system.
-  # 4 is the number of constraints added by the window itself for every of
-  # its edit variables.
-  w.layoutSolver.constraintsCount > 4
-
 proc updateWindowLayout*(w: Window) =
   w.needsLayout = false
-  if w.shouldUseConstraintSystem:
-    w.layoutSolver.updateVariables()
-    let oldSz = newSize(w.layout.vars.width.value, w.layout.vars.height.value)
-    w.recursiveUpdateLayout(zeroPoint)
-    let newSz = newSize(w.layout.vars.width.value, w.layout.vars.height.value)
-    if newSz != oldSz:
-      discard # TODO: update window size
-    # echo w.dump() do(v: View) -> string:
-    #   let name = if v.name.len != 0: " (" & v.name & "): " else: ": "
-    #   v.className & name & $v.frame
+  w.layoutSolver.updateVariables()
+  let oldSz = newSize(w.layout.vars.width.value, w.layout.vars.height.value)
+  w.recursiveUpdateLayout(zeroPoint)
+  let newSz = newSize(w.layout.vars.width.value, w.layout.vars.height.value)
+  if newSz != oldSz:
+    discard # TODO: update window size
+  # echo w.dump() do(v: View) -> string:
+  #   let name = if v.name.len != 0: " (" & v.name & "): " else: ": "
+  #   v.className & name & $v.frame
 
 
 method onResize*(w: Window, newSize: Size) {.base, gcsafe.} =
-  if w.shouldUseConstraintSystem:
-    w.layoutSolver.suggestValue(w.layout.vars.width, newSize.width)
-    w.layoutSolver.suggestValue(w.layout.vars.height, newSize.height)
-    w.updateWindowLayout()
-  else:
-    procCall w.View.setFrameSize(newSize)
+  w.layoutSolver.suggestValue(w.layout.vars.width, newSize.width)
+  w.layoutSolver.suggestValue(w.layout.vars.height, newSize.height)
+  w.updateWindowLayout()
 
 method drawWindow*(w: Window) {.base, gcsafe.} =
   if w.needsLayout:

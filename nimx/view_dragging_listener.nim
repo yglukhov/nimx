@@ -11,7 +11,8 @@ method onTapDown(ls: DraggingScrollListener, e: var Event) =
   ls.start = ls.view.frame.origin
 
 method onScrollProgress(ls: DraggingScrollListener, dx, dy : float32, e : var Event) =
-  ls.view.setFrameOrigin(ls.start + newPoint(dx, dy))
+  doAssert(false, "Not implemented")
+  # ls.view.setFrameOrigin(ls.start + newPoint(dx, dy))
 
 proc enableDraggingByBackground*(v: View) =
    var listener: DraggingScrollListener
@@ -29,8 +30,9 @@ method onTapDown(ls: ResizingScrollListener, e: var Event) =
   ls.originalSize = ls.view.superview.frame.size
 
 method onScrollProgress(ls: ResizingScrollListener, dx, dy : float32, e : var Event) =
+  doAssert(false, "Not implemented")
   let v = ls.view.superview
-  v.setFrameSize(ls.originalSize + newSize(dx, dy))
+  # v.setFrameSize(ls.originalSize + newSize(dx, dy))
 
 method draw(k: ResizingKnob, r: Rect) =
   let c = currentContext()
@@ -45,10 +47,14 @@ method draw(k: ResizingKnob, r: Rect) =
 
 proc enableViewResizing*(v: View) =
   const size = 20
-  let resizingKnob = ResizingKnob.new(newRect(v.bounds.width - size, v.bounds.height - size, size, size))
-  resizingKnob.autoresizingMask = {afFlexibleMinX, afFlexibleMinY}
-  v.addSubview(resizingKnob)
-  var listener: ResizingScrollListener
-  listener.new()
-  listener.view = resizingKnob
-  resizingKnob.addGestureDetector(newScrollGestureDetector(listener))
+  doAssert(false, "Not implemented")
+  # Resizing knob should find size constraints in its parent view and modify them somehow
+  
+  # This was the implementation before kiwi:
+  # let resizingKnob = ResizingKnob.new(newRect(v.bounds.width - size, v.bounds.height - size, size, size))
+  # resizingKnob.autoresizingMask = {afFlexibleMinX, afFlexibleMinY}
+  # v.addSubview(resizingKnob)
+  # var listener: ResizingScrollListener
+  # listener.new()
+  # listener.view = resizingKnob
+  # resizingKnob.addGestureDetector(newScrollGestureDetector(listener))

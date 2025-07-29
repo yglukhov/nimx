@@ -53,14 +53,14 @@ method deserializeFields*(v: View, s: Deserializer) =
   v.init(fr)
   var bounds:Rect
   s.deserialize("bounds", bounds)
-  v.setBounds(bounds)
+  # v.setBounds(bounds)
 
   var subviews: seq[View]
   s.deserialize("subviews", subviews)
   for sv in subviews:
       doAssert(not sv.isNil)
       v.addSubview(sv)
-  s.deserialize("arMask", v.autoresizingMask)
+  # s.deserialize("arMask", v.autoresizingMask)
   s.deserialize("color", v.backgroundColor)
 
   if s of UIResourceDeserializer:

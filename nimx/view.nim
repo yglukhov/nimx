@@ -43,7 +43,6 @@ type
     bounds: Rect        ## view rect in its own coordinate system, starting from 0,0
     subviews*: seq[View]
     superview*: View
-    autoresizingMask*: set[AutoresizingFlag]
     backgroundColor*: Color
     gestureDetectors*: seq[GestureDetector]
     touchTarget*: View
@@ -171,7 +170,6 @@ method init*(v: View, frame: Rect) {.base, gcsafe.} =
   v.bounds = newRect(0, 0, frame.width, frame.height)
   v.subviews = @[]
   v.gestureDetectors = @[]
-  v.autoresizingMask = { afFlexibleMaxX, afFlexibleMaxY }
   v.usesNewLayout = frame == zeroRect
 
 proc addMouseOverListener(w: Window, v: View) =
@@ -435,25 +433,6 @@ proc drawFocusRing*(v: View) =
   c.strokeWidth = 3
   c.drawRoundedRect(v.bounds.inset(-1, -1), 2)
 
-method setFrame*(v: View, r: Rect) {.base, gcsafe.} # Deprecated
-
-method resizeSubviews*(v: View, oldSize: Size) {.base, gcsafe.} = # Deprecated
-  let sizeDiff = v.frame.size - oldSize
-
-  for s in v.subviews:
-    var newRect = s.frame
-    if s.autoresizingMask.contains afFlexibleMinX:
-      newRect.origin.x += sizeDiff.width
-    elif s.autoresizingMask.contains afFlexibleWidth:
-      newRect.size.width += sizeDiff.width
-
-    if s.autoresizingMask.contains afFlexibleMinY:
-      newRect.origin.y += sizeDiff.height
-    elif s.autoresizingMask.contains afFlexibleHeight:
-      newRect.size.height += sizeDiff.height
-
-    s.setFrame(newRect)
-
 method updateLayout*(v: View) {.base, gcsafe.} = discard
 
 proc recursiveUpdateLayout*(v: View, relPoint: Point) =
@@ -467,54 +446,10 @@ proc recursiveUpdateLayout*(v: View, relPoint: Point) =
   for s in v.subviews:
     s.recursiveUpdateLayout(relPoint)
 
-method setBoundsSize*(v: View, s: Size) {.base, gcsafe.} = # Deprecated
-  let oldSize = v.bounds.size
-  v.bounds.size = s
-  v.setNeedsDisplay()
-  v.resizeSubviews(oldSize)
-
-method setBoundsOrigin*(v: View, o: Point) {.base, gcsafe.} = # Deprecated
-  v.bounds.origin = o
-  v.setNeedsDisplay()
-
-proc setBounds*(v: View, b: Rect) = # Deprecated
-  v.setBoundsOrigin(b.origin)
-  v.setBoundsSize(b.size)
-
-method setFrameSize*(v: View, s: Size) {.base, gcsafe.} = # Deprecated
-  v.frame.size = s
-  v.setBoundsSize(s)
-
-method setFrameOrigin*(v: View, o: Point) {.base, gcsafe.} = # Deprecated
-  v.frame.origin = o
-  v.setNeedsDisplay()
-
-method setFrame*(v: View, r: Rect) = # Deprecated
-  if v.frame.origin != r.origin:
-    v.setFrameOrigin(r.origin)
-  if v.frame.size != r.size:
-    v.setFrameSize(r.size)
-
 method frame*(v: View): Rect {.base, gcsafe.} = v.frame
 method bounds*(v: View): Rect {.base, gcsafe.} = v.bounds
 
 method subviewDidChangeDesiredSize*(v: View, sub: View, desiredSize: Size) {.base, gcsafe.} = discard # Deprecated
-
-proc autoresizingMaskFromStrLit(s: string): set[AutoresizingFlag] {.compileTime.} = # Deprecated
-  case s[0]
-  of 'w': result.incl(afFlexibleWidth)
-  of 'l': result.incl(afFlexibleMinX)
-  of 'r': result.incl(afFlexibleMaxX)
-  else: assert(false, "Wrong autoresizing mask!")
-  case s[1]
-  of 'h': result.incl(afFlexibleHeight)
-  of 't': result.incl(afFlexibleMinY)
-  of 'b': result.incl(afFlexibleMaxY)
-  else: assert(false, "Wrong autoresizing mask!")
-
-template `resizingMask=`*(v: View, s: static[string]) = # Deprecated
-  const m = autoresizingMaskFromStrLit(s)
-  v.autoresizingMask = m
 
 proc isDescendantOf*(subView, superview: View): bool =
   var vi = subView
@@ -554,16 +489,15 @@ proc moveToBack*(v: View) =
   if v.temporaryRemoveViewFromSuperview():
     v.superview.subviews.insert(v, 0)
 
-template `originForEditor=`(v: View, p: Point) = v.setFrameOrigin(p)
-template originForEditor(v: View): Point = v.frame.origin
-template `sizeForEditor=`(v: View, p: Size) = v.setFrameSize(p)
-template sizeForEditor(v: View): Size = v.frame.size
+template `originForEditor=`(v: View, p: Point) = discard # Deprecated???
+template originForEditor(v: View): Point = zeroPoint
+template `sizeForEditor=`(v: View, p: Size) = discard # Deprecated???
+template sizeForEditor(v: View): Size = zeroSize
 
 method visitProperties*(v: View, pv: var PropertyVisitor) {.base, gcsafe.} =
   pv.visitProperty("name", v.name)
   pv.visitProperty("origin", v.originForEditor)
   pv.visitProperty("size", v.sizeForEditor)
-  pv.visitProperty("layout", v.autoresizingMask)
   pv.visitProperty("color", v.backgroundColor)
 
 method serializeFields*(v: View, s: Serializer) =
@@ -571,7 +505,6 @@ method serializeFields*(v: View, s: Serializer) =
   s.serialize("frame", v.frame)
   s.serialize("bounds", v.bounds)
   s.serialize("subviews", v.subviews)
-  s.serialize("arMask", v.autoresizingMask)
   s.serialize("color", v.backgroundColor)
 
 proc isLastInSuperview(d: View): bool =

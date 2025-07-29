@@ -446,10 +446,10 @@ proc sharedColorPicker*(): ColorPickerView =
     gColorPicker = newColorPickerView(newRect(0, 0, 300, 200))
   result = gColorPicker
 
-proc popupAtPoint*(c: ColorPickerView, v: View, p: Point) =
-  c.removeFromSuperview()
-  c.setFrameOrigin(v.convertPointToWindow(p))
-  v.window.addSubview(c)
+# proc popupAtPoint*(c: ColorPickerView, v: View, p: Point) =
+#   c.removeFromSuperview()
+#   c.setFrameOrigin(v.convertPointToWindow(p))
+#   v.window.addSubview(c)
 
 # ColorPickerView.properties:
 #   rightMargin
