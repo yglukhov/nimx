@@ -1,5 +1,5 @@
 import macros, tables, typetraits
-import nimx/class_registry
+import ../class_registry
 
 export class_registry
 

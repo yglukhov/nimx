@@ -1,16 +1,12 @@
 import math
+import strutils
 
 import view
 export view
 
-import context, layout, composition, types, portable_gl, popup_button
-import strutils
-import text_field
-import view_event_handling
-import view_dragging_listener
-import button
-
-import nimx / meta_extensions / [ property_desc, visitors_gen, serializers_gen ]
+import ./[context, layout, composition, types, portable_gl, popup_button, text_field,
+          view_event_handling, view_dragging_listener, button]
+import ./meta_extensions/[ property_desc, visitors_gen, serializers_gen ]
 
 const
   margin = 6

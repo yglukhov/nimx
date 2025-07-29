@@ -1,5 +1,5 @@
-import nimx/keyboard
-import tables, hashes
+import std/[tables, hashes]
+import ../keyboard
 import sdl2
 
 proc hash(s: Scancode): Hash {.inline.} = hash(int(s))

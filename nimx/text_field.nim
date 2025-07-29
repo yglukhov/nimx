@@ -3,7 +3,7 @@ import control, context, font, types, event, abstract_window, unistring, timer, 
 import unicode
 import clipboard
 
-import nimx / meta_extensions / [ property_desc, visitors_gen, serializers_gen ]
+import ./meta_extensions/[ property_desc, visitors_gen, serializers_gen ]
 
 export control
 

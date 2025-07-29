@@ -3,8 +3,8 @@ import types
 import class_registry
 import variant
 
-import nimx/image
-import nimx/pasteboard/pasteboard_item
+import ./image
+import ./pasteboard/pasteboard_item
 
 type DragSystem* = ref object
   rect*: Rect

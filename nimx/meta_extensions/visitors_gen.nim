@@ -1,4 +1,4 @@
-import nimx / meta_extensions / property_desc
+import ./property_desc
 import macros
 
 macro genVisitorProc(typdesc: typed{nkSym}): untyped=
@@ -25,5 +25,5 @@ macro genVisitorProc(typdesc: typed{nkSym}): untyped=
   # echo "getVisitor result:\n", repr(result)
 
 template genVisitorCodeForView*(c: typed)=
-  import nimx / property_visitor
+  import ../property_visitor
   genVisitorProc(c)

@@ -1,8 +1,8 @@
 import sdl2 except Event, Rect, Point
 
-import nimx/[ abstract_window, system_logger, view, context, event, app, screen,
+import ../../[ abstract_window, system_logger, view, context, event, app, screen,
         linkage_details, portable_gl ]
-import nimx/private/sdl_vk_map
+import ../../private/sdl_vk_map
 import opengl
 import times, logging
 

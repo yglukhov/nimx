@@ -1,7 +1,7 @@
-import nimx / meta_extensions / property_desc
-import nimx / ui_resource
+import std/macros
+import ./property_desc
+import ../ui_resource
 export ui_resource
-import macros
 
 proc genSerializeCall(view, serializer, field: NimNode, isSerialize: bool): NimNode {.compileTime.}=
   let call = if isSerialize: ident("serialize") else: ident("deserialize")
@@ -51,6 +51,6 @@ macro genSerializers(typdesc: typed{nkSym}): untyped=
       `deserializerBody`
 
 template genSerializeCodeForView*(c: typed) =
-  import nimx / serializers
+  import ../serializers
 
   genSerializers(c)

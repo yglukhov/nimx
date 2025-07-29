@@ -1,6 +1,6 @@
 import strutils, streams, logging
-import nimx/private/font/font_data
-import nimx/assets/url_stream
+import ./font_data
+import ../../assets/url_stream
 import rect_packer
 import ttf
 

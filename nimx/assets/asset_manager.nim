@@ -1,7 +1,7 @@
 import strutils, tables
 import variant
-import abstract_asset_bundle, asset_cache, url_stream, asset_loading, asset_loader
-import nimx/pathutils
+import ./[abstract_asset_bundle, asset_cache, url_stream, asset_loading, asset_loader]
+import ../pathutils
 
 type
   MountEntry = tuple
