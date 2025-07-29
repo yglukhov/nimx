@@ -121,25 +121,6 @@ proc rebuildConstraints(v: TableView) =
 
 proc updateCellsInVisibleRect(v: TableView)
 
-proc visibleRect(v: View): Rect = # TODO: This can be more generic. Move to view.nim
-  let s = v.superview
-  if s.isNil: return zeroRect
-  result = v.bounds
-  if s of ScrollView:
-    let o = v.frame.origin
-    let sb = s.bounds.size
-    if o.x < 0:
-      result.origin.x += -o.x
-      result.size.width += o.x
-    if o.y < 0:
-      result.origin.y += -o.y
-      result.size.height += o.y
-
-    if o.x + result.width > sb.width: result.size.width = sb.width - o.x
-    if o.y + result.height > sb.height: result.size.height = sb.height - o.y
-  else:
-    result = v.bounds
-
 proc containsFirstResponder(cell: View): bool =
   let w = cell.window
   if not w.isNil:
@@ -261,8 +242,22 @@ proc updateCellsInRect(v: TableView, vr: Rect) =
   for c in reusableRows:
     c.removeFromSuperview()
 
-proc calculateVisibleRect(v: TableView): Rect =
-  visibleRect(v)
+proc calculateVisibleRect(v: View): Rect = # TODO: This can be more generic. Move to view.nim
+  let s = v.superview
+  if s.isNil: return zeroRect
+  result = v.bounds
+  if s of ScrollView:
+    let o = v.frame.origin
+    let sb = s.bounds.size
+    if o.x < 0:
+      result.origin.x += -o.x
+      result.size.width += o.x
+    if o.y < 0:
+      result.origin.y += -o.y
+      result.size.height += o.y
+
+    if o.x + result.width > sb.width: result.size.width = sb.width - o.x
+    if o.y + result.height > sb.height: result.size.height = sb.height - o.y
 
 proc updateCellsInVisibleRect(v: TableView) =
   let vr = v.calculateVisibleRect()
