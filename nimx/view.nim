@@ -168,8 +168,6 @@ method init*(v: View, frame: Rect) {.base, gcsafe.} =
   v.frame = frame
   v.layout.init()
   v.bounds = newRect(0, 0, frame.width, frame.height)
-  v.subviews = @[]
-  v.gestureDetectors = @[]
   v.usesNewLayout = frame == zeroRect
 
 proc addMouseOverListener(w: Window, v: View) =
@@ -448,8 +446,6 @@ proc recursiveUpdateLayout*(v: View, relPoint: Point) =
 
 method frame*(v: View): Rect {.base, gcsafe.} = v.frame
 method bounds*(v: View): Rect {.base, gcsafe.} = v.bounds
-
-method subviewDidChangeDesiredSize*(v: View, sub: View, desiredSize: Size) {.base, gcsafe.} = discard # Deprecated
 
 proc isDescendantOf*(subView, superview: View): bool =
   var vi = subView

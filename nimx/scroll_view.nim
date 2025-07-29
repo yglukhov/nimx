@@ -1,13 +1,10 @@
-import view, scroll_bar, event, layout_vars
+import ./[view, scroll_bar, event, layout_vars]
 import kiwi
 import math
 export view
 
-import clip_view # [Deprecated old layout]
-
 type ScrollView* = ref object of View
   mContentView: View
-  clipView: ClipView # [Deprecated old layout]
   mHorizontalScrollBar, mVerticalScrollBar: ScrollBar
   mOnScrollCallback: proc() {.gcsafe.}
   constraints: seq[Constraint]
@@ -106,9 +103,6 @@ proc onScrollBar(v: ScrollView, sb: ScrollBar) =
 
   if not v.mOnScrollCallback.isNil:
     v.mOnScrollCallback()
-
-method subviewDidChangeDesiredSize*(v: ScrollView, sub: View, desiredSize: Size) = # [Deprecated old layout]
-  discard
 
 proc rebuildConstraints(v: ScrollView) =
   for c in v.constraints:
@@ -224,14 +218,14 @@ proc scrollToRect*(v: ScrollView, r: Rect) =
   echo "SCROLL"
 
 proc scrollToBottom*(v: ScrollView)=
-  let rect = newRect(0, v.contentSize.height - v.clipView.bounds.height, v.clipView.bounds.width, v.clipView.bounds.height)
+  let rect = newRect(0, v.contentSize.height - v.bounds.height, v.bounds.width, v.bounds.height)
   v.scrollToRect(rect)
 
 proc scrollToTop*(v: ScrollView)=
-  v.scrollToRect(newRect(0, 0, v.clipView.bounds.width, v.clipView.bounds.height))
+  v.scrollToRect(newRect(0, 0, v.bounds.width, v.bounds.height))
 
 proc scrollPageUp*(v: ScrollView)=
-  let cvBounds = v.clipView.bounds
+  let cvBounds = v.bounds
   var o = cvBounds.origin
   if o.y > 0:
     o.y = max(0, o.y - cvBounds.height)
@@ -239,7 +233,7 @@ proc scrollPageUp*(v: ScrollView)=
   v.scrollToRect(rect)
 
 proc scrollPageDown*(v: ScrollView)=
-  let cvBounds = v.clipView.bounds
+  let cvBounds = v.bounds
   var o = cvBounds.origin
   if o.y < cvBounds.maxY:
     o.y = min(v.contentSize.height - cvBounds.height, o.y + cvBounds.height)

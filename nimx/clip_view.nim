@@ -5,10 +5,7 @@ type ClipView* = ref object of View
 
 proc newClipView*(r: Rect): ClipView =
   result.new()
-  result.init(r)
-
-method subviewDidChangeDesiredSize*(v: ClipView, sub: View, desiredSize: Size) =
-  v.superview.subviewDidChangeDesiredSize(v, desiredSize)
+  result.init()
 
 method clipType*(v: ClipView): ClipType = ctDefaultClip
 

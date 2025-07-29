@@ -361,11 +361,11 @@ proc insertText(t: TextField, s: string) =
   t.updateCursorOffset()
   t.bumpCursorVisibility()
 
-  let newTh = t.mText.totalHeight
-  if th != newTh:
-    var s = t.bounds.size
-    s.height = newTh
-    t.superview.subviewDidChangeDesiredSize(t, s)
+  # let newTh = t.mText.totalHeight
+  # if th != newTh:
+  #   var s = t.bounds.size
+  #   s.height = newTh
+  #   t.superview.subviewDidChangeDesiredSize(t, s)
 
   if t.continuous:
     t.sendAction()

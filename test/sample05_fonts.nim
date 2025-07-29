@@ -104,37 +104,6 @@ method init(v: FontsView, r: Rect) =
 
   captionTf.sendAction()
 
-  # let captionTf = newTextField(newRect(20, 20, r.width - 40, 20))
-  # captionTf.autoresizingMask = { afFlexibleWidth, afFlexibleMaxY }
-  # captionTf.text = "A Quick Brown $@#&¿"
-  # captionTf.onAction do():
-  #   v.caption = captionTf.text
-  #   v.setNeedsDisplay()
-  # v.addSubview(captionTf)
-  # captionTf.sendAction()
-
-  # var y = 44.Coord
-  # v.createSlider("size", y, 8.0, 80.0, v.curFontSize)
-
-  # let showBaselineBtn = newCheckbox(newRect(20, y, 120, 16))
-  # showBaselineBtn.title = "Show baseline"
-  # showBaselineBtn.onAction do():
-  #   v.showBaseline = showBaselineBtn.boolValue
-  #   v.setNeedsDisplay()
-
-  # v.addSubview(showBaselineBtn)
-  # y += 16 + 5
-
-  # let baselineSelector = PopupButton.new(newRect(20, y, 120, 20))
-  # var items = newSeq[string]()
-  # for i in Baseline.low .. Baseline.high:
-  #   items.add($i)
-  # baselineSelector.items = items
-  # baselineSelector.onAction do():
-  #   v.baseline = Baseline(baselineSelector.selectedIndex)
-  #   v.setNeedsDisplay()
-  # v.addSubview(baselineSelector)
-
 method draw(v: FontsView, r: Rect) =
   let c = currentContext()
 
