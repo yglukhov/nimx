@@ -55,5 +55,5 @@ Nimx is tested only against the latest devel version of Nim compiler. Before rep
 ```
 
 ## Reference
-====================
+
 See [the docs](./doc) for more information.
