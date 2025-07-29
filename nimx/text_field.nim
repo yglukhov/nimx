@@ -296,6 +296,7 @@ method onTouchEv*(t: TextField, e: var Event): bool =
     if t.selectable:
       if not t.isFirstResponder():
         result = t.makeFirstResponder()
+        t.mText.getClosestCursorPositionToPoint(pt, cursorPos, cursorOffset)
         t.isSelecting = false
       else:
         result = true
@@ -518,7 +519,8 @@ method viewDidBecomeFirstResponder*(t: TextField) =
   t.updateCursorOffset()
   t.bumpCursorVisibility()
 
-  t.selectAll()
+  if not t.multiline:
+    t.selectAll()
 
 TextField.properties:
   editable
