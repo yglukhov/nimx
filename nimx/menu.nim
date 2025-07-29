@@ -78,7 +78,7 @@ proc minMenuWidth(item: MenuItem): Coord =
 
 proc newViewWithMenuItems(item: MenuItem, size: Size): MenuView =
   let width = max(size.width, minMenuWidth(item) + 20)
-  result = MenuView.new(zeroRect)
+  result = MenuView.new()
   result.addConstraint(selfPHS.width == newExpression(width))
   result.item = item
   result.highlightedRow = -1
@@ -86,9 +86,9 @@ proc newViewWithMenuItems(item: MenuItem, size: Size): MenuView =
   for i, item in item.children:
     var iv: View
     if item.title == "-":
-      iv = SeparatorView.new(newRect(0, 0, width, size.height))
+      iv = SeparatorView.new()
     else:
-      let label = newLabel(newRect(0, 0, width, size.height))
+      let label = Label.new()
       label.text = item.title
       iv = label
     iv.addConstraint(selfPHS.height == newExpression(size.height))

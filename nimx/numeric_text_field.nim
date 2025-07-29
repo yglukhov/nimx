@@ -11,13 +11,8 @@ type NumericTextField* = ref object of TextField
   touchAnim: Animation
   directionLeft: bool
 
-proc newNumericTextField*(r: Rect, precision: uint = 2): NumericTextField =
-  result.new()
-  result.init(r)
-  result.precision = precision
-
-method init*(v: NumericTextField, r: Rect) =
-  procCall v.TextField.init(r)
+method init*(v: NumericTextField) =
+  procCall v.TextField.init()
   v.precision = 2
   v.formattedText.horizontalAlignment = haCenter
 

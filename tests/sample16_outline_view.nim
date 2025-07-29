@@ -13,8 +13,8 @@ type
     text: string
     children: seq[Node]
 
-method init(v: OutlineViewSampleView, r: Rect) =
-  procCall v.View.init(r)
+method init(v: OutlineViewSampleView) =
+  procCall v.View.init()
 
   v.rootItem = Node()
   for i in 0 .. 5:

@@ -48,8 +48,8 @@ proc `segments=`*(s: SegmentedControl, segs: seq[string]) =
 
 template segments*(s: SegmentedControl): seq[string] = s.mSegments
 
-method init*(s: SegmentedControl, r: Rect) =
-  procCall s.Control.init(r)
+method init*(s: SegmentedControl) =
+  procCall s.Control.init()
   s.segments = @["hello", "world", "yo"]
 
 method updateLayout*(s: SegmentedControl) =

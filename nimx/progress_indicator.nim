@@ -67,8 +67,8 @@ void compose() {
 }
 """
 
-method init(v: ProgressIndicator, r: Rect) =
-  procCall v.View.init(r)
+method init(v: ProgressIndicator) =
+  procCall v.View.init()
   v.animation = newAnimation()
   v.animation.finished = true
   v.animation.onAnimate = proc(p: float) =

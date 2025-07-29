@@ -51,9 +51,8 @@ proc updateSubviewConstraintProtos(v: TabView) =
   orientationOption(left, v.tabBarThickness)
   orientationOption(right, -v.tabBarThickness)
 
-method init*(v: TabView, r: Rect) =
-  procCall v.View.init(r)
-  v.tabs = @[]
+method init*(v: TabView) =
+  procCall v.View.init()
   v.tabBarThickness = 25
   v.mTabBarOrientation = TabBarOrientation.top
   v.selectedTab = -1
@@ -174,7 +173,7 @@ proc removeFromSplitViewSystemIfEmpty(v: TabView) =
 proc userConfigurable*(v: TabView): bool = not v.configurationButton.isNil
 proc `userConfigurable=`*(v: TabView, b: bool) =
   if b and v.configurationButton.isNil:
-    v.configurationButton = Button.new(newRect(0, 0, 15, 15))
+    v.configurationButton = Button.new()
     v.configurationButton.title = "c"
     v.updateConfigurationButtonLayout()
     v.configurationButton.onAction do():
@@ -302,7 +301,7 @@ proc findSubviewOfTypeAtPoint[T](v: View, p: Point): T =
   if not result.isNil and View(result) == v: result = nil
 
 proc newDraggingView(tab: Tab): TabDraggingView =
-  result = TabDraggingView.new(zeroRect)
+  result = TabDraggingView.new()
   result.title = tab.title
   result.xPos = newVariable()
   result.yPos = newVariable()
@@ -350,7 +349,7 @@ method draw(v: TabDraggingView, r: Rect) =
   c.drawText(f, newPoint(5, 0), v.title)
 
 proc newTabViewForSplit(sz: Size, tab: Tab, prototype: TabView): TabView =
-  result = TabView.new(newRect(zeroPoint, sz))
+  result = TabView.new()
   result.addTab(tab.title, tab.view)
   result.dockingTabs = prototype.dockingTabs
   result.tabBarOrientation = prototype.tabBarOrientation
@@ -386,7 +385,7 @@ proc splitNew(v: TabView, horizontally, before: bool, tab: Tab) =
       s.insertSubviewAfter(ntv, v)
 
   else:
-    let vl = SplitView.new(zeroRect)
+    let vl = SplitView.new()
     vl.vertical = not horizontally
     vl.addConstraints(v.constraints)
     s.replaceSubview(v, vl)
@@ -407,7 +406,7 @@ proc trackDocking(v: TabView, tab: int): proc(e: Event): bool {.gcsafe.} =
   var tabOwner = v
   var indexOfTabInOwner = tab
   var draggingView: TabDraggingView
-  var dropOverlayView = View.new(zeroRect)
+  var dropOverlayView = View.new()
   dropOverlayView.backgroundColor = newColor(0, 0, 1, 0.5)
 
   const margin = 50

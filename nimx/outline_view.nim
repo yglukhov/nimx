@@ -169,7 +169,6 @@ proc `createCell=`*(v: OutlineView, cb: proc(col: int): TableViewCell {.gcsafe.}
 
     if col == v.outlineColumn:
       let oc = OutlineCell.new()
-      oc.init(zeroRect)
       result = oc
       oc.makeLayout:
         col: col
@@ -186,8 +185,8 @@ proc `createCell=`*(v: OutlineView, cb: proc(): TableViewCell {.gcsafe.}) =
   v.createCell = proc(col: int): TableViewCell =
     cb()
 
-method init*(v: OutlineView, r: Rect) =
-  procCall v.TableView.init(r)
+method init*(v: OutlineView) =
+  procCall v.TableView.init()
   v.rootItem = ItemNode.new()
   v.rootItem.expandable = true
   v.rootItem.expanded = true

@@ -10,12 +10,8 @@ type PopupButton* = ref object of Control
   mItems: seq[MenuItem]
   mSelectedIndex: int
 
-proc newPopupButton(r: Rect): PopupButton =
-  result.new()
-  result.init(r)
-
-method init*(b: PopupButton, r: Rect) =
-  procCall b.Control.init(r)
+method init*(b: PopupButton) =
+  procCall b.Control.init()
   b.mSelectedIndex = -1
 
 proc `items=`*(b: PopupButton, items: openarray[string]) =
@@ -34,13 +30,6 @@ proc `items=`*(b: PopupButton, items: openarray[string]) =
         b.mSelectedIndex = ii
         b.sendAction(Event(kind: etUnknown))
         b.setNeedsDisplay()
-
-proc newPopupButton*(parent: View = nil, position: Point = newPoint(0, 0), size: Size = newSize(100, 20), items: openarray[string]=[], selectedIndex: int=0): PopupButton =
-  result = newPopupButton(newRect(position.x, position.y, size.width, size.height))
-  result.mSelectedIndex = selectedIndex
-  result.items = items
-  if not isNil(parent):
-    parent.addSubview(result)
 
 proc selectedIndex*(b: PopupButton): int = b.mSelectedIndex
   ## Returns selected item index

@@ -6,8 +6,8 @@ import nimx/assets/asset_manager
 
 type ControlsSampleView = ref object of View
 
-method init(v: ControlsSampleView, r: Rect) =
-  procCall v.View.init(r)
+method init(v: ControlsSampleView) =
+  procCall v.View.init()
   let margin = 10.Coord
   v.makeLayout:
     - Label:

@@ -1,4 +1,4 @@
-import std/[ tables, hashes, json ]
+import std/ [ tables, hashes, json ]
 import ./[ view, serializers, control, types ]
 import ./assets/asset_loading
 import ./private/async
@@ -50,7 +50,7 @@ proc loadViewAsync*(path: string): Future[View] =
 method deserializeFields*(v: View, s: Deserializer) =
   var fr: Rect
   s.deserialize("frame", fr)
-  v.init(fr)
+  v.init()
   var bounds:Rect
   s.deserialize("bounds", bounds)
   # v.setBounds(bounds)

@@ -54,8 +54,8 @@ proc `configureCell=`*(v: TableView, p: proc (cell: TableViewCell) {.gcsafe.}) =
 
 proc rebuildConstraints(v: TableView) {.gcsafe.}
 
-method init*(v: TableView, r: Rect) =
-  procCall v.View.init(r)
+method init*(v: TableView) =
+  procCall v.View.init()
   v.numberOfColumns = 1
   v.defaultRowHeight = 30
   v.defaultColWidth = 50
@@ -168,7 +168,7 @@ proc configureRow(r: TableRow, top, height: Coord) {.inline.} =
   r.addConstraint(r.heightConstraint)
 
 proc createRow(v: TableView): TableRow =
-  result = TableRow.new(zeroRect)
+  result = TableRow.new()
   #result.addConstraint(result.layout.vars.height == height)
   result.addConstraint(result.layout.vars.leading == superPHS.leading)
   result.addConstraint(result.layout.vars.trailing == superPHS.trailing)

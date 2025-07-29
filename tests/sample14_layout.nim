@@ -45,7 +45,7 @@ reg "Hello world":
         text: "Hello, world!"
         y == 10.0
         height == 25.0
-      - newButton(zeroRect) as mybu:
+      - Button as mybu:
         title: "btn1"
         onAction do():
           echo "hi btn1"
@@ -201,7 +201,7 @@ reg "Table in SplitView":
               tableValues.len
 
             createCell do() -> TableViewCell:
-              result = TableViewCell.new(zeroRect)
+              result = TableViewCell.new()
               result.makeLayout:
                 top == super
                 bottom == super
@@ -257,8 +257,8 @@ reg "Autoresizing Frame":
         frame == autoresizingFrame(NaN, 100, 10, NaN, 100, 10)
         backgroundColor: green
 
-method init(v: LayoutSampleView, r: Rect) =
-  procCall v.View.init(r)
+method init(v: LayoutSampleView) =
+  procCall v.View.init()
   var by = 5'f32
   for ii in testLayoutRegistry:
     let i = ii

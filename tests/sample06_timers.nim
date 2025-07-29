@@ -6,8 +6,8 @@ type TimersSampleView = ref object of View
   timer: Timer
   intervalTextField: TextField
 
-method init(t: TimersSampleView, r: Rect) =
-  procCall t.View.init(r)
+method init(t: TimersSampleView) =
+  procCall t.View.init()
   t.makeLayout:
     - Label:
       text: "interval:"

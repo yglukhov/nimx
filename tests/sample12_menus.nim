@@ -10,8 +10,8 @@ proc leftOf(v: View, width: Coord): Rect =
   result.size.height = f.height
   result.size.width = width
 
-method init(v: MenuSampleView, r: Rect) =
-  procCall v.View.init(r)
+method init(v: MenuSampleView) =
+  procCall v.View.init()
   v.makeLayout:
     - Button as b:
       origin == super + 5

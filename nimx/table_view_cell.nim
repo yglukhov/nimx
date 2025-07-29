@@ -9,17 +9,10 @@ type TableViewCell* = ref object of View
 
 proc newTableViewCell*(): TableViewCell =
   result.new()
-  result.init(zeroRect)
-
-proc newTableViewCell*(r: Rect): TableViewCell =
-  result.new()
-  result.init(r)
-
-proc newTableViewCell*(s: Size): TableViewCell =
-  newTableViewCell(newRect(zeroPoint, s))
+  result.init()
 
 proc newTableViewCell*(v: View): TableViewCell =
-  result = newTableViewCell(v.frame.size)
+  result = newTableViewCell()
   result.addSubview(v)
 
 method selectionColor*(c: TableViewCell): Color {.base, gcsafe.} =

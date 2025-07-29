@@ -18,8 +18,8 @@ proc delete[T](s: var seq[T], indexes: IntSet) =
   for i in countdown(sortedIndexes.high, sortedIndexes.low):
     s.delete(sortedIndexes[i])
 
-method init(v: TableViewSampleView, r: Rect) =
-  procCall v.View.init(r)
+method init(v: TableViewSampleView) =
+  procCall v.View.init()
 
   for i in 1 .. 20:
     v.data.add("Item " & $i)

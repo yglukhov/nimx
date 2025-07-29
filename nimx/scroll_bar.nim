@@ -11,8 +11,8 @@ type ScrollBar* = ref object of Slider
   trackingPos: Coord # Position of mouse coordinate (x or y depending on orientation) within knob
 
 const minKnobSize = 0.05
-method init*(s: ScrollBar, r: Rect) =
-  procCall s.Slider.init(r)
+method init*(s: ScrollBar) =
+  procCall s.Slider.init()
   s.mKnobSize = 0.2
 
 proc knobRect(s: ScrollBar): Rect =

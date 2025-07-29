@@ -12,12 +12,12 @@ type ScrollView* = ref object of View
 
 const scrollBarWidth = 12.Coord
 
-method init*(v: ScrollView, r: Rect) =
-  procCall v.View.init(r)
+method init*(v: ScrollView) =
+  procCall v.View.init()
   v.xPos = newVariable()
   v.yPos = newVariable()
-  v.addSubview(ScrollBar.new(newRect(0, 0, 10, 0)))
-  v.addSubview(ScrollBar.new(newRect(0, 0, 0, 10)))
+  v.addSubview(ScrollBar.new())
+  v.addSubview(ScrollBar.new())
 
 proc onScrollBar(v: ScrollView, sb: ScrollBar) {.gcsafe.}
 

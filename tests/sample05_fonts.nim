@@ -9,31 +9,8 @@ type FontsView = ref object of View
   curFontSize: float
   baseline: Baseline
 
-# template createSlider(fv: FontsView, title: string, y: var Coord, fr, to: Coord, val: typed) =
-#   let lb = newLabel(newRect(20, y, 120, 20))
-#   lb.text = title & ":"
-#   let s = Slider.new(newRect(140, y, 120, 20))
-#   let ef = newTextField(newRect(280, y, 120, 20))
-#   s.onAction do():
-#     let v = fr + (to - fr) * s.value
-#     ef.text = $v
-#     val = v
-#     fv.setNeedsDisplay()
-#   ef.onAction do():
-#     try:
-#       let v = parseFloat(ef.text)
-#       s.value = (v - fr) / (to - fr)
-#       val = v
-#       fv.setNeedsDisplay()
-#     except:
-#       discard
-#   fv.addSubview(lb)
-#   fv.addSubview(s)
-#   fv.addSubview(ef)
-#   y += 22
-
-method init(v: FontsView, r: Rect) =
-  procCall v.View.init(r)
+method init(v: FontsView) =
+  procCall v.View.init()
   var baselineMenuItems: seq[string]
   for i in Baseline.low .. Baseline.high:
     baselineMenuItems.add($i)

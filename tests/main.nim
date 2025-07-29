@@ -50,7 +50,7 @@ proc startApplication() =
             allSamples.len
 
           createCell do() -> TableViewCell:
-            result = TableViewCell.new(zeroRect)
+            result = TableViewCell.new()
             result.makeLayout:
               - Label:
                 frame == super
@@ -64,7 +64,7 @@ proc startApplication() =
             if selectedRows.len > 0:
               let firstSelectedRow = selectedRows[0]
               let nv = View(newObjectOfClass(allSamples[firstSelectedRow].className))
-              nv.init(zeroRect)
+              nv.init()
               splitView.replaceSubview(1, nv)
 
       - View: # Placeholder

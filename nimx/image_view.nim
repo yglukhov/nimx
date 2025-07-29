@@ -21,14 +21,11 @@ type
     imageMarginTop*: Coord
     imageMarginBottom*: Coord
 
-proc newImageView*(r: Rect, image: Image = nil, fillRule = ImageFillRule.NoFill): ImageView =
-  result.new
-  result.image = image
-  result.fillRule = fillRule
-  result.init(r)
-
-method init*(v: ImageView, r: Rect) =
-  procCall v.View.init(r)
+# proc newImageView*(r: Rect, image: Image = nil, fillRule = ImageFillRule.NoFill): ImageView =
+#   result.new
+#   result.image = image
+#   result.fillRule = fillRule
+#   result.init(r)
 
 proc image*(v: ImageView): Image = v.image
 proc `image=`*(v: ImageView, image: Image) =

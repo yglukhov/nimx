@@ -52,38 +52,38 @@ Button.properties:
   imageMarginLeft
   image
 
-proc newButton*(r: Rect): Button =
-  result.new()
-  result.init(r)
+# proc newButton*(r: Rect): Button =
+#   result.new()
+#   result.init(r)
 
-proc newButton*(parent: View = nil, position: Point = newPoint(0, 0), size: Size = newSize(100, 20), title: string = "Button"): Button =
-  result = newButton(newRect(position.x, position.y, size.width, size.height))
-  result.title = title
-  if not isNil(parent):
-    parent.addSubview(result)
+# proc newButton*(parent: View = nil, position: Point = newPoint(0, 0), size: Size = newSize(100, 20), title: string = "Button"): Button =
+#   result = newButton(newRect(position.x, position.y, size.width, size.height))
+#   result.title = title
+#   if not isNil(parent):
+#     parent.addSubview(result)
 
-proc newCheckbox*(r: Rect): Button =
-  result = newButton(r)
-  result.style = bsCheckbox
-  result.behavior = bbToggle
+# proc newCheckbox*(r: Rect): Button =
+#   result = newButton(r)
+#   result.style = bsCheckbox
+#   result.behavior = bbToggle
 
-proc newRadiobox*(r: Rect): Button =
-  result = newButton(r)
-  result.style = bsRadiobox
-  result.behavior = bbToggle
+# proc newRadiobox*(r: Rect): Button =
+#   result = newButton(r)
+#   result.style = bsRadiobox
+#   result.behavior = bbToggle
 
-proc newImageButton*(r: Rect): Button =
-  result = newButton(r)
-  result.style = bsImage
+# proc newImageButton*(r: Rect): Button =
+#   result = newButton(r)
+#   result.style = bsImage
 
-proc newImageButton*(parent: View = nil, position: Point = newPoint(0, 0), size: Size = newSize(100, 20), image: Image = nil): Button =
-  result = newImageButton(newRect(position.x, position.y, size.width, size.height))
-  result.image = image
-  if not isNil(parent):
-    parent.addSubview(result)
+# proc newImageButton*(parent: View = nil, position: Point = newPoint(0, 0), size: Size = newSize(100, 20), image: Image = nil): Button =
+#   result = newImageButton(newRect(position.x, position.y, size.width, size.height))
+#   result.image = image
+#   if not isNil(parent):
+#     parent.addSubview(result)
 
-method init*(b: Button, frame: Rect) =
-  procCall b.Control.init(frame)
+method init*(b: Button) =
+  procCall b.Control.init()
   b.state = bsUp
   b.enabled = true
   b.backgroundColor = whiteColor()
@@ -93,13 +93,13 @@ method init*(b: Button, frame: Rect) =
   b.imageMarginTop = 2
   b.imageMarginBottom = 2
 
-method init*(b: Checkbox, frame: Rect) =
-  procCall b.Button.init(frame)
+method init*(b: Checkbox) =
+  procCall b.Button.init()
   b.style = bsCheckbox
   b.behavior = bbToggle
 
-method init*(b: Radiobox, frame: Rect) =
-  procCall b.Button.init(frame)
+method init*(b: Radiobox) =
+  procCall b.Button.init()
   b.style = bsRadiobox
   b.behavior = bbToggle
 
@@ -315,12 +315,8 @@ method onTouchEv*(b: Button, e: var Event): bool =
     result = b.handleToggleTouchEv(e)
 
 registerClass(Button)
-
-const checkBox = proc(): RootRef= newCheckbox(zeroRect)
-registerClass(Checkbox, checkBox)
-
-const radiButton = proc(): RootRef = newRadiobox(zeroRect)
-registerClass(Radiobox, radiButton)
+registerClass(Checkbox)
+registerClass(Radiobox)
 
 genVisitorCodeForView(Button)
 genVisitorCodeForView(Checkbox)

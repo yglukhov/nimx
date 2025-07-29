@@ -219,24 +219,23 @@ proc initSdlWindow(w: SdlWindow, r: view.Rect) =
   mainApplication().addWindow(w)
   discard w.impl.setData("__nimx_wnd", cast[pointer](w))
 
-method init*(w: SdlWindow, r: view.Rect) {.gcsafe.} =
-  w.initSdlWindow(r)
+method init*(w: SdlWindow) {.gcsafe.} =
+  initSDLIfNeeded()
+  w.initSdlWindow(newRect(0, 0, 100, 100))
   let r = w.getOsWindowFrame()
-  procCall w.Window.init(r)
+  procCall w.Window.init()
   w.onResize(r.size)
 
-proc newFullscreenSdlWindow*(): SdlWindow =
+proc newSdlWindow*(r: view.Rect): SdlWindow =
   initSDLIfNeeded()
+  result = SdlWindow.new()
+  result.setOsWindowFrame(r)
+  result.onResize(r.size)
 
+proc newFullscreenSdlWindow*(): SdlWindow =
   var displayMode : DisplayMode
   discard getDesktopDisplayMode(0, displayMode)
-
-  result.new()
-  result.init(newRect(0, 0, displayMode.w.Coord, displayMode.h.Coord))
-
-proc newSdlWindow*(r: view.Rect): SdlWindow =
-  result.new()
-  result.init(r)
+  newSdlWindow(newRect(0, 0, displayMode.w.Coord, displayMode.h.Coord))
 
 method show*(w: SdlWindow)=
   if w.impl.isNil:

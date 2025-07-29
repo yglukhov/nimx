@@ -15,8 +15,8 @@ type SplitView* = ref object of View
   draggingDivider: int
   initialDragPos: Point
 
-method init*(v: SplitView, r: Rect) =
-  procCall v.View.init(r)
+method init*(v: SplitView) =
+  procCall v.View.init()
   v.hoveredDivider = -1
   v.draggingDivider = -1
   v.mResizable = true

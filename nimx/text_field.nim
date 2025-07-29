@@ -81,39 +81,35 @@ template horizontalAlignment*(tf: TextField): HorizontalTextAlignment =
 proc `horizontalAlignment=`*(tf: TextField, a: HorizontalTextAlignment) =
   tf.mText.horizontalAlignment = a 
 
-proc newTextField*(r: Rect): TextField =
-  result.new()
-  result.init(r)
+# proc newTextField*(parent: View = nil, position: Point = newPoint(0, 0), size: Size = newSize(100, 20), text: string = ""): TextField =
+#   result = newTextField(newRect(position.x, position.y, size.width, size.height))
+#   result.editable = true
+#   result.selectable = true
+#   result.mText.text = text
+#   if not isNil(parent):
+#     parent.addSubview(result)
 
-proc newTextField*(parent: View = nil, position: Point = newPoint(0, 0), size: Size = newSize(100, 20), text: string = ""): TextField =
-  result = newTextField(newRect(position.x, position.y, size.width, size.height))
-  result.editable = true
-  result.selectable = true
-  result.mText.text = text
-  if not isNil(parent):
-    parent.addSubview(result)
+# proc newLabel*(r: Rect): TextField =
+#   result = newTextField(r)
+#   result.editable = false
+#   result.selectable = false
+#   result.backgroundColor.a = 0
 
-proc newLabel*(r: Rect): TextField =
-  result = newTextField(r)
-  result.editable = false
-  result.selectable = false
-  result.backgroundColor.a = 0
-
-proc newLabel*(parent: View = nil, position: Point = newPoint(0, 0), size: Size = newSize(100, 20), text: string = "label"): TextField =
-  result = newLabel(newRect(position.x, position.y, size.width, size.height))
-  result.editable = false
-  result.selectable = false
-  result.mText.text = text
-  if not isNil(parent):
-    parent.addSubview(result)
+# proc newLabel*(parent: View = nil, position: Point = newPoint(0, 0), size: Size = newSize(100, 20), text: string = "label"): TextField =
+#   result = newLabel(newRect(position.x, position.y, size.width, size.height))
+#   result.editable = false
+#   result.selectable = false
+#   result.mText.text = text
+#   if not isNil(parent):
+#     parent.addSubview(result)
 
 proc `textColor=`*(t: TextField, c: Color)=
   t.mText.setTextColorInRange(0, -1, c)
 
 proc textColor*(t: TextField): Color = t.mText.colorOfRuneAtPos(0).color1
 
-method init*(t: TextField, r: Rect) =
-  procCall t.Control.init(r)
+method init*(t: TextField) =
+  procCall t.Control.init()
   t.editable = true
   t.selectable = true
   t.textSelection = -1 .. -1
@@ -122,8 +118,8 @@ method init*(t: TextField, r: Rect) =
   t.mText = newFormattedText()
   t.mText.verticalAlignment = vaCenter
 
-method init*(v: Label, r: Rect) =
-  procCall v.TextField.init(r)
+method init*(v: Label) =
+  procCall v.TextField.init()
   v.editable = false
   v.selectable = false
 

@@ -199,8 +199,8 @@ var newFullscreenWindow* {.threadvar.}: proc(): Window {.gcsafe.}
 var newWindowWithNative* {.threadvar.}: proc(handle: pointer, r: Rect): Window {.gcsafe.}
 var newFullscreenWindowWithNative* {.threadvar.}: proc(handle: pointer): Window {.gcsafe.}
 
-method init*(w: Window, frame: Rect) =
-  procCall w.View.init(frame)
+method init*(w: Window) =
+  procCall w.View.init()
   w.window = w
   w.needsDisplay = true
   w.mCurrentTouches = newTable[int, View]()
@@ -214,8 +214,8 @@ method init*(w: Window, frame: Rect) =
   s.addEditVariable(w.layout.vars.width, STRONG)
   s.addEditVariable(w.layout.vars.height, STRONG)
 
-  s.suggestValue(w.layout.vars.width, frame.width)
-  s.suggestValue(w.layout.vars.height, frame.height)
+  # s.suggestValue(w.layout.vars.width, frame.width)
+  # s.suggestValue(w.layout.vars.height, frame.height)
 
   w.backgroundColor = newGrayColor(0.93, 0)
   w.mActiveBgColor.r = -123 # Any invalid color

@@ -320,8 +320,7 @@ method onTouchEv*(cpc: ColorPickerCircle, e: var Event): bool =
 
 proc newColorPickerView*(r: Rect, defaultPalette = ColorPickerPalette.HSV, backgroundColor: Color = newGrayColor(0.35, 0.8)): ColorPickerView =
   ## ColorPickerView constructor
-  result.new
-  result.init(r)
+  result = ColorPickerView.new()
   result.palette = defaultPalette
   result.backgroundColor = backgroundColor
   result.enableDraggingByBackground()
@@ -331,8 +330,8 @@ proc currentColor*(cpv: ColorPickerView): Color =
   hsvToRGB(cpv.currentColor.h, cpv.currentColor.s, cpv.currentColor.v)
 
 # ColorView
-method init(cv: ColorView, r: Rect) =
-  procCall cv.View.init(r)
+method init(cv: ColorView) =
+  procCall cv.View.init()
   cv.backgroundColor = newGrayColor(1.0)
 
 method onTouchEv(cv: ColorView, e: var Event): bool =
@@ -347,9 +346,9 @@ method onTouchEv(cv: ColorView, e: var Event): bool =
 
   return true
 
-method init*(cpv: ColorPickerView, r: Rect) =
+method init*(cpv: ColorPickerView) =
   # Basic Properties Initialization
-  procCall cpv.View.init(r)
+  procCall cpv.View.init()
 
   cpv.makeLayout:
     - ColorPickerCircle as circle:
@@ -441,10 +440,10 @@ proc color*(v: ColorPickerView): Color = hsvToRGB(v.currentColor)
 
 var gColorPicker {.threadvar.}: ColorPickerView
 
-proc sharedColorPicker*(): ColorPickerView =
-  if gColorPicker.isNil:
-    gColorPicker = newColorPickerView(newRect(0, 0, 300, 200))
-  result = gColorPicker
+# proc sharedColorPicker*(): ColorPickerView =
+#   if gColorPicker.isNil:
+#     gColorPicker = newColorPickerView(newRect(0, 0, 300, 200))
+#   result = gColorPicker
 
 # proc popupAtPoint*(c: ColorPickerView, v: View, p: Point) =
 #   c.removeFromSuperview()
@@ -454,7 +453,6 @@ proc sharedColorPicker*(): ColorPickerView =
 # ColorPickerView.properties:
 #   rightMargin
 
-const colorCreat = proc(): RootRef = newColorPickerView(zeroRect)
-registerClass(ColorPickerView, colorCreat)
+registerClass(ColorPickerView)
 genVisitorCodeForView(ColorPickerView)
 genSerializeCodeForView(ColorPickerView)

@@ -50,7 +50,6 @@ type
     mouseInside*: bool
     handleMouseOver: bool
     hidden*: bool
-    usesNewLayout*: bool
     dragDestination*: DragDestinationDelegate
     layout*: LayoutInfo
 
@@ -164,11 +163,8 @@ proc constraints*(v: View): seq[Constraint] =
   result = newSeqOfCap[Constraint](v.layout.constraints.len)
   for c in v.layout.constraints: result.add(c.proto)
 
-method init*(v: View, frame: Rect) {.base, gcsafe.} =
-  v.frame = frame
+method init*(v: View) {.base, gcsafe.} =
   v.layout.init()
-  v.bounds = newRect(0, 0, frame.width, frame.height)
-  v.usesNewLayout = frame == zeroRect
 
 proc addMouseOverListener(w: Window, v: View) =
   let i = w.mouseOverListeners.find(v)
@@ -200,13 +196,9 @@ proc removeGestureDetector*(v: View, d: GestureDetector) =
 
 proc removeAllGestureDetectors*(v: View) = v.gestureDetectors.setLen(0)
 
-proc new*[V](v: typedesc[V], frame: Rect): V = # Deprecated
+proc new*[V: View](v: typedesc[V]): V =
   result.new()
-  result.init(frame)
-
-proc newView*(frame: Rect): View = # Deprecated
-  result.new()
-  result.init(frame)
+  result.init()
 
 method convertPointToParent*(v: View, p: Point): Point {.base, gcsafe.} = p + v.frame.origin - v.bounds.origin
 method convertPointFromParent*(v: View, p: Point): Point {.base, gcsafe.} = p - v.frame.origin + v.bounds.origin

@@ -27,8 +27,8 @@ iterator rangesOfSubstring(haystack, needle: string): (int, int) =
       yield (index, b)
       start = b
 
-method init(v: TextSampleView, r: Rect) =
-  procCall v.View.init(r)
+method init(v: TextSampleView) =
+  procCall v.View.init()
   v.makeLayout:
     - ScrollView:
       frame == inset(super, 50)

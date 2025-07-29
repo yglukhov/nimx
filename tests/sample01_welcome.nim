@@ -14,8 +14,8 @@ method onScroll*(v: CustomControl, e: var Event): bool =
   echo "custom scroll ", e.offset
   result = true
 
-method init(v: WelcomeView, r: Rect) =
-  procCall v.View.init(r)
+method init(v: WelcomeView) =
+  procCall v.View.init()
   v.makeLayout:
     - Button:
       title: "Start Auto Tests"
@@ -34,6 +34,13 @@ method init(v: WelcomeView, r: Rect) =
       onAction:
         echo "second click"
 
+    - CustomControl as cc:
+      frame == autoresizingFrame(20, 150, NaN, 80, 20, NaN)
+      clickable: true
+      backgroundColor: newColor(1, 0, 0)
+      onAction:
+        echo "custom control clicked"
+
   let tapd = newTapGestureDetector do(tapPoint : Point):
     echo "tap on second button"
     discard
@@ -43,13 +50,6 @@ method init(v: WelcomeView, r: Rect) =
     echo "tap on welcome view"
     discard
   v.addGestureDetector(vtapd)
-  var cc: CustomControl
-  cc.new
-  cc.init(newRect(20, 80, 150, 20))
-  cc.clickable = true
-  cc.backgroundColor = newColor(1.0,0.0,0.0,1.0)
-  cc.onAction do():
-    echo "custom control clicked"
   let lis = newBaseScrollListener do(e : var Event):
     echo "tap down at: ",e.position
   do(dx, dy : float32, e : var Event):
@@ -60,7 +60,6 @@ method init(v: WelcomeView, r: Rect) =
     echo "flinged with velo: ",vx, " ",vy
   cc.addGestureDetector(newScrollGestureDetector(lis))
   cc.addGestureDetector(newFlingGestureDetector(flingLis))
-  v.addSubview(cc)
   cc.trackMouseOver(true)
 
 const gradientComposition = newComposition """
