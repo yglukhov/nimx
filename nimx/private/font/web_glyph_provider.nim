@@ -6,15 +6,15 @@ import nimx/private/font/font_data
 import rect_packer
 
 type WebGlyphProvider* = ref object
-    face: string
-    size: float32
-    glyphMargin*: int32
+  face: string
+  size: float32
+  glyphMargin*: int32
 
 proc setFace*(p: WebGlyphProvider, face: string) =
-    p.face = face
+  p.face = face
 
 template setSize*(p: WebGlyphProvider, sz: float32) =
-    p.size = sz
+  p.size = sz
 
 proc cssFontName(p: WebGlyphProvider): string =
   $int(p.size) & "px " & p.face
@@ -35,8 +35,8 @@ proc calculateFontMetricsInCanvas(n: cstring, fontSize: int, o: pointer) {.impor
   canvas.style.opacity = 1;
   ctx.font = n;
   var w = canvas.width,
-    h = canvas.height,
-    baseline = h/2;
+  h = canvas.height,
+  baseline = h/2;
 
   // Set all canvas pixeldata values to 255, with all the content
   // data being 0. This lets us scan for data[i] != 255.
@@ -49,8 +49,8 @@ proc calculateFontMetricsInCanvas(n: cstring, fontSize: int, o: pointer) {.impor
   // canvas pixel data is w*4 by h*4, because R, G, B and A are separate,
   // consecutive values in the array, rather than stored as 32 bit ints.
   var i = 0,
-    w4 = w * 4,
-    len = pixelData.length;
+  w4 = w * 4,
+  len = pixelData.length;
 
   // Finding the ascent uses a normal, forward scanline
   while (++i < len && pixelData[i] === 255) {}
@@ -98,8 +98,8 @@ proc fillText(c, x, y: int32) {.importwasmraw: """
 
 proc getImageDataAndDeleteCanvas(w, h: int32, o: pointer) {.importwasmraw: """
   var sz = $0 * $1,
-    d = window.__nimx_font_aux_canvas.__nimx_ctx.getImageData(0, 0, $0, $1).data,
-    o = new Int8Array(_nima.buffer, $2, sz);
+  d = window.__nimx_font_aux_canvas.__nimx_ctx.getImageData(0, 0, $0, $1).data,
+  o = new Int8Array(_nima.buffer, $2, sz);
   for (var i = 3, j = 0; j < sz; i += 4, ++j) o[j] = d[i];
   delete window.__nimx_font_aux_canvas;
   """.}
@@ -119,20 +119,20 @@ proc bakeChars*(p: WebGlyphProvider, start: int32, data: var GlyphData) =
   createAuxCanvas(fName)
 
   for i in startChar ..< endChar:
-    if isPrintableCodePoint(i):
-      let w = measureChar(i)
+  if isPrintableCodePoint(i):
+    let w = measureChar(i)
 
-      if w > 0:
-        let (x, y) = rectPacker.packAndGrow(w + p.glyphMargin * 2, h + p.glyphMargin * 2)
+    if w > 0:
+    let (x, y) = rectPacker.packAndGrow(w + p.glyphMargin * 2, h + p.glyphMargin * 2)
 
-        let c = charOff(i - startChar)
-        #data.glyphMetrics.charOffComp(c, compX) = 0
-        #data.glyphMetrics.charOffComp(c, compY) = 0
-        data.glyphMetrics.charOffComp(c, compAdvance) = w.int16
-        data.glyphMetrics.charOffComp(c, compTexX) = (x + p.glyphMargin).int16
-        data.glyphMetrics.charOffComp(c, compTexY) = (y + p.glyphMargin).int16
-        data.glyphMetrics.charOffComp(c, compWidth) = w.int16
-        data.glyphMetrics.charOffComp(c, compHeight) = h.int16
+    let c = charOff(i - startChar)
+    #data.glyphMetrics.charOffComp(c, compX) = 0
+    #data.glyphMetrics.charOffComp(c, compY) = 0
+    data.glyphMetrics.charOffComp(c, compAdvance) = w.int16
+    data.glyphMetrics.charOffComp(c, compTexX) = (x + p.glyphMargin).int16
+    data.glyphMetrics.charOffComp(c, compTexY) = (y + p.glyphMargin).int16
+    data.glyphMetrics.charOffComp(c, compWidth) = w.int16
+    data.glyphMetrics.charOffComp(c, compHeight) = h.int16
 
   let texWidth = rectPacker.width
   let texHeight = rectPacker.height
@@ -142,16 +142,16 @@ proc bakeChars*(p: WebGlyphProvider, start: int32, data: var GlyphData) =
   configureAuxCanvas(texWidth, texHeight, fname)
 
   for i in startChar ..< endChar:
-    let indexOfGlyphInRange = i - startChar
-    data.dfDoneForGlyph[indexOfGlyphInRange] = true
-    if isPrintableCodePoint(i) and i != ord(' '):
-      let c = charOff(indexOfGlyphInRange)
-      let w = data.glyphMetrics.charOffComp(c, compAdvance)
-      if w > 0:
-        let x = data.glyphMetrics.charOffComp(c, compTexX)
-        let y = data.glyphMetrics.charOffComp(c, compTexY)
-        fillText(i, x, y)
-        data.dfDoneForGlyph[indexOfGlyphInRange] = false
+  let indexOfGlyphInRange = i - startChar
+  data.dfDoneForGlyph[indexOfGlyphInRange] = true
+  if isPrintableCodePoint(i) and i != ord(' '):
+    let c = charOff(indexOfGlyphInRange)
+    let w = data.glyphMetrics.charOffComp(c, compAdvance)
+    if w > 0:
+    let x = data.glyphMetrics.charOffComp(c, compTexX)
+    let y = data.glyphMetrics.charOffComp(c, compTexY)
+    fillText(i, x, y)
+    data.dfDoneForGlyph[indexOfGlyphInRange] = false
 
   data.bitmap.setLen(texWidth * texHeight)
 

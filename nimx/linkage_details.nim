@@ -1,20 +1,20 @@
 
 template sdlMain*() =
-    when defined(ios) or defined(android):
-        when not compileOption("noMain"):
-            {.error: "Please run Nim with --noMain flag.".}
+  when defined(ios) or defined(android):
+    when not compileOption("noMain"):
+      {.error: "Please run Nim with --noMain flag.".}
 
-        import nimx/system_logger
-        {.push stackTrace: off.}
-        proc setupLogger() {.cdecl.} =
-            errorMessageWriter = proc(msg: string) =
-                logi msg
-        {.pop.}
+    import nimx/system_logger
+    {.push stackTrace: off.}
+    proc setupLogger() {.cdecl.} =
+      errorMessageWriter = proc(msg: string) =
+        logi msg
+    {.pop.}
 
-        when defined(ios):
-            {.emit: "#define __IPHONEOS__".}
+    when defined(ios):
+      {.emit: "#define __IPHONEOS__".}
 
-        {.emit: """
+    {.emit: """
 // The following piece of code is a copy-paste from SDL/SDL_main.h
 // It is required to avoid dependency on SDL headers
 ////////////////////////////////////////////////////////////////////////////////
@@ -88,7 +88,7 @@ template sdlMain*() =
  */
 
 #if defined(SDL_MAIN_NEEDED) || defined(SDL_MAIN_AVAILABLE)
-#define main    SDL_main
+#define main  SDL_main
 #endif
 
 
@@ -105,46 +105,46 @@ extern char** gEnv;
 N_CDECL(void, NimMain)(void);
 
 int main(int argc, char** args) {
-    cmdLine = args;
-    cmdCount = argc;
-    gEnv = NULL;
-    `setupLogger`();
-    NimMain();
+  cmdLine = args;
+  cmdCount = argc;
+  gEnv = NULL;
+  `setupLogger`();
+  NimMain();
 #ifdef __ANDROID__
-    /* Prevent SDLActivity from calling main() again until the main lib
-    *  is reloaded
-    */
-    exit(nim_program_result);
+  /* Prevent SDLActivity from calling main() again until the main lib
+  *  is reloaded
+  */
+  exit(nim_program_result);
 #endif
-    return nim_program_result;
+  return nim_program_result;
 }
 
 """.}
 
 when not defined(emscripten):
-    when defined(macosx) or defined(ios):
-        import macros
-        macro passToCAndL(s: string): typed =
-            result = newNimNode(nnkStmtList)
-            result.add parseStmt("{.passL: \"" & s.strVal & "\".}\n")
-            result.add parseStmt("{.passC: \"" & s.strVal & "\".}\n")
+  when defined(macosx) or defined(ios):
+    import macros
+    macro passToCAndL(s: string): typed =
+      result = newNimNode(nnkStmtList)
+      result.add parseStmt("{.passL: \"" & s.strVal & "\".}\n")
+      result.add parseStmt("{.passC: \"" & s.strVal & "\".}\n")
 
-        macro useFrameworks(n: varargs[string]): typed =
-            result = newNimNode(nnkStmtList, n)
-            for i in 0..n.len-1:
-                result.add parseStmt("passToCAndL(\"-framework " & n[i].strVal & "\")")
+    macro useFrameworks(n: varargs[string]): typed =
+      result = newNimNode(nnkStmtList, n)
+      for i in 0..n.len-1:
+        result.add parseStmt("passToCAndL(\"-framework " & n[i].strVal & "\")")
 
-    when defined(ios):
-        useFrameworks("OpenGLES", "UIKit", "GameController", "CoreMotion", "Metal", "AVFoundation", "CoreBluetooth")
-        when not defined(simulator):
-            when hostCPU == "arm":
-                {.passC:"-arch armv7".}
-                {.passL:"-arch armv7".}
-            elif hostCPU == "arm64":
-                {.passC:"-arch arm64".}
-                {.passL:"-arch arm64".}
-    elif defined(macosx):
-        useFrameworks("OpenGL", "AppKit", "AudioUnit", "ForceFeedback", "IOKit", "Carbon", "CoreServices", "ApplicationServices", "Metal")
+  when defined(ios):
+    useFrameworks("OpenGLES", "UIKit", "GameController", "CoreMotion", "Metal", "AVFoundation", "CoreBluetooth")
+    when not defined(simulator):
+      when hostCPU == "arm":
+        {.passC:"-arch armv7".}
+        {.passL:"-arch armv7".}
+      elif hostCPU == "arm64":
+        {.passC:"-arch arm64".}
+        {.passL:"-arch arm64".}
+  elif defined(macosx):
+    useFrameworks("OpenGL", "AppKit", "AudioUnit", "ForceFeedback", "IOKit", "Carbon", "CoreServices", "ApplicationServices", "Metal")
 
-    when defined(macosx) or defined(ios):
-        useFrameworks("AudioToolbox", "CoreAudio", "CoreGraphics", "QuartzCore")
+  when defined(macosx) or defined(ios):
+    useFrameworks("AudioToolbox", "CoreAudio", "CoreGraphics", "QuartzCore")

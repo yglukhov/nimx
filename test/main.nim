@@ -28,75 +28,75 @@ import sample17_table_view
 const isMobile = defined(ios) or defined(android)
 
 proc startApplication() =
-    let mainWindow = when isMobile:
-            newFullscreenWindow()
-        else:
-            newWindow(newRect(40, 40, 800, 600))
+  let mainWindow = when isMobile:
+      newFullscreenWindow()
+    else:
+      newWindow(newRect(40, 40, 800, 600))
 
-    mainWindow.makeLayout:
-        title: "NimX Sample"
+  mainWindow.makeLayout:
+    title: "NimX Sample"
 
-        - SplitView as splitView:
-            origin == super
-            size == super
+    - SplitView as splitView:
+      origin == super
+      size == super
 
-            - ScrollView:
-                width >= 120
-                width <= super / 3 @ MEDIUM
-                - TableView as tableView:
+      - ScrollView:
+        width >= 120
+        width <= super / 3 @ MEDIUM
+        - TableView as tableView:
 
-                    # width == 120
-                    numberOfRows do() -> int:
-                        allSamples.len
+          # width == 120
+          numberOfRows do() -> int:
+            allSamples.len
 
-                    createCell do() -> TableViewCell:
-                        result = TableViewCell.new(zeroRect)
-                        result.makeLayout:
-                            - Label:
-                                frame == super
-                                width == 200
+          createCell do() -> TableViewCell:
+            result = TableViewCell.new(zeroRect)
+            result.makeLayout:
+              - Label:
+                frame == super
+                width == 200
 
-                    configureCell do(c: TableViewCell):
-                        Label(c.subviews[0]).text = allSamples[c.row].name
+          configureCell do(c: TableViewCell):
+            Label(c.subviews[0]).text = allSamples[c.row].name
 
-                    onSelectionChange do():
-                        let selectedRows = toSeq(items(tableView.selectedRows))
-                        if selectedRows.len > 0:
-                            let firstSelectedRow = selectedRows[0]
-                            let nv = View(newObjectOfClass(allSamples[firstSelectedRow].className))
-                            nv.init(zeroRect)
-                            splitView.replaceSubview(1, nv)
+          onSelectionChange do():
+            let selectedRows = toSeq(items(tableView.selectedRows))
+            if selectedRows.len > 0:
+              let firstSelectedRow = selectedRows[0]
+              let nv = View(newObjectOfClass(allSamples[firstSelectedRow].className))
+              nv.init(zeroRect)
+              splitView.replaceSubview(1, nv)
 
-            - View: # Placeholder
-                discard
+      - View: # Placeholder
+        discard
 
-    tableView.reloadData()
-    tableView.selectRow(9)
+  tableView.reloadData()
+  tableView.selectRow(9)
 
-    uiTest generalUITest:
-        sendMouseDownEvent(mainWindow, newPoint(50, 60))
-        sendMouseUpEvent(mainWindow, newPoint(50, 60))
+  uiTest generalUITest:
+    sendMouseDownEvent(mainWindow, newPoint(50, 60))
+    sendMouseUpEvent(mainWindow, newPoint(50, 60))
 
-        sendMouseDownEvent(mainWindow, newPoint(50, 90))
-        sendMouseUpEvent(mainWindow, newPoint(50, 90))
+    sendMouseDownEvent(mainWindow, newPoint(50, 90))
+    sendMouseUpEvent(mainWindow, newPoint(50, 90))
 
-        sendMouseDownEvent(mainWindow, newPoint(50, 120))
-        sendMouseUpEvent(mainWindow, newPoint(50, 120))
+    sendMouseDownEvent(mainWindow, newPoint(50, 120))
+    sendMouseUpEvent(mainWindow, newPoint(50, 120))
 
-        sendMouseDownEvent(mainWindow, newPoint(50, 90))
-        sendMouseUpEvent(mainWindow, newPoint(50, 90))
+    sendMouseDownEvent(mainWindow, newPoint(50, 90))
+    sendMouseUpEvent(mainWindow, newPoint(50, 90))
 
-        sendMouseDownEvent(mainWindow, newPoint(50, 60))
-        sendMouseUpEvent(mainWindow, newPoint(50, 60))
+    sendMouseDownEvent(mainWindow, newPoint(50, 60))
+    sendMouseUpEvent(mainWindow, newPoint(50, 60))
 
-        sendMouseDownEvent(mainWindow, newPoint(50, 30))
-        sendMouseUpEvent(mainWindow, newPoint(50, 30))
+    sendMouseDownEvent(mainWindow, newPoint(50, 30))
+    sendMouseUpEvent(mainWindow, newPoint(50, 30))
 
-        quitApplication()
+    quitApplication()
 
-    registerTest(generalUITest)
-    when defined(runAutoTests):
-        startRegisteredTests()
+  registerTest(generalUITest)
+  when defined(runAutoTests):
+    startRegisteredTests()
 
 runApplication:
-    startApplication()
+  startApplication()

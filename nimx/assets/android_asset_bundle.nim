@@ -4,10 +4,10 @@ import android_asset_url_handler # Required to register the android_asset handle
 type AndroidAssetBundle* = ref object of AssetBundle
 
 # method forEachAsset*(ab: AssetBundle, action: proc(path: string): bool) =
-#     raise newException()
+#   raise newException()
 
 proc newAndroidAssetBundle*(): AndroidAssetBundle =
-    result.new()
+  result.new()
 
 method urlForPath*(ab: AndroidAssetBundle, path: string): string =
-    return "android_asset://" & path
+  return "android_asset://" & path

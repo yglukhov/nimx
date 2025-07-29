@@ -13,22 +13,22 @@ import nimx/editor/edit_view
 const isMobile = defined(ios) or defined(android)
 
 proc runAutoTestsIfNeeded() =
-    uiTest generalUITest:
-        discard
-        quitApplication()
+  uiTest generalUITest:
+    discard
+    quitApplication()
 
-    registerTest(generalUITest)
-    when defined(runAutoTests):
-        startRegisteredTests()
+  registerTest(generalUITest)
+  when defined(runAutoTests):
+    startRegisteredTests()
 
 proc startApplication() =
-    when isMobile:
-        var mainWindow = newFullscreenWindow()
-    else:
-        var mainWindow = newWindow(newRect(40, 40, 1200, 600))
-    mainWindow.title = "nimx"
-    startNimxEditor(mainWindow)
-    runAutoTestsIfNeeded()
+  when isMobile:
+    var mainWindow = newFullscreenWindow()
+  else:
+    var mainWindow = newWindow(newRect(40, 40, 1200, 600))
+  mainWindow.title = "nimx"
+  startNimxEditor(mainWindow)
+  runAutoTestsIfNeeded()
 
 runApplication:
-    startApplication()
+  startApplication()
