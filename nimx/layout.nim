@@ -102,9 +102,9 @@ proc transformConstraintNode(cn, subject: NimNode): NimNode =
 
 template setControlHandlerBlock(c: View, p: untyped, a: untyped) =
     when compiles(c.p(nil)):
-        c.p() do(): a
+        c.p() do() {.gcsafe.}: a
     else:
-        c.p = proc() =
+        c.p = proc() {.gcsafe.} =
             a
 
 template setControlHandlerLambda(c: View, p: untyped, a: untyped) =

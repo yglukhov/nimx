@@ -178,7 +178,21 @@ proc removeTab*(v: TabView, i: int) =
     v.tabs.delete(i)
     v.tabFramesValid = false
 
-proc removeFromSplitViewSystem*(v: View)
+proc tabsCount*(v: TabView): int = v.tabs.len
+
+proc removeFromSplitViewSystem*(v: View) =
+    let newLayout = v.usesNewLayout
+    var s = v
+    while not s.isNil and ((not newLayout and s.superview of LinearLayout) or (newLayout and s.superview of SplitView)) and s.superview.subviews.len == 1:
+        s = s.superview
+    s.removeFromSuperview()
+
+proc removeFromSplitViewSystemIfEmpty(v: TabView) =
+    if v.tabsCount == 0:
+        if not v.onRemove.isNil:
+            v.onRemove(v)
+        v.removeFromSplitViewSystem()
+
 proc userConfigurable*(v: TabView): bool = not v.configurationButton.isNil
 proc `userConfigurable=`*(v: TabView, b: bool) =
     if b and v.configurationButton.isNil:
@@ -197,14 +211,14 @@ proc `userConfigurable=`*(v: TabView, b: bool) =
             orientationItem("Right", TabBarOrientation.right)
             orientationItem("Bottom", TabBarOrientation.bottom)
 
-            if v.tabs.len > 1:
-                let tm = newMenuItem("Close current")
-                tm.action = proc() =
-                    if not v.onClose.isNil:
-                        v.onClose(v.selectedView())
-                    v.removeTab(v.selectedTab)
+            let tm = newMenuItem("Close current")
+            tm.action = proc() =
+                if not v.onClose.isNil:
+                    v.onClose(v.selectedView())
+                v.removeTab(v.selectedTab)
+                v.removeFromSplitViewSystemIfEmpty()
 
-                m.items.add(tm)
+            m.items.add(tm)
 
             m.popupAtPoint(v.configurationButton, zeroPoint)
         v.addSubview(v.configurationButton)
@@ -240,7 +254,6 @@ proc updateTabFrames(v: TabView) =
             v.tabs[i].frame.size.height = f.sizeOfString(v.tabs[i].title).width + 10
             v.tabs[i].frame.size.width = v.tabBarThickness
 
-proc tabsCount*(v: TabView): int = v.tabs.len
 proc titleOfTab*(v: TabView, i: int): string = v.tabs[i].title
 proc setTitleOfTab*(v: TabView, t: string, i: int) =
     v.tabs[i].title = t
@@ -425,13 +438,6 @@ proc split*(v: TabView, horizontally, before: bool, tab: Tab) =
     else:
         v.splitOld(horizontally, before, tab)
 
-proc removeFromSplitViewSystem*(v: View) =
-    let newLayout = v.usesNewLayout
-    var s = v
-    while not s.isNil and ((not newLayout and s.superview of LinearLayout) or (newLayout and s.superview of SplitView)) and s.superview.subviews.len == 1:
-        s = s.superview
-    s.removeFromSuperview()
-
 proc trackDocking(v: TabView, tab: int): proc(e: Event): bool {.gcsafe.} =
     var trackedTab = v.tabs[tab]
     var tabOwner = v
@@ -529,10 +535,7 @@ proc trackDocking(v: TabView, tab: int): proc(e: Event): bool {.gcsafe.} =
                     v.insertTab(tab, trackedTab.title, trackedTab.view)
                     v.selectTab(tab)
 
-            if v.tabsCount == 0:
-                if not v.onRemove.isNil:
-                    v.onRemove(v)
-                v.removeFromSplitViewSystem()
+            v.removeFromSplitViewSystemIfEmpty()
 
 method onTouchEv*(v: TabView, e: var Event): bool =
     result = procCall v.View.onTouchEv(e)

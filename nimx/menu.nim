@@ -1,5 +1,5 @@
 import macros, times
-import view, table_view_cell, text_field, context, app, view_event_handling, font
+import view, table_view_cell, text_field, context, app, view_event_handling, font, layout, kiwi, private/kiwi_vector_symbolics
 
 type MenuItem* = ref object of RootObj
     title*: string
@@ -78,30 +78,49 @@ proc minMenuWidth(item: MenuItem): Coord =
 
 proc newViewWithMenuItems(item: MenuItem, size: Size): MenuView =
     let width = max(size.width, minMenuWidth(item) + 20)
-    result = MenuView.new(newRect(0, 0, width, item.children.len.Coord * menuItemHeight))
+    result = MenuView.new(zeroRect)
+    result.addConstraint(selfPHS.width == newExpression(width))
     result.item = item
     result.highlightedRow = -1
     var yOff = 0.Coord
     for i, item in item.children:
-        var cell: TableViewCell
+        var iv: View
         if item.title == "-":
-            let sep = SeparatorView.new(newRect(0, 0, width, size.height))
-            cell = newTableViewCell(sep)
+            iv = SeparatorView.new(newRect(0, 0, width, size.height))
         else:
             let label = newLabel(newRect(0, 0, width, size.height))
             label.text = item.title
-            cell = newTableViewCell(label)
+            iv = label
+        iv.addConstraint(selfPHS.height == newExpression(size.height))
+        iv.addConstraint(selfPHS.width == newExpression(width))
+        iv.addConstraint(selfPHS.leading == superPHS.leading)
+        iv.addConstraint(selfPHS.width == superPHS.width)
+        iv.addConstraint(selfPHS.y == superPHS.y)
+        iv.addConstraint(selfPHS.height == superPHS.height)
+        let cell = newTableViewCell(iv)
+        if i == 0:
+            cell.addConstraint(selfPHS.y == superPHS.y)
+        else:
+            cell.addConstraint(selfPHS.y == prevPHS.bottom)
+        cell.addConstraint(selfPHS.leading == superPHS.leading)
+        cell.addConstraint(selfPHS.width == superPHS.width)
 
-        cell.setFrameOrigin(newPoint(0, yOff))
         cell.row = i
         cell.selected = false
 
         if item.children.len > 0:
-            let triangleView = TriangleView.new(newRect(width - 20, 0, 20, menuItemHeight))
-            cell.addSubview(triangleView)
+            cell.makeLayout:
+                - TriangleView:
+                    width == self.height
+                    height == super
+                    trailing == super
+                    y == super
 
         result.addSubview(cell)
         yOff += menuItemHeight
+
+    if result.subviews.len != 0:
+        result.subviews[^1].addConstraint(selfPHS.bottom == superPHS.bottom)
 
 method draw(v: MenuView, r: Rect) =
     let c = currentContext()
@@ -134,22 +153,21 @@ proc removeMenuView(v: MenuView) =
         v.removeFromSuperview()
         v = v.submenu
 
+proc addOriginConstraints(m: MenuView, inView: View, desiredOrigin: Point) =
+    # Add constraints necessary to display `m` at the `desiredOrigin` of `inView`,
+    # but only if `m` fits in the window
+    let w = inView.window
+    var wp = inView.convertPointToWindow(desiredOrigin)
+    m.addConstraint(modifyStrength(selfPHS.x == wp.x, MEDIUM))
+    m.addConstraint(modifyStrength(selfPHS.y == wp.y, MEDIUM))
+    m.addConstraint(selfPHS.leading >= w.layout.vars.leading)
+    m.addConstraint(selfPHS.trailing <= w.layout.vars.trailing)
+    m.addConstraint(selfPHS.top >= w.layout.vars.top)
+    m.addConstraint(selfPHS.bottom <= w.layout.vars.bottom)
+
 proc popupAtPoint*(m: MenuItem, v: View, p: Point, size: Size = newSize(150.0, menuItemHeight)) =
     let mv = newViewWithMenuItems(m, size)
-    var wp = v.convertPointToWindow(p)
-    let win = v.window
-
-    # If the menu is out of window bounds, move it inside
-    if wp.x < win.bounds.x:
-        wp.x = win.bounds.x
-    elif wp.x + mv.frame.width > win.bounds.maxX:
-        wp.x = win.bounds.maxX - mv.frame.width
-    if wp.y < win.bounds.y:
-        wp.y = win.bounds.y
-    elif wp.y + mv.frame.height > win.bounds.maxY:
-        wp.y = win.bounds.maxY - mv.frame.height
-
-    mv.setFrameOrigin(wp)
+    mv.addOriginConstraints(v, p)
     v.window.addSubview(mv)
 
     let popupTime = epochTime()
@@ -194,8 +212,7 @@ proc popupAtPoint*(m: MenuItem, v: View, p: Point, size: Size = newSize(150.0, m
                         # Create submenu view
                         let sub = newViewWithMenuItems(selectedItem, size)
                         var pt = newPoint(selectedCell.bounds.width, selectedCell.bounds.y)
-                        pt = selectedCell.convertPointToWindow(pt)
-                        sub.setFrameOrigin(pt)
+                        sub.addOriginConstraints(selectedCell, pt)
                         v.window.addSubview(sub)
                         curMv.submenu = sub
 

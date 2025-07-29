@@ -128,19 +128,24 @@ proc contentSize(v: ScrollView): Size =
     if not cv.isNil:
         result = cv.frame.size
 
-proc scrollPosition*(v: ScrollView): Point=
+proc scrollPosition*(v: ScrollView): Point =
     ## Result: Point where x and y between 0.0 .. 1.0
     if v.usesNewLayout:
-        doAssert(false, "Not implemented")
+        let cs = v.contentSize
+        let b = v.bounds
+        let csx = cs.width - b.width
+        let csy = cs.height - b.height
+        result.x = if csx > 0.0: b.x / csx else: 0
+        result.y = if csy > 0.0: b.y / csy else: 0
     else:
-        var cs = v.contentSize
-        result = newPoint(0.0, 0.0)
+        let cs = v.contentSize
         let csx = cs.width - v.clipView.bounds.width
         let csy = cs.height - v.clipView.bounds.height
         result.x = if csx > 0.0: v.clipView.bounds.x / csx else: 0
         result.y = if csy > 0.0: v.clipView.bounds.y / csy else: 0
 
 proc recalcScrollbarKnobPositions(v: ScrollView) =
+    echo "RECALC!"
     let sp = v.scrollPosition()
     if not v.mHorizontalScrollBar.isNil:
         v.mHorizontalScrollBar.value = sp.x
@@ -152,10 +157,13 @@ method updateLayout*(v: ScrollView) =
     if v.usesNewLayout:
         let cs = v.contentSize
         let cvBounds = v.bounds.size
+        # echo "Update"
         if not v.mVerticalScrollBar.isNil:
             v.mVerticalScrollBar.knobSize = cvBounds.height / cs.height
             v.mVerticalScrollBar.value = (v.layout.vars.y.value - v.yPos.value) / (cs.height - cvBounds.height)
             v.mVerticalScrollBar.hidden = v.mVerticalScrollBar.knobSize == 1.0
+            # echo "KS: ", v.mVerticalScrollBar.knobSize
+            # echo "CS: ", cs.height
         if not v.mHorizontalScrollBar.isNil:
             v.mHorizontalScrollBar.knobSize = cvBounds.width / cs.width
             v.mHorizontalScrollBar.value = (v.layout.vars.x.value - v.xPos.value) / (cs.width - cvBounds.width)
@@ -268,8 +276,8 @@ proc rebuildConstraints(v: ScrollView) =
 
     let cv = v.mContentView
     if not cv.isNil:
-        v.constraints.add(cv.layout.vars.left == v.xPos)
-        v.constraints.add(cv.layout.vars.top == v.yPos)
+        v.constraints.add(cv.layout.vars.left == v.layout.vars.left + v.xPos)
+        v.constraints.add(cv.layout.vars.top == v.layout.vars.top + v.yPos)
         v.constraints.add(cv.layout.vars.top <= v.layout.vars.top)
         v.constraints.add(cv.layout.vars.left <= v.layout.vars.left)
         var c = cv.layout.vars.bottom >= v.layout.vars.bottom
@@ -336,22 +344,47 @@ method viewWillMoveToWindow*(v: ScrollView, w: Window) =
     if v.usesNewLayout:
         let wnd = v.window
         if not wnd.isNil:
-            wnd.layoutSolver.removeEditVariable(v.xPos)
-            wnd.layoutSolver.removeEditVariable(v.yPos)
+            let s = wnd.layoutSolver
+            s.removeEditVariable(v.xPos)
+            s.removeEditVariable(v.yPos)
 
 method viewDidMoveToWindow*(v: ScrollView) =
     procCall v.View.viewDidMoveToWindow()
     if v.usesNewLayout:
         let wnd = v.window
         if not wnd.isNil:
-            wnd.layoutSolver.addEditVariable(v.xPos, WEAK)
-            wnd.layoutSolver.addEditVariable(v.yPos, WEAK)
+            let s = wnd.layoutSolver
+            s.addEditVariable(v.xPos, WEAK)
+            s.addEditVariable(v.yPos, WEAK)
 
 proc scrollToRect*(v: ScrollView, r: Rect) =
     ## If necessary scrolls to reveal the rect `r` which is in content bounds
     ## coordinates.
     if v.usesNewLayout:
-        doAssert(false, "Not implemented")
+        let cv = v.mContentView
+        if not cv.isNil:
+            let cvBounds = cv.frame
+            var o = cvBounds.origin
+            if o.x + r.x < 0:
+                o.x = -r.x
+            elif r.maxX + o.x > v.bounds.maxX:
+                o.x = v.bounds.width - r.maxX
+            if o.y + r.y < 0:
+                o.y = -r.y
+            elif r.maxY + o.y > v.bounds.maxY:
+                o.y = v.bounds.height - r.maxY
+
+            let w = v.window
+            let s = if not w.isNil: w.layoutSolver else: nil
+            if s.isNil:
+                v.xPos.value = o.x
+                v.yPos.value = o.y
+            else:
+                s.suggestValue(v.xPos, o.x)
+                s.suggestValue(v.yPos, o.y)
+                v.setNeedsLayout()
+            v.recalcScrollbarKnobPositions()
+        echo "SCROLL"
     else:
         let cvBounds = v.clipView.bounds
         var o = cvBounds.origin
@@ -368,19 +401,13 @@ proc scrollToRect*(v: ScrollView, r: Rect) =
         v.recalcScrollbarKnobPositions()
 
 proc scrollToBottom*(v: ScrollView)=
-    doAssert(not v.usesNewLayout, "Not implemented")
-
     let rect = newRect(0, v.contentSize.height - v.clipView.bounds.height, v.clipView.bounds.width, v.clipView.bounds.height)
     v.scrollToRect(rect)
 
 proc scrollToTop*(v: ScrollView)=
-    doAssert(not v.usesNewLayout, "Not implemented")
-
     v.scrollToRect(newRect(0, 0, v.clipView.bounds.width, v.clipView.bounds.height))
 
 proc scrollPageUp*(v: ScrollView)=
-    doAssert(not v.usesNewLayout, "Not implemented")
-
     let cvBounds = v.clipView.bounds
     var o = cvBounds.origin
     if o.y > 0:
@@ -389,8 +416,6 @@ proc scrollPageUp*(v: ScrollView)=
     v.scrollToRect(rect)
 
 proc scrollPageDown*(v: ScrollView)=
-    doAssert(not v.usesNewLayout, "Not implemented")
-
     let cvBounds = v.clipView.bounds
     var o = cvBounds.origin
     if o.y < cvBounds.maxY:

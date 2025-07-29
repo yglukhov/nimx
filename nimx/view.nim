@@ -333,9 +333,10 @@ proc removeFromSuperview(v: View, callHandlers: bool) =
 method removeFromSuperview*(v: View) {.base, gcsafe.} =
     v.removeFromSuperview(true)
 
-proc removeAllSubviews*(v: View)=
+proc removeAllSubviews*(v: View) =
     while v.subviews.len > 0:
-        v.subviews[0].removeFromSuperview()
+        let s = v.subviews[0]
+        s.removeFromSuperview()
 
 proc insertSubview*(v, s: View, i: int) =
     if s.superview != v:

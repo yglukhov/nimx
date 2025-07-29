@@ -30,7 +30,7 @@ method init*(v: SplitView, r: Rect) =
 #     for i, s in v.separatorPositions:
 #         echo "sep[", i, "]: ", s.value
 
-proc rebuildConstraints(v: SplitView) =
+proc clearConstraints(v: SplitView) =
     let wnd = v.window
     if not wnd.isNil:
         for c in v.constraints:
@@ -38,19 +38,32 @@ proc rebuildConstraints(v: SplitView) =
 
         let s = wnd.layoutSolver
         for vv in v.separatorPositions:
-            s.removeEditVariable(vv)
+            if s.hasEditVariable(vv):
+                s.removeEditVariable(vv)
 
     v.constraints.setLen(0)
+
+proc rebuildConstraints(v: SplitView) =
+    v.clearConstraints()
+    let wnd = v.window
+    if wnd.isNil: return
 
     const minSeparatorGap = 30
 
     let numViews = v.subviews.len
-    if v.subviews.len > 0:
+    if numViews > 0:
         v.separatorPositions.setLen(numViews - 1)
+        let s = wnd.layoutSolver
+        var minPos = 400.0
         for i in 0 ..< numViews - 1:
-            if v.separatorPositions[i].isNil:
-                v.separatorPositions[i] = newVariable()
-            wnd.layoutSolver.addEditVariable(v.separatorPositions[i], 50)
+            var p = v.separatorPositions[i]
+            if p.isNil:
+                if i > 0:
+                    minPos += v.separatorPositions[i - 1].value
+                p = newVariable(minPos)
+                v.separatorPositions[i] = p
+            s.addEditVariable(p, 50)
+            s.suggestValue(p, p.value)
 
         if v.mVertical:
             # Vertical constraints
@@ -82,6 +95,14 @@ proc rebuildConstraints(v: SplitView) =
         for c in v.constraints:
             v.addConstraint(c)
 
+method viewWillMoveToWindow*(v: SplitView, w: Window) =
+    v.clearConstraints()
+    procCall v.View.viewWillMoveToWindow(w)
+
+method viewDidMoveToWindow*(v: SplitView) =
+    procCall v.View.viewDidMoveToWindow()
+    v.rebuildConstraints()
+
 method didAddSubview*(v: SplitView, s: View) =
     procCall v.View.didAddSubview(s)
     v.rebuildConstraints()
@@ -100,7 +121,7 @@ proc setDividerPosition*(v: SplitView, pos: Coord, i: int) =
 
 proc dividerPositions*(v: SplitView): seq[Coord] =
     let ln = v.subviews.len - 1
-    result = newSeq[Coord](ln)
+    result.setLen(ln)
     for i in 0 ..< ln:
         result[i] = v.dividerPosition(i)
 

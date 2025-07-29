@@ -189,8 +189,8 @@ proc eventWithXEvent(d: PDisplay, ev: var XEvent, result: var seq[Event]) =
       const multiplierX = 30.0
       const multiplierY = -30.0
       case ev.xbutton.button
-      of 4: e.offset.y = multiplierY
-      of 5: e.offset.y = -multiplierY
+      of 4: e.offset.y = -multiplierY
+      of 5: e.offset.y = multiplierY
       of 6: e.offset.x = multiplierX
       of 7: e.offset.x = -multiplierY
       else: discard # Can't happen

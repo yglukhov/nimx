@@ -123,6 +123,13 @@ method draw*(w: WinapiWindow, r: types.Rect) =
   gl.stencilMask(0x00)
 
 method drawWindow(w: WinapiWindow) =
+<<<<<<< HEAD
+=======
+  if w.hDC == 0:
+    echo "Window destroyed"
+    return
+
+>>>>>>> version-2
   let c = w.renderingContext
   let oldContext = setCurrentContext(c)
   c.withTransform ortho(0, w.frame.width, w.frame.height, 0, -1, 1):
@@ -248,6 +255,10 @@ proc winEventProc(hwnd: HWND, msg: UINT, wparam: WPARAM, lparam: LPARAM): LRESUL
   of WM_DESTROY:
     # echo "DESTROY!"
     discard ReleaseDC(hwnd, win.hDC)
+<<<<<<< HEAD
+=======
+    # win.hDC = 0
+>>>>>>> version-2
     PostQuitMessage(0)
 
   of WM_DPICHANGED:
@@ -264,7 +275,9 @@ proc animateAndDraw() =
   mainApplication().runAnimations()
   mainApplication().drawWindows()
 
-proc runUntilQuit*()=
+var tmpMessage: MSG
+
+proc runUntilQuit*() =
   var msg: MSG
   animateAndDraw()
 
@@ -290,10 +303,20 @@ proc runUntilQuit*()=
         if msg.message == WM_QUIT:
           echo "quit"
           break
-        if DispatchMessage(addr msg) == 0:
-          discard TranslateMessage(addr msg)
+
+        # Here goes a hack to dispatch textInput events _before_
+        # corresponding key events. It's the behavior that nimx event dispatching
+        # depends upon. Maybe could be fixed in a higher level code.
+        if TranslateMessage(addr msg):
+          if tmpMessage.message != 0:
+            discard DispatchMessage(addr tmpMessage)
+          tmpMessage = msg
         else:
-          discard TranslateMessage(addr msg)
+          discard DispatchMessage(addr msg)
+
+          if tmpMessage.message != 0:
+            discard DispatchMessage(addr tmpMessage)
+            tmpMessage.message = 0
 
     elif r == WAIT_TIMEOUT:
       # We can hit timeout even if we don't have any timers in asyncdispatch,
