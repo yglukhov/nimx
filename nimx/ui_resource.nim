@@ -21,7 +21,8 @@ type
 proc `@`(str: string): UIResID =
   UIResID(hash(str))
 
-proc deserializeView*(jn: JsonNode): View = newJsonDeserializer(jn).deserialize(result)
+proc deserializeViewFromJson(jn: JsonNode): View = newJsonDeserializer(jn).deserialize(result)
+proc deserializeView*(jn: JsonNode): View {.inline.} = deserializeViewFromJson(jn)
 proc deserializeView*(data: string): View = deserializeView(parseJson(data))
 
 proc loadAUX[T](path: string, deser: proc(j: JsonNode): T {.gcsafe.}, onLoad: proc(v: T) {.gcsafe.})=
@@ -40,10 +41,10 @@ proc loadAUXAsync[T](path: string, deser: proc(j: JsonNode): T {.gcsafe.}): Futu
     return resf
 
 proc loadView*(path: string, onLoad: proc(v: View) {.gcsafe.}) =
-  loadAUX[View](path, deserializeView, onLoad)
+  loadAUX[View](path, deserializeViewFromJson, onLoad)
 
 proc loadViewAsync*(path: string): Future[View] =
-  result = loadAUXAsync[View](path, deserializeView)
+  result = loadAUXAsync[View](path, deserializeViewFromJson)
 
 
 method deserializeFields*(v: View, s: Deserializer) =
@@ -77,20 +78,21 @@ proc newJUIResourceDeserializer*(n: JsonNode): UIResourceDeserializer =
   result.new()
   result.init(n)
 
-proc deserializeUIResource*(jn: JsonNode): UIResource =
+proc deserializeUIResourceFromJson(jn: JsonNode): UIResource =
   result.new()
   let deser = newJUIResourceDeserializer(jn)
   deser.deserialize(result.mView)
   result.outlets = deser.deserTable
   result.actions = initTable[UIResID, UIActionCallback]()
 
+proc deserializeUIResource*(jn: JsonNode): UIResource {.inline.} = deserializeUIResourceFromJson(jn)
 proc deserializeUIResource*(data: string): UIResource = deserializeUIResource(parseJson(data))
 
 proc loadUiResource*(path: string, onLoad: proc(v: UIResource) {.gcsafe.}) =
-  loadAUX[UIResource](path, deserializeUIResource, onLoad)
+  loadAUX[UIResource](path, deserializeUIResourceFromJson, onLoad)
 
 proc loadUiResourceAsync*(path: string): Future[UIResource] =
-  result = loadAUXAsync[UIResource](path, deserializeUIResource)
+  result = loadAUXAsync[UIResource](path, deserializeUIResourceFromJson)
 
 proc getView(ui: UIResource, T: typedesc, id: UIResID): T =
   result = ui.outlets.getOrDefault(id).T

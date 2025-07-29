@@ -1,5 +1,5 @@
 import view, view_event_handling, table_view_cell, scroll_view, layout_vars,
-       keyboard
+       pasteboard/pasteboard_item, keyboard
 
 import clip_view
 
@@ -8,22 +8,22 @@ import kiwi
 
 export view, table_view_cell
 
-type SelectionKind* {.pure, deprecated.} = enum
-    Nothing = 0
-    Row
-    Column
-
 type
   SelectionMode* = enum
     smNone
     smSingleSelection
     smMultipleSelection
 
+  DragOperation* = enum
+    none
+    move
+    copy
+
   TableView* = ref object of View
     numberOfColumns*: int
     numberOfRows*: proc (): int {.gcsafe.}
     mCreateCell: proc(column: int): TableViewCell {.gcsafe.}
-    configureCell*: proc (cell: TableViewCell) {.gcsafe.}
+    mConfigureCell: proc (cell: TableViewCell) {.gcsafe.}
     heightOfRow*: proc (row: int): Coord {.gcsafe.}
     onSelectionChange*: proc() {.gcsafe.}
 
@@ -36,6 +36,14 @@ type
     initiallyClickedRow: int
     constraints: seq[Constraint]
 
+    # Drag source
+    mOnDragStarted: proc(rows: IntSet): PasteboardItem {.gcsafe.}
+    mOnDragComplete: proc(rows: IntSet, op: DragOperation) {.gcsafe.}
+
+    # Drag destination
+    mAcceptDrop: proc(i: PasteboardItem, atRow: int, inside: bool): DragOperation {.gcsafe.}
+    mOnDrop: proc(i: PasteboardItem, atRow: int, inside: bool) {.gcsafe.}
+
 proc `createCell=`*(v: TableView, p: proc(): TableViewCell {.gcsafe.}) =
     v.mCreateCell = proc(c: int): TableViewCell =
         p()
@@ -43,9 +51,8 @@ proc `createCell=`*(v: TableView, p: proc(): TableViewCell {.gcsafe.}) =
 proc `createCell=`*(v: TableView, p: proc(column: int): TableViewCell {.gcsafe.}) =
     v.mCreateCell = p
 
-proc newTableView*(r: Rect): TableView = # [Deprecated old layout]
-    result.new()
-    result.init(r)
+proc `configureCell=`*(v: TableView, p: proc (cell: TableViewCell) {.gcsafe.}) =
+    v.mConfigureCell = p
 
 proc rebuildConstraints(v: TableView) {.gcsafe.}
 
@@ -103,7 +110,7 @@ proc getRowsAtHeights(v: TableView, heights: openarray[Coord], rows: var openarr
                     rows[j] = -1
 
 proc rebuildConstraints(v: TableView) =
-    for c in v.constraints: v.removeConstraint(c)
+    v.removeConstraints(v.constraints)
     v.constraints.setLen(0)
 
     if v.numberOfRows.isNil:
@@ -113,19 +120,9 @@ proc rebuildConstraints(v: TableView) =
         let height = v.requiredTotalHeight(rowCount)
         v.constraints.add(v.layout.vars.height == height)
 
-    for c in v.constraints: v.addConstraint(c)
+    v.addConstraints(v.constraints)
 
-proc reloadData*(v: TableView) =
-    if v.usesNewLayout:
-        v.rebuildConstraints()
-    else:
-        let rowCount = v.numberOfRows()
-        var desiredSize = v.frame.size
-        desiredSize.height = v.requiredTotalHeight(rowCount)
-        if not v.superview.isNil:
-            v.superview.subviewDidChangeDesiredSize(v, desiredSize)
-        v.visibleRect = zeroRect
-    v.setNeedsDisplay()
+proc updateCellsInVisibleRect(v: TableView)
 
 proc visibleRect(v: View): Rect = # TODO: This can be more generic. Move to view.nim
     let s = v.superview
@@ -183,6 +180,8 @@ proc createRow(v: TableView): TableRow =
         for i in 0 ..< v.numberOfColumns:
             let c = v.mCreateCell(i)
             c.col = i
+            c.addConstraint(c.layout.vars.top == superPHS.top)
+            c.addConstraint(c.layout.vars.bottom == superPHS.bottom)
 
             if i == 0:
                 c.addConstraint(c.layout.vars.leading == superPHS.leading)
@@ -222,9 +221,10 @@ proc dequeueReusableRow(v: TableView, cells: var seq[TableRow], row: int, top, h
 
     let rowSelected = v.selectedRows.contains(row)
     for s in result.subviews:
-        TableViewCell(s).selected = rowSelected
-        TableViewCell(s).row = row
-        v.configureCell(TableViewCell(s))
+        let cell = TableViewCell(s)
+        cell.selected = rowSelected
+        cell.row = row
+        v.mConfigureCell(cell)
 
     if v.usesNewLayout:
         result.configureRow(top, height)
@@ -237,95 +237,99 @@ proc dequeueReusableRow(v: TableView, cells: var seq[TableRow], row: int, top, h
     if needToAdd:
         v.addSubview(result)
 
-proc updateCellsInVisibleRect(v: TableView) =
-    var vr: Rect
+proc updateCellsInRect(v: TableView, vr: Rect) =
+    var visibleRowsRange : array[2, int]
+
+    assert(vr.minY >= 0)
+
+    v.getRowsAtHeights([vr.minY, vr.maxY], visibleRowsRange)
+
+    let minVisibleRow = visibleRowsRange[0]
+    var maxVisibleRow = visibleRowsRange[1]
+
+    if maxVisibleRow < 0:
+        maxVisibleRow = v.numberOfRows() - 1
+
+    var reusableRows = newSeq[TableRow]()
+    var visibleRows = newSeq[TableRow](maxVisibleRow - minVisibleRow + 1)
+
+    # 1. Collect cells that are not within visible rect to reusable cells
+    for sv in v.subviews:
+        let cell = TableRow(sv)
+        let cr = TableViewCell(cell.subviews[0]).row
+        if (cr < minVisibleRow or cr > maxVisibleRow) or minVisibleRow == -1:
+            # If cell contains first responder it should remain intact
+            if not cell.containsFirstResponder():
+                reusableRows.add(cell)
+        else:
+            visibleRows[cr - minVisibleRow] = cell
+
+    if minVisibleRow != -1:
+        var y : Coord = 0
+        var cell = visibleRows[0]
+        if cell.isNil:
+            y = v.topCoordOfRow(minVisibleRow)
+        else:
+            y = cell.frame.minY
+
+        # 2. Go through visible rows and create or reuse cells for rows with missing cells
+        for i in minVisibleRow .. maxVisibleRow:
+            var cell = visibleRows[i - minVisibleRow]
+            let h = v.requiredHeightForRow(i)
+
+            if cell.isNil:
+                cell = v.dequeueReusableRow(reusableRows, i, y, h)
+                assert(not cell.isNil)
+            else:
+                for c in cell.subviews:
+                    v.mConfigureCell(TableViewCell(c))
+            y += h
+
+    # 3. Remove the cells that were not reused
+    for c in reusableRows:
+        c.removeFromSuperview()
+
+proc calculateVisibleRect(v: TableView): Rect =
     if v.usesNewLayout:
-        vr = visibleRect(v)
+        result = visibleRect(v)
     else:
         let clipView = v.enclosingClipView()
-        vr = if clipView.isNil: v.bounds else: clipView.bounds
+        result = if clipView.isNil: v.bounds else: clipView.bounds
+
+proc updateCellsInVisibleRect(v: TableView) =
+    let vr = v.calculateVisibleRect()
     if vr != v.visibleRect:
         v.visibleRect = vr
+        v.updateCellsInRect(vr)
 
-        var visibleRowsRange : array[2, int]
-
-        assert(vr.minY >= 0)
-
-        v.getRowsAtHeights([vr.minY, vr.maxY], visibleRowsRange)
-
-        let minVisibleRow = visibleRowsRange[0]
-        var maxVisibleRow = visibleRowsRange[1]
-
-        if maxVisibleRow < 0:
-            maxVisibleRow = v.numberOfRows() - 1
-
-        var reusableRows = newSeq[TableRow]()
-        var visibleRows = newSeq[TableRow](maxVisibleRow - minVisibleRow + 1)
-
-        # 1. Collect cells that are not within visible rect to reusable cells
-        for sv in v.subviews:
-            let cell = TableRow(sv)
-            let cr = TableViewCell(cell.subviews[0]).row
-            if (cr < minVisibleRow or cr > maxVisibleRow) or minVisibleRow == -1:
-                # If cell contains first responder it should remain intact
-                if not cell.containsFirstResponder():
-                    reusableRows.add(cell)
-            else:
-                visibleRows[cr - minVisibleRow] = cell
-
-        var needsLayout = false
-        if minVisibleRow != -1:
-            var y : Coord = 0
-            var cell = visibleRows[0]
-            if cell.isNil:
-                y = v.topCoordOfRow(minVisibleRow)
-            else:
-                y = cell.frame.minY
-
-            # 2. Go through visible rows and create or reuse cells for rows with missing cells
-            for i in minVisibleRow .. maxVisibleRow:
-                var cell = visibleRows[i - minVisibleRow]
-                let h = v.requiredHeightForRow(i)
-
-                if cell.isNil:
-                    needsLayout = true
-                    cell = v.dequeueReusableRow(reusableRows, i, y, h)
-                    assert(not cell.isNil)
-                else:
-                    for c in cell.subviews:
-                        v.configureCell(TableViewCell(c))
-                y += h
-
-        # 3. Remove the cells that were not reused
-        for c in reusableRows:
-            c.removeFromSuperview()
-
-        if v.usesNewLayout and needsLayout:
-            v.setNeedsLayout()
+proc reloadData*(v: TableView) =
+    if v.usesNewLayout:
+        v.rebuildConstraints()
+    else:
+        let rowCount = v.numberOfRows()
+        var desiredSize = v.frame.size
+        desiredSize.height = v.requiredTotalHeight(rowCount)
+        if not v.superview.isNil:
+            v.superview.subviewDidChangeDesiredSize(v, desiredSize)
+        v.visibleRect = zeroRect
+    v.updateCellsInRect(v.calculateVisibleRect())
+    v.setNeedsDisplay()
 
 method updateLayout*(v: TableView) =
     if v.usesNewLayout:
         v.updateCellsInVisibleRect()
 
-method draw*(v: TableView, r: Rect) =
-    procCall v.View.draw(r)
-    if not v.usesNewLayout:
-        var needsDisplay = false
-        if not v.window.isNil:
-            needsDisplay = v.window.needsDisplay
-
-        v.updateCellsInVisibleRect()
-
-        if not v.window.isNil:
-            v.window.needsDisplay = needsDisplay
-
 proc isRowSelected*(t: TableView, row: int): bool = t.selectedRows.contains(row)
 
-proc updateSelectedCells*(t: TableView) {.inline.} =
+proc updateSelectedCells(t: TableView) {.inline.} =
+    # TODO: This can be more efficient.
     for r in t.subviews:
         let isSelected = t.isRowSelected(TableViewCell(r.subviews[0]).row)
         for c in r.subviews:
-            TableViewCell(c).selected = isSelected
+            let cell = TableViewCell(c)
+            if cell.selected != isSelected:
+                cell.selected = isSelected
+                t.mConfigureCell(cell)
 
 proc setRowsSelected(t: TableView, rows: Slice[int], selected: bool) =
     if selected:
@@ -346,6 +350,10 @@ proc toggleSelectedRow(t: TableView, row: int) =
 proc selectRow*(t: TableView, row: int) =
     t.selectedRows = initIntSet()
     t.setRowSelected(row, true)
+
+proc clearSelection*(t: TableView) =
+    t.selectedRows = initIntSet()
+    t.setRowsSelected(0 .. -1, false)
 
 proc selectRows(t: TableView, rows: Slice[int]) =
     t.setRowsSelected(rows, true)

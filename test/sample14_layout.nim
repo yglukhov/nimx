@@ -1,3 +1,4 @@
+import sugar
 import sample_registry
 import nimx / [ view, window, button, text_field, layout, scroll_view, table_view,
     split_view, context ]
@@ -259,16 +260,18 @@ reg "Autoresizing Frame":
 method init(v: LayoutSampleView, r: Rect) =
   procCall v.View.init(r)
   var by = 5'f32
-  for i in 0 .. testLayoutRegistry.high:
-    closureScope:
-      let c = testLayoutRegistry[i]
-      let b = Button.new(newRect(10, by, 150, 25))
-      b.title = c.name
-      by += 30
-      b.onAction do():
-        let wnd = newWindow(newRect(80, 80, 800, 600))
-        wnd.title = c.name
-        c.createProc(wnd)
-      v.addSubview(b)
+  for ii in testLayoutRegistry:
+    let i = ii
+    capture i:
+      v.makeLayout:
+        - Button:
+          title: i.name
+          frame == autoresizingFrame(10, 150, NaN, by, 25, NaN)
+          onAction:
+            let wnd = newWindow(newRect(80, 80, 800, 600))
+            wnd.title = i.name
+            i.createProc(wnd)
+
+    by += 30
 
 registerSample(LayoutSampleView, "Layout")

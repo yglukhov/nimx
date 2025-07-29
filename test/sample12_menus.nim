@@ -1,5 +1,5 @@
 import sample_registry
-import nimx / [ view, menu, button, text_field ]
+import nimx / [ view, menu, button, text_field, layout ]
 
 type MenuSampleView = ref object of View
 
@@ -12,12 +12,20 @@ proc leftOf(v: View, width: Coord): Rect =
 
 method init(v: MenuSampleView, r: Rect) =
     procCall v.View.init(r)
-    let b = Button.new(newRect(5, 5, 100, 25))
-    b.title = "Menu"
+    v.makeLayout:
+        - Button as b:
+            origin == super + 5
+            width == 100
+            height == 25
+            title: "Menu"
 
-    let textField = TextField.new(b.leftOf(120))
-    textField.text = "Menu: none"
-
+        - TextField as textField:
+            leading == prev.trailing + 5
+            y == prev
+            height == prev
+            width == 120
+            text: "Menu: none"
+            
     let m = makeMenu("File"):
             - "Open":
                 textField.text = "Menu: Open"
@@ -33,7 +41,5 @@ method init(v: MenuSampleView, r: Rect) =
 
     b.onAction do():
         m.popupAtPoint(b, newPoint(0, 25))
-    v.addSubview(b)
-    v.addSubview(textField)
 
 registerSample(MenuSampleView, "Menus")

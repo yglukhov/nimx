@@ -1,96 +1,152 @@
 import sample_registry
 
 import nimx / [ view, segmented_control, color_picker, button, image, image_view,
-                text_field, slider, popup_button, progress_indicator ]
+                text_field, slider, popup_button, progress_indicator, layout ]
 import nimx/assets/asset_manager
 
 type ControlsSampleView = ref object of View
 
 method init(v: ControlsSampleView, r: Rect) =
     procCall v.View.init(r)
+    let margin = 10.Coord
+    v.makeLayout:
+        - Label:
+            leading == super + margin
+            y == super + margin
+            width == 100
+            height == 20
+            text: "Text field: "
+        - TextField as textField:
+            leading == prev.trailing + margin
+            trailing == super - margin
+            y == prev
+            height == prev
 
-    let label = newLabel(newRect(10, 10, 100, 20))
-    let textField = newTextField(newRect(120, 10, v.bounds.width - 130, 20))
-    textField.autoresizingMask = { afFlexibleWidth, afFlexibleMaxY }
-    label.text = "Text field:"
-    v.addSubview(label)
-    v.addSubview(textField)
+        - Button:
+            leading == super + margin
+            y == super + 40
+            width == 100
+            height == 22
+            title: "Button"
+            onAction do():
+                textField.text = "Click! "
 
-    let button = newButton(newRect(10, 40, 100, 22))
-    button.title = "Button"
-    button.onAction do():
-        textField.text = "Click! "
-    v.addSubview(button)
+        - SegmentedControl as sc:
+            leading == prev.trailing + margin
+            trailing == super - margin
+            y == prev
+            height == prev
+            segments: @["This", "is", "a", "segmented", "control"]
+            onAction do():
+                textField.text = "Seg " & $sc.selectedSegment & "! "
 
-    let sc = SegmentedControl.new(newRect(120, 40, v.bounds.width - 130, 22))
-    sc.segments = @["This", "is", "a", "segmented", "control"]
-    sc.autoresizingMask = { afFlexibleWidth, afFlexibleMaxY }
-    sc.onAction do():
-        textField.text = "Seg " & $sc.selectedSegment & "! "
+        - Checkbox as cb:
+            title: "Checkbox"
+            leading == super + margin
+            y == super + 70
+            height == 16
+            width == 110
 
-    v.addSubview(sc)
+        - Slider as slider:
+            leading == prev.trailing + margin
+            trailing == super - margin
+            y == prev
+            height == prev
+            onAction do():
+                textField.text = "Slider value: " & $slider.value & " "
+                progress.value = slider.value
 
-    let checkbox = newCheckbox(newRect(10, 70, 50, 16))
-    checkbox.title = "Checkbox"
-    v.addSubview(checkbox)
+        - ProgressIndicator as progress:
+            leading == prev
+            width == prev
+            y == super + 130
+            height == prev
 
-    let progress = ProgressIndicator.new(newRect(120, 130, v.bounds.width - 130, 16))
-    progress.autoresizingMask = { afFlexibleWidth, afFlexibleMaxY }
-    v.addSubview(progress)
+        - Slider:
+            trailing == super - margin
+            width == 16
+            y == super + 150
+            bottom == super - margin
 
-    let slider = Slider.new(newRect(120, 70, v.bounds.width - 130, 16))
-    slider.autoresizingMask = { afFlexibleWidth, afFlexibleMaxY }
-    slider.onAction do():
-        textField.text = "Slider value: " & $slider.value & " "
-        progress.value = slider.value
-    v.addSubview(slider)
+        - Radiobox as rb:
+            leading == super + margin
+            y == cb.layout.vars.bottom + margin
+            size == cb.layout.vars.size
+            title: "Radiobox"
 
-    let vertSlider = Slider.new(newRect(v.bounds.width - 26, 150, 16, v.bounds.height - 160))
-    vertSlider.autoresizingMask = { afFlexibleMinX, afFlexibleHeight }
-    v.addSubview(vertSlider)
+        - PopupButton:
+            leading == prev.trailing + margin
+            y == prev
+            width == 140
+            height == 20
+            items: @["Popup button", "Item 1", "Item 2"]
 
-    let radiobox = newRadiobox(newRect(10, 90, 50, 16))
-    radiobox.title = "Radiobox"
-    v.addSubview(radiobox)
+        - Checkbox as indeterminateCheckbox:
+            leading == super + margin
+            width == 110
+            y == progress.layout.vars.y
+            height == 16
+            title: "Indeterminate"
+            onAction do():
+                progress.indeterminate = indeterminateCheckbox.boolValue
 
-    let indeterminateCheckbox = newCheckbox(newRect(10, 130, 100, 16))
-    indeterminateCheckbox.title = "Indeterminate"
-    indeterminateCheckbox.onAction do():
-        progress.indeterminate = indeterminateCheckbox.boolValue
-    v.addSubview(indeterminateCheckbox)
+        - TextField as tf1:
+            leading == super + margin
+            y == super + 150
+            height == 20
+            onAction do():
+                tfLabel.text = "Left: " & tf1.text
 
-    let pb = PopupButton.new(newRect(120, 90, 120, 20))
-    pb.items = @["Popup button", "Item 1", "Item 2"]
-    v.addSubview(pb)
+        - TextField as tf2:
+            leading == prev.trailing + margin
+            width == prev
+            y == prev
+            height == prev
+            onAction do():
+                tfLabel.text = "Right: " & tf2.text
+
+        - Label as tfLabel:
+            leading == prev.trailing + margin
+            trailing == super - margin
+            y == prev
+            height == prev
+            width == prev
+            text: "<-- Enter some text"
+
+        - ColorPickerView as cpv:
+            leading == super + margin
+            y == super + 200
+            width == 400
+            height == 170
+            backgroundColor: newGrayColor(0.5)
+            onAction:
+                textField.text = $cpv.color
 
     sharedAssetManager().getAssetAtPath("cat.jpg") do(i: Image, err: string):
-        discard newImageButton(v, newPoint(260, 90), newSize(32, 32), i)
-
-    let tfLabel = newLabel(newRect(330, 150, 150, 20))
-    tfLabel.text = "<-- Enter some text"
-    let tf1 = newTextField(newRect(10, 150, 150, 20))
-    let tf2 = newTextField(newRect(170, 150, 150, 20))
-    tf1.onAction do():
-        tfLabel.text = "Left textfield: " & tf1.text
-    tf2.onAction do():
-        tfLabel.text = "Right textfield: " & tf2.text
-
-    v.addSubview(tfLabel)
-    v.addSubview(tf1)
-    v.addSubview(tf2)
-
-    let cp = newColorPickerView(newRect(0, 0, 400, 170))
-    cp.setFrameOrigin(newPoint(10, 200))
-    cp.onColorSelected = proc(c: Color) =
-        discard
-    v.addSubview(cp)
+        v.makeLayout:
+            - Button:
+                leading == super + 280
+                y == super + 90
+                width == 32
+                height == 32
+                image: i
 
     sharedAssetManager().getAssetAtPath("tile.png") do(i: Image, err: string):
-        let imageView = newImageView(newRect(0, 400, 300, 150), i)
-        v.addSubview(imageView)
-
-        let popupFillRule = newPopupButton(v, newPoint(420, 400), newSize(100, 20), ["NoFill", "Stretch", "Tile", "FitWidth", "FitHeight"])
-        popupFillRule.onAction do():
-            imageView.fillRule = popupFillRule.selectedIndex().ImageFillRule
+        v.makeLayout:
+            - ImageView as imageView:
+                leading == super
+                y == super + 400
+                width == 300
+                bottom == super
+                image: i
+                backgroundColor: newGrayColor(0.9)
+            - PopupButton as popupFillRule:
+                leading == prev.trailing + 20
+                y == prev
+                width == 100
+                height == 20
+                items: ["NoFill", "Stretch", "Tile", "FitWidth", "FitHeight"]
+                onAction:
+                    imageView.fillRule = popupFillRule.selectedIndex().ImageFillRule
 
 registerSample(ControlsSampleView, "Controls")

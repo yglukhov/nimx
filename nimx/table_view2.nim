@@ -1,4 +1,4 @@
-import view, view_event_handling, table_view_cell, scroll_view
+import view, view_event_handling, table_view_cell, scroll_view, layout_vars
 
 import clip_view
 
@@ -174,7 +174,7 @@ proc dequeueReusableRow(v: TableView, cells: var seq[TableRow], row: int, top, h
         result.addConstraint(result.layout.vars.height == height)
         result.addConstraint(result.layout.vars.leading == superPHS.leading)
         result.addConstraint(result.layout.vars.trailing == superPHS.trailing)
-        for i in 0..< v.numberOfColumns:
+        for i in 0 ..< v.numberOfColumns:
             let c = v.mCreateCell(i)
             c.col = i
 

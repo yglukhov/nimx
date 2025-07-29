@@ -26,7 +26,6 @@ type
     DraggedButton = ref object of View
         clickPos: Point
 
-
 ########################
 method init(v: ContentView, r: Rect) =
     procCall v.View.init(r)
