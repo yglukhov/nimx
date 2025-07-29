@@ -3,7 +3,7 @@ import osproc
 
 beforeBuild = proc(b: Builder) =
   b.disableClosureCompiler = true
-  b.mainFile = "test/main"
+  b.mainFile = "tests/main"
   b.originalResourcePath = "test/res"
   b.screenOrientation = "sensorLandscape"
   b.additionalNimFlags = @["--gc:orc"]
