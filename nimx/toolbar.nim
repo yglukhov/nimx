@@ -1,4 +1,4 @@
-import nimx/[context, view_dragging_listener, split_view]
+import ./[context, view_dragging_listener, split_view]
 
 type Toolbar* = ref object of SplitView
 

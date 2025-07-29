@@ -1,6 +1,5 @@
-import nimx/types
-
-import tables
+import std/[tables]
+import ./types
 import variant
 
 type

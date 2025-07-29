@@ -1,14 +1,7 @@
-import math
-import nimx/view
-import nimx/app
-import nimx/event
-import nimx/context
-import nimx/types
-import nimx/composition
-import nimx/gesture_detector
-import nimx/view
-import view_dragging_listener
-import nimx / meta_extensions / [ property_desc, visitors_gen, serializers_gen ]
+import std/[math]
+import ./[view, app, event, context, types, composition, gesture_detector, view,
+          view_dragging_listener]
+import ./meta_extensions/[ property_desc, visitors_gen, serializers_gen ]
 
 type PanelView* = ref object of View
   draggable*: bool

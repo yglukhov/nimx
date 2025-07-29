@@ -1,7 +1,7 @@
-import std / [ tables, hashes, json ]
-import nimx / [ view, serializers, control, types ]
-import nimx / assets / asset_loading
-import private / async
+import std/[ tables, hashes, json ]
+import ./[ view, serializers, control, types ]
+import ./assets/asset_loading
+import ./private/async
 
 type
   UIResID = int
@@ -109,7 +109,7 @@ proc onAction*(ui: UIResource, name: string, cb: proc()) =
     raise newException(Exception, "UIResource can't find view by id " & name)
 
 # default tabs hacky registering
-import nimx/assets/[asset_loading, json_loading]
+import ./assets/[asset_loading, json_loading]
 registerAssetLoader(["nimx"]) do(url: string, callback: proc(j: JsonNode) {.gcsafe.}):
   loadJsonFromURL(url, callback)
 

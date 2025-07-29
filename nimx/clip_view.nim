@@ -1,5 +1,5 @@
-import nimx / view
-import nimx / meta_extensions / [ property_desc, visitors_gen, serializers_gen ]
+import ./view
+import ./meta_extensions/[ property_desc, visitors_gen, serializers_gen ]
 
 type ClipView* = ref object of View
 
