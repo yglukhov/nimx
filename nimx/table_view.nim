@@ -272,6 +272,8 @@ proc updateCellsInVisibleRect(v: TableView) =
 
 proc reloadData*(v: TableView) =
   v.rebuildConstraints()
+  v.updateCellsInRect(v.calculateVisibleRect())
+  v.setNeedsDisplay()
 
 method updateLayout*(v: TableView) =
   v.updateCellsInVisibleRect()
