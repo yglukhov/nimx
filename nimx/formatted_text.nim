@@ -241,12 +241,7 @@ template truncationBehavior*(t: FormattedText): TruncationBehavior = t.mTruncati
 
 proc lineOfRuneAtPos*(t: FormattedText, pos: int): int =
   t.updateCacheIfNeeded()
-  var res = lowerBound(t.lines, pos) do(r: LineInfo, k: int) -> int:
-    cmp(r.startRune, k) - 1
-  dec res
   result = lowerBoundIt(t.lines, t.lines.low, t.lines.high, cmp(it.startRune, pos) <= 0) - 1
-  echo "LB: ", res, " ", result
-  doAssert(result == res)
 
 proc lineTop*(t: FormattedText, ln: int): float32 =
   t.updateCacheIfNeeded()

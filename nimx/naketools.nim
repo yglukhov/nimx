@@ -2,7 +2,7 @@ import nake
 export nake
 
 import os, tables, osproc, strutils, times, streams, os, pegs
-import nester, asyncdispatch, browsers, closure_compiler # Stuff needed for JS target
+import nester, asyncdispatch, browsers # Stuff needed for wasm target
 import plists
 
 type Builder* = ref object
@@ -236,6 +236,11 @@ proc newBuilder*(platform: string): Builder =
     ver.removeSuffix()
     b.macOSMinVersion = "10.7"
     b.macOSSDKVersion = ver
+  elif b.platform == "wasm":
+    when defined(macosx):
+      var macosxSDK = execProcess("xcrun", args=["--show-sdk-path"], options={poUsePath})
+      macosxSDK.removeSuffix()
+      b.macOSSDKPath = macosxSDK
 
 proc nimblePath(package: string): string =
   var nimblecmd = "nimble"
@@ -540,21 +545,6 @@ proc nimbleOverrideFlags(b: Builder): seq[string] =
     result.add("--path:" & cp.path)
 
 proc postprocessWebTarget(b: Builder) =
-  if not b.disableClosureCompiler and fileExists(b.executablePath):
-    if b.platform == "js":
-      closure_compiler.compileFileAndRewrite(b.executablePath, ADVANCED_OPTIMIZATIONS, b.enableClosureCompilerSourceMap)
-    # If source map is disabled, emscripten has already run build-in closure compiler
-    elif b.platform == "emscripten" and b.enableClosureCompilerSourceMap:
-      # Copy one of the optimization steps for using in closure compiler
-      let f = getTempDir() / "emscripten_temp" / "emcc-10-eval-ctors.js"
-      if fileExists(f):
-        copyFile(f, b.executablePath)
-      else:
-        echo "File for closure compiler doesn't exist: ", f
-
-      # Closure compiler ADVANCED_OPTIMIZATIONS has no compatibility with emscripten
-      closure_compiler.compileFileAndRewrite(b.executablePath, SIMPLE_OPTIMIZATIONS, b.enableClosureCompilerSourceMap)
-
   let sf = splitFile(b.mainFile)
   var mainHTML = sf.dir / sf.name & ".html"
   if not fileExists(mainHTML):
@@ -766,13 +756,24 @@ proc build*(b: Builder) =
     b.executablePath = b.buildRoot / "main.js"
   of "emscripten", "wasm":
     b.nimFlags.add("-d:nimExperimentalAsyncjsThen")
-    let emcc = emccWrapperPath()
     b.emscriptenPreloadFiles.add(b.originalResourcePath & "/OpenSans-Regular.ttf@/res/OpenSans-Regular.ttf")
     b.executablePath = b.buildRoot / "main.js"
-    b.nimFlags.add(["--cpu:i386", "-d:emscripten", "--os:linux", "--cc:clang",
-      "--clang.exe=" & emcc.quoteShell(), "--clang.linkerexe=" & emcc.quoteShell(), "-d:noSignalHandler"])
+    b.nimFlags.add(["--cpu:i386", "-d:wasm", "--os:linux", "--cc:clang", "--threads:off", "--mm:orc",
+      "-d:noSignalHandler"])
+    when defined(macosx):
+      let clang = "/opt/homebrew/opt/llvm/bin"
+      b.nimFlags.add(["--clang.path=" & clang.quoteShell()])
+      let macOSSDK = b.macOSSDKPath
+      # addCAndLFlags(["-isysroot", macOSSDK])
+      b.additionalCompilerFlags.add(["-I" & macOSSDK & "/usr/include", "-D__i386__"])
 
-    b.emscriptenPreJS.add(b.makeEmscriptenPreloadData())
+
+    let llTarget = "wasm32-unknown-unknown-wasm"
+    addCAndLFlags(["--target=" & llTarget])
+
+    # b.additionalCompilerFlags.add("-I/usr/include")
+
+    # b.emscriptenPreJS.add(b.makeEmscriptenPreloadData())
 
     var preJsContent = ""
     for js in b.emscriptenPreJS:
@@ -782,7 +783,7 @@ proc build*(b: Builder) =
     b.additionalLinkerFlags.add(["--pre-js", preJS])
 
     b.additionalNimFlags.add(["-d:useRealtimeGC"])
-    b.additionalLinkerFlags.add(["-s", "ALLOW_MEMORY_GROWTH=1"])
+    # b.additionalLinkerFlags.add(["-s", "ALLOW_MEMORY_GROWTH=1"])
 
     if not b.debugMode:
       b.additionalCompilerFlags.add("-Oz")
@@ -798,8 +799,8 @@ proc build*(b: Builder) =
 
       if not b.debugMode:
         b.additionalLinkerFlags.add(["-s", "ELIMINATE_DUPLICATE_FUNCTIONS=1"])
-    elif b.platform == "wasm":
-      addCAndLFlags(["-s", "WASM=1"])
+    # elif b.platform == "wasm":
+    #   addCAndLFlags(["-s", "WASM=1"])
   else: discard
 
   if b.platform notin ["js", "emscripten", "wasm"]:
@@ -883,6 +884,7 @@ proc build*(b: Builder) =
   else:
     args.add("--nimcache:" & b.nimcachePath)
     args.add b.mainFile
+    echo args.join " "
     direShell args
 
   if b.platform in ["emscripten", "wasm", "js"]:
@@ -1076,3 +1078,6 @@ task "js", "Create Javascript version and run in browser.":
 
 task "emscripten", "Create emscripten version and run in browser.":
   newBuilder("emscripten").build()
+
+task "wasm", "Create WebAssembly version and run in browser.":
+  newBuilder("wasm").build()

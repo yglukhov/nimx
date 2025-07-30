@@ -9,7 +9,7 @@ else:
 import wasmrt
 
 import nimx/[ abstract_window, system_logger, view, context, matrixes, app,
-    portable_gl, event ]
+      portable_gl, event ]
 import nimx/private/js_vk_map
 
 type WebWindow* = ref object of Window
@@ -36,17 +36,17 @@ method fullscreen*(w: WebWindow): bool =
 proc requestFullscreen(canvasId: cstring) {.importwasmraw: """
   var c = document.getElementById(_nimsj($0));
   if (c.requestFullscreen)
-  c.requestFullscreen();
+    c.requestFullscreen();
   else if (c.webkitRequestFullscreen)
-  c.webkitRequestFullscreen();
+    c.webkitRequestFullscreen();
 """.}
 
 proc exitFullscreen() {.importwasmraw: """
   var d = document;
   if (d.exitFullscreen)
-  d.exitFullscreen();
+    d.exitFullscreen();
   else if (d.webkitExitFullscreen)
-  d.webkitExitFullscreen();
+    d.webkitExitFullscreen();
 """.}
 
 method `fullscreen=`*(w: WebWindow, v: bool) =
@@ -54,9 +54,9 @@ method `fullscreen=`*(w: WebWindow, v: bool) =
   # let c = w.canvas
 
   if not isFullscreen and v:
-  requestFullscreen(w.canvasId)
+    requestFullscreen(w.canvasId)
   elif isFullscreen and not v:
-  exitFullscreen()
+    exitFullscreen()
 
 export abstract_window
 
@@ -67,54 +67,54 @@ export abstract_window
 
 # proc setupWebGL() =
 #   {.emit: """
-#   window.requestAnimFrame = (function() {
-#     return window.requestAnimationFrame ||
-#     window.webkitRequestAnimationFrame ||
-#     window.mozRequestAnimationFrame ||
-#     window.oRequestAnimationFrame ||
-#     window.msRequestAnimationFrame ||
-#     function(callback, element) {
-#     window.setTimeout(callback, 1000/60);
-#   };
+#     window.requestAnimFrame = (function() {
+#       return window.requestAnimationFrame ||
+#         window.webkitRequestAnimationFrame ||
+#         window.mozRequestAnimationFrame ||
+#         window.oRequestAnimationFrame ||
+#         window.msRequestAnimationFrame ||
+#         function(callback, element) {
+#         window.setTimeout(callback, 1000/60);
+#     };
 #   })();
 
 #   window.__nimx_focused_canvas = null;
 
 #   document.addEventListener('mousedown', function(event) {
-#   window.__nimx_focused_canvas = event.target;
+#     window.__nimx_focused_canvas = event.target;
 #   }, false);
 
 #   window.__nimx_keys_down = {};
 #   """.}
 
 #   proc onkey(evt: dom.Event) =
-#   when declared(KeyboardEvent):
-#     let evt = cast[KeyboardEvent](evt)
-#   var wnd : WebWindow
-#   var repeat = false
-#   let bs = buttonStateFromKeyEvent(evt)
-#   if bs == bsDown:
-#     {.emit: """
-#     `repeat` = `evt`.keyCode in window.__nimx_keys_down;
-#     window.__nimx_keys_down[`evt`.keyCode] = true;
-#     """.}
-#   elif bs == bsUp:
-#     {.emit: """
-#     delete window.__nimx_keys_down[`evt`.keyCode];
-#     """.}
+#     when declared(KeyboardEvent):
+#       let evt = cast[KeyboardEvent](evt)
+#     var wnd : WebWindow
+#     var repeat = false
+#     let bs = buttonStateFromKeyEvent(evt)
+#     if bs == bsDown:
+#       {.emit: """
+#       `repeat` = `evt`.keyCode in window.__nimx_keys_down;
+#       window.__nimx_keys_down[`evt`.keyCode] = true;
+#       """.}
+#     elif bs == bsUp:
+#       {.emit: """
+#       delete window.__nimx_keys_down[`evt`.keyCode];
+#       """.}
 
-#   {.emit: """
-#   if (window.__nimx_focused_canvas !== null && window.__nimx_focused_canvas.__nimx_window !== undefined) {
-#     `wnd` = window.__nimx_focused_canvas.__nimx_window;
-#   }
-#   """.}
-#   if not wnd.isNil:
-#     # TODO: Complete this!
-#     var e = newKeyboardEvent(virtualKeyFromNative(evt.keyCode), bs, repeat)
+#     {.emit: """
+#     if (window.__nimx_focused_canvas !== null && window.__nimx_focused_canvas.__nimx_window !== undefined) {
+#       `wnd` = window.__nimx_focused_canvas.__nimx_window;
+#     }
+#     """.}
+#     if not wnd.isNil:
+#       # TODO: Complete this!
+#       var e = newKeyboardEvent(virtualKeyFromNative(evt.keyCode), bs, repeat)
 
-#     #result.rune = keyEv.keysym.unicode.Rune
-#     e.window = wnd
-#     discard mainApplication().handleEvent(e)
+#       #result.rune = keyEv.keysym.unicode.Rune
+#       e.window = wnd
+#       discard mainApplication().handleEvent(e)
 
 #   document.addEventListener("keydown", onkey, false)
 #   document.addEventListener("keyup", onkey, false)
@@ -124,12 +124,12 @@ export abstract_window
 
 # proc buttonCodeFromJSEvent(e: dom.Event): VirtualKey =
 #   when declared(MouseEvent):
-#   let e = cast[MouseEvent](e)
+#     let e = cast[MouseEvent](e)
 #   case e.button:
-#   of 1: VirtualKey.MouseButtonPrimary
-#   of 2: VirtualKey.MouseButtonSecondary
-#   of 3: VirtualKey.MouseButtonMiddle
-#   else: VirtualKey.Unknown
+#     of 1: VirtualKey.MouseButtonPrimary
+#     of 2: VirtualKey.MouseButtonSecondary
+#     of 3: VirtualKey.MouseButtonMiddle
+#     else: VirtualKey.Unknown
 
 # proc eventLocationFromJSEvent(e: dom.Event, c: Element): Point =
 #   var offx, offy: Coord
@@ -139,68 +139,68 @@ export abstract_window
 #   `offy` = r.top;
 #   """.}
 #   when declared(MouseEvent):
-#   let e = cast[MouseEvent](e)
+#     let e = cast[MouseEvent](e)
 #   result.x = e.clientX.Coord - offx
 #   result.y = e.clientY.Coord - offy
 
 # proc setupEventHandlersForCanvas(w: WebWindow, c: Element) =
 #   let onmousedown = proc (e: dom.Event) =
-#   var evt = newMouseDownEvent(eventLocationFromJSEvent(e, c), buttonCodeFromJSEvent(e))
-#   evt.window = w
-#   discard mainApplication().handleEvent(evt)
-
-#   let onmouseup = proc (e: dom.Event) =
-#   var evt = newMouseUpEvent(eventLocationFromJSEvent(e, c), buttonCodeFromJSEvent(e))
-#   evt.window = w
-#   discard mainApplication().handleEvent(evt)
-
-#   let onmousemove = proc (e: dom.Event) =
-#   var evt = newMouseMoveEvent(eventLocationFromJSEvent(e, c))
-#   evt.window = w
-#   discard mainApplication().handleEvent(evt)
-
-#   let onscroll = proc (e: dom.Event): bool =
-#   var evt = newEvent(etScroll, eventLocationFromJSEvent(e, c))
-#   var x, y: Coord
-#   {.emit: """
-#   `x` = `e`.deltaX;
-#   `y` = `e`.deltaY;
-#   """.}
-#   evt.offset.x = x
-#   evt.offset.y = y
-#   evt.window = w
-#   result = not mainApplication().handleEvent(evt)
-
-#   let onresize = proc (e: dom.Event): bool =
-#   var sizeChanged = false
-#   var newWidth, newHeight : Coord
-#   {.emit: """
-#   `newWidth` = `c`.width;
-#   `newHeight` = `c`.height;
-#   var r = `c`.getBoundingClientRect();
-#   if (r.width !== `c`.width) {
-#     `newWidth` = r.width;
-#     `c`.width = r.width;
-#     `sizeChanged` = true;
-#   }
-#   if (r.height !== `c`.height) {
-#     `newHeight` = r.height
-#     `c`.height = r.height;
-#     `sizeChanged` = true;
-#   }
-#   """.}
-#   if sizeChanged:
-#     var evt = newEvent(etWindowResized)
+#     var evt = newMouseDownEvent(eventLocationFromJSEvent(e, c), buttonCodeFromJSEvent(e))
 #     evt.window = w
-#     evt.position.x = newWidth
-#     evt.position.y = newHeight
 #     discard mainApplication().handleEvent(evt)
 
+#   let onmouseup = proc (e: dom.Event) =
+#     var evt = newMouseUpEvent(eventLocationFromJSEvent(e, c), buttonCodeFromJSEvent(e))
+#     evt.window = w
+#     discard mainApplication().handleEvent(evt)
+
+#   let onmousemove = proc (e: dom.Event) =
+#     var evt = newMouseMoveEvent(eventLocationFromJSEvent(e, c))
+#     evt.window = w
+#     discard mainApplication().handleEvent(evt)
+
+#   let onscroll = proc (e: dom.Event): bool =
+#     var evt = newEvent(etScroll, eventLocationFromJSEvent(e, c))
+#     var x, y: Coord
+#     {.emit: """
+#     `x` = `e`.deltaX;
+#     `y` = `e`.deltaY;
+#     """.}
+#     evt.offset.x = x
+#     evt.offset.y = y
+#     evt.window = w
+#     result = not mainApplication().handleEvent(evt)
+
+#   let onresize = proc (e: dom.Event): bool =
+#     var sizeChanged = false
+#     var newWidth, newHeight : Coord
+#     {.emit: """
+#     `newWidth` = `c`.width;
+#     `newHeight` = `c`.height;
+#     var r = `c`.getBoundingClientRect();
+#     if (r.width !== `c`.width) {
+#       `newWidth` = r.width;
+#       `c`.width = r.width;
+#       `sizeChanged` = true;
+#     }
+#     if (r.height !== `c`.height) {
+#       `newHeight` = r.height
+#       `c`.height = r.height;
+#       `sizeChanged` = true;
+#     }
+#     """.}
+#     if sizeChanged:
+#       var evt = newEvent(etWindowResized)
+#       evt.window = w
+#       evt.position.x = newWidth
+#       evt.position.y = newHeight
+#       discard mainApplication().handleEvent(evt)
+
 #   let onfocus = proc()=
-#   w.onFocusChange(true)
+#     w.onFocusChange(true)
 
 #   let onblur = proc()=
-#   w.onFocusChange(false)
+#     w.onFocusChange(false)
 
 #   # TODO: Remove this hack, when handlers definition in dom.nim fixed.
 #   {.emit: """
@@ -217,11 +217,11 @@ export abstract_window
 proc setupEventHandlers(
   c: cstring,
   m: proc(x, y: cdouble, buttonState, buttonCode: int32) {.nimcall.}
-   ) {.importwasmraw: """
+     ) {.importwasmraw: """
   var d = document, c = d.getElementById(_nimsj($0)),
   om = (s, e) => {
-  var r = c.getBoundingClientRect();
-  _nime._dvddii($1, e.clientX - r.left, e.clientY - r.top, s, e.button)
+    var r = c.getBoundingClientRect();
+    _nime._dvddii($1, e.clientX - r.left, e.clientY - r.top, s, e.button)
   };
   d.addEventListener('mousemove', e => om(0, e));
   d.addEventListener('mousedown', e => om(1, e));
@@ -255,22 +255,22 @@ e.scaled = true;
 if (!w.GLCtx) {
   var o = {stencil: true, alpha: false, premultipliedAlpha: false, antialias: false}, c = null;
   try {
-  c = e.getContext('webgl', o)
+    c = e.getContext('webgl', o)
   } catch(err) {}
   if (!c)
-  try {
-    c  = e.getContext('experimental-webgl', o)
-  } catch(err) {}
+    try {
+      c  = e.getContext('experimental-webgl', o)
+    } catch(err) {}
 
   if (c) {
-  var devicePixelRatio = window.devicePixelRatio || 1;
-  c.viewportWidth = x * devicePixelRatio;
-  c.viewportHeight = y * devicePixelRatio;
-  c.getExtension('OES_standard_derivatives');
-  c.pixelStorei(c.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
-  w.GLCtx = c
+    var devicePixelRatio = window.devicePixelRatio || 1;
+    c.viewportWidth = x * devicePixelRatio;
+    c.viewportHeight = y * devicePixelRatio;
+    c.getExtension('OES_standard_derivatives');
+    c.pixelStorei(c.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+    w.GLCtx = c
   } else
-  alert("Your browser does not support WebGL. Please, use a modern browser.")
+    alert("Your browser does not support WebGL. Please, use a modern browser.")
 }
 """.}
 
@@ -280,28 +280,29 @@ proc onMouse(x, y: cdouble, buttonState, buttonCode: int32) =
   let a = mainApplication()
   let w = a.keyWindow
   if not w.isNil:
-  let buttonState = case buttonState
-            of 1: bsDown
-            of 2: bsUp
-            else: bsUnknown
-  let buttonCode = case buttonCode
-           of 1: VirtualKey.MouseButtonPrimary
-           of 2: VirtualKey.MouseButtonSecondary
-           of 3: VirtualKey.MouseButtonMiddle
-           else: VirtualKey.Unknown
-  var pos = newPoint(x, y)
-  var evt = if buttonState == bsUnknown:
-    newMouseMoveEvent(pos)
-    else:
-    newMouseButtonEvent(pos, buttonCode, buttonState)
-  evt.window = w
-  discard mainApplication().handleEvent(evt)
+    let buttonState = case buttonState
+                      of 1: bsDown
+                      of 2: bsUp
+                      else: bsUnknown
+    let buttonCode = case buttonCode
+                     of 1: VirtualKey.MouseButtonPrimary
+                     of 2: VirtualKey.MouseButtonSecondary
+                     of 3: VirtualKey.MouseButtonMiddle
+                     else: VirtualKey.Unknown
+    var pos = newPoint(x, y)
+    var evt = if buttonState == bsUnknown:
+        newMouseMoveEvent(pos)
+      else:
+        newMouseButtonEvent(pos, buttonCode, buttonState)
+    evt.window = w
+    discard mainApplication().handleEvent(evt)
 
 proc initWithCanvasId*(w: WebWindow, canvasId: string) =
   w.canvasId = canvasId
   let width = getDocumentElementFloatProp(canvasId, "width")
   let height = getDocumentElementFloatProp(canvasId, "height")
-  procCall w.Window.init(newRect(0, 0, width, height))
+  procCall w.Window.init()
+  w.onResize(newSize(width, height))
 
   w.renderingContext = newGraphicsContext()
 
@@ -331,11 +332,7 @@ proc initByFillingBrowserWindow*(w: WebWindow) =
 
 proc newWebWindow*(r: Rect): Window =
   echo "new web window"
-  var res: WebWindow
-  res.new()
-  res.init(r)
-  res.onResize(r.size)
-  res
+  WebWindow.new()
 
 proc newWebWindowByFillingBrowserWindow*(): Window =
   var res: WebWindow
@@ -346,9 +343,9 @@ proc newWebWindowByFillingBrowserWindow*(): Window =
 newWindow = newWebWindow
 newFullscreenWindow = newWebWindowByFillingBrowserWindow
 
-method init*(w: WebWindow, r: Rect) =
+method init*(w: WebWindow) =
   let id = nextCanvasId()
-  createCanvas(id, r.width, r.height)
+  createCanvas(id, 800, 600)
   # init(cast[pointer](w), w.canvasId, $r.width, $r.height)
   w.initWithCanvasId(id)
 
@@ -356,7 +353,7 @@ method drawWindow*(w: WebWindow) =
   let c = w.renderingContext
   let oldContext = setCurrentContext(c)
   c.withTransform ortho(0, w.frame.width, w.frame.height, 0, -1, 1):
-  procCall w.Window.drawWindow()
+    procCall w.Window.drawWindow()
   setCurrentContext(oldContext)
 
 method onResize*(w: WebWindow, newSize: Size) =
@@ -376,15 +373,15 @@ method onResize*(w: WebWindow, newSize: Size) =
 
 # method startTextInput*(wnd: WebWindow, r: Rect) =
 #   let oninput = proc(evt: dom.Event) =
-#   wnd.sendInputEvent(evt)
+#     wnd.sendInputEvent(evt)
 
 #   {.emit: """
 #   if (window.__nimx_textinput === undefined) {
-#   var i = window.__nimx_textinput = document.createElement('input');
-#   i.type = 'text';
-#   i.style.position = 'absolute';
-#   i.style.top = '-99999px';
-#   document.body.appendChild(i);
+#     var i = window.__nimx_textinput = document.createElement('input');
+#     i.type = 'text';
+#     i.style.position = 'absolute';
+#     i.style.top = '-99999px';
+#     document.body.appendChild(i);
 #   }
 #   window.__nimx_textinput.oninput = `oninput`;
 #   setTimeout(function(){ window.__nimx_textinput.focus(); }, 1);
@@ -393,8 +390,8 @@ method onResize*(w: WebWindow, newSize: Size) =
 # method stopTextInput*(w: WebWindow) =
 #   {.emit: """
 #   if (window.__nimx_textinput !== undefined) {
-#   window.__nimx_textinput.oninput = null;
-#   window.__nimx_textinput.blur();
+#     window.__nimx_textinput.oninput = null;
+#     window.__nimx_textinput.blur();
 #   }
 #   """.}
 
@@ -407,7 +404,7 @@ method onResize*(w: WebWindow, newSize: Size) =
 
 template runApplication*(code: typed) =
   proc main() =
-  code
+    code
   main()
   # defineDyncall("v")
   # initMain(main)
