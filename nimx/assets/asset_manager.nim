@@ -40,7 +40,7 @@ proc setDefaultAssetBundle*(am: AssetManager, ab: AssetBundle) =
 
 when defined(android):
   import android_asset_bundle
-elif defined(js) or defined(emscripten):
+elif defined(js) or defined(emscripten) or defined(wasm):
   import web_asset_bundle
 else:
   import native_asset_bundle
@@ -48,7 +48,7 @@ else:
 proc createDefaultAssetBundle(): AssetBundle =
   when defined(android):
     newAndroidAssetBundle()
-  elif defined(js) or defined(emscripten):
+  elif defined(js) or defined(emscripten) or defined(wasm):
     newWebAssetBundle()
   else:
     newNativeAssetBundle()

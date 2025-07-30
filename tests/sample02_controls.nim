@@ -6,7 +6,7 @@ import nimx/assets/asset_manager
 
 type ControlsSampleView = ref object of View
 
-method init(v: ControlsSampleView) =
+method init(v: ControlsSampleView) {.gcsafe.} =
   procCall v.View.init()
   let margin = 10.Coord
   v.makeLayout:
