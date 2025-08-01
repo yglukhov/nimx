@@ -25,7 +25,6 @@ type
     dropAfterItem: ItemNode
     dropInsideItem: ItemNode
     dragStartLocation: Point
-    outlineOffset*: int
 
   IndexPath* = seq[int]
 
