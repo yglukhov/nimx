@@ -5,7 +5,7 @@ import nimx/pathutils
 
 var resourceUrlMapper*: proc(p: string): string # Deprecated
 
-when defined(js) or defined(emscripten):
+when defined(js) or defined(emscripten) or defined(wasm):
   proc urlForResourcePath*(path: string): string {.deprecated.} =
     if resourceUrlMapper.isNil:
       path

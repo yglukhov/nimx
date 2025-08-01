@@ -221,7 +221,8 @@ proc setupEventHandlers(
   var d = document, c = d.getElementById(_nimsj($0)),
   om = (s, e) => {
     var r = c.getBoundingClientRect();
-    _nime._dvddii($1, e.clientX - r.left, e.clientY - r.top, s, e.button)
+    var p = window.devicePixelRatio || 1;
+    _nime._dvddii($1, (e.clientX - r.left)*p, (e.clientY - r.top)*p, s, e.button)
   };
   d.addEventListener('mousemove', e => om(0, e));
   d.addEventListener('mousedown', e => om(1, e));
@@ -229,13 +230,17 @@ proc setupEventHandlers(
   """.}
 
 proc requestAnimFrame(p: proc() {.nimcall}) {.importwasmraw: """
-requestAnimationFrame(function(){try{_nime._dv($0)}catch(e) {console.log("Erro caught", e);_nime.nimerr(); throw e;}})
+requestAnimationFrame(function(){try{_nime._dv($0)}catch(e) {console.log("Error caught", e);_nime.nimerr(); throw e;}})
 """.}
 
 proc animFrame() =
-  mainApplication().runAnimations()
-  mainApplication().drawWindows()
-  requestAnimFrame(animFrame)
+  try:
+    mainApplication().runAnimations()
+    mainApplication().drawWindows()
+    requestAnimFrame(animFrame)
+  except Exception as e:
+    echo "Exception caught: ", e.msg
+    echo e.getStackTrace()
 
 proc getDocumentElementFloatProp(i, p: cstring): cdouble {.importwasmraw: "return document.getElementById(_nimsj($0))[_nimsj($1)]".}
 proc createCanvas(i: cstring, x, y: cfloat) {.importwasmraw: """
@@ -295,7 +300,11 @@ proc onMouse(x, y: cdouble, buttonState, buttonCode: int32) =
       else:
         newMouseButtonEvent(pos, buttonCode, buttonState)
     evt.window = w
-    discard mainApplication().handleEvent(evt)
+    try:
+      discard mainApplication().handleEvent(evt)
+    except Exception as e:
+      echo "Exception caught: ", e.msg
+      echo e.getStackTrace()
 
 proc initWithCanvasId*(w: WebWindow, canvasId: string) =
   w.canvasId = canvasId

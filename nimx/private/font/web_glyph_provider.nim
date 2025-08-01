@@ -99,7 +99,7 @@ proc fillText(c, x, y: int32) {.importwasmraw: """
 proc getImageDataAndDeleteCanvas(w, h: int32, o: pointer) {.importwasmraw: """
   var sz = $0 * $1,
     d = window.__nimx_font_aux_canvas.__nimx_ctx.getImageData(0, 0, $0, $1).data,
-    o = new Int8Array(_nima.buffer, $2, sz);
+    o = new Int8Array(_nima, $2, sz);
   for (var i = 3, j = 0; j < sz; i += 4, ++j) o[j] = d[i];
   delete window.__nimx_font_aux_canvas;
   """.}

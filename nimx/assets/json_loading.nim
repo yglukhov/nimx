@@ -1,7 +1,7 @@
 import json, logging
 import url_stream
 
-when defined(js) or defined(emscripten):
+when defined(js) or defined(emscripten) or defined(wasm):
   import jsbind, web_url_handler
 
 proc loadJsonFromURL*(url: string, handler: proc(j: JsonNode) {.gcsafe.}) =

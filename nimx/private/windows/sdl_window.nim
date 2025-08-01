@@ -424,7 +424,7 @@ proc eventWithSDLEvent(event: ptr sdl2.Event): Event =
     of KeymapChanged:
       discard # What should we do with it?
     else:
-      info "Unknown event: ", event.kind
+      # info "Unknown event: ", event.kind
       discard
 
 proc handleEvent(event: ptr sdl2.Event): Bool32 =

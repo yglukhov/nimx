@@ -65,7 +65,7 @@ proc init(rt: ImageRenderTarget, texWidth, texHeight: int16) =
 
     let depthBuffer = gl.createRenderbuffer()
     gl.bindRenderbuffer(gl.RENDERBUFFER, depthBuffer)
-    let depthStencilFormat = when defined(js) or defined(emscripten): gl.DEPTH_STENCIL else: gl.DEPTH24_STENCIL8
+    let depthStencilFormat = when defined(js) or defined(emscripten) or defined(wasm): gl.DEPTH_STENCIL else: gl.DEPTH24_STENCIL8
 
     # The following tries to use DEPTH_STENCIL_ATTACHMENT, but it may fail on some devices,
     # so for those we're creating a separate stencil buffer.

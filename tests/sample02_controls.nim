@@ -122,31 +122,32 @@ method init(v: ControlsSampleView) {.gcsafe.} =
       onAction:
         textField.text = $cpv.color
 
-  sharedAssetManager().getAssetAtPath("cat.jpg") do(i: Image, err: string):
-    v.makeLayout:
-      - Button:
-        leading == super + 280
-        y == super + 90
-        width == 32
-        height == 32
-        image: i
+  when not defined(wasm):
+    sharedAssetManager().getAssetAtPath("cat.jpg") do(i: Image, err: string):
+      v.makeLayout:
+        - Button:
+          leading == super + 280
+          y == super + 90
+          width == 32
+          height == 32
+          image: i
 
-  sharedAssetManager().getAssetAtPath("tile.png") do(i: Image, err: string):
-    v.makeLayout:
-      - ImageView as imageView:
-        leading == super
-        y == super + 400
-        width == 300
-        bottom == super
-        image: i
-        backgroundColor: newGrayColor(0.9)
-      - PopupButton as popupFillRule:
-        leading == prev.trailing + 20
-        y == prev
-        width == 100
-        height == 20
-        items: ["NoFill", "Stretch", "Tile", "FitWidth", "FitHeight"]
-        onAction:
-          imageView.fillRule = popupFillRule.selectedIndex().ImageFillRule
+    sharedAssetManager().getAssetAtPath("tile.png") do(i: Image, err: string):
+      v.makeLayout:
+        - ImageView as imageView:
+          leading == super
+          y == super + 400
+          width == 300
+          bottom == super
+          image: i
+          backgroundColor: newGrayColor(0.9)
+        - PopupButton as popupFillRule:
+          leading == prev.trailing + 20
+          y == prev
+          width == 100
+          height == 20
+          items: ["NoFill", "Stretch", "Tile", "FitWidth", "FitHeight"]
+          onAction:
+            imageView.fillRule = popupFillRule.selectedIndex().ImageFillRule
 
 registerSample(ControlsSampleView, "Controls")

@@ -3,7 +3,7 @@ import async_http_request except Handler
 
 import nimx/http_request except Handler
 
-const web = defined(js) or defined(emscripten)
+const web = defined(js) or defined(emscripten) or defined(wasm)
 
 type URLLoadingError* = object
   description*: string
@@ -63,6 +63,16 @@ when web:
       """, arrayBuffer.p)
       result = cast[string](r)
       shallow(result)
+  elif defined(wasm):
+    import jsbind/emscripten
+    proc arrayBufferToString(arrayBuffer: JSObj): string {.inline.} =
+      let r = EM_ASM_INT("""
+      var a = new Int8Array(_nimem_o[$0]);
+      var b = _nimem_ps(a.length);
+      writeArrayToMemory(a, _nimem_sb(b));
+      return b;
+      """, arrayBuffer.p)
+      result = cast[string](r)
 
 proc getHttpStream(url: string, handler: Handler) =
   {.gcsafe.}:
@@ -94,7 +104,8 @@ registerUrlHandler("http", getHttpStream)
 registerUrlHandler("https", getHttpStream)
 
 when web:
-  registerUrlHandler("file", getHttpStream)
+  when not defined(wasm):
+    registerUrlHandler("file", getHttpStream)
 
   when defined(emscripten):
     registerUrlHandler("emdata") do(url: string, handler: Handler):

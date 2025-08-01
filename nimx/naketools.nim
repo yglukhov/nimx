@@ -760,8 +760,9 @@ proc build*(b: Builder) =
     b.nimFlags.add("-d:nimExperimentalAsyncjsThen")
     b.emscriptenPreloadFiles.add(b.originalResourcePath & "/OpenSans-Regular.ttf@/res/OpenSans-Regular.ttf")
     b.executablePath = b.buildRoot / "main.wasm"
-    b.nimFlags.add(["--cpu:i386", "-d:wasm", "--os:linux", "--cc:clang", "--threads:off", "--mm:orc",
+    b.nimFlags.add(["--cpu:wasm32", "-d:wasm", "--os:linux", "--cc:clang", "--threads:off", "--mm:arc",
                     "-d:noSignalHandler", "--exceptions:goto"])
+
     when defined(macosx):
       let clang = "/opt/homebrew/opt/llvm/bin"
       b.nimFlags.add(["--clang.path=" & clang.quoteShell()])

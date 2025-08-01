@@ -404,7 +404,7 @@ when not web and not defined(ios):
   type ImageFileFormat = enum tga, hdr, bmp, png
 
   proc writeToFile(i: Image, path: string, format: ImageFileFormat) =
-    when not defined(js) and not defined(emscripten) and not defined(android):
+    when not defined(js) and not defined(emscripten) and not defined(wasm) and not defined(android):
       var texCoords : array[4, GLfloat]
       let texture = i.getTextureQuad(nil, texCoords)
       glBindTexture(GL_TEXTURE_2D, texture)
@@ -572,7 +572,7 @@ when defined(emscripten) or defined(wasm):
     error "Error loading image: ", ctx.path
     ctx.callback(nil)
 
-  proc nimxNextPowerOf2(x: cint): cint {.EMSCRIPTEN_KEEPALIVE,} =
+  proc nimxNextPowerOf2(x: cint): cint {.EMSCRIPTEN_KEEPALIVE.} =
     nextPowerOfTwo(x).cint
 
   proc loadImageFromURL*(url: string, callback: proc(i: Image)) =
@@ -586,10 +586,10 @@ when defined(emscripten) or defined(wasm):
     i.crossOrigin = '';
     i.onload = function () {
       try {
-        var texWidth = _nimxNextPowerOf2(i.width);
-        var texHeight = _nimxNextPowerOf2(i.height);
-        _nimxImagePrepareTexture($0, i.width, i.height, texWidth, texHeight);
-        GLctx.pixelStorei(GLctx.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+        var texWidth = _nime.nimxNextPowerOf2(i.width);
+        var texHeight = _nime.nimxNextPowerOf2(i.height);
+        _nime.nimxImagePrepareTexture($0, i.width, i.height, texWidth, texHeight);
+        GLCtx.pixelStorei(GLCtx.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
         if (texWidth != i.width || texHeight != i.height) {
           var canvas = document.createElement('canvas');
           canvas.width = texWidth;
@@ -597,21 +597,22 @@ when defined(emscripten) or defined(wasm):
           var ctx2d = canvas.getContext('2d');
           ctx2d.globalCompositeOperation = "copy";
           ctx2d.drawImage(i, 0, 0);
-          GLctx.texImage2D(GLctx.TEXTURE_2D, 0, GLctx.RGBA, GLctx.RGBA, GLctx.UNSIGNED_BYTE, canvas);
+          GLCtx.texImage2D(GLCtx.TEXTURE_2D, 0, GLCtx.RGBA, GLCtx.RGBA, GLCtx.UNSIGNED_BYTE, canvas);
         }
         else {
-          GLctx.texImage2D(GLctx.TEXTURE_2D, 0, GLctx.RGBA, GLctx.RGBA, GLctx.UNSIGNED_BYTE, i);
+          GLCtx.texImage2D(GLCtx.TEXTURE_2D, 0, GLCtx.RGBA, GLCtx.RGBA, GLCtx.UNSIGNED_BYTE, i);
         }
-        _nimxImageLoaded($0);
+        _nime.nimxImageLoaded($0);
       }
       catch(e) {
         _nimem_e(e); // This function is defined in `jsbind.emscripten`
       }
     };
-    var url = UTF8ToString($1);
+    var url = _nimsj($1);
+
     i.onerror = function() {
       console.log("image load failed: " + url);
-      _nimxImageLoadError($0);
+      _nime.nimxImageLoadError($0);
     };
     i.src = url;
     """, cast[pointer](ctx), cstring(ctx.path))

@@ -171,6 +171,7 @@ when defined js:
 
 else:
   when defined(wasm) and not defined(emscripten):
+    import wasmrt
     import wasmrt/gl
 
   type
@@ -592,6 +593,12 @@ when defined(js):
     cast[FramebufferRef](getParameterRef(gl, gl.FRAMEBUFFER_BINDING))
   template boundRenderbuffer*(gl: GL): RenderbufferRef =
     cast[RenderbufferRef](getParameterRef(gl, gl.RENDERBUFFER_BINDING))
+elif defined(wasm):
+  proc getParameterRef(p: GLenum): JSRef {.importwasmf: "GLCtx.getParameter".}
+  template boundFramebuffer*(gl: GL): FramebufferRef =
+    cast[FramebufferRef](getParameterRef(GL_FRAMEBUFFER_BINDING))
+  template boundRenderbuffer*(gl: GL): RenderbufferRef =
+    cast[RenderbufferRef](getParameterRef(GL_RENDERBUFFER_BINDING))
 else:
   template boundFramebuffer*(gl: GL): FramebufferRef =
     cast[FramebufferRef](gl.getParami(GL_FRAMEBUFFER_BINDING))

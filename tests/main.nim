@@ -8,21 +8,21 @@ import sequtils, intsets
 
 import sample01_welcome
 import sample02_controls
-# import sample03_image
-# import sample04_animation
-# import sample05_fonts
-# import sample06_timers
-# # import sample07_collections
-# # import sample08_events
-# import sample09_docking_tabs
-# import sample10_text
-# # import sample11_expanded_views
-# import sample12_menus
-# # import sample13_drag_and_drop
-# import sample14_layout
-# # import sample15_animation_easings
-# import sample16_outline_view
-# import sample17_table_view
+import sample03_image
+import sample04_animation
+import sample05_fonts
+import sample06_timers
+# import sample07_collections
+# import sample08_events
+import sample09_docking_tabs
+import sample10_text
+# import sample11_expanded_views
+import sample12_menus
+# import sample13_drag_and_drop
+import sample14_layout
+# import sample15_animation_easings
+import sample16_outline_view
+import sample17_table_view
 
 
 const isMobile = defined(ios) or defined(android)
@@ -71,7 +71,7 @@ proc startApplication() =
         discard
 
   tableView.reloadData()
-  tableView.selectRow(6)
+  tableView.selectRow(0)
 
   uiTest generalUITest:
     sendMouseDownEvent(mainWindow, newPoint(50, 60))

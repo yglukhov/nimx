@@ -7,15 +7,16 @@ type ImageSampleView = ref object of View
   generatedImage: Image
   httpImage: Image
 
-method init*(v: ImageSampleView) =
+method init*(v: ImageSampleView) {.gcsafe.} =
   procCall v.View.init()
   loadImageFromURL("http://gravatar.com/avatar/71b7b08fbc2f989a8246913ac608cca9") do(i: Image):
     v.httpImage = i
     v.setNeedsDisplay()
 
-  sharedAssetManager().getAssetAtPath("cat.jpg") do(i: Image, err: string):
-    v.image = i
-    v.setNeedsDisplay()
+  when not defined(wasm):
+    sharedAssetManager().getAssetAtPath("cat.jpg") do(i: Image, err: string):
+      v.image = i
+      v.setNeedsDisplay()
 
 proc renderToImage(): Image =
   let r = imageWithSize(newSize(200, 80))
