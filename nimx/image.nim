@@ -39,11 +39,11 @@ template setupTexParams(gl: GL) =
 when not web:
   include private/image_pvr
 
-method setFilePath*(i: Image, path: string) {.base.} = discard
+method setFilePath*(i: Image, path: string) {.gcsafe, base.} = discard
 method setFilePath*(i: SelfContainedImage, path: string) =
   i.mFilePath = path
 
-method filePath*(i: Image): string {.base.} = discard
+method filePath*(i: Image): string {.gcsafe, base.} = discard
 method filePath*(i: SelfContainedImage): string = i.mFilePath
 
 when not defined(js):

@@ -1,6 +1,6 @@
 import times, json, math
 
-import nimx / [view, panel_view, context, undo_manager, toolbar, button, menu, inspector_panel,
+import nimx / [view, panel_view, context, undo_manager, button, menu, inspector_panel,
       gesture_detector, window_event_handling, view_event_handling, abstract_window,
       serializers, key_commands, ui_resource, private/async]
 
@@ -342,4 +342,3 @@ method draw*(v: EventCatchingView, r: Rect) =
 
   if not v.selectedView.isNil:
     v.drawSelectionRect()
-
