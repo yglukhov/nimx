@@ -775,9 +775,12 @@ proc build*(b: Builder) =
     let llTarget = "wasm32-unknown-unknown-wasm"
     addCAndLFlags(["--target=" & llTarget])
 
-    var linkerOptions = "-nostdlib -Wl,--no-entry,--allow-undefined,--gc-sections".split(" ")
+    var linkerOptions = "-nostdlib -Wl,--no-entry,--allow-undefined,--gc-sections,--strip-all"
+    if not b.debugMode:
+      b.nimFlags.add("-d:danger")
+      linkerOptions.add(",--strip-all")
 
-    b.additionalLinkerFlags.add(linkerOptions)
+    b.additionalLinkerFlags.add(linkerOptions.split(" "))
 
     var preJsContent = ""
     for js in b.emscriptenPreJS:
