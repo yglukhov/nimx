@@ -44,7 +44,7 @@ jobs:
   deploy:
     # Add a dependency to the build job
     needs: build
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/master'
 
     # Grant GITHUB_TOKEN the permissions required to make a Pages deployment
     permissions:

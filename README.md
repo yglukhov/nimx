@@ -1,4 +1,4 @@
-# nimx [![Build Status](https://github.com/yglukhov/nimx/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/yglukhov/nimx/actions?query=branch%3Amain) [![nimble](https://img.shields.io/badge/nimble-black?logo=nim&style=flat&labelColor=171921&color=%23f3d400)](https://nimble.directory/pkg/nimx)
+# nimx [![Build Status](https://github.com/yglukhov/nimx/actions/workflows/test.yml/badge.svg?branch=master)](https://github.com/yglukhov/nimx/actions?query=branch%3Amaster) [![nimble](https://img.shields.io/badge/nimble-black?logo=nim&style=flat&labelColor=171921&color=%23f3d400)](https://nimble.directory/pkg/nimx)
 
 Cross-platform GUI framework in [Nim](https://github.com/nim-lang/nim).
 This is a development (version 2) version, a lot of upcoming breaking changes are expected.
