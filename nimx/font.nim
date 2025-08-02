@@ -96,33 +96,44 @@ template size*(f: Font): float = f.mSize
 const dumpDebugBitmaps = false
 
 when dumpDebugBitmaps:
-  when defined(js):
-    proc logBitmap(title: cstring, bytes: openarray[byte], width, height: int) =
-      {.emit: """
+  when defined(wasm):
+    import wasmrt
+    proc dumpAux(name: cstring, bitmap: pointer, width, height, start: int32, fSize: float) {.importwasmraw: """
+      var title = _nimsj($0);
+      var width = $2;
+      var height = $3;
+      var start = $3;
+      var fSize = $4;
+      var bytes = new Uint8Array(_nima, $1, width * height);
+
       var span = document.createElement("span");
-      span.innerHTML = `title`;
+      span.innerHTML = title + " " + start + " " + fSize;
       document.body.appendChild(span);
-      var canvas = document.createElement("canvas")
+      var canvas = document.createElement("canvas");
       document.body.appendChild(canvas);
-      canvas.width = `width`;
-      canvas.height = `height`;
-      var ctx = `canvas`.getContext('2d');
-      var imgData2 = ctx.createImageData(`width`, `height`);
+      canvas.width = width;
+      canvas.height = height;
+      var ctx = canvas.getContext('2d');
+      var imgData2 = ctx.createImageData(width, height);
       var imgData = imgData2.data;
-      var sz = `width` * `height`;
+      var sz = width * height;
       for (var i = 0; i < sz; ++i) {
         var offs = i * 4;
-        imgData[offs] = 0;// `bytes`[i];
-        imgData[offs + 1] = 0; //`bytes`[i];
-        imgData[offs + 2] = 0; //`bytes`[i];
-        imgData[offs + 3] = `bytes`[i];
+        imgData[offs] = 0;// bytes[i];
+        imgData[offs + 1] = 0; //bytes[i];
+        imgData[offs + 2] = 0; //bytes[i];
+        imgData[offs + 3] = bytes[i];
       }
       ctx.putImageData(imgData2, 0, 0);
-      """.}
+    """.}
+    proc dumpBitmaps(name: string, bitmap: seq[byte], width, height, start: int, fSize: float) =
+      dumpAux(name, addr bitmap[0], width.int32, height.int32, start.int32, fSize)
+
   else:
+    import ./write_image_impl
     template dumpBitmaps(name: string, bitmap: seq[byte], width, height, start: int, fSize: float) =
       var bmp = newSeq[byte](width * height * 3)
-      for i in 0 .. < width * height:
+      for i in 0 ..< width * height:
         bmp[3*i] = bitmap[i]
 
       discard stbi_write_bmp("atlas_nimx_" & name & "_" & $fSize & "_" & $start & "_" & $width & "x" & $height & ".bmp", width.cint, height.cint, 3.cint, addr bmp[0])
@@ -144,7 +155,7 @@ proc descent*(f: Font): float32 =
 proc bakeChars(f: Font, start: int32, res: CharInfo) =
   f.impl.glyphProvider.bakeChars(start, res.data)
   when dumpDebugBitmaps:
-    dumpBitmaps("df", res.data.bitmap, res.data.bitmapWidth, res.data.bitmapHeight, start, fSize)
+    dumpBitmaps("df", res.data.bitmap, res.data.bitmapWidth.int, res.data.bitmapHeight.int, start, f.size)
 
 when not defined(js) and not pureWasm:
   proc newFontWithFile*(pathToTTFile: string, size: float): Font =
@@ -271,7 +282,7 @@ proc generateDistanceFieldForGlyph(ch: CharInfo, index: int, uploadToTexture: bo
   ch.data.dfDoneForGlyph[index] = true
 
   when dumpDebugBitmaps:
-    if not dfCtx.output.isNil:
+    if dfCtx.output.len != 0:
       dumpBitmaps("df" & $index, dfCtx.output, w, h, 0, 555.0)
 
 var glyphGenerationTimer {.threadvar.}: Timer
