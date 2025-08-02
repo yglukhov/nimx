@@ -263,22 +263,18 @@ const hsvCircleComposition = newComposition """
   vec4 cHsvCircle() {
     float r = bounds.z / 2.0;
     vec2 c = vec2(bounds.xy + (bounds.zw / 2.0));
-    float h = (atan(vPos.y - c.y, c.x - vPos.x) / 3.1415 + 1.0) / 2.0;
+    float h = (atan(vPos.y - c.y, c.x - vPos.x) / PI + 1.0) / 2.0;
     float s = distance(vPos, c) / r;
     float v = uHsvValue;
 
-    float diff = abs(uChosenH - h);
-
-    if (diff <= 0.005) {
-      return vec4(0.0, 0.0, 0.0, 1.0 - smoothstep(0.003, 0.005, diff));
-    } else {
-      return vec4(hsv2rgb(vec3(h, s, v)), 1.0);
-    }
+    float diff = min(min(abs(uChosenH - h), abs(uChosenH + 1.0 - h)), abs(uChosenH - 1.0 - h));
+    float d = fwidth(diff);
+    return vec4(mix(vec3(0), hsv2rgb(vec3(h, s, v)), smoothstep(0.005 - d, 0.005 + d, diff)), 1);
   }
 
   void compose() {
     drawShape(sdEllipseInRect(bounds), cHsvCircle());
-    drawShape(sdEllipseInRect(vec4(bounds.xy + bounds.z / 4.0, bounds.zw / 2.0)), vec4(0.0, 0.0, 0.0, 0.0));
+    drawShape(sdEllipseInRect(vec4(bounds.xy + bounds.z / 4.0, bounds.zw / 2.0)), vec4(0));
   }
 """
 
