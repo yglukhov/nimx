@@ -156,8 +156,9 @@ proc createGridIndexBuffer(c: GraphicsContext, width, height: static[int]): Buff
 
 proc createQuadBuffer(c: GraphicsContext): BufferRef =
   result = c.gl.createBuffer()
+  const one = 1.0000001 # This avoids diagonal line artifact on linux chrome on certain hardware
   c.gl.bindBuffer(c.gl.ARRAY_BUFFER, result)
-  let vertexes = [0.GLfloat, 0, 0, 1, 1, 1, 1, 0]
+  let vertexes = [0.GLfloat, 0, 0, one, one, one, one, 0]
   c.gl.bufferData(c.gl.ARRAY_BUFFER, vertexes, c.gl.STATIC_DRAW)
 
 proc newGraphicsContext*(canvas: ref RootObj = nil): GraphicsContext =
