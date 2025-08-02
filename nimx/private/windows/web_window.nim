@@ -221,7 +221,7 @@ proc setupEventHandlers(
   var d = document, c = d.getElementById(_nimsj($0)),
   om = (s, e) => {
     var r = c.getBoundingClientRect();
-    var p = window.devicePixelRatio || 1;
+    var p = 1;//window.devicePixelRatio || 1;
     _nime._dvddii($1, (e.clientX - r.left)*p, (e.clientY - r.top)*p, s, e.button)
   };
   d.addEventListener('mousemove', e => om(0, e));
@@ -253,8 +253,8 @@ if (!e) {
 e.style.width = x + 'px';
 e.style.height = y + 'px';
 // var r = e.getBoundingClientRect();
-e.width = x * pixelRatio;
-e.height = y * pixelRatio;
+e.width = x; // * pixelRatio;
+e.height = y; // * pixelRatio;
 e.scaled = true;
 
 if (!w.GLCtx) {
@@ -268,7 +268,7 @@ if (!w.GLCtx) {
     } catch(err) {}
 
   if (c) {
-    var devicePixelRatio = window.devicePixelRatio || 1;
+    var devicePixelRatio = 1;//window.devicePixelRatio || 1;
     c.viewportWidth = x * devicePixelRatio;
     c.viewportHeight = y * devicePixelRatio;
     c.getExtension('OES_standard_derivatives');
