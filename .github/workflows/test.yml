@@ -1,0 +1,64 @@
+name: CI
+
+on: push
+jobs:
+  build:
+    if: |
+      !contains(github.event.head_commit.message, '[skip ci]')
+    strategy:
+      fail-fast: false
+      matrix:
+        nim-channel: [devel]
+
+    name: ${{ matrix.nim-channel }}
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup nim
+      uses: jiro4989/setup-nim-action@v2
+      with:
+        nim-version: ${{ matrix.nim-channel }}
+
+    - name: Test
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install gcc-multilib # Support for 32bits
+        clang --version
+        # For some reason wasm-ld is not in PATH, so add it. llvm version should probably match that of clang
+        export PATH=$PATH:/usr/lib/llvm-11/bin
+
+        nim --version
+        nimble install -dy
+        mkdir _site
+        cd tests
+        nake wasm -d:release --norun
+
+        mv build/wasm/main.html ../_site/demo.html
+
+    - name: Upload Pages artifact
+      uses: actions/upload-pages-artifact@v3
+
+  # Deploy job
+  deploy:
+    # Add a dependency to the build job
+    needs: build
+    if: github.ref == 'refs/heads/main'
+
+    # Grant GITHUB_TOKEN the permissions required to make a Pages deployment
+    permissions:
+      pages: write      # to deploy to Pages
+      id-token: write   # to verify the deployment originates from an appropriate source
+
+    # Deploy to the github-pages environment
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    # Specify runner + deployment step
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4 # or the latest "vX.X.X" version tag for this action

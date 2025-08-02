@@ -548,7 +548,7 @@ proc postprocessWebTarget(b: Builder) =
   let sf = splitFile(b.mainFile)
   var mainHTML = sf.dir / sf.name & ".html"
   direShell(["wasm2html", b.executablePath, b.buildRoot / "main.html"])
-  direShell(["wasm2wat", b.executablePath, "-o", b.buildRoot / "main.wat"])
+  shell(["wasm2wat", b.executablePath, "-o", b.buildRoot / "main.wat"])
   # if not fileExists(mainHTML):
   #   mainHTML = nimbleNimxPath() / "assets" / "main.html"
   # copyFile(mainHTML, b.buildRoot / "main.html")
@@ -761,7 +761,7 @@ proc build*(b: Builder) =
     b.emscriptenPreloadFiles.add(b.originalResourcePath & "/OpenSans-Regular.ttf@/res/OpenSans-Regular.ttf")
     b.executablePath = b.buildRoot / "main.wasm"
     b.nimFlags.add(["--cpu:wasm32", "-d:wasm", "--os:linux", "--cc:clang", "--threads:off", "--mm:arc",
-                    "-d:noSignalHandler", "--exceptions:goto"])
+                    "-d:noSignalHandler", "--exceptions:goto", "--clang.options.linker=-lm"])
 
     when defined(macosx):
       let clang = "/opt/homebrew/opt/llvm/bin"
