@@ -491,7 +491,7 @@ method onKeyDown*(t: TextField, e: var Event): bool =
             t.clearSelection()
         result = true
 
-    result = result or (t.editable and e.modifiers.isEmpty())
+    # result = result or (t.editable and e.modifiers.isEmpty())
 
 method onTextInput*(t: TextField, s: string): bool =
   if not t.editable: return false
