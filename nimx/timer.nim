@@ -79,11 +79,7 @@ when defined(wasm):
     let t = cast[Timer](ctx)
     let cb = t.callback
     if not cb.isNil:
-      try:
-        cb()
-      except Exception as e:
-        echo "Exception caught: ", e.msg
-        echo e.getStackTrace()
+      cb()
 
   proc schedule(t: Timer) =
     if t.isPeriodic:
