@@ -73,8 +73,8 @@ method init(t: TimersSampleView) =
     - Label as secondsLabel:
       text: "seconds: "
       leading == prev
+      trailing == super
       top == prev.bottom + 10
-      width == 120
       height == 20
 
     - Label as firesLabel:

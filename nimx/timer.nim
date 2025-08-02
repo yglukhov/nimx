@@ -1,6 +1,9 @@
 import times, mini_profiler
 
-when defined(js) or defined(emscripten) or defined(wasm):
+when defined(wasm):
+  import wasmrt
+  type TimerID = JSObj
+when defined(js) or defined(emscripten):
   import jsbind
   type TimerID = ref object of JSObj
 elif defined(macosx):
@@ -52,7 +55,49 @@ when profileTimers or defined(debugLeaks):
   else:
     proc finalizeTimer(t: Timer) = destroyAux(t[])
 
-when defined(js) or defined(emscripten) or defined(wasm):
+when defined(wasm):
+  proc setIntervalAux(ms: float, cb: proc(ctx: pointer) {.cdecl.}, ctx: pointer): JSObj {.importwasmexpr: """
+  setInterval(() => {_nime._dvi($1, $2)}, $0)
+  """.}
+
+  proc setTimeoutAux(ms: float, cb: proc(ctx: pointer) {.cdecl.}, ctx: pointer): JSObj {.importwasmexpr: """
+  setTimeout(() => {_nime._dvi($1, $2)}, $0)
+  """.}
+
+  proc setInterval(ms: float, cb: proc(ctx: pointer) {.cdecl.}, ctx: pointer): JSObj {.inline.} =
+    defineDyncall("vi")
+    setIntervalAux(ms, cb, ctx)
+
+  proc setTimeout(ms: float, cb: proc(ctx: pointer) {.cdecl.}, ctx: pointer): JSObj {.inline.} =
+    defineDyncall("vi")
+    setTimeoutAux(ms, cb, ctx)
+
+  proc clearTimeout(t: JSObj) {.importwasmf.}
+  proc clearInterval(t: JSObj) {.importwasmf.}
+
+  proc onTimer(ctx: pointer) {.cdecl.} =
+    let t = cast[Timer](ctx)
+    let cb = t.callback
+    if not cb.isNil:
+      try:
+        cb()
+      except Exception as e:
+        echo "Exception caught: ", e.msg
+        echo e.getStackTrace()
+
+  proc schedule(t: Timer) =
+    if t.isPeriodic:
+      t.timer = setInterval(t.interval * 1000, onTimer, cast[pointer](t))
+    else:
+      t.timer = setTimeout(t.interval * 1000, onTimer, cast[pointer](t))
+
+  template cancel(t: Timer) =
+    if t.isPeriodic:
+      clearInterval(t.timer)
+    else:
+      clearTimeout(t.timer)
+
+elif defined(js) or defined(emscripten):
   proc setInterval(p: proc(), timeout: float): TimerID {.jsImportg.}
   proc setTimeout(p: proc(), timeout: float): TimerID {.jsImportg.}
   proc clearInterval(t: TimerID) {.jsImportg.}
