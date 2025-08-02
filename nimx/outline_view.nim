@@ -46,7 +46,7 @@ type
     filtered: bool
     children: seq[ItemNode]
     item: Variant
-    # cell: TableViewCell
+    cell: OutlineCell
     nestLevel: int
 
   OutlineCell = ref object of TableViewCell
@@ -62,6 +62,7 @@ proc `item=`(c: OutlineCell, item: ItemNode) =
     let oldItem = c.mItem
     let oldNestLevel = if oldItem.isNil: 0 else: oldItem.nestLevel
     c.mItem = item
+    item.cell = c
 
     if c.offsetConstraint.isNil or item.nestLevel != oldNestLevel:
       if not c.offsetConstraint.isNil:
@@ -87,10 +88,24 @@ method draw*(c: OutlineCell, r: Rect) =
     ctx.fillColor = newColor(0.1, 0.1, 0.1)
   ctx.drawDisclosureTriangle(c.mItem.expanded, c.disclosureTriangleRect)
 
+  # TODO: revice
+  if c.outlineView.dropInsideItem != nil and c.outlineView.dropInsideItem.cell == c:
+    ctx.fillColor = newColor(0.44, 0.55, 0.90, 0.3)
+    ctx.strokeColor = newColor(0.27, 0.44, 0.85, 0.3)
+    ctx.strokeWidth = 2
+    ctx.drawRoundedRect(c.frame, 4)
+  elif c.outlineView.dropAfterItem != nil and c.outlineView.dropAfterItem.cell == c:
+    ctx.fillColor = newColor(0.27, 0.44, 0.85)
+    ctx.strokeWidth = 0
+    let offset = c.offsetInPixels()
+    ctx.drawRect(newRect(offset, c.bounds.height, c.bounds.width - offset, 2))
+    const circleRadius = 3
+    ctx.drawEllipseInRect(newRect(offset - circleRadius, c.bounds.height - circleRadius, circleRadius * 2, circleRadius * 2))
+
 proc reloadItemsForTableView(v: OutlineView) {.gcsafe.}
 
 method onTouchEv*(v: OutlineCell, e: var Event): bool =
-  result = procCall v.View.onTouchEv(e)
+  result = procCall v.TableViewCell.onTouchEv(e)
   if e.buttonState == bsUp:
     discard # TODO: ...
   elif e.buttonState == bsDown:
@@ -204,9 +219,6 @@ method init*(v: OutlineView) =
       tc.selected = oc.selected
       cell = tc
     v.mDataSource.mConfigureCellBase(v.mDataSource, cell, item)
-
-template xOffsetForIndexPath(ip: IndexPath): Coord =
-  Coord(offsetOutline + ip.len * offsetOutline * 2)
 
 proc configureCellAux(v: OutlineView, c: TableViewCell, n: ItemNode) =
   v.mDataSource.mConfigureCellBase(v.mDataSource, c, n)
@@ -344,128 +356,125 @@ proc isSubpathOfPath(subpath, path: openarray[int]): bool =
 method onTouchEv*(v: OutlineView, e: var Event): bool =
   result = procCall v.TableView.onTouchEv(e)
 
-  # if e.buttonState == bsUp:
-  #   let pos = e.localPosition
-  #   var y = 0.Coord
-  #   let i = v.itemAtPos(pos, v.tempIndexPath, y)
+  if e.buttonState == bsUp:
+    let pos = e.localPosition
+    var y = 0.Coord
+    let i = v.itemAtPos(pos, v.tempIndexPath, y)
 
-  #   if not v.touchTarget.isNil:
-  #     if not i.isNil and i.cell.View != v.touchTarget:
-  #       e.localPosition = i.cell.convertPointFromParent(pos)
-  #     e.localPosition = v.touchTarget.convertPointFromParent(e.localPosition)
-  #     if v.touchTarget.processTouchEvent(e):
-  #       v.setNeedsDisplay()
-  #       return true
+    if not v.touchTarget.isNil:
+      if not i.isNil and i.cell.View != v.touchTarget:
+        e.localPosition = i.cell.convertPointFromParent(pos)
+      e.localPosition = v.touchTarget.convertPointFromParent(e.localPosition)
+      if v.touchTarget.processTouchEvent(e):
+        v.setNeedsDisplay()
+        return true
 
-  #   v.touchTarget = nil
+    v.touchTarget = nil
 
-  #   if not i.isNil:
-  #     if pos.x < xOffsetForIndexPath(v.tempIndexPath) and i.expandable:
-  #       i.expanded = not i.expanded
-  #       v.checkViewSize()
-  #     elif v.tempIndexPath != v.selectedIndexPath:
-  #       v.selectedIndexPath = v.tempIndexPath
-  #       v.selectionChanged()
+    if not i.isNil:
+      if v.tempIndexPath != v.selectedIndexPath:
+        v.selectedIndexPath = v.tempIndexPath
+        v.selectionChanged()
 
-  #     if not v.onDragAndDrop.isNil and v.draggedElemIndexPath.len > 1 and v.droppedElemIndexPath.len > 1 and v.draggedElemIndexPath != v.droppedElemIndexPath:
-  #       v.onDragAndDrop(v.draggedElemIndexPath, v.droppedElemIndexPath)
+      if not v.onDragAndDrop.isNil and v.draggedElemIndexPath.len > 0 and v.droppedElemIndexPath.len > 0 and v.draggedElemIndexPath != v.droppedElemIndexPath:
+        v.onDragAndDrop(v.draggedElemIndexPath, v.droppedElemIndexPath)
 
-  #     v.setNeedsDisplay()
+      v.setNeedsDisplay()
 
-  #     v.draggedElemIndexPath = @[]
-  #     v.droppedElemIndexPath = @[]
-  #     v.dropAfterItem = nil
-  #     v.dropInsideItem = nil
+      v.draggedElemIndexPath = @[]
+      v.droppedElemIndexPath = @[]
+      v.dropAfterItem = nil
+      v.dropInsideItem = nil
 
-  #     result = true
+      result = true
 
-  # elif e.buttonState == bsDown:
-  #   let pos = e.localPosition
-  #   var y = 0.Coord
-  #   let i = v.itemAtPos(pos, v.tempIndexPath, y)
-  #   v.touchTarget = nil
+  elif e.buttonState == bsDown:
+    let pos = e.localPosition
+    var y = 0.Coord
+    let i = v.itemAtPos(pos, v.tempIndexPath, y)
+    v.touchTarget = nil
 
-  #   if not v.onDragAndDrop.isNil:
-  #     v.dragStartLocation = pos
-  #     if i.isNil:
-  #       v.draggedElemIndexPath = @[]
-  #     else:
-  #       v.draggedElemIndexPath = v.tempIndexPath
+    if not v.onDragAndDrop.isNil:
+      v.dragStartLocation = pos
+      if i.isNil:
+        v.draggedElemIndexPath = @[]
+      else:
+        v.draggedElemIndexPath = v.tempIndexPath
 
-  #   if not i.isNil:
-  #     v.configureCellAUX(i, y, v.tempIndexPath)
-  #     e.localPosition = i.cell.convertPointFromParent(pos)
-  #     if e.localPosition.inRect(i.cell.bounds):
-  #       result = i.cell.processTouchEvent(e)
-  #       if result:
-  #         if i.cell.touchTarget.isNil:
-  #           v.touchTarget = i.cell
-  #         else:
-  #           v.touchTarget = i.cell.touchTarget
-  #         discard v.touchTarget.makeFirstResponder()
-  #         v.setNeedsDisplay()
-  #         return result
+    if not i.isNil:
+      e.localPosition = i.cell.superview.convertPointFromParent(pos)
+      if e.localPosition.inRect(i.cell.bounds):
+        result = i.cell.processTouchEvent(e)
+        if result:
+          if i.cell.touchTarget.isNil:
+            v.touchTarget = i.cell
+          else:
+            v.touchTarget = i.cell.touchTarget
+          discard v.touchTarget.makeFirstResponder()
+          v.setNeedsDisplay()
+          return result
 
-  #   e.localPosition = pos
-  #   result = true
+    e.localPosition = pos
+    result = true
 
-  # else: # Dragging
-  #   let pos = e.localPosition
-  #   let dragLen = pow(abs(pos.x - v.dragStartLocation.x), 2) + pow(abs(pos.y - v.dragStartLocation.y), 2)
-  #   var y = 0.Coord
-  #   var i = v.itemAtPos(pos, v.tempIndexPath, y)
+  else: # Dragging
+    let pos = e.localPosition
+    let dragLen = pow(abs(pos.x - v.dragStartLocation.x), 2) + pow(abs(pos.y - v.dragStartLocation.y), 2)
+    var y = 0.Coord
+    var i = v.itemAtPos(pos, v.tempIndexPath, y)
 
-  #   if not v.touchTarget.isNil:
-  #     e.localPosition = v.touchTarget.convertPointFromParent(pos)
-  #     result = v.touchTarget.processTouchEvent(e)
-  #     # v.setNeedsDisplay()
-  #     if result:
-  #       return result
-  #     e.localPosition = pos
+    if not v.touchTarget.isNil:
+      e.localPosition = v.touchTarget.convertPointFromParent(pos)
+      result = v.touchTarget.processTouchEvent(e)
+      v.setNeedsDisplay()
+      if result:
+        return result
+      e.localPosition = pos
 
-  #   if not v.onDragAndDrop.isNil:
-  #     if i.isNil:
-  #       v.droppedElemIndexPath = @[]
-  #     elif sqrt(dragLen) > 10:
-  #       v.droppedElemIndexPath = v.tempIndexPath
-  #       v.dropAfterItem = i
-  #       # When mouse hovers over the row, the drop target may be one of the following:
-  #       # 1. The next simbling of the row
-  #       # 2. The first child of the row
-  #       # 3. If the row is last child, it may be:
-  #       #  a. The next sibling of row's parent.
-  #       #  b. If rows parent is the last child, it may be:
-  #       #     aa. The next sibling of row's parent's parent.
-  #       #     bb. Recursion continues down to root.
-  #       # The correct variant is determined by mouse.x location.
-  #       let offset = Coord(offsetOutline + v.droppedElemIndexPath.len * offsetOutline * 2) + 6
-  #       var levelsDiff = int((e.localPosition.x - offset) / (offsetOutline * 2))
+    if not v.onDragAndDrop.isNil:
+      if i.isNil:
+        v.droppedElemIndexPath = @[]
+      elif sqrt(dragLen) > 10:
+        v.droppedElemIndexPath = v.tempIndexPath
+        v.dropAfterItem = i
+        v.setNeedsDisplay()
+        # When mouse hovers over the row, the drop target may be one of the following:
+        # 1. The next simbling of the row
+        # 2. The first child of the row
+        # 3. If the row is last child, it may be:
+        #  a. The next sibling of row's parent.
+        #  b. If rows parent is the last child, it may be:
+        #     aa. The next sibling of row's parent's parent.
+        #     bb. Recursion continues down to root.
+        # The correct variant is determined by mouse.x location.
+        let offset = Coord(offsetOutline + v.droppedElemIndexPath.len * offsetOutline * 2) + 6
+        var levelsDiff = int((e.localPosition.x - offset) / (offsetOutline * 2))
 
-  #       if i.expanded and i.children.len > 0:
-  #         v.droppedElemIndexPath.add(0)
-  #       elif levelsDiff == 0:
-  #         inc v.droppedElemIndexPath[^1]
-  #       elif levelsDiff > 0:
-  #         v.droppedElemIndexPath.add(0)
-  #       else:
-  #         while v.droppedElemIndexPath.len > 1 and levelsDiff < 0:
-  #           let p = v.nodeAtIndexPath(v.droppedElemIndexPath[0 .. ^2])
-  #           if p.children.len > 0 and p.children[^1] == i:
-  #             i = p
-  #             inc levelsDiff
-  #             v.droppedElemIndexPath.setLen(v.droppedElemIndexPath.len - 1)
-  #           else:
-  #             break
-  #         inc v.droppedElemIndexPath[^1]
+        if i.expanded and i.children.len > 0:
+          v.droppedElemIndexPath.add(0)
+        elif levelsDiff == 0:
+          inc v.droppedElemIndexPath[^1]
+        elif levelsDiff > 0:
+          v.droppedElemIndexPath.add(0)
+        else:
+          while v.droppedElemIndexPath.len > 1 and levelsDiff < 0:
+            let p = v.nodeAtIndexPath(v.droppedElemIndexPath[0 .. ^2])
+            if p.children.len > 0 and p.children[^1] == i:
+              i = p
+              inc levelsDiff
+              v.droppedElemIndexPath.setLen(v.droppedElemIndexPath.len - 1)
+            else:
+              break
+          inc v.droppedElemIndexPath[^1]
 
-  #       if v.draggedElemIndexPath.isSubpathOfPath(v.droppedElemIndexPath):
-  #         v.droppedElemIndexPath = @[]
-  #         v.dropAfterItem = nil
-  #         v.dropInsideItem = nil
-  #       else:
-  #         v.dropInsideItem = v.nodeAtIndexPath(v.droppedElemIndexPath[0 .. ^2])
+        if v.draggedElemIndexPath.isSubpathOfPath(v.droppedElemIndexPath):
+          v.droppedElemIndexPath = @[]
+          v.dropAfterItem = nil
+          v.dropInsideItem = nil
+        else:
+          v.dropInsideItem = v.nodeAtIndexPath(v.droppedElemIndexPath[0 .. ^2])
 
-  #     result = true
+      result = true
 
 method acceptsFirstResponder*(v: OutlineView): bool = true
 
