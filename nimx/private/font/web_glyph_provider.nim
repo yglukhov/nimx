@@ -22,46 +22,11 @@ proc cssFontName(p: WebGlyphProvider): string =
 template clearCache*(p: WebGlyphProvider) = discard
 
 proc calculateFontMetricsInCanvas(n: cstring, fontSize: int, o: pointer) {.importwasmraw: """
-  // Idea borrowed from from https://github.com/Pomax/fontmetrics.js
-  var textstring = "Hl@¿Éq¶", n = _nimsj($0);
-  var canvas = document.createElement("canvas");
-  var ctx = canvas.getContext("2d");
-  ctx.font = n;
-  var m = ctx.measureText(textstring);
-
-  var padding = 100;
-  canvas.width = m.width + padding;
-  canvas.height = 3*$1;
-  canvas.style.opacity = 1;
-  ctx.font = n;
-  var w = canvas.width,
-    h = canvas.height,
-    baseline = h/2;
-
-  // Set all canvas pixeldata values to 255, with all the content
-  // data being 0. This lets us scan for data[i] != 255.
-  ctx.fillStyle = "white";
-  ctx.fillRect(-1, -1, w+2, h+2);
-  ctx.fillStyle = "black";
-  ctx.fillText(textstring, padding/2, baseline);
-  var pixelData = ctx.getImageData(0, 0, w, h).data;
-
-  // canvas pixel data is w*4 by h*4, because R, G, B and A are separate,
-  // consecutive values in the array, rather than stored as 32 bit ints.
-  var i = 0,
-    w4 = w * 4,
-    len = pixelData.length;
-
-  // Finding the ascent uses a normal, forward scanline
-  while (++i < len && pixelData[i] === 255) {}
-  var ascent = (i/w4)|0;
-
-  // Finding the descent uses a reverse scanline
-  i = len - 1;
-  while (--i > 0 && pixelData[i] === 255) {}
-  var descent = (i/w4)|0;
-
-  _nimwf([baseline - ascent, descent - baseline], $2);
+  var c = document.createElement("canvas"),
+    C = c.getContext("2d");
+  C.font = _nimsj($0);
+  var m = C.measureText("Hl@¿Éq¶");
+  _nimwf([m.actualBoundingBoxAscent, m.fontBoundingBoxDescent], $2)
   """.}
 
 proc getFontMetrics*(p: WebGlyphProvider, oAscent, oDescent: var float32) =
