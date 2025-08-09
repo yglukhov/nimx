@@ -1,23 +1,10 @@
-import strutils, tables, algorithm
+import std/[strutils, tables, algorithm]
 
-import nimx/view
-import nimx/text_field
-import nimx/matrixes
-import nimx/image
-import nimx/button
-import nimx/color_picker
-import nimx/context
-import nimx/portable_gl
-import nimx/popup_button
-import nimx/font
-import nimx/linear_layout
-import nimx/property_visitor
-import nimx/numeric_text_field
-import nimx/system_logger
-import nimx/image_preview
+import ../[ view, text_field, matrixes, image, button, color_picker,
+  context, portable_gl, layout, popup_button, font, property_visitor,
+  numeric_text_field, system_logger, image_preview ]
 
-import nimx/property_editors/propedit_registry
-
+import ./propedit_registry
 import variant
 
 when defined(js):
@@ -32,136 +19,190 @@ template fromStr(v: string, t: var SomeFloat) = t = v.parseFloat()
 template fromStr(v: string, t: var SomeInteger) = t = type(t)(v.parseInt())
 
 proc newScalarPropertyView[T](setter: proc(s: T) {.gcsafe.}, getter: proc(): T {.gcsafe.}): PropertyEditorView =
-  result = PropertyEditorView.new(newRect(0, 0, 208, editorRowHeight))
-  let tf = newNumericTextField(newRect(0, 0, 208, editorRowHeight))
-  tf.autoresizingMask = {afFlexibleWidth, afFlexibleMaxY}
-  tf.font = editorFont()
+  result = PropertyEditorView.new()
+  result.makeLayout:
+    - NumericTextField as tf:
+      font: editorFont()
+      frame == super
+      height == editorRowHeight
+      onAction:
+        var v: T
+        try:
+          fromStr(tf.text, v)
+          setter(v)
+        except ValueError:
+          discard
+
   when T is SomeFloat:
     tf.text = toStr(getter(), tf.precision)
   else:
     tf.text = toStr(getter())
-  tf.onAction do():
-    var v: T
-    try:
-      fromStr(tf.text, v)
-      setter(v)
-
-    except ValueError:
-      discard
-  result.addSubview(tf)
 
 proc newTextPropertyView(setter: proc(s: string) {.gcsafe.}, getter: proc(): string {.gcsafe.}): PropertyEditorView {.gcsafe.} =
-  result = PropertyEditorView.new(newRect(0, 0, 208, editorRowHeight))
-  let textField = newTextField(newRect(0, 0, 208, editorRowHeight))
-  textField.autoresizingMask = {afFlexibleWidth, afFlexibleMaxY}
-  textField.font = editorFont()
-  textField.text = getter()
-  textField.onAction do():
-    setter(textField.text)
+  result = PropertyEditorView.new()
+  result.makeLayout:
+    - TextField as tf:
+      frame == super
+      height == editorRowHeight
+      font: editorFont()
+      text: getter()
+      onAction:
+        setter(tf.text)
 
-  result.addSubview(textField)
+proc newBoolPropertyView(setter: proc(s: bool) {.gcsafe.}, getter: proc(): bool {.gcsafe.} ): PropertyEditorView =
+  result = PropertyEditorView.new()
+  result.makeLayout:
+    - Checkbox as check:
+      # x == super.trailing - editorRowHeight
+      x == super.x
+      y == super.y
+      width == editorRowHeight
+      height == editorRowHeight
+      height == super
+  check.value = if getter(): 1 else: 0
+  check.onAction do():
+    setter(check.boolValue)
 
-proc newVecPropertyView[T](setter: proc(s: T) {.gcsafe.}, getter: proc(): T {.gcsafe.}): PropertyEditorView =
-  result = PropertyEditorView.new(newRect(0, 0, 208, editorRowHeight))
-  const vecLen = high(T) + 1
-
-  let horLayout = newHorizontalLayout(newRect(0, 0, 208, editorRowHeight))
-  horLayout.autoresizingMask = {afFlexibleWidth, afFlexibleMaxY}
-  result.addSubview(horLayout)
-
-  proc complexSetter() =
-    var val : TVector[vecLen, Coord]
-    for i in 0 ..< horLayout.subviews.len:
-      try:
-        val[i] = TextField(horLayout.subviews[i]).text.parseFloat()
-      except ValueError:
-        return
-    setter(val)
-
+proc newVector2PropertyView(setter: proc(s: Vector2) {.gcsafe.}, getter: proc(): Vector2 {.gcsafe.}): PropertyEditorView =
+  proc complexSetter() {.gcsafe.}
+  result = PropertyEditorView.new()
   let val = getter()
-  for i in 0 ..< vecLen:
-    let textField = newNumericTextField(zeroRect)
-    textField.name = "#" & $i
-    textField.font = editorFont()
-    textField.text = toStr(val[i], textField.precision)
-    textField.onAction complexSetter
-    horLayout.addSubview(textField)
+  result.makeLayout:
+    - NumericTextField as xComp:
+      y == super.y
+      x == super.x
+      width == super * 0.5
+      height == editorRowHeight
+      height == super
+      name: "#0"
+      font: editorFont()
+      text: toStr(val[0], xComp.precision)
+      onAction:
+        complexSetter()
 
-type ColorComponentTextField = ref object of NumericTextField
-  onBecomeFirstResponder: proc() {.gcsafe.}
-  onResignFirstResponder: proc() {.gcsafe.}
+    - NumericTextField as yComp:
+      y == super.y
+      x == prev.x + prev.width
+      width == super * 0.5
+      height == editorRowHeight
+      name: "#1"
+      font: editorFont()
+      text: toStr(val[1], xComp.precision)
+      onAction:
+        complexSetter()
 
-method viewDidBecomeFirstResponder*(t: ColorComponentTextField) {.gcsafe.} =
-  procCall t.NumericTextField.viewDidBecomeFirstResponder()
-  if not t.onBecomeFirstResponder.isNil: t.onBecomeFirstResponder()
-
-method viewShouldResignFirstResponder*(t: ColorComponentTextField, newFirstResponder: View): bool {.gcsafe.} =
-  result = procCall t.NumericTextField.viewShouldResignFirstResponder(newFirstResponder)
-  if result and not t.onResignFirstResponder.isNil: t.onResignFirstResponder()
-
-proc newColorPropertyView(setter: proc(s: Color) {.gcsafe.}, getter: proc(): Color {.gcsafe.}): PropertyEditorView =
-  result = PropertyEditorView.new(newRect(0, 0, 208, editorRowHeight))
-  const vecLen = 3 + 1
-
-  var beginColorPicker: proc() {.gcsafe.}
-  var colorInColorPickerSelected: proc(pc: Color) {.gcsafe.}
-
-  let colorView = Button.new(newRect(0, 0, editorRowHeight, editorRowHeight))
-  colorView.backgroundColor = getter()
-  result.addSubview(colorView)
-  colorView.hasBezel = false
-  colorView.onAction beginColorPicker
-
-  let horLayout = newHorizontalLayout(newRect(editorRowHeight, 0, result.bounds.width - editorRowHeight, editorRowHeight))
-  horLayout.autoresizingMask = {afFlexibleWidth, afFlexibleMaxY}
-  result.addSubview(horLayout)
-
-  let colorPicker = sharedColorPicker()
   proc complexSetter() {.gcsafe.} =
     try:
-      let c = newColor(
-        TextField(horLayout.subviews[0]).text.parseFloat(),
-        TextField(horLayout.subviews[1]).text.parseFloat(),
-        TextField(horLayout.subviews[2]).text.parseFloat(),
-        TextField(horLayout.subviews[3]).text.parseFloat(),
-        )
-      setter(c)
-      colorView.backgroundColor = c
-      colorPicker.color = c
+      var val = newVector2(xComp.text.parseFloat(), yComp.text.parseFloat())
+      setter(val)
     except ValueError:
-      discard
+      return
 
-  colorInColorPickerSelected = proc() =
-    var c = colorPicker.color
-    TextField(horLayout.subviews[0]).text = toStr(c.r, 2)
-    TextField(horLayout.subviews[1]).text = toStr(c.g, 2)
-    TextField(horLayout.subviews[2]).text = toStr(c.b, 2)
-    c.a = try: TextField(horLayout.subviews[3]).text.parseFloat() except: 1.0
-    setter(c)
-    colorView.backgroundColor = c
+proc newVector3PropertyView(setter: proc(s: Vector3) {.gcsafe.}, getter: proc(): Vector3 {.gcsafe.}): PropertyEditorView =
+  proc complexSetter() {.gcsafe.}
+  result = PropertyEditorView.new()
+  let val = getter()
+  result.makeLayout:
+    - NumericTextField as xComp:
+      y == super.y
+      x == super.x
+      width == super * 0.33
+      height == editorRowHeight
+      height == super
+      name: "#0"
+      font: editorFont()
+      text: toStr(val[0], xComp.precision)
+      onAction:
+        complexSetter()
 
-  beginColorPicker = proc() {.gcsafe.} =
-    colorPicker.color = getter()
-    colorPicker.onAction colorInColorPickerSelected
-    colorPicker.popupAtPoint(colorView, newPoint(0, colorView.bounds.maxY))
+    - NumericTextField as yComp:
+      y == super.y
+      leading == prev.trailing
+      width == prev
+      height == prev
+      name: "#1"
+      font: editorFont()
+      text: toStr(val[1], xComp.precision)
+      onAction:
+        complexSetter()
 
-  proc endColorPicker() =
-    colorPicker.removeFromSuperview()
+    - NumericTextField as zComp:
+      y == super.y
+      leading == prev.trailing
+      width == prev
+      height == prev
+      name: "#2"
+      font: editorFont()
+      text: toStr(val[2], xComp.precision)
+      onAction:
+        complexSetter()
 
-  template toVector(c: Color): Vector4 = newVector4(c.r, c.g, c.b, c.a)
+  proc complexSetter() {.gcsafe.} =
+    try:
+      var val = newVector3(xComp.text.parseFloat(), yComp.text.parseFloat(), zComp.text.parseFloat())
+      setter(val)
+    except ValueError:
+      return
 
-  for i in 0 ..< vecLen:
-    let textField = ColorComponentTextField.new(zeroRect)
-    textField.font = editorFont()
-    textField.text = toStr(getter().toVector[i], textField.precision)
-    textField.onAction complexSetter
-    textField.onBecomeFirstResponder = beginColorPicker
-    textField.onResignFirstResponder = endColorPicker
-    textField.continuous = true
-    horLayout.addSubview(textField)
+proc newVector4PropertyView(setter: proc(s: Vector4) {.gcsafe.}, getter: proc(): Vector4 {.gcsafe.}): PropertyEditorView =
+  proc complexSetter() {.gcsafe.}
+  result = PropertyEditorView.new()
+  let val = getter()
+  result.makeLayout:
+    - NumericTextField as xComp:
+      y == super.y
+      x == super.x
+      width == super * 0.25
+      height == editorRowHeight
+      name: "#0"
+      font: editorFont()
+      text: toStr(val[0], xComp.precision)
+      onAction:
+        complexSetter()
+
+    - NumericTextField as yComp:
+      y == super.y
+      x == prev.x + prev.width
+      width == super * 0.25
+      height == editorRowHeight
+      name: "#1"
+      font: editorFont()
+      text: toStr(val[1], xComp.precision)
+      onAction:
+        complexSetter()
+
+    - NumericTextField as zComp:
+      y == super.y
+      x == prev.x + prev.width
+      width == super * 0.25
+      height == editorRowHeight
+      name: "#2"
+      font: editorFont()
+      text: toStr(val[2], xComp.precision)
+      onAction:
+        complexSetter()
+
+    - NumericTextField as wComp:
+      y == super.y
+      x == prev.x + prev.width
+      width == super * 0.25
+      height == editorRowHeight
+      bottom == super
+      name: "#3"
+      font: editorFont()
+      text: toStr(val[3], xComp.precision)
+      onAction:
+        complexSetter()
+
+  proc complexSetter() {.gcsafe.} =
+    try:
+      var val = newVector4(xComp.text.parseFloat(), yComp.text.parseFloat(), zComp.text.parseFloat(), wComp.text.parseFloat())
+      setter(val)
+    except ValueError:
+      return
 
 proc newRectPropertyView(setter: proc(s: Rect) {.gcsafe.}, getter: proc(): Rect {.gcsafe.}): PropertyEditorView =
-  newVecPropertyView(
+  newVector4PropertyView(
     proc(v: Vector4) {.gcsafe.} = setter(newRect(v.x, v.y, v.z, v.w)),
     proc(): Vector4 {.gcsafe.} =
       let s = getter()
@@ -169,7 +210,7 @@ proc newRectPropertyView(setter: proc(s: Rect) {.gcsafe.}, getter: proc(): Rect 
       )
 
 proc newSizePropertyView(setter: proc(s: Size) {.gcsafe.}, getter: proc(): Size {.gcsafe.}): PropertyEditorView =
-  newVecPropertyView(
+  newVector2PropertyView(
     proc(v: Vector2) {.gcsafe.} = setter(newSize(v.x, v.y)),
     proc(): Vector2 {.gcsafe.} =
       let s = getter()
@@ -177,84 +218,132 @@ proc newSizePropertyView(setter: proc(s: Size) {.gcsafe.}, getter: proc(): Size 
       )
 
 proc newPointPropertyView(setter: proc(s: Point) {.gcsafe.}, getter: proc(): Point {.gcsafe.}): PropertyEditorView =
-  newVecPropertyView(
+  newVector2PropertyView(
     proc(v: Vector2) = setter(newPoint(v.x, v.y)),
     proc(): Vector2 =
       let s = getter()
       result = newVector2(s.x, s.y)
       )
 
-when not defined(android) and not defined(ios):
-  proc newImagePropertyView(setter: proc(s: Image) {.gcsafe.}, getter: proc(): Image {.gcsafe.}): PropertyEditorView =
-    var loadedImage = getter()
-    var pv: PropertyEditorView
-    if not loadedImage.isNil:
-      let previewSize = 48.0
-      pv = PropertyEditorView.new(newRect(0, 0, 208, editorRowHeight + 6 + previewSize))
 
-      let imgButton = newImageButton(pv, newPoint(0, editorRowHeight + 3), newSize(previewSize, previewSize), loadedImage)
-      imgButton.onAction do():
-        let imgPreview = newImagePreview(newRect(0, 0, 200, 200), loadedImage)
-        imgPreview.popupAtPoint(pv, newPoint(-10, 0))
+proc newColorPropertyView(setter: proc(s: Color) {.gcsafe.}, getter: proc(): Color {.gcsafe.}): PropertyEditorView =
+  var r = new (PropertyEditorView)
+  proc complexSetter() {.gcsafe.}
+  proc pickerSetter(c: Color) {.gcsafe.}
+  var val = getter()
+  var colorPickerView: ColorPickerView
+  var pickerSuperView: View
+  var pickerPlaceholder: View
 
-      let label = newLabel(newRect(previewSize + 5, editorRowHeight + 5 + editorRowHeight, 100, 15))
-      label.text = "S: " & $int(loadedImage.size.width) & " x " & $int(loadedImage.size.height)
-      label.textColor = newGrayColor(0.9)
-      pv.addSubview(label)
+  colorPickerView = new (ColorPickerView)
+  colorPickerView.makeLayout:
+    frame == super
+    height == 150
+    backgroundColor: newGrayColor(0.5)
+    color: val
+    onAction:
+      pickerSetter(colorPickerView.color)
 
-      let removeButton = Button.new(newRect(previewSize + 5, editorRowHeight + 3, editorRowHeight, editorRowHeight))
-      removeButton.title = "-"
-      pv.addSubview(removeButton)
-      removeButton.onAction do() {.gcsafe.}:
-        setter(nil)
-        if not pv.changeInspector.isNil:
-          pv.changeInspector()
-    else:
-      pv = PropertyEditorView.new(newRect(0, 0, 208, editorRowHeight))
+  r.makeLayout:
+    - Button as collapse:
+      top == super
+      leading == super
+      width == editorRowHeight
+      height == editorRowHeight
+      title:"▶"
+      hasBezel: false
+      onAction:
+        if not colorPickerView.superview.isNil:
+          collapse.title = "▶"
+          colorPickerView.removeFromSuperview()
+          pickerSuperView.addSubview(pickerPlaceholder)
+        else:
+          collapse.title = "▼"
+          pickerPlaceholder.removeFromSuperView()
+          pickerSuperView.addSubview(colorPickerView)
 
-    let b = Button.new(newRect(0, 0, 208, editorRowHeight))
-    b.autoresizingMask = {afFlexibleWidth, afFlexibleMaxY}
-    b.title = "Open image..."
-    b.onAction do():
-      when defined(js):
-        alert(window, "Files can be opened only in native editor version")
-      elif defined(emscripten):
-        discard
-      else:
-        var di: DialogInfo
-        di.title = "Select image"
-        di.kind = dkOpenFile
-        di.filters = @[(name:"PNG", ext:"*.png")]
-        let path = di.show()
-        echo "get path (", path, ")", path.len > 0
-        if path.len > 0:
+    - View as cpvSuper:
+      top == prev
+      leading == prev.trailing
+      trailing == super
+      - View as cpvPlac:
+        frame == super
+        height == editorRowHeight
 
-          var i: Image
-          try:
-            i = imageWithContentsOfFile(path)
-          except:
-            logi "Image could not be loaded: ", path
-          if not i.isNil:
-            setter(i)
-            if not pv.changeInspector.isNil:
-              pv.changeInspector()
+    - Label:
+      text: "RGBA per component:"
+      font: editorFont()
+      top == prev.bottom
+      leading == super
+      trailing == super
+      height == editorRowHeight
 
-    result = pv
-    result.addSubview(b)
+    - NumericTextField as xComp:
+      top == prev.bottom
+      bottom == super
+      leading == super
+      width == super * 0.25
+      height == editorRowHeight
+      name: "#0"
+      font: editorFont()
+      text: toStr(val[0], xComp.precision)
+      onAction:
+        complexSetter()
 
-  registerPropertyEditor(newImagePropertyView)
+    - NumericTextField as yComp:
+      top == prev
+      width == prev
+      leading == prev.trailing
+      height == editorRowHeight
+      name: "#1"
+      font: editorFont()
+      text: toStr(val[1], xComp.precision)
+      onAction:
+        complexSetter()
 
-proc newBoolPropertyView(setter: proc(s: bool) {.gcsafe.}, getter: proc(): bool {.gcsafe.} ): PropertyEditorView =
-  let pv = PropertyEditorView.new(newRect(0, 0, 208, editorRowHeight))
-  let cb = newCheckbox(newRect(0, 0, editorRowHeight, editorRowHeight))
-  cb.value = if getter(): 1 else: 0
-  cb.onAction do():
-    setter(cb.boolValue)
-  result = pv
-  result.addSubview(cb)
+    - NumericTextField as zComp:
+      top == prev
+      width == prev
+      leading == prev.trailing
+      height == editorRowHeight
+      name: "#2"
+      font: editorFont()
+      text: toStr(val[2], xComp.precision)
+      onAction:
+        complexSetter()
+
+    - NumericTextField as wComp:
+      top == prev
+      width == prev
+      leading == prev.trailing
+      height == editorRowHeight
+      name: "#3"
+      font: editorFont()
+      text: toStr(val[3], xComp.precision)
+      onAction:
+        complexSetter()
+
+  pickerSuperView = cpvSuper
+  pickerPlaceholder = cpvPlac
+
+  proc complexSetter() {.gcsafe.} =
+    try:
+      var color = newColor(xComp.text.parseFloat(), yComp.text.parseFloat(), zComp.text.parseFloat(), wComp.text.parseFloat())
+      setter(color)
+      colorPickerView.color = color
+    except ValueError:
+      return
+
+  proc pickerSetter(c: Color) {.gcsafe.} =
+    xComp.text = toStr(c.r, xComp.precision)
+    yComp.text = toStr(c.g, yComp.precision)
+    zComp.text = toStr(c.b, zComp.precision)
+    wComp.text = toStr(c.a, wComp.precision)
+    setter(c)
+
+  result = r
 
 proc newEnumPropertyView(setter: proc(s: EnumValue) {.gcsafe.}, getter: proc(): EnumValue {.gcsafe.} ): PropertyEditorView =
-  let pv = PropertyEditorView.new(newRect(0, 0, 208, editorRowHeight))
   var val = getter()
   var items = newSeq[string]()
   for k, v in val.possibleValues:
@@ -267,121 +356,20 @@ proc newEnumPropertyView(setter: proc(s: EnumValue) {.gcsafe.}, getter: proc(): 
       startVal = i
       break
 
-  var enumChooser = newPopupButton(pv,
-    newPoint(0.0, 0.0), newSize(208, editorRowHeight),
-    items, startVal)
+  var r = new(PropertyEditorView)
+  r.makeLayout:
+    - PopupButton as selector:
+      frame == super
+      height == editorRowHeight
+      items: items
+      selectedIndex: startVal
+      onAction:
+        val.curValue = val.possibleValues[selector.selectedItem()]
+        setter(val)
 
-  enumChooser.autoresizingMask = {afFlexibleWidth, afFlexibleMaxY}
-
-  enumChooser.onAction do():
-    val.curValue = val.possibleValues[enumChooser.selectedItem()]
-    setter(val)
-    if not pv.changeInspector.isNil:
-      pv.changeInspector()
-
-  result = pv
-
-proc newScalarSeqPropertyView[T](setter: proc(s: seq[T]) {.gcsafe.} , getter: proc(): seq[T] {.gcsafe.}): PropertyEditorView =
-  var val = getter()
-  var height = val.len() * 26 + 26
-  let pv = PropertyEditorView.new(newRect(0, 0, 208, height.Coord))
-
-  proc onValChange() =
-    setter(val)
-
-  proc onSeqChange() =
-    onValChange()
-    if not pv.changeInspector.isNil:
-      pv.changeInspector()
-
-  var y = 0.Coord
-  for i in 0 ..< val.len:
-    closureScope:
-      let index = i
-      let tf = newNumericTextField(newRect(0.Coord, y, 150, editorRowHeight))
-      tf.font = editorFont()
-      pv.addSubview(tf)
-      tf.text = toStr(val[i], tf.precision)
-      tf.onAction do():
-        if index < val.len:
-          fromStr(tf.text, val[index])
-          onValChange()
-
-      let removeButton = Button.new(newRect(153, y, editorRowHeight, editorRowHeight))
-      removeButton.title = "-"
-      pv.addSubview(removeButton)
-      removeButton.onAction do():
-        val.delete(index)
-        onSeqChange()
-
-      y += 18
-
-  let addButton = Button.new(newRect(153, y, editorRowHeight, editorRowHeight))
-  addButton.title = "+"
-  pv.addSubview(addButton)
-  addButton.onAction do():
-    val.add(0.0)
-    onSeqChange()
-
-  result = pv
-
-# proc newSeqPropertyView[I: static[int], T](setter: proc(s: seq[TVector[I, T]]), getter: proc(): seq[TVector[I, T]]): PropertyEditorView =
-proc newSeqPropertyView[T](setter: proc(s: seq[T]) {.gcsafe.}, getter: proc(): seq[T] {.gcsafe.}): PropertyEditorView =
-  var val = getter()
-  var height = val.len() * 26 + 26
-  let pv = PropertyEditorView.new(newRect(0, 0, 208, height.Coord))
-  const vecLen = high(T) + 1
-
-  proc onValChange() {.gcsafe.} =
-    setter(val)
-
-  proc onSeqChange() {.gcsafe.} =
-    onValChange()
-    if not pv.changeInspector.isNil:
-      pv.changeInspector()
-
-  var x = 0.Coord
-  var y = 0.Coord
-  for i in 0 ..< val.len:
-    closureScope:
-      let index = i
-      var vecVal = val[i]
-
-      x = 0.Coord
-      for j in 0 ..< vecLen:
-        closureScope:
-          let jIndex = j
-          let tf = newNumericTextField(newRect(x, y, 35, editorRowHeight))
-          tf.font = editorFont()
-          x += 37
-          pv.addSubview(tf)
-          tf.text = toStr(vecVal[j], tf.precision)
-          tf.onAction do():
-            if index < val.len:
-              val[index][jIndex] = tf.text.parseFloat()
-              onValChange()
-
-      let removeButton = Button.new(newRect(x, y, editorRowHeight, editorRowHeight))
-      removeButton.title = "-"
-      pv.addSubview(removeButton)
-      removeButton.onAction do():
-        val.delete(index)
-        onSeqChange()
-
-      y += editorRowHeight + 2
-
-  let addButton = Button.new(newRect(x, y, editorRowHeight, editorRowHeight))
-  addButton.title = "+"
-  pv.addSubview(addButton)
-  addButton.onAction do():
-    var newVal : TVector[vecLen, Coord]
-    val.add(newVal)
-    onSeqChange()
-
-  result = pv
+  result = r
 
 proc newFontPropertyView(setter: proc(s: Font) {.gcsafe.}, getter: proc(): Font {.gcsafe.}): PropertyEditorView =
-  result = PropertyEditorView.new(newRect(0, 0, 208, editorRowHeight))
   var val = getter()
   var items = getAvailableFonts()
   var fontSize = 16.0
@@ -395,34 +383,119 @@ proc newFontPropertyView(setter: proc(s: Font) {.gcsafe.}, getter: proc(): Font 
       startVal = i
       break
 
-  var enumChooser = newPopupButton(result,
-    newPoint(0.0, 0.0), newSize(208, editorRowHeight),
-    items, startVal)
+  var r = new(PropertyEditorView)
+  r.makeLayout:
+    - PopupButton as selector:
+      frame == super
+      height == editorRowHeight
+      items: items
+      selectedIndex: startVal
+      onAction:
+        let val = newFontWithFace(selector.selectedItem(), fontSize)
+        setter(val)
 
-  enumChooser.autoresizingMask = {afFlexibleWidth, afFlexibleMaxY}
+  result = r
 
-  enumChooser.onAction do():
-    let val = newFontWithFace(enumChooser.selectedItem(), fontSize)
-    setter(val)
+when not defined(android) and not defined(ios):
+  proc newImagePropertyView(setter: proc(s: Image) {.gcsafe.}, getter: proc(): Image {.gcsafe.}): PropertyEditorView =
+    var loadedImage = getter()
+    let r = new(PropertyEditorView)
+    r.makeLayout:
+      - Button as imagePlac:
+        top == super
+        leading == super
+        width == 128
+        height == 128
+        hasBezel: false
+        image: loadedImage
+        backgroundColor: newColor(0.222, 0.444, 0.666)
+        onAction:
+          if imagePlac.image.isNil:
+            return
 
+          var imagePreview = new(ImagePreview)
+          imagePreview.image = imagePlac.image
+          imagePreview.popupAtCenterOfWindow()
+
+      - View:
+        top == super
+        bottom == super
+        leading == prev.trailing
+        trailing == super
+        height == prev
+        - Label:
+          top == super
+          leading == super
+          trailing == super
+          height == editorRowHeight
+          text: "Size:"
+        - Label as widthLabel:
+          top == prev.bottom
+          leading == prev
+          trailing == prev
+          height == prev
+          text: "w:"
+        - Label as heightLabel:
+          top == prev.bottom
+          leading == prev
+          trailing == prev
+          height == prev
+          text: "h:"
+        - Button as openBtn:
+          # top == prev.bottom
+          leading == prev
+          trailing == super
+          height == 20
+          bottom == super.bottom
+          title: "open image"
+          onAction:
+            when defined(js):
+              alert(window, "Files can be opened only in native editor version")
+            elif defined(emscripten):
+              discard
+            else:
+              var di: DialogInfo
+              di.title = "Select image"
+              di.kind = dkOpenFile
+              di.filters = @[(name:"PNG", ext:"*.png")]
+              let path = di.show()
+              echo "get path (", path, ")", path.len > 0
+              if path.len > 0:
+                var i: Image
+                try:
+                  i = imageWithContentsOfFile(path)
+                  imagePlac.image = i
+                  widthLabel.text = "w:" & $i.size.width
+                  heightLabel.text = "h:" & $i.size.height
+                except:
+                  logi "Image could not be loaded: ", path
+                if not i.isNil:
+                  setter(i)
+                  # if not pv.changeInspector.isNil:
+                  #   pv.changeInspector()
+
+    if not loadedImage.isNil:
+      widthLabel.text = "w:" & $loadedImage.size.width
+      heightLabel.text = "h:" & $loadedImage.size.height
+    result = r
+  registerPropertyEditor(newImagePropertyView)
 
 registerPropertyEditor(newTextPropertyView)
 registerPropertyEditor(newScalarPropertyView[Coord])
 registerPropertyEditor(newScalarPropertyView[float])
+registerPropertyEditor(newScalarPropertyView[float32])
 registerPropertyEditor(newScalarPropertyView[int])
 registerPropertyEditor(newScalarPropertyView[int16])
-registerPropertyEditor(newVecPropertyView[Vector2])
-registerPropertyEditor(newVecPropertyView[Vector3])
-registerPropertyEditor(newVecPropertyView[Vector4])
+registerPropertyEditor(newScalarPropertyView[int32])
+registerPropertyEditor(newVector2PropertyView)
+registerPropertyEditor(newVector3PropertyView)
+registerPropertyEditor(newVector4PropertyView)
 registerPropertyEditor(newColorPropertyView)
 registerPropertyEditor(newSizePropertyView)
 registerPropertyEditor(newRectPropertyView)
 registerPropertyEditor(newPointPropertyView)
 registerPropertyEditor(newBoolPropertyView)
 registerPropertyEditor(newEnumPropertyView)
-registerPropertyEditor(newScalarSeqPropertyView[float])
-registerPropertyEditor(newSeqPropertyView[TVector[4, Coord]])
-registerPropertyEditor(newSeqPropertyView[TVector[5, Coord]])
 registerPropertyEditor(newFontPropertyView)
 
 
@@ -437,3 +510,106 @@ template initPropertyEditor*(v: View, eo: untyped, propName: string, property: u
     v.addSubview(propertyEditorForProperty(o, visitor.name, visitor.setterAndGetter))
 
   visitor.visitProperty(propName, property)
+
+# registerPropertyEditor(newScalarSeqPropertyView[float])
+# registerPropertyEditor(newSeqPropertyView[TVector[4, Coord]])
+# registerPropertyEditor(newSeqPropertyView[TVector[5, Coord]])
+
+# proc newScalarSeqPropertyView[T](setter: proc(s: seq[T]) {.gcsafe.} , getter: proc(): seq[T] {.gcsafe.}): PropertyEditorView =
+#   var val = getter()
+#   var height = val.len() * 26 + 26
+#   let pv = PropertyEditorView.new(newRect(0, 0, 208, height.Coord))
+
+#   proc onValChange() =
+#     setter(val)
+
+#   proc onSeqChange() =
+#     onValChange()
+#     if not pv.changeInspector.isNil:
+#       pv.changeInspector()
+
+#   var y = 0.Coord
+#   for i in 0 ..< val.len:
+#     closureScope:
+#       let index = i
+#       let tf = newNumericTextField(newRect(0.Coord, y, 150, editorRowHeight))
+#       tf.font = editorFont()
+#       pv.addSubview(tf)
+#       tf.text = toStr(val[i], tf.precision)
+#       tf.onAction do():
+#         if index < val.len:
+#           fromStr(tf.text, val[index])
+#           onValChange()
+
+#       let removeButton = Button.new(newRect(153, y, editorRowHeight, editorRowHeight))
+#       removeButton.title = "-"
+#       pv.addSubview(removeButton)
+#       removeButton.onAction do():
+#         val.delete(index)
+#         onSeqChange()
+
+#       y += 18
+
+#   let addButton = Button.new(newRect(153, y, editorRowHeight, editorRowHeight))
+#   addButton.title = "+"
+#   pv.addSubview(addButton)
+#   addButton.onAction do():
+#     val.add(0.0)
+#     onSeqChange()
+
+#   result = pv
+
+# # proc newSeqPropertyView[I: static[int], T](setter: proc(s: seq[TVector[I, T]]), getter: proc(): seq[TVector[I, T]]): PropertyEditorView =
+# proc newSeqPropertyView[T](setter: proc(s: seq[T]) {.gcsafe.}, getter: proc(): seq[T] {.gcsafe.}): PropertyEditorView =
+#   var val = getter()
+#   var height = val.len() * 26 + 26
+#   let pv = PropertyEditorView.new(newRect(0, 0, 208, height.Coord))
+#   const vecLen = high(T) + 1
+
+#   proc onValChange() {.gcsafe.} =
+#     setter(val)
+
+#   proc onSeqChange() {.gcsafe.} =
+#     onValChange()
+#     if not pv.changeInspector.isNil:
+#       pv.changeInspector()
+
+#   var x = 0.Coord
+#   var y = 0.Coord
+#   for i in 0 ..< val.len:
+#     closureScope:
+#       let index = i
+#       var vecVal = val[i]
+
+#       x = 0.Coord
+#       for j in 0 ..< vecLen:
+#         closureScope:
+#           let jIndex = j
+#           let tf = newNumericTextField(newRect(x, y, 35, editorRowHeight))
+#           tf.font = editorFont()
+#           x += 37
+#           pv.addSubview(tf)
+#           tf.text = toStr(vecVal[j], tf.precision)
+#           tf.onAction do():
+#             if index < val.len:
+#               val[index][jIndex] = tf.text.parseFloat()
+#               onValChange()
+
+#       let removeButton = Button.new(newRect(x, y, editorRowHeight, editorRowHeight))
+#       removeButton.title = "-"
+#       pv.addSubview(removeButton)
+#       removeButton.onAction do():
+#         val.delete(index)
+#         onSeqChange()
+
+#       y += editorRowHeight + 2
+
+#   let addButton = Button.new(newRect(x, y, editorRowHeight, editorRowHeight))
+#   addButton.title = "+"
+#   pv.addSubview(addButton)
+#   addButton.onAction do():
+#     var newVal : TVector[vecLen, Coord]
+#     val.add(newVal)
+#     onSeqChange()
+
+#   result = pv

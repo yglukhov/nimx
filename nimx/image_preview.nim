@@ -1,80 +1,67 @@
-import math
-
-import ./[font, image, button, view, event, panel_view, context, types]
-import ./meta_extensions/[ property_desc, visitors_gen, serializers_gen ]
-
+import std/math
+import ./[font, image, button, view, event, context, types, layout, app, view_event_handling, clip_view]
 
 const titleSize = 20.0
 const bottomSize = 30.0
 const maxSize = 768.0
-const minSize = 128.0
+const minSize = 512.0
 
-type ImagePreview* = ref object of PanelView
+type ImagePreview* = ref object of View
   image*: Image
-  title*: string
-  contentView* {.deprecated.}: View
-  imgScale*: float
-  imageRect*: Rect
+  imageRect: Rect
+  scaleOverride: float
+  positionOverride: Point
+  draggingStart: Point
 
-#todo: fix this, make image setter
-method init*(v: ImagePreview, r: Rect) =
-  let maxLen = max(v.image.size.width, v.image.size.height)
-  var scale = 1.0
-  if maxLen > maxSize:
-    scale = maxSize / maxLen
-
-  var content = newSize(v.image.size.width * scale, v.image.size.height * scale)
-  if v.image.size.width < minSize:
-    content.width = minSize
-  if v.image.size.height < minSize:
-    content.height = minSize
-
-  var viewRect: Rect
-  viewRect.size.width = content.width + 2.0
-  viewRect.size.height = content.height + titleSize + 1.0 + 30.0
-
-  procCall v.PanelView.init(viewRect)
+method init*(v: ImagePreview) =
+  procCall v.View.init()
   v.backgroundColor = newColor(0.2, 0.2, 0.2, 1.0)
-  v.title = "Image Preview"
-  v.imgScale = scale
-
-  let closeBttn = newButton(v, newPoint(viewRect.width - 16.0 - 1.0, 1.0), newSize(16, 16), "X")
-  closeBttn.autoresizingMask = {afFlexibleMinX, afFlexibleMaxY}
-  closeBttn.onAction do():
-    v.removeFromSuperview()
-
-proc newImagePreview*(r: Rect, img: Image): ImagePreview =
-  result.new()
-  result.image = img
-  result.init(r)
+  v.scaleOverride = 1.0
 
 method draw*(v: ImagePreview, r: Rect) =
-  procCall v.PanelView.draw(r)
+  procCall v.View.draw(r)
+  if v.image.isNil:
+    return
+
   let c = currentContext()
   let f = systemFontOfSize(14.0)
+
   var titleRect: Rect
   titleRect.size.width = r.width
   titleRect.size.height = titleSize
-  c.fillColor = newColor(0.2, 0.2, 0.2)
-  c.drawRect(titleRect)
 
   var contentRect: Rect
   contentRect.origin.x = 1.0
   contentRect.origin.y = titleSize
   contentRect.size.width = r.width - 2.0
   contentRect.size.height = r.height - titleSize - bottomSize - 1.0
+
+  var bottomRect: Rect
+  bottomRect.origin.x = 1
+  bottomRect.origin.y = contentRect.size.height + contentRect.origin.y + 1.0
+  bottomRect.size.width = contentRect.size.width
+  bottomRect.size.height = bottomSize
+
   c.fillColor = newColor(0.5, 0.5, 0.5)
   c.drawRect(contentRect)
 
-  c.fillColor = newColor(0.9, 0.9, 0.9)
-  c.drawText(f, newPoint(5, 1), v.title)
-
-  # Draw Image
-  v.imageRect.origin.x = 1.0
-  v.imageRect.origin.y = titleSize
-  v.imageRect.size.width = v.image.size.width * v.imgScale
-  v.imageRect.size.height = v.image.size.height * v.imgScale
+  var maxSide = max(v.image.size.width, v.image.size.height)
+  var scale = 1.0
+  if maxSide > maxSize:
+    scale = maxSize / maxSide
+  if maxSide < minSize:
+    scale =  minSize / maxSide
+  v.imageRect.size.width = v.image.size.width * scale * v.scaleOverride
+  v.imageRect.size.height = v.image.size.height * scale * v.scaleOverride
+  v.imageRect.origin.x = (v.frame.size.width - v.imageRect.size.width) * 0.5 + v.positionOverride.x
+  v.imageRect.origin.y = titleSize + (v.frame.size.height - v.imageRect.size.height) * 0.5 + v.positionOverride.y
   c.drawImage(v.image, v.imageRect)
+
+  c.fillColor = newColor(0.2, 0.2, 0.2)
+  c.drawRect(titleRect)
+  c.drawRect(bottomRect)
+  c.fillColor = newColor(0.9, 0.9, 0.9)
+  c.drawText(f, newPoint(5, 1), "Image preview")
 
   # Draw Info
   let sizeInfo = "Size: " & $v.image.size.width & " x " & $v.image.size.height
@@ -84,34 +71,61 @@ method draw*(v: ImagePreview, r: Rect) =
   if v.image.filePath.len != 0:
     pathInfo = "Path: " & $v.image.filePath
   c.drawText(f, newPoint(5, r.height - bottomSize), pathInfo)
+  # c.drawText(f, newPoint(5, r.height - bottomSize), pathInfo)
 
-# method onTouchEv*(v: ImagePreview, e: var Event) : bool =
-#   discard procCall v.PanelView.onTouchEv(e)
-  # if  e.localPosition
-#   result = true
-
-# method onScroll*(v: ImagePreview, e: var Event): bool =
-#   v.imgScale += (e.offset.y / 300.0)
-#   result = true
-
-proc popupAtPoint*(ip: ImagePreview, v: View, p: Point) =
-  ip.removeFromSuperview()
-  var origin: Point
-  origin = v.convertPointToWindow(p)
-  if origin.x > v.window.bounds.size.width / 2.0:
-    origin.x -= ip.image.size.width * ip.imgScale
+method onTouchEv*(v: ImagePreview, e: var Event) : bool =
+  discard procCall v.View.onTouchEv(e)
+  if e.buttonState == bsDown:
+    v.draggingStart = e.localPosition - v.positionOverride
+  elif e.buttonState == bsUp:
+    discard
   else:
-    origin.x += 50.0
-  origin.y = 35.0
-  ip.setFrameOrigin(origin)
-  v.window.addSubview(ip)
+    v.positionOverride = e.localPosition - v.draggingStart
+  result = true
 
-ImagePreview.properties:
-  image
-  title
-  imgScale
-  imageRect
+method onScroll*(v: ImagePreview, e: var Event): bool =
+  v.scaleOverride = clamp(v.scaleOverride + (e.offset.y / 300.0), 0.1, 10.0)
+  result = true
 
-registerClass(ImagePreview)
-genVisitorCodeForView(ImagePreview)
-genSerializeCodeForView(ImagePreview)
+proc addOriginConstraints(w: Window, v: View, desiredOrigin: Point) =
+  let w = mainApplication().keyWindow
+  var wp = desiredOrigin
+  v.addConstraint(modifyStrength(selfPHS.x == wp.x, MEDIUM))
+  v.addConstraint(modifyStrength(selfPHS.y == wp.y, MEDIUM))
+  v.addConstraint(selfPHS.leading >= w.layout.vars.leading)
+  v.addConstraint(selfPHS.trailing <= w.layout.vars.trailing)
+  v.addConstraint(selfPHS.top >= w.layout.vars.top)
+  v.addConstraint(selfPHS.bottom <= w.layout.vars.bottom)
+
+proc popupAtPoint*(v: ImagePreview, p: Point) =
+  if v.image.isNil:
+    return
+
+  var parent = new(ClipView)
+  let w = mainApplication().keyWindow
+  w.addOriginConstraints(parent, p)
+  var targetW = max(min(v.image.size.width, maxSize), minSize)
+  var targetH = max(min(v.image.size.height, maxSize), minSize)
+  parent.makeLayout:
+    width == targetW
+    height == targetH
+  v.makeLayout:
+    frame == super
+    - Button as close:
+      top == super
+      trailing == super
+      width == 20
+      height == 20
+      title:"X"
+      onAction:
+        parent.removeFromSuperview()
+  parent.addSubview(v)
+  w.addSubview(parent)
+
+proc popupAtCenterOfWindow*(v: ImagePreview) =
+  let w = mainApplication().keyWindow
+  var targetW = max(min(v.image.size.width, maxSize), minSize)
+  var targetH = max(min(v.image.size.height, maxSize), minSize)
+  var x = w.frame.width - min(targetW, w.frame.size.width - 50)
+  var y = w.frame.height - min(targetH, w.frame.size.height - 50)
+  v.popupAtPoint(newPoint(x * 0.5, y * 0.5))
