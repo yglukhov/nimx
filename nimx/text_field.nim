@@ -337,6 +337,9 @@ proc `cursorPosition=`*(t: TextField, pos: int) =
   t.updateCursorOffset()
   t.bumpCursorVisibility()
 
+proc cursorPosition*(t: TextField): int {.inline.} =
+  cursorPos
+
 proc clearSelection(t: TextField) =
   # Clears selected text
   let s = t.selectionRange()

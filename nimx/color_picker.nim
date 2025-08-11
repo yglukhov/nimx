@@ -1,4 +1,4 @@
-import math
+import std/[math, parseutils]
 import strutils
 
 import view
@@ -15,11 +15,6 @@ type
   ColorPickerPalette* {.pure.} = enum
     HSV
 
-  ColorComponent* {.pure.} = enum
-    H
-    S
-    V
-
   ColorView* = ref object of View
     ## Color quad that reacts to outer world
     main: bool  ## Defines if view is main or from history
@@ -35,9 +30,6 @@ type
 
   ColorPickerV* = ref object of View
     ## Value tuning widget
-
-  ColorComponentTextField = ref object of TextField
-    cComponent: ColorComponent
 
   ColorPickerView* = ref object of Control
     ## Complex Widget that allows to pick color using HSV palette
@@ -139,32 +131,11 @@ method draw(cph: ColorPickerH, r: Rect) =
 
 proc colorHasChanged(cpv: ColorPickerView) =
   ## Perform update of ColorPickerView components
-  cpv.tfH.text = formatFloat(cpv.currentColor.h, precision = 3)
-  cpv.tfS.text = formatFloat(cpv.currentColor.s, precision = 3)
-  cpv.tfV.text = formatFloat(cpv.currentColor.v, precision = 3)
+  cpv.tfH.text = formatFloat(cpv.currentColor.h, ffDecimal, 3)
+  cpv.tfS.text = formatFloat(cpv.currentColor.s, ffDecimal, 3)
+  cpv.tfV.text = formatFloat(cpv.currentColor.v, ffDecimal, 3)
   cpv.chosenColorView.backgroundColor = hsvToRGB(cpv.currentColor)
   cpv.setNeedsDisplay()
-
-method onTextInput(ccf: ColorComponentTextField, s: string): bool =
-  discard procCall ccf.TextField.onTextInput(s)
-
-  let val = try: parseFloat(ccf.text)
-        except Exception: -100.0
-  if val == -100.0: return true
-
-  let cpv = ccf.enclosingColorPickerView()
-
-  case ccf.cComponent
-  of ColorComponent.H:
-    cpv.currentColor.h = val
-  of ColorComponent.S:
-    cpv.currentColor.s = val
-  of ColorComponent.V:
-    cpv.currentColor.v = val
-
-  cpv.colorHasChanged()
-
-  return true
 
 method onTouchEv(cph: ColorPickerH, e: var Event): bool {.gcsafe.}=
   let cpv = cph.enclosingColorPickerView()
@@ -338,6 +309,15 @@ method onTouchEv(cv: ColorView, e: var Event): bool =
 
   return true
 
+proc updateColorFromTextField(c: ColorPickerView, tf: TextField, value: var float) =
+  let t = tf.text
+  if parseFloat(t, value) != t.len:
+    value = -100
+  let curp = tf.cursorPosition
+  c.colorHasChanged()
+  tf.text = t
+  tf.cursorPosition = curp
+
 method init*(cpv: ColorPickerView) =
   # Basic Properties Initialization
   procCall cpv.View.init()
@@ -356,12 +336,14 @@ method init*(cpv: ColorPickerView) =
       bottom == labelS.layout.vars.top - margin
       text: "H: "
 
-    - ColorComponentTextField as tfH:
+    - TextField as tfH:
       leading == prev.trailing + margin
       width == 60
       y == prev
       height == prev
-      cComponent: ColorComponent.H
+      continuous: true
+      onAction:
+        updateColorFromTextField(cpv, tFH, cpv.currentColor.h)
 
     - ColorPickerH as cpH:
       leading == prev.trailing + margin
@@ -375,12 +357,14 @@ method init*(cpv: ColorPickerView) =
       bottom == labelV.layout.vars.top - margin
       text: "S: "
 
-    - ColorComponentTextField as tfS:
+    - TextField as tfS:
       leading == prev.trailing + margin
       width == tfH.layout.vars.width
       y == prev
       height == prev
-      cComponent: ColorComponent.S
+      continuous: true
+      onAction:
+        updateColorFromTextField(cpv, tFS, cpv.currentColor.s)
 
     - ColorPickerS as cpS:
       leading == prev.trailing + margin
@@ -394,12 +378,14 @@ method init*(cpv: ColorPickerView) =
       bottom == super - margin
       text: "V: "
 
-    - ColorComponentTextField as tfV:
+    - TextField as tfV:
       leading == prev.trailing + margin
       width == tfH.layout.vars.width
       y == prev
       height == prev
-      cComponent: ColorComponent.V
+      continuous: true
+      onAction:
+        updateColorFromTextField(cpv, tFV, cpv.currentColor.v)
 
     - ColorPickerV as cpB:
       leading == prev.trailing + margin
