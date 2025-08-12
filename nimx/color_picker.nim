@@ -15,6 +15,11 @@ type
   ColorPickerPalette* {.pure.} = enum
     HSV
 
+  ColorComponent* {.pure.} = enum
+    H
+    S
+    V
+
   ColorView* = ref object of View
     ## Color quad that reacts to outer world
     main: bool  ## Defines if view is main or from history
@@ -22,14 +27,8 @@ type
   ColorPickerCircle* = ref object of View
     palette: ColorPickerPalette
 
-  ColorPickerH* = ref object of View
-    ## Hue tuning widget
-
-  ColorPickerS* = ref object of View
-    ## Saturation tuning widget
-
-  ColorPickerV* = ref object of View
-    ## Value tuning widget
+  ColorPickerSlider* = ref object of View
+    comp: ColorComponent
 
   ColorPickerView* = ref object of Control
     ## Complex Widget that allows to pick color using HSV palette
@@ -38,10 +37,6 @@ type
     currentColor: tuple[h, s, v: float]
     circle:      ColorPickerCircle   ## Color picking circle
     chosenColorView: ColorView       ## Quad that shows current color
-
-    cpH: ColorPickerH          ## Hue tuning widget
-    cpS: ColorPickerS          ## Saturation tuning widget
-    cpV: ColorPickerV          ## Value tuning widget
 
     tfH: TextField             ## Hue numerical widget
     tfS: TextField             ## Saturation numerical widget
@@ -104,7 +99,15 @@ proc rgbToHSV*(r: float, g: float, b: float): tuple[h: float, s: float, v: float
 proc hsvToRgb(color: tuple[h: float, s: float, v: float]): Color =
   hsvToRgb(color.h, color.s, color.v)
 
-# ColorPickerH
+proc colorHasChanged(cpv: ColorPickerView) =
+  ## Perform update of ColorPickerView components
+  cpv.tfH.text = formatFloat(cpv.currentColor.h, ffDecimal, 3)
+  cpv.tfS.text = formatFloat(cpv.currentColor.s, ffDecimal, 3)
+  cpv.tfV.text = formatFloat(cpv.currentColor.v, ffDecimal, 3)
+  cpv.chosenColorView.backgroundColor = hsvToRGB(cpv.currentColor)
+  cpv.setNeedsDisplay()
+
+# ColorPickerSlider
 
 const cpHComposition = newComposition """
   uniform float uChosenH;
@@ -121,35 +124,6 @@ const cpHComposition = newComposition """
   }
 """
 
-method draw(cph: ColorPickerH, r: Rect) =
-  ## Drawing Hue picker
-  let c = currentContext()
-  let h = cph.enclosingColorPickerView().currentColor.h
-
-  cpHComposition.draw r:
-    setUniform("uChosenH", h)
-
-proc colorHasChanged(cpv: ColorPickerView) =
-  ## Perform update of ColorPickerView components
-  cpv.tfH.text = formatFloat(cpv.currentColor.h, ffDecimal, 3)
-  cpv.tfS.text = formatFloat(cpv.currentColor.s, ffDecimal, 3)
-  cpv.tfV.text = formatFloat(cpv.currentColor.v, ffDecimal, 3)
-  cpv.chosenColorView.backgroundColor = hsvToRGB(cpv.currentColor)
-  cpv.setNeedsDisplay()
-
-method onTouchEv(cph: ColorPickerH, e: var Event): bool {.gcsafe.}=
-  let cpv = cph.enclosingColorPickerView()
-
-  if e.buttonState == bsUp or true:
-    var h = e.localPosition.x / cph.frame.width
-    h = h.clamp(0.0, 1.0)
-    cpv.currentColor.h = h
-    cpv.colorHasChanged()
-    cpv.sendAction(e)
-
-  return true
-
-# ColorPickerS
 const cpSComposition = newComposition """
   uniform float uHcps;
   uniform float uChosenS;
@@ -166,28 +140,6 @@ const cpSComposition = newComposition """
   }
 """
 
-method draw(cps: ColorPickerS, r: Rect) =
-  ## Drawing Hue picker
-  let c = currentContext()
-  let cc = cps.enclosingColorPickerView().currentColor
-
-  cpSComposition.draw r:
-    setUniform("uHcps", cc.h)
-    setUniform("uChosenS", cc.s)
-
-method onTouchEv(cps: ColorPickerS, e: var Event): bool =
-  let cpv = cps.enclosingColorPickerView()
-
-  if e.buttonState == bsUp or true:
-    var s = e.localPosition.x / cps.frame.width
-    s = s.clamp(0.0, 1.0)
-    cpv.currentColor.s = s
-    cpv.colorHasChanged()
-    cpv.sendAction(e)
-
-  return true
-
-# ColorPickerV
 const cpVComposition = newComposition """
   uniform float uHcpv;
   uniform float uChosenV;
@@ -204,22 +156,37 @@ const cpVComposition = newComposition """
   }
 """
 
-method draw(cpv: ColorPickerV, r: Rect) =
+method draw(cps: ColorPickerSlider, r: Rect) =
   ## Drawing Hue picker
   let c = currentContext()
-  let cc = cpv.enclosingColorPickerView().currentColor
+  let cc = cps.enclosingColorPickerView().currentColor
 
-  cpVComposition.draw r:
-    setUniform("uHcpv", cc.h)
-    setUniform("uChosenV", cc.v)
+  case cps.comp
+  of ColorComponent.H:
+    cpHComposition.draw r:
+      setUniform("uChosenH", cc.h)
+  of ColorComponent.S:
+    cpSComposition.draw r:
+      setUniform("uHcps", cc.h)
+      setUniform("uChosenS", cc.s)
+  of ColorComponent.V:
+    cpVComposition.draw r:
+      setUniform("uHcpv", cc.h)
+      setUniform("uChosenV", cc.v)
 
-method onTouchEv(cpva: ColorPickerV, e: var Event): bool =
-  let cpv = cpva.enclosingColorPickerView()
+method onTouchEv(cps: ColorPickerSlider, e: var Event): bool =
+  let cpv = cps.enclosingColorPickerView()
 
   if e.buttonState == bsUp or true:
-    var v = (e.localPosition.x / cpva.frame.width).clamp(0.0, 1.0)
-    v = v.clamp(0.0, 1.0)
-    cpv.currentColor.v = v
+    var s = e.localPosition.x / cps.frame.width
+    s = s.clamp(0.0, 1.0)
+    case cps.comp
+    of ColorComponent.H:
+      cpv.currentColor.h = s
+    of ColorComponent.S:
+      cpv.currentColor.s = s
+    of ColorComponent.V:
+      cpv.currentColor.v = s
     cpv.colorHasChanged()
     cpv.sendAction(e)
 
@@ -345,11 +312,12 @@ method init*(cpv: ColorPickerView) =
       onAction:
         updateColorFromTextField(cpv, tFH, cpv.currentColor.h)
 
-    - ColorPickerH as cpH:
+    - ColorPickerSlider:
       leading == prev.trailing + margin
       trailing == circle.layout.vars.leading - margin
       y == prev
       height == prev
+      comp: ColorComponent.H
 
     - Label as labelS:
       leading == super + margin
@@ -366,11 +334,12 @@ method init*(cpv: ColorPickerView) =
       onAction:
         updateColorFromTextField(cpv, tFS, cpv.currentColor.s)
 
-    - ColorPickerS as cpS:
+    - ColorPickerSlider:
       leading == prev.trailing + margin
       trailing == circle.layout.vars.leading - margin
       y == prev
       height == prev
+      comp: ColorComponent.S
 
     - Label as labelV:
       leading == super + margin
@@ -387,11 +356,12 @@ method init*(cpv: ColorPickerView) =
       onAction:
         updateColorFromTextField(cpv, tFV, cpv.currentColor.v)
 
-    - ColorPickerV as cpB:
+    - ColorPickerSlider:
       leading == prev.trailing + margin
       trailing == circle.layout.vars.leading - margin
       y == prev
       height == prev
+      comp: ColorComponent.V
 
     - ColorView as selectedColorView:
       leading == super + margin
@@ -402,11 +372,8 @@ method init*(cpv: ColorPickerView) =
   cpv.circle = circle
   cpv.chosenColorView = selectedColorView
   cpv.tfH = tfH
-  cpv.cpH = cpH
   cpv.tfS = tfS
-  cpv.cpS = cpS
   cpv.tfV = tfV
-  cpv.cpV = cpB
   cpv.currentColor = (0.5, 0.5, 0.5)
   cpv.colorHasChanged()
 
