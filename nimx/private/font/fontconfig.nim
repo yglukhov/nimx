@@ -1,4 +1,4 @@
-when defined(js): {.error: "This file is not supposed to be used in JS mode".}
+when defined(js) or defined(wasm): {.error: "This file can not be used in wasm mode".}
 
 import os, dynlib, strutils
 

@@ -192,7 +192,7 @@ const preferredFonts = when defined(js) or defined(windows) or defined(emscripte
       "DejaVuSans"
     ]
 
-when not defined(js):
+when not defined(js) and not defined(wasm):
   import ./private/font/fontconfig
 
 proc getAvailableFonts*(isSystem: bool = false): seq[string] =
@@ -242,7 +242,7 @@ proc systemFontOfSize*(size: float): Font =
     result = newFontWithFace(f, size)
     if result != nil: return
 
-  when not defined(js):
+  when not defined(js) and not defined(wasm):
     error "Could not find system font:"
     for face in preferredFonts:
       for f in potentialFontFilesForFace(face):
