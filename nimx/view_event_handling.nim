@@ -5,6 +5,7 @@ export event
 method onKeyDown*(v: View, e: var Event): bool {.base, gcsafe.} = discard
 method onKeyUp*(v: View, e: var Event): bool {.base, gcsafe.} = discard
 method onTextInput*(v: View, s: string): bool {.base, gcsafe.} = discard
+method onTextEditing*(v: View, s: string): bool {.base, gcsafe.} = discard
 method onGestEvent*(d: GestureDetector, e: var Event): bool {.base, gcsafe.} = discard
 method onScroll*(v: View, e: var Event): bool {.base, gcsafe.} = discard
 
@@ -207,5 +208,7 @@ proc processKeyboardEvent*(v: View, e: var Event): bool =
       result = v.onKeyUp(e)
   of etTextInput:
     result = v.onTextInput(e.text)
+  of etTextEditing:
+    result = v.onTextEditing(e.text)
   else:
     discard

@@ -60,5 +60,8 @@ when isMainModule:
   testDelete("bye", 1, 2, "b")
   testDelete("asdf", 1, 1, "adf")
   testDelete("абвЙ", 1, 2, "аЙ")
+  testDelete("абвЙ", 1, 0, "абвЙ")
+  testDelete("абвЙ", 3, 1, "абвЙ")
+  testDelete("абвЙ", 0, -1, "абвЙ")
 
 
