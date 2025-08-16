@@ -2,15 +2,43 @@ import std/[strutils, tables, algorithm]
 
 import ../[ view, text_field, matrixes, image, button, color_picker,
   context, portable_gl, layout, popup_button, font, property_visitor,
-  numeric_text_field, system_logger, image_preview ]
-
+  numeric_text_field, system_logger, image_preview, drag_and_drop,
+  render_to_image
+]
+import ../pasteboard/pasteboard_item
+import ../assets/asset_loading
 import ./propedit_registry
 import variant
+
 
 when defined(js):
   from dom import alert, window
 elif not defined(android) and not defined(ios):
   import os_files/dialog
+
+type
+  NimxImageEditorDropDelegate* = ref object of DragDestinationDelegate
+    callback: proc(i: Image) {.gcsafe.}
+
+const nimxPbImage* = "nimx.pb.image"
+
+method onDragEnter*(dd: NimxImageEditorDropDelegate, target: View, i: PasteboardItem) =
+  if i.kind == nimxPbImage:
+    target.backgroundColor.a = 0.5
+
+method onDragExit*(dd: NimxImageEditorDropDelegate, target: View, i: PasteboardItem) =
+  if i.kind == nimxPbImage:
+    target.backgroundColor.a = 0.0
+
+method onDrop*(dd: NimxImageEditorDropDelegate, target: View, i: PasteboardItem) =
+  target.backgroundColor.a = 0.0
+  if i.kind == nimxPbImage:
+    loadAsset[Image]("file://" & i.data) do(image: Image, err: string):
+      if image.isNil:
+        echo "Can't load image from ", i.data
+        return
+      if not dd.callback.isNil:
+        dd.callback(image)
 
 template toStr(v: SomeFloat, precision: uint): string = formatFloat(v, ffDecimal, precision)
 template toStr(v: SomeInteger): string = $v
@@ -397,26 +425,60 @@ proc newFontPropertyView(setter: proc(s: Font) {.gcsafe.}, getter: proc(): Font 
   result = r
 
 when not defined(android) and not defined(ios):
+
+  type
+    ButtonImageView = ref object of Button
+      originalImage: Image
+
+  proc `onImageDropped=`(v: ButtonImageView, cb: proc(i: Image){.gcsafe.}) =
+    v.dragDestination.NimxImageEditorDropDelegate.callback = cb
+
+  method init*(v: ButtonImageView) =
+    procCall v.Button.init()
+    v.hasBezel = false
+    v.dragDestination = new(NimxImageEditorDropDelegate)
+
+  method draw*(v: ButtonImageView, r:Rect) =
+    let c = currentContext()
+    c.fillColor = v.backgroundColor
+    c.drawRect(r)
+
+    if v.originalImage.isNil: return
+    if v.image.isNil and v.originalImage.size.width > v.frame.width or v.originalImage.size.height > v.frame.height:
+      let imageSize = min(v.frame.width, v.frame.height)
+      let scale = imageSize / max(v.originalImage.size.width, v.originalImage.size.height)
+      let img = imageWithSize(newSize(imageSize, imageSize))
+      img.draw:
+        c.drawImage(v.originalImage, newRect(1, 1, v.originalImage.size.width * scale - 1, v.originalImage.size.height * scale - 1))
+      v.image = img
+    else:
+      v.image = v.originalImage
+
+    const offset = 2
+    c.drawImage(v.image, newRect(r.x + offset, r.y + offset, r.width - offset*2, r.height - offset*2))
+
   proc newImagePropertyView(setter: proc(s: Image) {.gcsafe.}, getter: proc(): Image {.gcsafe.}): PropertyEditorView =
     var loadedImage = getter()
+    proc imageDropped(i: Image) {.gcsafe.}
     let r = new(PropertyEditorView)
     r.makeLayout:
-      - Button as imagePlac:
+      - ButtonImageView as imagePlac:
         top == super
         leading == super
         width == 128
         height == 128
         hasBezel: false
-        image: loadedImage
         backgroundColor: newColor(0.222, 0.444, 0.666)
+        originalImage: loadedImage
         onAction:
           if imagePlac.image.isNil:
             return
 
           var imagePreview = new(ImagePreview)
-          imagePreview.image = imagePlac.image
+          imagePreview.image = imagePlac.originalImage
           imagePreview.popupAtCenterOfWindow()
-
+        onImageDropped do(i: Image):
+          imageDropped(i)
       - View:
         top == super
         bottom == super
@@ -464,7 +526,8 @@ when not defined(android) and not defined(ios):
                 var i: Image
                 try:
                   i = imageWithContentsOfFile(path)
-                  imagePlac.image = i
+                  imagePlac.originalImage = i
+                  imagePlac.image = nil
                   widthLabel.text = "w:" & $i.size.width
                   heightLabel.text = "h:" & $i.size.height
                 except:
@@ -474,10 +537,18 @@ when not defined(android) and not defined(ios):
                   # if not pv.changeInspector.isNil:
                   #   pv.changeInspector()
 
+    proc imageDropped(i: Image) {.gcsafe.} =
+      imagePlac.originalImage = i
+      imagePlac.image = nil
+      widthLabel.text = "w:" & $i.size.width
+      heightLabel.text = "h:" & $i.size.height
+      setter(i)
+
     if not loadedImage.isNil:
       widthLabel.text = "w:" & $loadedImage.size.width
       heightLabel.text = "h:" & $loadedImage.size.height
     result = r
+
   registerPropertyEditor(newImagePropertyView)
 
 registerPropertyEditor(newTextPropertyView)
