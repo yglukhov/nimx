@@ -377,6 +377,7 @@ proc getByteOffsetsForRunePositions(t: FormattedText, positions: openarray[int],
     r = positions[i]
 
 proc uniDelete*(t: FormattedText, start, stop: int) =
+  if stop < start: return
   t.cacheValid = false
 
   var sa = t.attrIndexForRuneAtPos(start)

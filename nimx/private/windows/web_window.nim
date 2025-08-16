@@ -10,6 +10,7 @@ import nimx/private/js_vk_map
 type WebWindow* = ref object of Window
   renderingContext: GraphicsContext
   canvasId: string
+  textInputCompositionInProgress: bool
 
 proc fullScreenAvailableAux(): int {.importwasmraw: """
   var d = document;
@@ -304,19 +305,33 @@ method onResize*(w: WebWindow, newSize: Size) =
   let vp = w.frame.size * p
   sharedGL().viewport(0, 0, GLSizei(vp.width), GLsizei(vp.height))
 
-proc startTextInputAux(cb: proc(a: JSRef) {.cdecl.}) {.importwasmraw: """
-  if (window.__nimx_textinput === undefined) {
-    var i = window.__nimx_textinput = document.createElement('input');
-    i.type = 'text';
-    i.style.position = 'absolute';
-    i.style.top = '-99999px';
-    document.body.appendChild(i)
-  }
-  window.__nimx_textinput.oninput = () => {
-    _nime._dvi($0, _nimok(window.__nimx_textinput.value));
-    window.__nimx_textinput.value = ""
-  };
-  setTimeout(() => window.__nimx_textinput.focus(), 1)
+proc startTextInputAux(cb: proc(e: int32, a: JSRef) {.cdecl.}, x, y, w, h: float32, canvasId: cstring) {.importwasmraw: """
+  if (window.__nimx_textinput) window.__nimx_textinput.remove();
+  var d = document, i = window.__nimx_textinput = d.createElement('input'),
+  c = d.getElementById(_nimsj($5)),
+  l = (n, k) => i.addEventListener(n, e => _nime._dvii($0, k, _nimok(e.data)));
+
+  i.type = 'text';
+
+  Object.assign(i.style, {
+    position: 'absolute',
+    left: (c.offsetLeft + $1) + 'px',
+    top: (c.offsetTop + $2) + 'px',
+    width: $3 + 'px',
+    height: $4 + 'px',
+    opacity: '0',            // Fully transparent
+    pointerEvents: 'none',   // Not interactive
+    zIndex: 10               // Above canvas
+  });
+
+  d.body.appendChild(i);
+
+  l("input", 0);
+  l("compositionupdate", 1);
+  l("compositionstart", 2);
+  l("compositionend", 3);
+
+  setTimeout(() => i.focus(), 1)
 """.}
 
 proc length(j: JSObj): int {.importwasmp.}
@@ -330,29 +345,45 @@ proc jsStringToStr(v: JSObj): string =
       let actualSz = strWriteOut(v, addr result[0], sz)
       result.setLen(actualSz)
 
-proc onInput(a: JSRef) {.cdecl.} =
-  var e = newEvent(etTextInput)
-  e.text = block:
+proc onInput(eventKind: int32, text: JSRef) {.cdecl.} =
+  let text = block:
     # Force JSRef destruction early
-    jsStringToStr(JSObj(o: a))
-
+    jsStringToStr(JSObj(o: text))
   let a = mainApplication()
-  e.window = a.keyWindow
-  if not e.window.isNil:
-    discard a.handleEvent(e)
+  let w = WebWindow(a.keyWindow)
+  var e = newEvent(etTextInput)
+  e.text = text
+  e.window = w
+
+  if not w.isNil:
+    case eventKind
+    of 0, 1: # 0 = input, 1 = compositionupdate
+      if eventKind == 0:
+        if not w.textInputCompositionInProgress:
+          discard a.handleEvent(e)
+      else:
+        e.kind = etTextEditing
+        discard a.handleEvent(e)
+
+    of 2: # compositionstart
+      w.textInputCompositionInProgress = true
+    else: # compositionend
+      w.textInputCompositionInProgress = false
+      discard a.handleEvent(e)
 
 method startTextInput*(w: WebWindow, r: Rect) =
-  defineDyncall("vi")
-  startTextInputAux(onInput)
+  defineDyncall("vii")
+  startTextInputAux(onInput, r.x, r.y, r.width, r.height, w.canvasId)
 
 proc stopTextInputAux() {.importwasmraw: """
-  if (window.__nimx_textinput !== undefined) {
-    window.__nimx_textinput.oninput = null;
-    window.__nimx_textinput.blur()
+  if (window.__nimx_textinput) {
+    window.__nimx_textinput.remove();
+    window.__nimx_textinput = null
   }
 """.}
 
 method stopTextInput*(w: WebWindow) =
+  w.textInputCompositionInProgress = false
   stopTextInputAux()
 
 # window.onload = () => _nime._dv(p)

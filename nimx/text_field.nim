@@ -18,6 +18,7 @@ type
     selectionStartLine: int
     selectionEndLine: int
     textSelection: Slice[int]
+    editingRange: Slice[int] # For IME input
     multiline*: bool
     hasBezel*: bool
 
@@ -113,6 +114,7 @@ method init*(t: TextField) =
   t.editable = true
   t.selectable = true
   t.textSelection = -1 .. -1
+  t.editingRange = -1 .. -1
   t.backgroundColor = whiteColor()
   t.hasBezel = true
   t.mText = newFormattedText()
@@ -351,7 +353,7 @@ proc clearSelection(t: TextField) =
 proc insertText(t: TextField, s: string) =
   #if t.mText.isNil: t.mText.text = ""
 
-  let th = t.mText.totalHeight
+  # let th = t.mText.totalHeight
   if t.textSelection.len > 0:
     t.clearSelection()
 
@@ -499,7 +501,34 @@ method onKeyDown*(t: TextField, e: var Event): bool =
 method onTextInput*(t: TextField, s: string): bool =
   if not t.editable: return false
   result = true
-  t.insertText(s)
+  if t.editingRange.a >= 0:
+    # We're im IME mode. Exit it
+    t.mText.uniDelete(t.editingRange.a, t.editingRange.b)
+    t.mText.uniInsert(t.editingRange.a, s)
+    cursorPos = t.editingRange.a + s.runeLen
+    t.editingRange.a = -1
+    t.updateCursorOffset()
+    t.bumpCursorVisibility()
+    t.sendAction()
+  else:
+    t.insertText(s)
+
+method onTextEditing*(t: TextField, s: string): bool =
+  if not t.editable: return false
+  result = true
+
+  if t.textSelection.len > 0:
+    t.clearSelection()
+
+  if t.editingRange.a >= 0:
+    t.mText.uniDelete(t.editingRange.a, t.editingRange.b)
+  else:
+    t.editingRange.a = cursorPos
+  t.mText.uniInsert(t.editingRange.a, s)
+  t.editingRange.b = t.editingRange.a + s.runeLen - 1
+  cursorPos = t.editingRange.b + 1
+  t.updateCursorOffset()
+  t.bumpCursorVisibility()
 
 method viewShouldResignFirstResponder*(v: TextField, newFirstResponder: View): bool =
   result = true
