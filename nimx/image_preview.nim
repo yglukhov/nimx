@@ -1,4 +1,5 @@
 import std/math
+import ./assets/asset_loading
 import ./[font, image, button, view, event, context, types, layout, app, view_event_handling, clip_view]
 
 const titleSize = 20.0
@@ -86,6 +87,11 @@ method onTouchEv*(v: ImagePreview, e: var Event) : bool =
 method onScroll*(v: ImagePreview, e: var Event): bool =
   v.scaleOverride = clamp(v.scaleOverride + (e.offset.y / 300.0), 0.1, 10.0)
   result = true
+
+proc loadImage*(v: ImagePreview, path: string, cb: proc() {.gcsafe.}) =
+  loadAsset[Image]("file://" & path) do(i: Image, err: string):
+    v.image = i
+    cb()
 
 proc addOriginConstraints(w: Window, v: View, desiredOrigin: Point) =
   let w = mainApplication().keyWindow

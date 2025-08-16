@@ -82,11 +82,12 @@ proc drawDisclosureTriangle(ctx: GraphicsContext, disclosed: bool, r: Rect) =
 method draw*(c: OutlineCell, r: Rect) =
   procCall c.TableViewCell.draw(r)
   let ctx = currentContext()
-  if c.selected:
-    ctx.fillColor = newColor(1, 1, 1)
-  else:
-    ctx.fillColor = newColor(0.1, 0.1, 0.1)
-  ctx.drawDisclosureTriangle(c.mItem.expanded, c.disclosureTriangleRect)
+  if c.mItem.children.len > 0:
+    if c.selected:
+      ctx.fillColor = newColor(1, 1, 1)
+    else:
+      ctx.fillColor = newColor(0.1, 0.1, 0.1)
+    ctx.drawDisclosureTriangle(c.mItem.expanded, c.disclosureTriangleRect)
 
   # TODO: revice
   if c.outlineView.dropInsideItem != nil and c.outlineView.dropInsideItem.cell == c:
@@ -340,7 +341,11 @@ proc scrollToSelection*(v: OutlineView) =
 proc selectItemAtIndexPath*(v: OutlineView, ip: seq[int], scroll: bool = true) =
   if ip.len > 1:
     v.expandBranch(ip[0..^2])
+  v.clearSelection()
   v.selectedIndexPath = ip
+  let selected = v.selectedNode()
+  if not selected.isNil and not selected.cell.isNil:
+    selected.cell.selected = true
   v.selectionChanged()
   if scroll:
     v.scrollToSelection()
@@ -355,6 +360,7 @@ proc isSubpathOfPath(subpath, path: openarray[int]): bool =
 
 method onTouchEv*(v: OutlineView, e: var Event): bool =
   result = procCall v.TableView.onTouchEv(e)
+  discard v.makeFirstResponder()
 
   if e.buttonState == bsUp:
     let pos = e.localPosition
