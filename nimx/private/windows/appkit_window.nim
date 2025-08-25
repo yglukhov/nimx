@@ -1,168 +1,176 @@
 import nimx/[ abstract_window, system_logger, view, context, event, app,
        linkage_details, portable_gl, screen ]
-import nimx/private/objc_appkit
+
+import darwin/objc/[runtime, nsobject]
+import darwin/foundation/[nsnotification, nsautoreleasepool, nsgeometry, nsbundle, nsprocessinfo]
+import darwin/app_kit/[nsview, nswindow, nsapplication, nsmenu, nsevent, nsopenglview, nsopengl]
+import darwin/core_video/[cvdisplay_link]
+
 import opengl
-import unicode, times
+import std/[unicode, times]
 
-enableObjC()
+{.passL: "-framework AppKit".}
 
-{.emit: """
-#include <AppKit/AppKit.h>
+type
+  NimxView = ptr object of NSOpenGLView
+  NimxWindow = ptr object of NSWindow
+  NimxAppDelegate = ptr object of NSObject
 
-@interface __NimxView__ : NSOpenGLView <NSTextInputClient> {
-  @public
-  void* w;
-}
-@end
+  Pcb = ref object
+    cb: proc()
 
-@interface __NimxAppDelegate__ : NSObject {
-  @public
-  void* d;
-}
-@end
+  DelegateExtra = object
+    pcb: Pcb
 
-@interface __NimxWindow__ : NSWindow {
-  @public
-  void* w;
-}
-@end
+  NimxViewExtra = object
+    w: AppkitWindow
+  NimxWindowExtra = object
+    w: AppkitWindow
 
-static NSString * GetApplicationName(void) {
-  NSString *appName;
+  AppkitWindow* = ref object of Window
+    nativeWindow: NimxWindow
+    nativeView: NimxView
+    renderingContext: GraphicsContext
+    displayLink: CVDisplayLink
 
-  /* Determine the application name */
-  appName = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleDisplayName"];
-  if (!appName) {
-    appName = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleName"];
-  }
-
-  if (![appName length]) {
-    appName = [[NSProcessInfo processInfo] processName];
-  }
-
-  return appName;
-}
-
-static void CreateApplicationMenus(void) {
-  NSString *appName;
-  NSString *title;
-  NSMenu *appleMenu;
-  NSMenu *serviceMenu;
-  NSMenu *windowMenu;
-  NSMenu *viewMenu;
-  NSMenuItem *menuItem;
-  NSMenu *mainMenu;
-
-  if (NSApp == nil) {
-    return;
-  }
-
-  if ([NSApp mainMenu]) {
-    return;
-  }
-
-  mainMenu = [[NSMenu alloc] init];
-
-  /* Create the application menu */
-  appName = GetApplicationName();
-  appleMenu = [[NSMenu alloc] initWithTitle:@""];
-
-  /* Add menu items */
-  title = [@"About " stringByAppendingString:appName];
-  [appleMenu addItemWithTitle:title action:@selector(orderFrontStandardAboutPanel:) keyEquivalent:@""];
-
-  [appleMenu addItem:[NSMenuItem separatorItem]];
-
-  [appleMenu addItemWithTitle:@"Preferences…" action:nil keyEquivalent:@","];
-
-  [appleMenu addItem:[NSMenuItem separatorItem]];
-
-  serviceMenu = [[NSMenu alloc] initWithTitle:@""];
-  menuItem = (NSMenuItem *)[appleMenu addItemWithTitle:@"Services" action:nil keyEquivalent:@""];
-  [menuItem setSubmenu:serviceMenu];
-
-  [NSApp setServicesMenu:serviceMenu];
-  [serviceMenu release];
-
-  [appleMenu addItem:[NSMenuItem separatorItem]];
-
-  title = [@"Hide " stringByAppendingString:appName];
-  [appleMenu addItemWithTitle:title action:@selector(hide:) keyEquivalent:@"h"];
-
-  menuItem = (NSMenuItem *)[appleMenu addItemWithTitle:@"Hide Others" action:@selector(hideOtherApplications:) keyEquivalent:@"h"];
-  [menuItem setKeyEquivalentModifierMask:(NSAlternateKeyMask|NSCommandKeyMask)];
-
-  [appleMenu addItemWithTitle:@"Show All" action:@selector(unhideAllApplications:) keyEquivalent:@""];
-
-  [appleMenu addItem:[NSMenuItem separatorItem]];
-
-  title = [@"Quit " stringByAppendingString:appName];
-  [appleMenu addItemWithTitle:title action:@selector(terminate:) keyEquivalent:@"q"];
-
-  /* Put menu into the menubar */
-  menuItem = [[NSMenuItem alloc] initWithTitle:@"" action:nil keyEquivalent:@""];
-  [menuItem setSubmenu:appleMenu];
-  [mainMenu addItem:menuItem];
-  [menuItem release];
-
-  /* Tell the application object that this is now the application menu */
-  //[NSApp setAppleMenu:appleMenu];
-  [appleMenu release];
+const
+  AppDelegateClass = "NimxAppDelegate"
 
 
-  /* Create the window menu */
-  windowMenu = [[NSMenu alloc] initWithTitle:@"Window"];
+proc getApplicationName(): string =
+  let b = NSBundle.mainBundle()
+  var res = cast[NSString](b.objectForInfoDictionaryKey("CFBundleDisplayName"))
+  if res == nil:
+    res = cast[NSString](b.objectForInfoDictionaryKey("CFBundleName"))
+  if res.len != 0:
+    res = NSProcessInfo.processInfo().processName()
+  $res
 
-  /* Add menu items */
-  [windowMenu addItemWithTitle:@"Minimize" action:@selector(performMiniaturize:) keyEquivalent:@"m"];
+proc createApplicationMenu() =
+  let app = NSApplication.sharedApplication()
+  if app == nil: return
+  if app.mainMenu() != nil and app.mainMenu().numberOfItems() != 1: return
 
-  [windowMenu addItemWithTitle:@"Zoom" action:@selector(performZoom:) keyEquivalent:@""];
+  let mainMenu = NSMenu.alloc().init()
+  let appName = getApplicationName()
 
-  /* Put menu into the menubar */
-  menuItem = [[NSMenuItem alloc] initWithTitle:@"Window" action:nil keyEquivalent:@""];
-  [menuItem setSubmenu:windowMenu];
-  [mainMenu addItem:menuItem];
-  [menuItem release];
+  let appleMenu = NSMenu.alloc().initWithTitle("")
+  discard appleMenu.addItem("About " & appName, sel_registerName("orderFrontStandardAboutPanel:"), "")
+  appleMenu.addItem(NSMenuItem.separatorItem())
+  discard appleMenu.addItem("Settings…", nil, ",")
+  appleMenu.addItem(NSMenuItem.separatorItem())
 
-  /* Tell the application object that this is now the window menu */
-  [NSApp setWindowsMenu:windowMenu];
-  [windowMenu release];
+  let serviceMenu = NSMenu.alloc.initWithTitle("")
+  var menuItem = appleMenu.addItem("Services", nil, "")
+  menuItem.setSubmenu(serviceMenu)
+  app.setServicesMenu(serviceMenu)
+  serviceMenu.release()
+  appleMenu.addItem(NSMenuItem.separatorItem())
 
+  discard appleMenu.addItem("Hide " & appName, sel_registerName("hide:"), "h")
+  menuItem = appleMenu.addItem("Hide Others", sel_registerName("hideOtherApplications:"), "h")
+  menuItem.setKeyEquivalentModifierMask(NSEventModifierFlags(NSEventModifierFlagOption.ord or NSEventModifierFlagCommand.ord))
+  discard appleMenu.addItem("Show All", sel_registerName("unhideAllApplications:"), "")
+  appleMenu.addItem(NSMenuItem.separatorItem())
+  discard appleMenu.addItem("Quit " & appName, sel_registerName("terminate:"), "q")
 
-  /* Add the fullscreen view toggle menu option, if supported */
-  if (floor(NSAppKitVersionNumber) > NSAppKitVersionNumber10_6) {
-    /* Create the view menu */
-    viewMenu = [[NSMenu alloc] initWithTitle:@"View"];
+  menuItem = NSMenuItem.alloc().initWithTitle("", nil, "")
+  menuItem.setSubmenu(appleMenu)
+  mainMenu.addItem(menuItem)
+  menuItem.release()
+  appleMenu.release()
 
-    /* Add menu items */
-    menuItem = [viewMenu addItemWithTitle:@"Toggle Full Screen" action:@selector(toggleFullScreen:) keyEquivalent:@"f"];
-    [menuItem setKeyEquivalentModifierMask:NSControlKeyMask | NSCommandKeyMask];
+  if true: # Create view menu if (floor(NSAppKitVersionNumber) > NSAppKitVersionNumber10_6)
+    let viewMenu = NSMenu.alloc().initWithTitle("View")
+    menuItem = viewMenu.addItem("Toggle Full Screen", sel_registerName("toggleFullScreen:"), "f")
+    menuItem.setKeyEquivalentModifierMask(NSEventModifierFlags(NSEventModifierFlagControl.ord or NSEventModifierFlagCommand.ord))
 
-    /* Put menu into the menubar */
-    menuItem = [[NSMenuItem alloc] initWithTitle:@"View" action:nil keyEquivalent:@""];
-    [menuItem setSubmenu:viewMenu];
-    [mainMenu addItem:menuItem];
-    [menuItem release];
+    menuItem = NSMenuItem.alloc().initWithTitle("View", nil, "")
+    menuItem.setSubmenu(viewMenu)
+    mainMenu.addItem(menuItem)
+    menuItem.release()
+    viewMenu.release()
 
-    [viewMenu release];
-  }
+  let windowMenu = NSMenu.alloc().initWithTitle("Window")
+  discard windowMenu.addItem("Minimize", sel_registerName("performMiniaturize:"), "m")
+  discard windowMenu.addItem("Zoom", sel_registerName("performZoom:"), "")
+  menuItem = mainMenu.addItem("Window", nil, "")
+  menuItem.setSubmenu(windowMenu)
+  app.setWindowsMenu(windowMenu)
+  windowMenu.release()
 
-  /* Create the main menu bar */
-  [NSApp setMainMenu:mainMenu];
+  app.setMainMenu(mainMenu)
+  mainMenu.release()
 
-  [mainMenu release];  /* were done with it, let NSApp own it. */
-}
+proc appDidFinishLaunching(self: NimxAppDelegate, cmd: SEL, a: NSNotification) {.cdecl.} =
+  createApplicationMenu()
+  let delegateClass = getClass(AppDelegateClass)
+  assert(delegateClass != nil)
+  let extra = cast[ptr DelegateExtra](cast[uint](self) + delegateClass.getInstanceSize().uint)
+  let pcb = extra.pcb
+  assert(pcb != nil)
+  pcb.cb()
+  GC_unref(pcb)
+  extra.pcb = nil
+  NSApplication.sharedApplication().activateIgnoringOtherApps(true)
 
-""".}
+proc createAppDelegateClass(): ObjcClass =
+  result = allocateClassPair(getClass("NSObject"), AppDelegateClass, 0)
+  discard addMethod(result, sel_registerName("applicationDidFinishLaunching:"), appDidFinishLaunching)
 
-type AppkitWindow* = ref object of Window
-  nativeWindow: pointer # __NimxWindow__
-  mNativeView: pointer # __NimxView__
-  renderingContext: GraphicsContext
-  inLiveResize: bool
+  registerClassPair(result)
 
-type AppDelegate = ref object
-  init: proc()
+proc createViewClass(): ObjcClass {.gcsafe.}
+proc createWindowClass(): ObjcClass {.gcsafe.}
+
+proc viewClass(): ObjcClass =
+  var r {.global.}: ObjcClass
+  if r == nil:
+    r = createViewClass()
+  r
+
+proc windowClass(): ObjcClass =
+  var r {.global.}: ObjcClass
+  if r == nil:
+    r = createWindowClass()
+  r
+
+proc createPixelFormat(colorBits, depthBits: uint32): NSOpenGLPixelFormat =
+  var pixelAttribs = [
+    NSOpenGLPFADoubleBuffer,
+    NSOpenGLPFAAccelerated,
+    NSOpenGLPFAColorSize,
+    colorBits,
+    NSOpenGLPFADepthSize,
+    depthBits,
+    0
+  ]
+  #  NSOpenGLPixelFormatAttribute pixelAttribs[ 16 ];
+  #  int pixNum = 0;
+  #  NSDictionary *fullScreenMode;
+
+  #  pixelAttribs[pixNum++] = NSOpenGLPFADoubleBuffer;
+  #  pixelAttribs[pixNum++] = NSOpenGLPFAAccelerated;
+  #  pixelAttribs[pixNum++] = NSOpenGLPFAColorSize;
+  #  pixelAttribs[pixNum++] = colorBits;
+  #  pixelAttribs[pixNum++] = NSOpenGLPFADepthSize;
+  #  pixelAttribs[pixNum++] = depthBits;
+  #  if( runningFullScreen )  // Do this before getting the pixel format
+  #  {
+  #   pixelAttribs[pixNum++] = NSOpenGLPFAFullScreen;
+  #   fullScreenMode = (NSDictionary *) CGDisplayBestModeForParameters(
+  #                      kCGDirectMainDisplay,
+  #                      colorBits, frame.size.width,
+  #                      frame.size.height, NULL );
+  #   CGDisplayCapture( kCGDirectMainDisplay );
+  #   CGDisplayHideCursor( kCGDirectMainDisplay );
+  #   CGDisplaySwitchToMode( kCGDirectMainDisplay,
+  #              (CFDictionaryRef) fullScreenMode );
+  #  }
+  #  pixelAttribs[pixNum] = 0;
+  NSOpenGLPixelFormat.alloc().initWithAttributes(addr pixelAttribs[0])
+  #  return [[NSOpenGLPixelFormat alloc] initWithAttributes:pixelAttribs];
+# }
 
 when defined(ios):
   method fullscreen*(w: AppkitWindow): bool = true
@@ -175,53 +183,61 @@ var animationEnabled = 0
 method animationStateChanged*(w: AppkitWindow, flag: bool) =
   discard
 
+proc onDisplayLink(displayLink: CVDisplayLink, inNow, inOutputTime: ptr CVTimeStamp, flagsIn: CVOptionFlags,
+                   flagsOut: var CVOptionFlags, userInfo: pointer) {.cdecl, stackTrace: off.} =
+  let v = cast[NSView](userInfo)
+  v.performSelectorOnMainThread(sel_registerName("onDisplayLinkMainThread:"), nil, false)
+
 proc initCommon(w: AppkitWindow, r: view.Rect) =
-  procCall init(w.Window, r)
+  procCall init(w.Window)
 
-  var nativeWnd, nativeView: pointer
-  let x = r.x
-  let y = r.y
-  let width = r.width
-  let height = r.height
+  let frame = NSMakeRect(r.x, r.y, r.width, r.height)
 
-  {.emit: """
-  NSRect frame = NSMakeRect(`x`, `y`, `width`, `height`);
-  NSUInteger styleMask = NSTitledWindowMask | NSClosableWindowMask | NSMiniaturizableWindowMask | NSResizableWindowMask;
-  __NimxWindow__* win = [[__NimxWindow__ alloc] initWithContentRect: frame
-					styleMask: styleMask
-					backing: NSBackingStoreBuffered
-					defer: YES];
-  win->w = `w`;
-  __NimxView__* glView = [[__NimxView__ alloc] initWithFrame: [win frame]
-        colorBits:16 depthBits:16 fullscreen: FALSE];
-  if (glView)
-  {
-    glView->w = `w`;
-    [glView setWantsBestResolutionOpenGLSurface:YES];
-    [win setContentView:glView];
-    [glView release];
-  }
-  `nativeWnd` = win;
-  `nativeView` = glView;
-  """.}
-  w.nativeWindow = nativeWnd
-  w.mNativeView = nativeView
+  let styleMask = NSWindowStyleMask(NSWindowStyleMaskTitled or NSWindowStyleMaskClosable or
+     NSWindowStyleMaskMiniaturizable or NSWindowStyleMaskResizable)
+
+  let winClass = windowClass()
+  let viewClass = viewClass()
+
+  let win = cast[NimxWindow](
+    cast[NSWindow](
+      createInstance(winClass, sizeof(NimxWindowExtra).csize_t)).initWithContentRect(frame, styleMask,
+        NSBackingStoreBuffered, true))
+
+  let winExtra = cast[ptr NimxWindowExtra](cast[uint](win) + winClass.getInstanceSize().uint)
+  winExtra.w = w
+
+  let pixelFormat = createPixelFormat(16, 16)
+  let glView = cast[NimxView](
+    cast[NSOpenGLView](
+      createInstance(viewClass, sizeof(NimxViewExtra).csize_t)).initWithFrame(NSRect(), pixelFormat))
+
+  glView.openGLContext().makeCurrentContext()
+
+  let viewExtra = cast[ptr NimxViewExtra](cast[uint](glView) + viewClass.getInstanceSize().uint)
+  viewExtra.w = w
+
+  glView.setWantsBestResolutionOpenGLSurface(true)
+  win.setContentView(glView)
+
+  w.nativeWindow = win
+  w.nativeView = glView
 
   # The context has to be inited before makeKeyAndOrderFront.
   w.renderingContext = newGraphicsContext()
-  {.emit: """
-  [win makeKeyAndOrderFront:nil];
-  """.}
-  mainApplication().addWindow(w)
-  w.onResize(r.size)
 
-template nativeView(w: AppkitWindow): NSView = cast[NSView](w.mNativeView)
+  discard CVDisplayLinkCreateWithActiveCGDisplays(addr w.displayLink)
+  discard w.displayLink.setOutputCallback(onDisplayLink, cast[pointer](glView))
+  discard w.displayLink.start()
+
+  win.makeKeyAndOrderFront(nil)
+  mainApplication().addWindow(w)
 
 proc initFullscreen*(w: AppkitWindow) =
   w.initCommon(newRect(0, 0, 800, 600))
 
-method init*(w: AppkitWindow, r: view.Rect) =
-  w.initCommon(r)
+method init*(w: AppkitWindow) =
+  w.initCommon(newRect(0, 0, 800, 600))
 
 proc newFullscreenAppkitWindow(): AppkitWindow =
   result.new()
@@ -229,7 +245,7 @@ proc newFullscreenAppkitWindow(): AppkitWindow =
 
 proc newAppkitWindow(r: view.Rect): AppkitWindow =
   result.new()
-  result.init(r)
+  result.init()
 
 newWindow = proc(r: view.Rect): Window =
   result = newAppkitWindow(r)
@@ -238,10 +254,6 @@ newFullscreenWindow = proc(): Window =
   result = newFullscreenAppkitWindow()
 
 method drawWindow(w: AppkitWindow) =
-  if w.inLiveResize:
-    let s = w.nativeView.bounds.size
-    w.onResize(newSize(s.width, s.height))
-
   let c = w.renderingContext
   c.gl.clear(c.gl.COLOR_BUFFER_BIT or c.gl.STENCIL_BUFFER_BIT or c.gl.DEPTH_BUFFER_BIT)
   let oldContext = setCurrentContext(c)
@@ -249,14 +261,11 @@ method drawWindow(w: AppkitWindow) =
   c.withTransform ortho(0, w.frame.width, w.frame.height, 0, -1, 1):
     procCall w.Window.drawWindow()
   let nv = w.nativeView
-  {.emit: "[[`nv` openGLContext] flushBuffer];".}
+  nv.openGLContext().flushBuffer()
   setCurrentContext(oldContext)
 
-proc markNeedsDisplayAux(w: AppkitWindow) =
-  let nv = w.nativeView
-  {.emit: "[`nv` setNeedsDisplay: YES];".}
-
-method markNeedsDisplay*(w: AppkitWindow) = w.markNeedsDisplayAux()
+method markNeedsDisplay*(w: AppkitWindow) =
+  w.nativeView.setNeedsDisplay(true)
 
 #[
 proc windowFromSDLEvent[T](event: T): EmscriptenWindow =
@@ -455,56 +464,32 @@ method stopTextInput*(w: EmscriptenWindow) =
   stopTextInput()
 ]#
 
-proc runUntilQuit(d: AppDelegate) =
-  {.emit:"""
-	NSAutoreleasePool *pool = [NSAutoreleasePool new];
-	id app = [NSApplication sharedApplication];
-  __NimxAppDelegate__* appDelegate = [[__NimxAppDelegate__ alloc] init];
-  appDelegate->d = `d`;
-	[app setDelegate: appDelegate];
-	[app run];
-	[app setDelegate: nil];
-	[appDelegate release];
-	SInt32 result = 0;
-	[pool drain];
-  """.}
+proc runUntilQuit(cb: proc()) =
+  let pool = NSAutoreleasePool.alloc().init()
+  let app = NSApplication.sharedApplication()
 
-  # # Initialize fist dummy event. The kind should be any unused kind.
-  # var evt = sdl2.Event(kind: UserEvent1)
-  # #setEventFilter(eventFilter, nil)
-  # animateAndDraw()
+  var delegateClass = getClass(AppDelegateClass)
+  if delegateClass == nil:
+    delegateClass = createAppDelegateClass()
+  let delegate = cast[NimxAppDelegate](createInstance(delegateClass, sizeof(DelegateExtra).csize_t))
 
-  # # Main loop
-  # while true:
-  #   nextEvent(evt)
-  #   if evt.kind == QuitEvent:
-  #     break
+  var extra = cast[ptr DelegateExtra](cast[uint](delegate) + delegateClass.getInstanceSize().uint)
+  extra.pcb = Pcb(cb: cb)
+  GC_ref(extra.pcb)
+  app.setDelegate(delegate)
 
-  # discard quit(evt)
+  app.run()
+  app.setDelegate(nil)
+  delegate.release()
+  pool.drain()
 
 template runApplication*(body: typed) =
   try:
-    let appDelegate = AppDelegate.new()
-    appDelegate.init = proc() =
-      body
-    runUntilQuit(appDelegate)
+    runUntilQuit(proc() = body)
   except:
     logi "Exception caught: ", getCurrentExceptionMsg()
     logi getCurrentException().getStackTrace()
     quit 1
-
-
-proc appDidFinishLaunching(d: AppDelegate) =
-  {.emit: """
-  CreateApplicationMenus();
-  """.}
-
-  if not d.init.isNil:
-    d.init()
-    d.init = nil
-    {.emit: """
-    [NSApp activateIgnoringOtherApps: YES];
-    """.}
 
 proc pointFromNSEvent(w: AppkitWindow, e: NSEvent): Point =
   let v = w.nativeView
@@ -531,155 +516,112 @@ proc eventWithNSEvent(w: AppkitWindow, e: NSEvent): Event =
 
   result.window = w
 
-proc sendEvent(w: AppkitWindow, e: NSEvent) =
+proc getNimxWindow(v: NimxView): AppkitWindow =
+  let extra = cast[ptr NimxViewExtra](cast[uint](v) + getInstanceSize(viewClass()).uint)
+  extra.w
+
+proc getNimxWindow(v: NimxWindow): AppkitWindow =
+  let extra = cast[ptr NimxWindowExtra](cast[uint](v) + getInstanceSize(windowClass()).uint)
+  extra.w
+
+proc acceptsFirstResponder(self: NimxView, s: SEL): bool = true
+proc drawRect(self: NimxView, s: SEL, r: NSRect) =
+  mainApplication().runAnimations()
+  mainApplication().drawWindows()
+  # drawWindow(getNimxWindow(self))
+
+proc reshape(self: NimxView, sel: SEL) =
+  var sup = ObjcSuper(receiver: self, superClass: getSuperclass(viewClass()))
+  let superImp = cast[proc(sup: var ObjcSuper, c: SEL) {.cdecl.}](objc_msgSendSuper)
+  superImp(sup, sel)
+
+  let w = getNimxWindow(self)
+  if w != nil:
+    let s = self.bounds
+    w.onResize(newSize(s.size.width, s.size.height))
+
+proc onDisplayLinkMainThread(self: NimxView, s: SEL, r: NSObject) =
+  self.setNeedsDisplay(true)
+
+proc createViewClass(): ObjcClass =
+  result = allocateClassPair(getClass("NSOpenGLView"), "NimxView", 0)
+
+  discard addMethod(result, sel_registerName("acceptsFirstResponder"), acceptsFirstResponder)
+  discard addMethod(result, sel_registerName("drawRect:"), drawRect)
+  discard addMethod(result, sel_registerName("reshape"), reshape)
+  discard addMethod(result, sel_registerName("onDisplayLinkMainThread:"), onDisplayLinkMainThread)
+
+  registerClassPair(result)
+
+
+# - (void)keyDown: (NSEvent*) e {
+#   [super keyDown: e];
+# }
+
+# - (void)keyUp: (NSEvent*) e {
+#   [super keyUp: e];
+# }
+
+# - (void)insertText:(id)string replacementRange:(NSRange)replacementRange {
+#   NSLog(@"text: %@", string);
+# }
+
+# - (void)doCommandBySelector:(SEL)selector {
+
+# }
+
+# - (void)setMarkedText:(id)string selectedRange:(NSRange)selectedRange replacementRange:(NSRange)replacementRange {
+
+# }
+
+# - (void)unmarkText {
+
+# }
+
+# - (NSRange)selectedRange {
+#   return NSMakeRange(0, 0);
+# }
+
+# - (NSRange)markedRange {
+#   return NSMakeRange(0, 0);
+# }
+
+# - (BOOL)hasMarkedText {
+#   return NO;
+# }
+
+# - (nullable NSAttributedString *)attributedSubstringForProposedRange:(NSRange)range actualRange:(nullable NSRangePointer)actualRange {
+#   return nil;
+# }
+
+# - (NSArray<NSString *> *)validAttributesForMarkedText {
+#   return nil;
+# }
+
+# - (NSRect)firstRectForCharacterRange:(NSRange)range actualRange:(nullable NSRangePointer)actualRange {
+#   return NSZeroRect;
+# }
+
+# - (NSUInteger)characterIndexForPoint:(NSPoint)point {
+#   return -1;
+# }
+
+# @end
+
+# """.}
+
+
+proc sendEvent(self: NimxWindow, cmd: SEL, e: NSEvent) {.cdecl.} =
+  var s = ObjcSuper(receiver: self, superClass: getSuperclass(windowClass()))
+  let superImp = cast[proc(s: var ObjcSuper, c: SEL, e: NSEvent) {.cdecl.}](objc_msgSendSuper)
+  superImp(s, cmd, e)
+
+  let w = self.getNimxWindow()
   var evt = w.eventWithNSEvent(e)
   discard mainApplication().handleEvent(evt)
 
-proc viewWillStartLiveResize(w: AppkitWindow) =
-  w.inLiveResize = true
+proc createWindowClass(): ObjcClass =
+  result = allocateClassPair(getClass("NSWindow"), "NimxWindow", 0)
+  discard addMethod(result, sel_registerName("sendEvent:"), sendEvent)
 
-proc viewDidEndLiveResize(w: AppkitWindow) =
-  w.inLiveResize = false
-  let s = w.nativeView.bounds.size
-  w.onResize(newSize(s.width, s.height))
-
-{.emit: """
-@implementation __NimxView__
-
-/*
- * Create a pixel format and possible switch to full screen mode
- */
-NSOpenGLPixelFormat* createPixelFormat(NSRect frame, int colorBits, int depthBits) {
-   NSOpenGLPixelFormatAttribute pixelAttribs[ 16 ];
-   int pixNum = 0;
-   NSDictionary *fullScreenMode;
-
-   pixelAttribs[pixNum++] = NSOpenGLPFADoubleBuffer;
-   pixelAttribs[pixNum++] = NSOpenGLPFAAccelerated;
-   pixelAttribs[pixNum++] = NSOpenGLPFAColorSize;
-   pixelAttribs[pixNum++] = colorBits;
-   pixelAttribs[pixNum++] = NSOpenGLPFADepthSize;
-   pixelAttribs[pixNum++] = depthBits;
-/*
-   if( runningFullScreen )  // Do this before getting the pixel format
-   {
-    pixelAttribs[pixNum++] = NSOpenGLPFAFullScreen;
-    fullScreenMode = (NSDictionary *) CGDisplayBestModeForParameters(
-                       kCGDirectMainDisplay,
-                       colorBits, frame.size.width,
-                       frame.size.height, NULL );
-    CGDisplayCapture( kCGDirectMainDisplay );
-    CGDisplayHideCursor( kCGDirectMainDisplay );
-    CGDisplaySwitchToMode( kCGDirectMainDisplay,
-               (CFDictionaryRef) fullScreenMode );
-   }*/
-   pixelAttribs[pixNum] = 0;
-   return [[NSOpenGLPixelFormat alloc] initWithAttributes:pixelAttribs];
-}
-
-- (id) initWithFrame:(NSRect)frame colorBits:(int)numColorBits
-     depthBits:(int)numDepthBits fullscreen:(BOOL)runFullScreen
-{
-  NSOpenGLPixelFormat *pixelFormat;
-
-  pixelFormat = createPixelFormat(frame, numColorBits, numDepthBits);
-  if( pixelFormat != nil )
-  {
-    self = [ super initWithFrame:frame pixelFormat:pixelFormat ];
-    [ pixelFormat release ];
-    if( self )
-    {
-      [ [ self openGLContext ] makeCurrentContext ];
-      [ self reshape ];
-    }
-  }
-  else
-    self = nil;
-
-  return self;
-}
-
-- (BOOL)acceptsFirstResponder {
-  return YES;
-}
-
-- (void)drawRect:(NSRect)r { `drawWindow`(w); }
-
-- (void)viewWillStartLiveResize { `viewWillStartLiveResize`(w); }
-- (void)viewDidEndLiveResize { `viewDidEndLiveResize`(w); }
-
-- (void)keyDown: (NSEvent*) e {
-  [super keyDown: e];
-}
-
-- (void)keyUp: (NSEvent*) e {
-  [super keyUp: e];
-}
-
-- (void)insertText:(id)string replacementRange:(NSRange)replacementRange {
-  NSLog(@"text: %@", string);
-}
-
-- (void)doCommandBySelector:(SEL)selector {
-
-}
-
-- (void)setMarkedText:(id)string selectedRange:(NSRange)selectedRange replacementRange:(NSRange)replacementRange {
-
-}
-
-- (void)unmarkText {
-
-}
-
-- (NSRange)selectedRange {
-  return NSMakeRange(0, 0);
-}
-
-- (NSRange)markedRange {
-  return NSMakeRange(0, 0);
-}
-
-- (BOOL)hasMarkedText {
-  return NO;
-}
-
-- (nullable NSAttributedString *)attributedSubstringForProposedRange:(NSRange)range actualRange:(nullable NSRangePointer)actualRange {
-  return nil;
-}
-
-- (NSArray<NSString *> *)validAttributesForMarkedText {
-  return nil;
-}
-
-- (NSRect)firstRectForCharacterRange:(NSRange)range actualRange:(nullable NSRangePointer)actualRange {
-  return NSZeroRect;
-}
-
-- (NSUInteger)characterIndexForPoint:(NSPoint)point {
-  return -1;
-}
-
-@end
-
-@implementation __NimxWindow__
-- (BOOL) canBecomeKeyWindow
-{
-	return YES;
-}
-
-- (void) sendEvent:(NSEvent *)theEvent
-{
-	[super sendEvent: theEvent];
-  `sendEvent`(w, theEvent);
-}
-
-@end
-
-@implementation __NimxAppDelegate__
-- (void)applicationDidFinishLaunching:(NSNotification *)aNotification {
-  `appDidFinishLaunching`(d);
-}
-@end
-
-""".}
+  registerClassPair(result)
