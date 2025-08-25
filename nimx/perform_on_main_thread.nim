@@ -23,7 +23,7 @@ when (defined(macosx) or defined(ios)) and defined(nimxAvoidSDL):
   """.}
 
   {.push stack_trace:off.}
-  proc performOnMainThread*(fun: proc(data: pointer) {.cdecl.}, data: pointer): int {.discardable.} =
+  proc performOnMainThread*(fun: proc(data: pointer) {.cdecl.}, data: pointer) =
     {.emit: """
     __NimxMainThreadExecutor__* executor = [[__NimxMainThreadExecutor__ alloc] init];
     executor->func = `fun`;
@@ -74,7 +74,7 @@ elif (defined(linux) or defined(windows)) and not defined(android) and defined(n
     release(callbacks.lock)
 
   {.push stack_trace:off.}
-  proc performOnMainThread*(fun: proc(data: pointer) {.cdecl.}, data: pointer): int {.discardable.} =
+  proc performOnMainThread*(fun: proc(data: pointer) {.cdecl.}, data: pointer) =
     callbacks.add((fun, data))
     event.trigger()
   {.pop.}
@@ -83,9 +83,9 @@ else:
   import sdl2
 
   {.push stack_trace:off.}
-  proc performOnMainThread*(fun: proc(data: pointer) {.cdecl.}, data: pointer): int {.discardable.} =
+  proc performOnMainThread*(fun: proc(data: pointer) {.cdecl.}, data: pointer) =
     var evt = UserEventObj(kind: UserEvent5)
     evt.data1 = fun
     evt.data2 = data
-    result = pushEvent(cast[ptr Event](addr evt))
+    discard pushEvent(cast[ptr Event](addr evt))
   {.pop.}
