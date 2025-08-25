@@ -147,6 +147,7 @@ proc updateCache(t: FormattedText) =
     let font = t.mAttributes[curAttrIndex].font
 
     fastRuneAt(t.mText, i, c, true)
+    inc curRune
 
     let runeWidth = font.getAdvanceForRune(c)
 
@@ -157,29 +158,13 @@ proc updateCache(t: FormattedText) =
     if canBreakLine():
       # commit current word
       if (curLineInfo.width + curWordWidth < boundingWidth or curLineInfo.width == 0):
-
         # Word fits in the line
         curLineInfo.width += curWordWidth
         curLineInfo.height = max(curLineInfo.height, curWordHeight)
         curLineInfo.baseline = max(curLineInfo.baseline, curWordBaseline)
-
-        if mustBreakLine():
-          let tmp = curLineInfo # JS bug workaround. Copy to temp object.
-          t.lines.add(tmp)
-          t.mTotalHeight += curLineInfo.height + t.mLineSpacing
-          t.mTotalWidth = max(t.mTotalWidth, curLineInfo.width)
-          curLineInfo.top = t.mTotalHeight
-          curLineInfo.startByte = i
-          curLineInfo.startRune = curRune + 1
-          curLineInfo.width = 0
-          curLineInfo.height = 0
-          curLineInfo.baseline = 0
-          curLineInfo.firstAttr = curAttrIndex
-          curLineInfo.hidden = not canAddWordWithHeight()
       else:
         # Complete current line
-        let tmp = curLineInfo # JS bug workaround. Copy to temp object.
-        t.lines.add(tmp)
+        t.lines.add(curLineInfo)
         t.mTotalHeight += curLineInfo.height + t.mLineSpacing
         t.mTotalWidth = max(t.mTotalWidth, curLineInfo.width)
         curLineInfo.top = t.mTotalHeight
@@ -191,11 +176,24 @@ proc updateCache(t: FormattedText) =
         curLineInfo.firstAttr = curWordFirstAttr
         curLineInfo.hidden = not canAddWordWithHeight()
 
+      if mustBreakLine():
+        t.lines.add(curLineInfo)
+        t.mTotalHeight += curLineInfo.height + t.mLineSpacing
+        t.mTotalWidth = max(t.mTotalWidth, curLineInfo.width)
+        curLineInfo.top = t.mTotalHeight
+        curLineInfo.startByte = i
+        curLineInfo.startRune = curRune
+        curLineInfo.width = 0
+        curLineInfo.height = 0
+        curLineInfo.baseline = 0
+        curLineInfo.firstAttr = curAttrIndex
+        curLineInfo.hidden = not canAddWordWithHeight()
+
       curWordWidth = 0
       curWordHeight = 0
       curWordBaseline = 0
       curWordStartByte = i
-      curWordStartRune = curRune + 1
+      curWordStartRune = curRune
       curWordFirstAttr = curAttrIndex
 
     # Switch to next attribute if its time
@@ -206,13 +204,10 @@ proc updateCache(t: FormattedText) =
       if t.mAttributes.high > curAttrIndex:
         nextAttrStartIndex = t.mAttributes[curAttrIndex + 1].startByte
 
-    inc curRune
-
   if curLineInfo.width > 0 or t.lines.len == 0 or mustBreakLine():
     if curLineInfo.height == 0:
       curLineInfo.height = t.mAttributes[curAttrIndex].font.height
-    let tmp = curLineInfo # JS bug workaround. Copy to temp object.
-    t.lines.add(tmp)
+    t.lines.add(curLineInfo)
     t.mTotalHeight += curLineInfo.height + t.mLineSpacing
     t.mTotalWidth = max(t.mTotalWidth, curLineInfo.width)
     curLineInfo.hidden = not canAddWordWithHeight()
@@ -645,7 +640,7 @@ void compose()
 }
 """, false, "mediump")
 
-type ForEachLineAttributeCallback = proc(c: GraphicsContext, t: FormattedText, p: var Point, curLine, endIndex: int, str: string) {.nimcall, gcsafe.}
+type ForEachLineAttributeCallback = proc(c: GraphicsContext, t: FormattedText, p: var Point, curLine, endIndex: int, str: openarray[char]) {.nimcall, gcsafe.}
 proc forEachLineAttribute(c: GraphicsContext, inRect: Rect, origP: Point, t: FormattedText, cb: ForEachLineAttributeCallback) =
   var p = origP
   let numLines = t.lines.len
@@ -670,7 +665,7 @@ proc forEachLineAttribute(c: GraphicsContext, inRect: Rect, origP: Point, t: For
 
     for curAttrIndex, attrStartIndex, attrEndIndex in t.attrsInLine(curLine):
       if not lastAttrFont.isNil:
-        cb(c, t, p, curLine, lastCurAttrIndex, t.mText.substr(lastAttrStartIndex, lastAttrEndIndex))
+        cb(c, t, p, curLine, lastCurAttrIndex, t.mText.toOpenArray(lastAttrStartIndex, lastAttrEndIndex))
 
       lastCurAttrIndex = curAttrIndex
       lastAttrStartIndex = attrStartIndex
@@ -717,19 +712,19 @@ proc forEachLineAttribute(c: GraphicsContext, inRect: Rect, origP: Point, t: For
           p.x = t.mBoundingSize.width - width
 
         if not isCut:
-          cb(c, t, p, curLine, lastCurAttrIndex, t.mText.substr(lastAttrStartIndex, lastAttrEndIndex))
+          cb(c, t, p, curLine, lastCurAttrIndex, t.mText.toOpenArray(lastAttrStartIndex, lastAttrEndIndex))
         else:
           cb(c, t, p, curLine, lastCurAttrIndex, t.mText.substr(lastAttrStartIndex, lastAttrEndIndex) & symbols)
           break
       else:
-        cb(c, t, p, curLine, lastCurAttrIndex, t.mText.substr(lastAttrStartIndex, lastAttrEndIndex))
+        cb(c, t, p, curLine, lastCurAttrIndex, t.mText.toOpenArray(lastAttrStartIndex, lastAttrEndIndex))
 
     curLine.inc
 
 
 proc drawShadow(c: GraphicsContext, inRect: Rect, origP: Point, t: FormattedText) =
   # TODO: Optimize heavily
-  forEachLineAttribute(c, inRect, origP, t) do(c: GraphicsContext, t: FormattedText, p: var Point, curLine, curAttrIndex: int, str: string):
+  forEachLineAttribute(c, inRect, origP, t) do(c: GraphicsContext, t: FormattedText, p: var Point, curLine, curAttrIndex: int, str: openarray[char]):
     c.fillColor = t.mAttributes[curAttrIndex].shadowColor
     let font = t.mAttributes[curAttrIndex].font
     let oldBaseline = font.baseline
@@ -772,7 +767,7 @@ proc drawShadow(c: GraphicsContext, inRect: Rect, origP: Point, t: FormattedText
 
 proc drawStroke(c: GraphicsContext, inRect: Rect, origP: Point, t: FormattedText) =
   # TODO: Optimize heavily
-  forEachLineAttribute(c, inRect, origP, t) do(c: GraphicsContext, t: FormattedText, p: var Point, curLine, curAttrIndex: int, str: string):
+  forEachLineAttribute(c, inRect, origP, t) do(c: GraphicsContext, t: FormattedText, p: var Point, curLine, curAttrIndex: int, str: openarray[char]):
     const magicStrokeMaxSizeCoof = 0.46
     let font = t.mAttributes[curAttrIndex].font
 
@@ -821,7 +816,7 @@ proc drawText*(c: GraphicsContext, origP: Point, t: FormattedText, inRect: Rect 
     if t.shadowAttrs.len > 0: c.drawShadow(inRect, origP, t)
     if t.strokeAttrs.len > 0: c.drawStroke(inRect, origP, t)
 
-  forEachLineAttribute(c, inRect, origP, t) do(c: GraphicsContext, t: FormattedText, p: var Point, curLine, curAttrIndex: int, str: string):
+  forEachLineAttribute(c, inRect, origP, t) do(c: GraphicsContext, t: FormattedText, p: var Point, curLine, curAttrIndex: int, str: openarray[char]):
     let font = t.mAttributes[curAttrIndex].font
     let oldBaseline = font.baseline
     font.baseline = bAlphabetic

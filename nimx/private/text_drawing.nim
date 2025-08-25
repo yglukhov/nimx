@@ -194,7 +194,7 @@ void compose()
 }
 """, false, "mediump")
 
-proc drawTextBase*(c: GraphicsContext, font: Font, pt: var Point, text: string) =
+proc drawTextBase*(c: GraphicsContext, font: Font, pt: var Point, text: openarray[char]) =
   let gl = c.gl
 
   gl.enableVertexAttribArray(saPosition.GLuint)
@@ -231,7 +231,7 @@ proc drawTextBase*(c: GraphicsContext, font: Font, pt: var Point, text: string) 
 
   if n > 0: flush()
 
-proc drawText*(c: GraphicsContext, font: Font, pt: var Point, text: string) =
+proc drawText*(c: GraphicsContext, font: Font, pt: var Point, text: openarray[char]) =
   # assume orthographic projection with units = screen pixels, origin at top left
   let gl = c.gl
   var cc : CompiledComposition
@@ -273,6 +273,6 @@ proc drawText*(c: GraphicsContext, font: Font, pt: var Point, text: string) =
   if subpixelDraw:
     gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
 
-proc drawText*(c: GraphicsContext, font: Font, pt: Point, text: string) {.gcsafe.}=
+proc drawText*(c: GraphicsContext, font: Font, pt: Point, text: openarray[char]) {.gcsafe.} =
   var p = pt
   c.drawText(font, p, text)
