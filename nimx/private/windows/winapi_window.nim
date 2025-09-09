@@ -85,9 +85,11 @@ type
 
 proc SetProcessDpiAwareness(value: PROCESS_DPI_AWARENESS): HRESULT {.importc, stdcall, dynlib: "shcore".}
 
-method init*(w: WinapiWindow, r: types.Rect) =
-  procCall w.Window.init(r)
+method init*(w: WinapiWindow) =
+  procCall w.Window.init()
   mainApplication().addWindow(w)
+
+  var r = newRect(0, 0, 800, 600)
 
   discard SetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE)
   registerWinApinClass()
@@ -142,12 +144,12 @@ method onResize*(w: WinapiWindow, newSize: Size) =
 
 proc newWinApiWindow(r: types.Rect): WinapiWindow =
   result.new()
-  result.init(r)
+  result.init()
 
 proc getWindowFromHWND(hwnd: HWND): WinapiWindow {.inline.} =
   cast[WinapiWindow](GetWindowLongPtr(hwnd, GWLP_USERDATA))
 
-proc getMouseEvent(win: Window, wparam: WPARAM, lparam: LPARAM, msg: UINT): Event=
+proc getMouseEvent(win: Window, wparam: WPARAM, lparam: LPARAM, msg: UINT): Event =
   let x = GET_X_LPARAM(lparam)
   let y = GET_Y_LPARAM(lparam)
   let pos = newPoint(x.Coord, y.Coord)

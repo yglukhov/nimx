@@ -33,7 +33,8 @@ type
     ckNotAllowed
     ckHand
 
-  Cursor* = ref object
+  Cursor* = ref CursorObj
+  CursorObj = object
     when defined(js) or defined(emscripten) or defined(wasm):
       c: jsstring
     elif appKit:
@@ -76,7 +77,7 @@ elif appKit:
     of ckNotAllowed: operationNotAllowedCursor()
     of ckHand: pointingHandCursor()
 
-  proc finalizeCursor(c: Cursor) =
+  proc finalizeCursorObj(c: CursorObj) =
     cast[NSCursor](c.c).release()
 elif not defined(nimxAvoidSdl):
   proc cursorKindToSdl(c: CursorKind): SystemCursor =
@@ -94,7 +95,7 @@ elif not defined(nimxAvoidSdl):
     of ckNotAllowed: SDL_SYSTEM_CURSOR_NO
     of ckHand: SDL_SYSTEM_CURSOR_HAND
 
-  proc finalizeCursor(c: Cursor) =
+  proc finalizeCursorObj(c: CursorObj) =
     freeCursor(c.c)
 elif defined(linux):
   proc cursorKindToX(c: CursorKind): cuint =
@@ -112,7 +113,7 @@ elif defined(linux):
     of ckNotAllowed: XC_cross_reverse
     of ckHand: XC_hand1
 
-  proc finalizeCursor(c: Cursor) =
+  proc finalizeCursorObj(c: CursorObj) =
     discard
 elif defined(windows):
   proc cursorKindToWinapi(c: CursorKind): LPTSTR =
@@ -130,15 +131,21 @@ elif defined(windows):
     of ckNotAllowed: IDC_NO
     of ckHand: IDC_HAND
 
-  proc finalizeCursor(c: Cursor) =
+  proc finalizeCursorObj(c: CursorObj) =
     discard
+
+proc finalizeCursor(c: Cursor) = finalizeCursorObj(c[])
+proc `=destroy`(c: var CursorObj) = finalizeCursorObj(c)
 
 proc newCursor*(k: CursorKind): Cursor =
   when defined(js) or defined(emscripten) or defined(wasm):
     result.new()
     result.c = cursorKindToCSSName(k)
   else:
-    result.new(finalizeCursor)
+    when defined(gcDestructors):
+      result.new()
+    else:
+      result.new(finalizeCursor)
     when appKit:
       result.c = NSCursorOfKind(k).retain()
     elif not defined(nimxAvoidSdl):
