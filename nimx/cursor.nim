@@ -61,6 +61,9 @@ when defined(js) or defined(emscripten) or defined(wasm):
     of ckSizeAll: "all-scroll"
     of ckNotAllowed: "not-allowed"
     of ckHand: "pointer"
+
+  proc finalizeCursorObj(c: CursorObj) =
+    discard
 elif appKit:
   proc NSCursorOfKind(c: CursorKind): NSCursor =
     case c
