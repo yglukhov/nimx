@@ -22,38 +22,15 @@ void main() {
 """
 uniform sampler2D texUnit;
 uniform vec4 fillColor;
-uniform float preScale;
 
 varying vec2 vTexCoord;
 
 varying vec2 vPos;
 
-float thresholdFunc(float glyphScale)
-{
-  float base = 0.5;
-  float baseDev = 0.065;
-  float devScaleMin = 0.15;
-  float devScaleMax = 0.3;
-  return base - ((clamp(glyphScale, devScaleMin, devScaleMax) - devScaleMin) / (devScaleMax - devScaleMin) * -baseDev + baseDev);
-}
-
-float spreadFunc(float glyphScale)
-{
-  float range = 0.06;
-  return range / glyphScale;
-}
-
-void compose()
-{
-  float scale = preScale / fwidth(vTexCoord.x);
-  scale = abs(scale);
-  float aBase = thresholdFunc(scale);
-  float aRange = spreadFunc(scale);
-  float aMin = max(0.0, aBase - aRange);
-  float aMax = min(aBase + aRange, 1.0);
-
+void compose() {
   float dist = texture2D(texUnit, vTexCoord).a;
-  float alpha = smoothstep(aMin, aMax, dist);
+  float d = fwidth(dist);
+  float alpha = smoothstep(0.5 - d, 0.5 + d, dist);
   gl_FragColor = vec4(fillColor.rgb, alpha * fillColor.a);
 }
 """, false)
@@ -133,7 +110,6 @@ void main() {
 """
 uniform sampler2D texUnit;
 uniform vec4 fillColor;
-uniform float preScale;
 
 varying vec2 vTexCoord;
 
@@ -156,6 +132,7 @@ float spreadFunc(float glyphScale)
 
 void subpixelCompose()
 {
+  float preScale = 1.0 / 320.0; // Magic constant...
   float scale = preScale / fwidth(vTexCoord.x); // 0.25 * 1.0 / (dFdx(vTexCoord.x) / (16.0 / 1280.0));
   scale = abs(scale);
   float aBase = thresholdFunc(scale);
@@ -243,8 +220,6 @@ proc drawText*(c: GraphicsContext, font: Font, pt: var Point, text: openarray[ch
   when defined(android) or defined(ios):
     subpixelDraw = false
 
-  let preScale = 1.0 / 320.0 # magic constant...
-
   if subpixelDraw:
     if gl.getParami(gl.BLEND_SRC_ALPHA) != gl.SRC_ALPHA.GLint or gl.getParami(gl.BLEND_DST_ALPHA) != gl.ONE_MINUS_SRC_ALPHA.GLint:
       subpixelDraw = false
@@ -260,7 +235,6 @@ proc drawText*(c: GraphicsContext, font: Font, pt: var Point, text: openarray[ch
 
   compositionDrawingDefinitions(cc, c, gl)
   setUniform("fillColor", c.fillColor)
-  setUniform("preScale", preScale)
 
   gl.uniformMatrix4fv(uniformLocation("uModelViewProjectionMatrix"), false, c.transform)
   setupPosteffectUniforms(cc)
