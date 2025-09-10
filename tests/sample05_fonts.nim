@@ -15,8 +15,10 @@ method init(v: FontsView) =
   for i in Baseline.low .. Baseline.high:
     baselineMenuItems.add($i)
 
-  let minFontSize = 8.0
-  let maxFontSize = 80.0
+  const minFontSize = 8.0
+  const maxFontSize = 80.0
+
+  v.curFontSize = 50
 
   v.makeLayout:
     - TextField as captionTf:
@@ -25,6 +27,7 @@ method init(v: FontsView) =
       top == super + 20
       trailing == super - 20
       height == 20
+      continuous: true
       onAction:
         v.caption = captionTf.text
         v.setNeedsDisplay()
@@ -41,6 +44,7 @@ method init(v: FontsView) =
       top == prev
       height == prev
       width == 120
+      value: (v.curFontSize - minFontSize) / (maxFontSize - minFontSize)
       onAction:
         v.curFontSize = minFontSize + (maxFontSize - minFontSize) * sizeSlider.value
         sizeTextField.text = $v.curFontSize
@@ -51,6 +55,8 @@ method init(v: FontsView) =
       top == prev
       height == prev
       width == 120
+      text: $v.curFontSize
+      continuous: true
       onAction:
         try:
           v.curFontSize = parseFloat(sizeTextField.text)
