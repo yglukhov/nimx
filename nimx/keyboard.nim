@@ -93,18 +93,18 @@ type VirtualKey* {.pure.} = enum
   F10
   NumLock
   ScrollLock
+  Keypad0
+  Keypad1
+  Keypad2
+  Keypad3
+  Keypad4
+  Keypad5
+  Keypad6
   Keypad7
   Keypad8
   Keypad9
   KeypadMinus
-  Keypad4
-  Keypad5
-  Keypad6
   KeypadPlus
-  Keypad1
-  Keypad2
-  Keypad3
-  Keypad0
   KeypadPeriod
   NonUSBackSlash
   F11
@@ -202,11 +202,23 @@ proc toAscii*(vk: VirtualKey): char =
     char(ord(vk) - ord(VirtualKey.A) + ord('a'))
   of VirtualKey.Zero .. VirtualKey.Nine:
     char(ord(vk) - ord(VirtualKey.Zero) + ord('0'))
+  of VirtualKey.Keypad0 .. VirtualKey.Keypad9:
+    char(ord(vk) - ord(VirtualKey.Keypad0) + ord('0'))
   of VirtualKey.Space: ' '
   of VirtualKey.RightBracket: ']'
   of VirtualKey.LeftBracket: '['
   of VirtualKey.Minus, VirtualKey.KeypadMinus: '-'
-  of VirtualKey.Equals: '='
+  of VirtualKey.Equals, VirtualKey.KeypadEquals: '='
+  of VirtualKey.KeypadPlus: '+'
+  of VirtualKey.KeypadMultiply: '*'
+  of VirtualKey.KeypadDivide: '/'
+  of VirtualKey.Semicolon: ';'
+  of VirtualKey.Apostrophe: '\''
+  of VirtualKey.Backtick: '`'
+  of VirtualKey.Period, VirtualKey.KeypadComma: '.'
+  of VirtualKey.Comma: ','
+  of VirtualKey.Slash: '/'
+  of VirtualKey.BackSlash: '\\'
   else:
     char(0)
 

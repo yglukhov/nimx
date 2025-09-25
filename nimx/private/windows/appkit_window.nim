@@ -34,6 +34,7 @@ type
     nativeView: NimxView
     renderingContext: GraphicsContext
     displayLink: CVDisplayLink
+    textInputActive: bool
 
 const
   AppDelegateClass = "NimxAppDelegate"
@@ -458,13 +459,13 @@ proc nextEvent(evt: var sdl2.Event) =
           break
 
   animateAndDraw()
-
-method startTextInput*(w: EmscriptenWindow, r: Rect) =
-  startTextInput()
-
-method stopTextInput*(w: EmscriptenWindow) =
-  stopTextInput()
 ]#
+
+method startTextInput*(w: AppkitWindow, r: Rect) =
+  w.textInputActive = true
+
+method stopTextInput*(w: AppkitWindow) =
+  w.textInputActive = false
 
 proc runUntilQuit(cb: proc()) =
   let pool = NSAutoreleasePool.alloc().init()
@@ -519,6 +520,8 @@ proc appkitModFlags(f: uint): ModifiersSet =
     result.incl(LeftControl)
 
 proc eventWithNSEvent(w: AppkitWindow, e: NSEvent): Event =
+  let mods = appkitModFlags(cast[uint](e.modifierFlags))
+
   case e.kind
   of NSLeftMouseDown:
     result = newMouseButtonEvent(w.pointFromNSEvent(e), VirtualKey.MouseButtonPrimary, bsDown)
@@ -532,14 +535,25 @@ proc eventWithNSEvent(w: AppkitWindow, e: NSEvent): Event =
     result = newMouseButtonEvent(w.pointFromNSEvent(e), VirtualKey.MouseButtonSecondary, bsUp)
   of NSRightMouseDragged:
     result = newMouseButtonEvent(w.pointFromNSEvent(e), VirtualKey.MouseButtonSecondary, bsUnknown)
+  of NSScrollWheel:
+    result = newEvent(etScroll, w.pointFromNSEvent(e))
+    result.offset.x = e.scrollingDeltaX
+    result.offset.y = e.scrollingDeltaY
   of NSKeyDown:
-    result = newKeyboardEvent(virtualKeyFromNative(e.keyCode.int), bsDown, e.isARepeat)
+    let vk = virtualKeyFromNative(e.keyCode.int)
+    if w.textInputActive and
+       vk.toAscii != char(0) and
+       not mods.anyCtrl and not mods.anyGui:
+        result = newEvent(etTextInput)
+        result.text = $e.characters
+    else:
+      result = newKeyboardEvent(vk, bsDown, e.isARepeat)
   of NSKeyUp:
     result = newKeyboardEvent(virtualKeyFromNative(e.keyCode.int), bsUp, e.isARepeat)
   else:
     discard
 
-  result.modifiers = appkitModFlags(cast[uint](e.modifierFlags))
+  result.modifiers = mods
   result.window = w
 
 proc getNimxWindow(v: NimxView): AppkitWindow =
@@ -569,6 +583,14 @@ proc reshape(self: NimxView, sel: SEL) =
 proc onDisplayLinkMainThread(self: NimxView, s: SEL, r: NSObject) =
   self.setNeedsDisplay(true)
 
+proc handleEvent(self: NimxView, cmd: SEL, e: NSEvent) =
+  let w = self.getNimxWindow()
+  var evt = w.eventWithNSEvent(e)
+  if not mainApplication().handleEvent(evt):
+    var s = ObjcSuper(receiver: self, superClass: getSuperclass(viewClass()))
+    let superImp = cast[proc(s: var ObjcSuper, c: SEL, e: NSEvent) {.cdecl.}](objc_msgSendSuper)
+    superImp(s, cmd, e)
+
 proc createViewClass(): ObjcClass =
   result = allocateClassPair(getClass("NSOpenGLView"), "NimxView", 0)
 
@@ -577,16 +599,23 @@ proc createViewClass(): ObjcClass =
   discard addMethod(result, sel_registerName("reshape"), reshape)
   discard addMethod(result, sel_registerName("onDisplayLinkMainThread:"), onDisplayLinkMainThread)
 
+  template ev(e: cstring) =
+    discard addMethod(result, sel_registerName(e), handleEvent)
+  ev("keyDown:")
+  ev("keyUp:")
+  ev("mouseDown:")
+  ev("mouseUp:")
+  ev("mouseDragged:")
+  ev("rightMouseDown:")
+  ev("rightMouseUp:")
+  ev("rightMouseDragged:")
+  ev("otherMouseDown:")
+  ev("otherMouseUp:")
+  ev("otherMouseDragged:")
+  ev("scrollWheel:")
+
   registerClassPair(result)
 
-
-# - (void)keyDown: (NSEvent*) e {
-#   [super keyDown: e];
-# }
-
-# - (void)keyUp: (NSEvent*) e {
-#   [super keyUp: e];
-# }
 
 # - (void)insertText:(id)string replacementRange:(NSRange)replacementRange {
 #   NSLog(@"text: %@", string);
@@ -637,17 +666,6 @@ proc createViewClass(): ObjcClass =
 # """.}
 
 
-proc sendEvent(self: NimxWindow, cmd: SEL, e: NSEvent) {.cdecl.} =
-  var s = ObjcSuper(receiver: self, superClass: getSuperclass(windowClass()))
-  let superImp = cast[proc(s: var ObjcSuper, c: SEL, e: NSEvent) {.cdecl.}](objc_msgSendSuper)
-  superImp(s, cmd, e)
-
-  let w = self.getNimxWindow()
-  var evt = w.eventWithNSEvent(e)
-  discard mainApplication().handleEvent(evt)
-
 proc createWindowClass(): ObjcClass =
   result = allocateClassPair(getClass("NSWindow"), "NimxWindow", 0)
-  discard addMethod(result, sel_registerName("sendEvent:"), sendEvent)
-
   registerClassPair(result)
