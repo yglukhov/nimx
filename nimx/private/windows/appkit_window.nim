@@ -1,5 +1,7 @@
-import nimx/[ abstract_window, system_logger, view, context, event, app,
+import ../../[ abstract_window, system_logger, view, context, event, app,
        linkage_details, portable_gl, screen ]
+
+import ../macos_vk_map
 
 import darwin/objc/[runtime, nsobject]
 import darwin/foundation/[nsnotification, nsautoreleasepool, nsgeometry, nsbundle, nsprocessinfo]
@@ -497,6 +499,25 @@ proc pointFromNSEvent(w: AppkitWindow, e: NSEvent): Point =
   result.x = pt.x
   result.y = v.frame.size.height - pt.y
 
+proc applyLRModFlags(res: var ModifiersSet, f: uint, nsMask: NSEventModifierFlags, lbit, rbit: uint16, lkey, rkey: VirtualKey) =
+  if (f and nsMask.uint) != 0:
+    let leftKeyMask = uint(1 shl lbit)
+    let rightKeyMask = uint(1 shl rbit)
+    if (f and (leftKeyMask or rightKeyMask)) != 0:
+      if (f and leftKeyMask) != 0:
+        res.incl(lkey)
+      if (f and rightKeyMask) != 0:
+        res.incl(rkey)
+    else:
+      res.incl(lkey)
+
+proc appkitModFlags(f: uint): ModifiersSet =
+  result.applyLRModFlags(f, NSEventModifierFlagShift, 1, 2, VirtualKey.LeftShift, VirtualKey.RightShift)
+  result.applyLRModFlags(f, NSEventModifierFlagCommand, 3, 4, VirtualKey.LeftGUI, VirtualKey.RightGUI)
+  result.applyLRModFlags(f, NSEventModifierFlagOption, 5, 6, VirtualKey.LeftAlt, VirtualKey.RightAlt)
+  if (f and NSEventModifierFlagControl.uint) != 0:
+    result.incl(LeftControl)
+
 proc eventWithNSEvent(w: AppkitWindow, e: NSEvent): Event =
   case e.kind
   of NSLeftMouseDown:
@@ -511,9 +532,14 @@ proc eventWithNSEvent(w: AppkitWindow, e: NSEvent): Event =
     result = newMouseButtonEvent(w.pointFromNSEvent(e), VirtualKey.MouseButtonSecondary, bsUp)
   of NSRightMouseDragged:
     result = newMouseButtonEvent(w.pointFromNSEvent(e), VirtualKey.MouseButtonSecondary, bsUnknown)
+  of NSKeyDown:
+    result = newKeyboardEvent(virtualKeyFromNative(e.keyCode.int), bsDown, e.isARepeat)
+  of NSKeyUp:
+    result = newKeyboardEvent(virtualKeyFromNative(e.keyCode.int), bsUp, e.isARepeat)
   else:
     discard
 
+  result.modifiers = appkitModFlags(cast[uint](e.modifierFlags))
   result.window = w
 
 proc getNimxWindow(v: NimxView): AppkitWindow =
