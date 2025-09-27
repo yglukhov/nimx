@@ -30,7 +30,8 @@ else:
     "/usr/share/fonts/TTF",
     "/usr/share/fonts/truetype/dejavu",
     "/usr/share/fonts/dejavu",
-    "/usr/share/fonts"
+    "/usr/share/fonts",
+    "/usr/share/fonts/dejavu-sans-fonts/"
   ]
 
 iterator potentialFontFilesForFace*(face: string): string =
