@@ -24,10 +24,9 @@ jobs:
       shell: bash
       run: |
         sudo apt-get update
-        sudo apt-get install gcc-multilib # Support for 32bits
+        sudo apt-get install -y clang-20 lld-20
+        sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-20 200
         clang --version
-        # For some reason wasm-ld is not in PATH, so add it. llvm version should probably match that of clang
-        export PATH=$PATH:/usr/lib/llvm-11/bin
 
         nim --version
         nimble install -dy

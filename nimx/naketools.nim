@@ -524,26 +524,6 @@ proc makeAndroidBuildDir(b: Builder): string =
 
   buildDir
 
-proc packageNameAtPath(d: string): string =
-  for file in walkFiles(d / "*.nimble"):
-    return file.splitFile.name
-
-proc curPackageNameAndPath(): tuple[name, path: string] =
-  var d = getCurrentDir()
-  while d.len > 1:
-    result.name = packageNameAtPath(d)
-    if result.name.len != 0:
-      result.path = d
-      return
-    d = d.parentDir()
-
-proc nimbleOverrideFlags(b: Builder): seq[string] =
-  let cp = curPackageNameAndPath()
-  if cp.name.len != 0:
-    let origNimblePath = nimblePath(cp.name)
-    if origNimblePath.len != 0: result.add("--excludePath:" & origNimblePath)
-    result.add("--path:" & cp.path)
-
 proc postprocessWebTarget(b: Builder) =
   let sf = splitFile(b.mainFile)
   var mainHTML = sf.dir / sf.name & ".html"
@@ -769,16 +749,14 @@ proc build*(b: Builder) =
       let macOSSDK = b.macOSSDKPath
       # addCAndLFlags(["-isysroot", macOSSDK])
       b.additionalCompilerFlags.add(["-I" & macOSSDK & "/usr/include", "-D__i386__"])
-    else:
-      b.additionalCompilerFlags.add(["-I/usr/include"])
 
     let llTarget = "wasm32-unknown-unknown-wasm"
     addCAndLFlags(["--target=" & llTarget])
 
-    var linkerOptions = "-nostdlib -Wl,--no-entry,--allow-undefined,--gc-sections,--strip-all"
+    var linkerOptions = "-nostdlib -Wl,--no-entry,--allow-undefined"
     if not b.debugMode:
       b.nimFlags.add("-d:danger")
-      linkerOptions.add(",--strip-all")
+      linkerOptions.add(",--gc-sections,--strip-all")
 
     b.additionalLinkerFlags.add(linkerOptions.split(" "))
 
@@ -864,7 +842,6 @@ proc build*(b: Builder) =
   # Run Nim
   var args = @[findExe("nim").quoteShell(), command]
   args.add(b.nimFlags)
-  args.add(b.nimbleOverrideFlags())
 
   if b.platform in ["android"]: # multiarch
     let toolchainBin = b.androidToolchainBinPath()
