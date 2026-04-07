@@ -1,9 +1,7 @@
 const appKit = defined(macosx) and not defined(ios)
 
-when defined(js) or defined(emscripten) or defined(wasm):
-  import jsbind
-  when defined(emscripten) or defined(wasm):
-    import jsbind/emscripten
+when defined(wasm):
+  import wasmrt
 elif appKit:
   import darwin/app_kit as apkt
 elif not defined(nimxAvoidSDL):
@@ -35,8 +33,8 @@ type
 
   Cursor* = ref CursorObj
   CursorObj = object
-    when defined(js) or defined(emscripten) or defined(wasm):
-      c: jsstring
+    when defined(wasm):
+      c: string
     elif appKit:
       c: pointer
     elif not defined(nimxAvoidSdl):
@@ -46,8 +44,8 @@ type
     elif defined(windows):
       c: HCURSOR
 
-when defined(js) or defined(emscripten) or defined(wasm):
-  proc cursorKindToCSSName(c: CursorKind): jsstring =
+when defined(wasm):
+  proc cursorKindToCSSName(c: CursorKind): string =
     case c
     of ckArrow: "auto"
     of ckText: "text"
@@ -141,9 +139,8 @@ proc finalizeCursor(c: Cursor) = finalizeCursorObj(c[])
 proc `=destroy`(c: var CursorObj) = finalizeCursorObj(c)
 
 proc newCursor*(k: CursorKind): Cursor =
-  when defined(js) or defined(emscripten) or defined(wasm):
-    result.new()
-    result.c = cursorKindToCSSName(k)
+  when defined(wasm):
+    result = Cursor(c: cursorKindToCSSName(k))
   else:
     when defined(gcDestructors):
       result.new()
@@ -166,15 +163,11 @@ proc currentCursor*(): Cursor =
 
 proc setCurrent*(c: Cursor) =
   gCursor = c
-  when defined(js):
-    let cs = c.c
-    {.emit: """
-    document.body.style.cursor = `cs`;
+  when defined(wasm):
+    proc setCursor(s: string) {.importwasmraw: """
+    document.body.style.cursor = $0
     """.}
-  elif defined(emscripten) or defined(wasm):
-    discard EM_ASM_INT("""
-    document.body.style.cursor = UTF8ToString($0);
-    """, cstring(c.c))
+    setCursor(c.c)
   elif appKit:
     cast[NSCursor](c.c).setCurrent()
   elif not defined(nimxAvoidSdl):

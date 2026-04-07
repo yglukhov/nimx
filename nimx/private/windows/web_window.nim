@@ -12,7 +12,7 @@ type WebWindow* = ref object of Window
   canvasId: string
   textInputCompositionInProgress: bool
 
-proc fullScreenAvailableAux(): int {.importwasmraw: """
+proc fullScreenAvailableAux(): int32 {.importwasmraw: """
   var d = document;
   return d.fullscreenEnabled|d.webkitFullscreenEnabled
 """.}
@@ -28,8 +28,8 @@ proc fullscreenAux(): bool {.importwasmraw: """
 method fullscreen*(w: WebWindow): bool =
   fullscreenAux()
 
-proc requestFullscreen(canvasId: cstring) {.importwasmraw: """
-  var c = document.getElementById(_nimsj($0));
+proc requestFullscreen(canvasId: string) {.importwasmraw: """
+  var c = document.getElementById($0);
   if (c.requestFullscreen)
     c.requestFullscreen();
   else if (c.webkitRequestFullscreen)
@@ -110,10 +110,10 @@ proc setupMouseEventHandlers(
   c: cstring,
   m: proc(x, y: cdouble, buttonState, buttonCode: int32, deltaX, deltaY: cdouble): int32 {.nimcall.}
      ) {.importwasmraw: """
-  var d = document, c = d.getElementById(_nimsj($0)),
+  var d = document, c = d.getElementById($0),
   om = (s, e) => {
     var r = c.getBoundingClientRect();
-    if (_nime._diddiidd($1, e.clientX - r.left, e.clientY - r.top, s, e.button, e.deltaX, e.deltaY))
+    if ($1(e.clientX - r.left, e.clientY - r.top, s, e.button, e.deltaX, e.deltaY))
       e.preventDefault()
   };
   d.addEventListener('mousemove', e => om(0, e));
@@ -127,27 +127,28 @@ proc setupKeyEventHandlers(
      ) {.importwasmraw: """
   var d = document,
   om = (s, e) => {
-    if (_nime._diiii($0, e.keyCode, e.repeat, s)) e.preventDefault()
+    if ($0( e.keyCode, e.repeat, s)) e.preventDefault()
   };
   d.addEventListener('keydown', e => om(1, e));
   d.addEventListener('keyup', e => om(0, e))
   """.}
 
-proc requestAnimFrame(p: proc() {.nimcall}) {.importwasmraw: """
-requestAnimationFrame(() => {try{_nime._dv($0)}catch(e) {console.log("Error caught", e);_nime.nimerr(); throw e;}})
-""".}
+# proc requestAnimFrame(p: proc() {.nimcall}) {.importwasmraw: """
+# requestAnimationFrame(() => {try{$0()}catch(e) {console.log("Error caught", e);_nime.nimerr(); throw e;}})
+# """.}
+proc requestAnimFrame(p: proc() {.nimcall}) {.importwasmf: "requestAnimationFrame".}
 
 proc animFrame() =
   mainApplication().runAnimations()
   mainApplication().drawWindows()
   requestAnimFrame(animFrame)
 
-proc getDocumentElementFloatProp(i, p: cstring): cdouble {.importwasmexpr: "document.getElementById(_nimsj($0))[_nimsj($1)]".}
+proc getDocumentElementFloatProp(i, p: cstring): cdouble {.importwasmexpr: "document.getElementById($0)[$1]".}
 proc createCanvas(i: cstring, x, y: cfloat) {.importwasmraw: """
-var d = document, w = window, I = _nimsj($0), e = d.getElementById(I);
+var d = document, w = window, e = d.getElementById($0);
 if (!e) {
   e = d.createElement("canvas");
-  e.id = I;
+  e.id = $0;
   d.body.appendChild(e)
 }
 e.style.width = $1 + 'px';
@@ -225,10 +226,8 @@ proc initWithCanvasId*(w: WebWindow, canvasId: string) =
   mainApplication().addWindow(w)
   requestAnimFrame(animFrame)
 
-  defineDyncall("iddiidd")
   setupMouseEventHandlers(canvasId, onMouse)
 
-  defineDyncall("iiii")
   setupKeyEventHandlers(onKey)
 
 proc nextCanvasId(): string =
@@ -261,13 +260,13 @@ newFullscreenWindow = newWebWindowByFillingBrowserWindow
 proc listenPixelRatioChange(cb: proc() {.nimcall.}) {.importwasmraw: """
   matchMedia(
     `(resolution: ${window.devicePixelRatio}dppx)`
-  ).addEventListener("change", () => _nime._dv($0), { once: true })
+  ).addEventListener("change", $0, { once: true })
 """.}
 
 proc getPixelRatio(): float {.importwasmexpr: "window.devicePixelRatio || 1".}
 
 proc updateCanvasPixelRatio(r: float, canvasId: cstring) {.importwasmraw: """
-  var c = document.getElementById(_nimsj($1));
+  var c = document.getElementById($1);
   c.width = c.clientWidth * $0;
   c.height = c.clientHeight * $0
 """.}
@@ -278,7 +277,6 @@ proc onPixelRatioChange() =
   if not w.isNil:
     w.onResize(w.frame.size)
 
-  defineDyncall("v")
   listenPixelRatioChange(onPixelRatioChange)
 
 method init*(w: WebWindow) =
@@ -305,11 +303,11 @@ method onResize*(w: WebWindow, newSize: Size) =
   let vp = w.frame.size * p
   sharedGL().viewport(0, 0, GLSizei(vp.width), GLsizei(vp.height))
 
-proc startTextInputAux(cb: proc(e: int32, a: JSRef) {.cdecl.}, x, y, w, h: float32, canvasId: cstring) {.importwasmraw: """
+proc startTextInputAux(cb: proc(e: int32, a: JSString) {.cdecl.}, x, y, w, h: float32, canvasId: cstring) {.importwasmraw: """
   if (window.__nimx_textinput) window.__nimx_textinput.remove();
   var d = document, i = window.__nimx_textinput = d.createElement('input'),
-  c = d.getElementById(_nimsj($5)),
-  l = (n, k) => i.addEventListener(n, e => _nime._dvii($0, k, _nimok(e.data)));
+  c = d.getElementById($5),
+  l = (n, k) => i.addEventListener(n, e => $0(k, e.data));
 
   i.type = 'text';
 
@@ -334,25 +332,11 @@ proc startTextInputAux(cb: proc(e: int32, a: JSRef) {.cdecl.}, x, y, w, h: float
   setTimeout(() => i.focus(), 1)
 """.}
 
-proc length(j: JSObj): int {.importwasmp.}
-proc strWriteOut(j: JSObj, p: pointer, len: int): int {.importwasmf: "_nimws".}
-
-proc jsStringToStr(v: JSObj): string =
-  if not v.isNil:
-    let sz = length(v) * 3
-    result.setLen(sz)
-    if sz != 0:
-      let actualSz = strWriteOut(v, addr result[0], sz)
-      result.setLen(actualSz)
-
-proc onInput(eventKind: int32, text: JSRef) {.cdecl.} =
-  let text = block:
-    # Force JSRef destruction early
-    jsStringToStr(JSObj(o: text))
+proc onInput(eventKind: int32, text: JSString) {.cdecl.} =
   let a = mainApplication()
   let w = WebWindow(a.keyWindow)
   var e = newEvent(etTextInput)
-  e.text = text
+  e.text = $text
   e.window = w
 
   if not w.isNil:
@@ -372,7 +356,6 @@ proc onInput(eventKind: int32, text: JSRef) {.cdecl.} =
       discard a.handleEvent(e)
 
 method startTextInput*(w: WebWindow, r: Rect) =
-  defineDyncall("vii")
   startTextInputAux(onInput, r.x, r.y, r.width, r.height, w.canvasId)
 
 proc stopTextInputAux() {.importwasmraw: """
@@ -397,5 +380,4 @@ template runApplication*(code: typed) =
   proc main() =
     code
   main()
-  # defineDyncall("v")
   # initMain(main)

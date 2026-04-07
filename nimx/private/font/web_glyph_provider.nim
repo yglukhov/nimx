@@ -21,22 +21,23 @@ proc cssFontName(p: WebGlyphProvider): string =
 
 template clearCache*(p: WebGlyphProvider) = discard
 
-proc calculateFontMetricsInCanvas(n: cstring, fontSize: int, o: pointer) {.importwasmraw: """
+proc actualBoundingBoxAscent(metrics: JSObject): float32 {.importwasmp.}
+proc fontBoundingBoxDescent(metrics: JSObject): float32 {.importwasmp.}
+
+proc calculateFontMetricsInCanvas(n: cstring, fontSize: int32): JSObject {.importwasmraw: """
   var c = document.createElement("canvas"),
     C = c.getContext("2d");
-  C.font = _nimsj($0);
-  var m = C.measureText("Hl@¿Éq¶");
-  _nimwf([m.actualBoundingBoxAscent, m.fontBoundingBoxDescent], $2)
+  C.font = $0;
+  return C.measureText("Hl@¿Éq¶");
   """.}
 
 proc getFontMetrics*(p: WebGlyphProvider, oAscent, oDescent: var float32) =
-  var o: array[2, float32]
-  calculateFontMetricsInCanvas(p.cssFontName, int32(p.size), addr o)
-  oAscent = o[0]
-  oDescent = -o[1]
+  let metrics = calculateFontMetricsInCanvas(p.cssFontName, int32(p.size))
+  oAscent = metrics.actualBoundingBoxAscent
+  oDescent = -metrics.fontBoundingBoxDescent
 
 proc createAuxCanvas(n: cstring) {.importwasmraw: """
-  var fName = _nimsj($0);
+  var fName = $0;
   var r = document.createElement("canvas");
   var ctx = r.getContext('2d');
   r.style.font = fName;
@@ -54,7 +55,7 @@ proc configureAuxCanvas(w, h: int32, f: cstring) {.importwasmraw: """
   c.width = $0;
   c.height = $1;
   x.textBaseline = "top";
-  x.font = _nimsj($2)
+  x.font = $2
   """.}
 
 proc fillText(c, x, y: int32) {.importwasmraw: """

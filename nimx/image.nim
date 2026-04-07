@@ -4,10 +4,10 @@ import opengl
 
 import ./assets/[ asset_loading, url_stream, asset_manager ]
 import ./serializers
-const web = defined(js) or defined(emscripten) or defined(wasm)
+const web = defined(wasm)
 
 when web:
-  import jsbind
+  import wasmrt
 else:
   import nimwebp / decoder
   import load_image_impl
@@ -534,14 +534,14 @@ when asyncResourceLoad:
       performOnMainThread(cast[proc(data: pointer){.cdecl, gcsafe.}](p), ctx)
 
 when defined(emscripten) or defined(wasm):
-  import jsbind/emscripten
+  import wasmrt
 
   type ImageLoadingCtx = ref object
     path: string
     callback: proc(i: Image)
     image: SelfContainedImage
 
-  proc nimxImagePrepareTexture(c: pointer, x, y, texWidth, texHeight: cint) {.EMSCRIPTEN_KEEPALIVE.} =
+  proc nimxImagePrepareTexture(c: pointer, x, y, texWidth, texHeight: cint) {.exportwasm.} =
     let ctx = cast[ImageLoadingCtx](c)
     ctx.image = newSelfContainedImage()
     glGenTextures(1, addr ctx.image.texture)
@@ -557,7 +557,7 @@ when defined(emscripten) or defined(wasm):
       ctx.image.texCoords[2] = x.Coord / texWidth.Coord
       ctx.image.texCoords[3] = y.Coord / texHeight.Coord
 
-  proc nimxImageLoaded(c: pointer) {.EMSCRIPTEN_KEEPALIVE.} =
+  proc nimxImageLoaded(c: pointer) {.exportwasm.} =
     let ctx = cast[ImageLoadingCtx](c)
     setupTexParams(nil)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
@@ -566,22 +566,16 @@ when defined(emscripten) or defined(wasm):
     ctx.image.setFilePath(ctx.path)
     ctx.callback(ctx.image)
 
-  proc nimxImageLoadError(c: pointer) {.EMSCRIPTEN_KEEPALIVE.} =
+  proc nimxImageLoadError(c: pointer) {.exportwasm.} =
     let ctx = cast[ImageLoadingCtx](c)
     GC_unref(ctx)
     error "Error loading image: ", ctx.path
     ctx.callback(nil)
 
-  proc nimxNextPowerOf2(x: cint): cint {.EMSCRIPTEN_KEEPALIVE.} =
+  proc nimxNextPowerOf2(x: cint): cint {.exportwasm.} =
     nextPowerOfTwo(x).cint
 
-  proc loadImageFromURL*(url: string, callback: proc(i: Image)) =
-    var ctx: ImageLoadingCtx
-    ctx.new()
-    ctx.path = url
-    ctx.callback = callback
-    GC_ref(ctx)
-    discard EM_ASM_INT("""
+  proc loadImageAux(ctx: pointer, path: string) {.importwasmraw: """
     var i = new Image();
     i.crossOrigin = '';
     i.onload = function () {
@@ -608,14 +602,20 @@ when defined(emscripten) or defined(wasm):
         _nimem_e(e); // This function is defined in `jsbind.emscripten`
       }
     };
-    var url = _nimsj($1);
-
     i.onerror = function() {
-      console.log("image load failed: " + url);
+      console.log("image load failed: " + $1);
       _nime.nimxImageLoadError($0);
     };
-    i.src = url;
-    """, cast[pointer](ctx), cstring(ctx.path))
+    i.src = $1
+    """.}
+
+  proc loadImageFromURL*(url: string, callback: proc(i: Image)) =
+    var ctx: ImageLoadingCtx
+    ctx.new()
+    ctx.path = url
+    ctx.callback = callback
+    GC_ref(ctx)
+    loadImageAux(cast[pointer](ctx), ctx.path)
 
 elif defined(js):
   proc loadImageFromURL*(url: string, callback: proc(i: Image)) =

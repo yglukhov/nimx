@@ -101,14 +101,10 @@ when defined(js):
     `s` = window.location.href;
     """.}
     result = $s
-elif defined(emscripten) or defined(wasm):
-  import jsbind/emscripten
-
-  proc getCurrentHref*(): string =
-    let r = EM_ASM_INT """
-    return _nimem_s(window.location.href);
-    """
-    result = cast[string](r)
+elif defined(wasm):
+  import wasmrt
+  proc getHr(): string {.importwasmexpr: "window.location.href".}
+  proc getCurrentHref*(): string = getHr()
 
 iterator uriParamsPairs*(s: string): (string, string) =
   var i = s.skipUntil('?') + 1

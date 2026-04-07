@@ -430,16 +430,9 @@ proc newGL*(canvas: ref RootObj): GL =
 proc sharedGL*(): GL = globalGL
 
 proc shaderInfoLog*(gl: GL, s: ShaderRef): string =
-  when defined js:
-    var m: cstring
-    # Chrome bug: getShaderInfoLog and getProgramInfoLog return zero terminated strings
-    {.emit:"""
-    `m` = `gl`.getShaderInfoLog(`s`);
-    while (`m`.charCodeAt(`m`.length - 1) == 0) {
-       `m` = `m`.substring(0, `m`.length - 1);
-    }
-    """.}
-    result = $m
+  when defined(wasm):
+    proc getShaderInfoLogI(s: JSObject): JSString {.importwasmf: "GLCtx.getShaderInfoLog".}
+    result = getShaderInfoLogI(cast[JSRef](s))
   else:
     var infoLen: GLint
     var dummy: char
@@ -449,16 +442,9 @@ proc shaderInfoLog*(gl: GL, s: ShaderRef): string =
       glGetShaderInfoLog(s, infoLen, nil, addr result[0])
 
 proc programInfoLog*(gl: GL, s: ProgramRef): string =
-  when defined js:
-    var m: cstring
-    # Chrome bug: getShaderInfoLog and getProgramInfoLog return zero terminated strings
-    {.emit:"""
-    `m` = `gl`.getProgramInfoLog(`s`);
-    while (`m`.charCodeAt(`m`.length - 1) == 0) {
-       `m` = `m`.substring(0, `m`.length - 1);
-    }
-    """.}
-    result = $m
+  when defined(wasm):
+    proc getProgramInfoLogI(s: JSObject): JSString {.importwasmf: "GLCtx.getProgramInfoLog".}
+    result = getProgramInfoLogI(cast[JSRef](s))
   else:
     var infoLen: GLint
     var dummy: char
@@ -594,11 +580,11 @@ when defined(js):
   template boundRenderbuffer*(gl: GL): RenderbufferRef =
     cast[RenderbufferRef](getParameterRef(gl, gl.RENDERBUFFER_BINDING))
 elif defined(wasm):
-  proc getParameterRef(p: GLenum): JSRef {.importwasmf: "GLCtx.getParameter".}
+  proc getParameterRef(p: int32): JSObject {.importwasmf: "GLCtx.getParameter".}
   template boundFramebuffer*(gl: GL): FramebufferRef =
-    cast[FramebufferRef](getParameterRef(GL_FRAMEBUFFER_BINDING))
+    cast[FramebufferRef](storeExternRef(getParameterRef(GL_FRAMEBUFFER_BINDING.int32)))
   template boundRenderbuffer*(gl: GL): RenderbufferRef =
-    cast[RenderbufferRef](getParameterRef(GL_RENDERBUFFER_BINDING))
+    cast[RenderbufferRef](storeExternRef(getParameterRef(GL_RENDERBUFFER_BINDING.int32)))
 else:
   template boundFramebuffer*(gl: GL): FramebufferRef =
     cast[FramebufferRef](gl.getParami(GL_FRAMEBUFFER_BINDING))

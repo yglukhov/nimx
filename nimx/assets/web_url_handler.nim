@@ -3,92 +3,72 @@ import async_http_request except Handler
 
 import nimx/http_request except Handler
 
-const web = defined(js) or defined(emscripten) or defined(wasm)
-
 type URLLoadingError* = object
   description*: string
 
-when web:
+when defined(wasm):
   import logging
-  import jsbind
-
-  when defined(js):
-    import nimx/private/js_data_view_stream
+  import wasmrt
 
   proc errorDesc(r: XMLHTTPRequest, url: string): URLLoadingError =
     var statusText = r.statusText
     result.description = "XMLHTTPRequest error(" & url & "): " & $r.status & ": " & $statusText
     warn "XMLHTTPRequest failure: ", result.description
 
-  proc loadJSURL*(url: string, resourceType: cstring, onProgress: proc(p: float), onError: proc(e: URLLoadingError), onComplete: proc(result: JSObj)) =
+  proc loadJSURL(url: string, onError: proc(e: URLLoadingError), onComplete: proc(result: JSObject)) =
     assert(not onComplete.isNil)
 
-    let oReq = newXMLHTTPRequest()
+    let oReq = newXMLHTTPRequest().store()
     var reqListener: proc()
     var errorListener: proc()
     reqListener = proc() =
-      jsUnref(reqListener)
-      jsUnref(errorListener)
-      let s = oReq.status
+      # jsUnref(reqListener)
+      # jsUnref(errorListener)
+
+      let r = oReq.get()
+      let s = r.status
       if s > 300:
-        let err = oReq.errorDesc(url)
+        let err = r.errorDesc(url)
         if not onError.isNil:
           onError(err)
       else:
-        onComplete(oReq.response)
+        onComplete(r.response)
     errorListener = proc() =
-      jsUnref(reqListener)
-      jsUnref(errorListener)
-      let err = oReq.errorDesc(url)
+      # jsUnref(reqListener)
+      # jsUnref(errorListener)
+      let err = oReq.get().errorDesc(url)
       if not onError.isNil:
         onError(err)
-    jsRef(reqListener)
-    jsRef(errorListener)
+    # jsRef(reqListener)
+    # jsRef(errorListener)
 
-    oReq.addEventListener("load", reqListener)
-    oReq.addEventListener("error", errorListener)
+    # oReq.addEventListener("load", reqListener)
+    # oReq.addEventListener("error", errorListener)
     oReq.open("GET", url)
-    oReq.responseType = resourceType
+    oReq.responseType = "arraybuffer"
     oReq.send()
 
-  when defined(emscripten):
-    import jsbind/emscripten
+  proc byteLength(b: JSObject): uint32 {.importwasmp.}
+  proc uint8MemSlice(s: pointer, length: uint32): JSObject {.importwasmexpr: "new Uint8Array(_nima, $0, $1)".}
+  proc uint8Mem(b: JSObject): JSObject {.importwasmf: "new Uint8Array".}
+  proc setMem(a, b: JSObject) {.importwasmm: "set".}
 
-    proc arrayBufferToString(arrayBuffer: JSObj): string {.inline.} =
-      let r = EM_ASM_INT("""
-      var a = new Int8Array(_nimem_o[$0]);
-      var b = _nimem_ps(a.length);
-      writeArrayToMemory(a, _nimem_sb(b));
-      return b;
-      """, arrayBuffer.p)
-      result = cast[string](r)
-      shallow(result)
-  elif defined(wasm):
-    import jsbind/emscripten
-    proc arrayBufferToString(arrayBuffer: JSObj): string {.inline.} =
-      let r = EM_ASM_INT("""
-      var a = new Int8Array(_nimem_o[$0]);
-      var b = _nimem_ps(a.length);
-      writeArrayToMemory(a, _nimem_sb(b));
-      return b;
-      """, arrayBuffer.p)
-      result = cast[string](r)
+  proc arrayBufferToString(arrayBuffer: JSObject): string {.inline.} =
+    let sz = arrayBuffer.byteLength
+    if sz != 0:
+      result.setLen(sz.int)
+      uint8MemSlice(addr result[0], sz).setMem(uint8Mem(arrayBuffer))
 
 proc getHttpStream(url: string, handler: Handler) =
   {.gcsafe.}:
-    when web:
-      let reqListener = proc(data: JSObj) =
-        when defined(js):
-          var dataView : ref RootObj
-          {.emit: "`dataView` = new DataView(`data`);".}
-          handler(newStreamWithDataView(dataView), "")
-        else:
-          handler(newStringStream(arrayBufferToString(data)), "")
+    when defined(wasm):
+      let reqListener = proc(data: JSObject) =
+        handler(newStringStream(arrayBufferToString(data)), "")
 
       let errorListener = proc(e: URLLoadingError) =
         handler(nil, e.description)
 
-      loadJSURL(url, "arraybuffer", nil, errorListener, reqListener)
+      loadJSURL(url, errorListener, reqListener)
     else:
       sendRequest("GET", url, "", []) do(r: Response):
         if r.statusCode >= 200 and r.statusCode < 300:
@@ -103,16 +83,6 @@ proc getHttpStream(url: string, handler: Handler) =
 registerUrlHandler("http", getHttpStream)
 registerUrlHandler("https", getHttpStream)
 
-when web:
-  when not defined(wasm):
-    registerUrlHandler("file", getHttpStream)
-
-  when defined(emscripten):
-    registerUrlHandler("emdata") do(url: string, handler: Handler):
-      const prefixLen = len("file://")
-      let p =  substr(url, prefixLen)
-      let s = newFileStream(p, fmRead)
-      if s.isNil:
-        handler(nil, "Could not open file: " & url)
-      else:
-        handler(s, "")
+# when web:
+#   when not defined(wasm):
+#     registerUrlHandler("file", getHttpStream)

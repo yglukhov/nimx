@@ -99,7 +99,7 @@ when dumpDebugBitmaps:
   when defined(wasm):
     import wasmrt
     proc dumpAux(name: cstring, bitmap: pointer, width, height, start: int32, fSize: float) {.importwasmraw: """
-      var title = _nimsj($0);
+      var title = $0;
       var width = $2;
       var height = $3;
       var start = $3;

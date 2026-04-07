@@ -13,32 +13,20 @@ type UITestSuite* = ref object
 const web = defined(js) or defined(emscripten) or defined(wasm)
 
 when web:
-  when defined(emscripten) or defined(wasm):
-    import jsbind/emscripten
+  import wasmrt
 
   # When testing on Firefox, we have to use window.dump instead of console.log
   type FirefoxAutotestLogger = ref object of Logger
 
   method log*(logger: FirefoxAutotestLogger, level: Level, args: varargs[string, `$`]) =
-    let s = args.join()
-    let a = cstring(s)
-    when defined(js):
-      {.emit: """
-      window['dump'](`a` + '\n');
-      """.}
-    else:
-      discard EM_ASM_INT("""
-      window['dump'](UTF8ToString($0) + '\n');
-      """, a)
+    var s = args.join()
+    s &= '\n'
+    proc dump(s: string) {.importwasmf: "window['dump']".}
+    dump(s)
 
   var loggerSetupDone = false
 
-  proc isWindowDumpAvailable(): bool {.inline.} =
-    when defined(js):
-      {.emit: "`result` = 'dump' in window;".}
-    else:
-      let res = EM_ASM_INT("return ('dump' in window)?1:0;")
-      result = bool(res)
+  proc isWindowDumpAvailable(): bool {.importwasmexpr: "'dump' in window".}
 
   proc setupLogger() =
     if not loggerSetupDone:

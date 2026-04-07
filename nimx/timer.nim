@@ -2,7 +2,7 @@ import times, mini_profiler
 
 when defined(wasm):
   import wasmrt
-  type TimerID = JSObj
+  type TimerID = Stored[JSObject]
 when defined(js) or defined(emscripten):
   import jsbind
   type TimerID = ref object of JSObj
@@ -10,6 +10,10 @@ elif defined(macosx):
   type TimerID = pointer
 elif not defined(nimxAvoidSDL):
   import sdl2
+
+  proc isNil(t: TimerID): bool =
+    var empty: TimerId
+    t == empty
 else:
   type TimerID = bool
 
@@ -56,24 +60,20 @@ when profileTimers or defined(debugLeaks):
     proc finalizeTimer(t: Timer) = destroyAux(t[])
 
 when defined(wasm):
-  proc setIntervalAux(ms: float, cb: proc(ctx: pointer) {.cdecl.}, ctx: pointer): JSObj {.importwasmexpr: """
-  setInterval(() => {_nime._dvi($1, $2)}, $0)
-  """.}
+  proc closurize(cb: proc(ctx: pointer) {.cdecl.}, ctx: pointer): JSObject {.importwasmexpr: "() => $0($1)".}
 
-  proc setTimeoutAux(ms: float, cb: proc(ctx: pointer) {.cdecl.}, ctx: pointer): JSObj {.importwasmexpr: """
-  setTimeout(() => {_nime._dvi($1, $2)}, $0)
-  """.}
+  proc setIntervalAux(ms: float, cb: JSObject): JSObject {.importwasmf: "setInterval".}
+  proc setTimeoutAux(ms: float, cb: JSObject): JSObject {.importwasmf: "setTimeout".}
 
-  proc setInterval(ms: float, cb: proc(ctx: pointer) {.cdecl.}, ctx: pointer): JSObj {.inline.} =
-    defineDyncall("vi")
-    setIntervalAux(ms, cb, ctx)
+  proc setInterval(ms: float, cb: proc(ctx: pointer) {.cdecl.}, ctx: pointer): JSObject {.inline.} =
+    setIntervalAux(ms, closurize(cb, ctx))
+    # setIntervalAux(ms, cb, ctx)
 
-  proc setTimeout(ms: float, cb: proc(ctx: pointer) {.cdecl.}, ctx: pointer): JSObj {.inline.} =
-    defineDyncall("vi")
-    setTimeoutAux(ms, cb, ctx)
+  proc setTimeout(ms: float, cb: proc(ctx: pointer) {.cdecl.}, ctx: pointer): JSObject {.inline.} =
+    setTimeoutAux(ms, closurize(cb, ctx))
 
-  proc clearTimeout(t: JSObj) {.importwasmf.}
-  proc clearInterval(t: JSObj) {.importwasmf.}
+  proc clearTimeout(t: JSObject) {.importwasmf.}
+  proc clearInterval(t: JSObject) {.importwasmf.}
 
   proc onTimer(ctx: pointer) {.cdecl.} =
     let t = cast[Timer](ctx)
@@ -82,10 +82,11 @@ when defined(wasm):
       cb()
 
   proc schedule(t: Timer) =
-    if t.isPeriodic:
-      t.timer = setInterval(t.interval * 1000, onTimer, cast[pointer](t))
-    else:
-      t.timer = setTimeout(t.interval * 1000, onTimer, cast[pointer](t))
+    let ms = t.interval * 1000
+    t.timer = store(if t.isPeriodic:
+                      setInterval(ms, onTimer, cast[pointer](t))
+                    else:
+                      setTimeout(ms, onTimer, cast[pointer](t)))
 
   template cancel(t: Timer) =
     if t.isPeriodic:
@@ -212,10 +213,9 @@ else:
 
 proc clear*(t: Timer) =
   if not t.isNil:
-    var emptyId: TimerID
-    if t.timer != emptyId:
+    if not t.timer.isNil:
       t.cancel()
-      t.timer = emptyId
+      t.timer = default(TimerID)
       t.state = tsInvalid
       t.callback = nil
       t.origCallback = nil
@@ -275,10 +275,9 @@ proc timeLeftUntilNextFire(t: Timer): float =
 
 proc pause*(t: Timer) =
   if t.state == tsRunning:
-    var emptyId: TimerID
-    if t.timer != emptyId:
+    if not t.timer.isNil:
       t.cancel()
-      t.timer = emptyId
+      t.timer = default(TimerID)
       t.scheduleTime = t.timeLeftUntilNextFire()
       t.state = tsPaused
       when not defined(js):
