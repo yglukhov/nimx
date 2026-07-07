@@ -38,12 +38,10 @@ method onScroll*(v: NumericTextField, e: var Event): bool =
 ]#
 
 const arrowComposition = newComposition """
-uniform float uAngle;
-
-void compose() {
-  vec2 center = vec2(bounds.x + bounds.z / 2.0, bounds.y + bounds.w / 2.0 - 1.0);
-  float triangle = sdRegularPolygon(center, 4.0, 3, uAngle);
-  drawShape(triangle, vec4(0.7, 0.7, 0.7, 1));
+fn compose() {
+  let center = vec2f(uni.bounds.x + uni.bounds.z / 2.0, uni.bounds.y + uni.bounds.w / 2.0 - 1.0);
+  let triangle = sdRegularPolygonAt(center, 4.0, 3, uni.uAngle.x);
+  drawShape(triangle, vec4f(0.7, 0.7, 0.7, 1.0));
 }
 """
 

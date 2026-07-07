@@ -110,8 +110,9 @@ when not web:
     result.initWithBitmap(data, x, y, comp)
 
   proc initWithContentsOfFile*(i: SelfContainedImage, path: string) =
+    let fsPath = if path.startsWith("file://"): path.substr(7) else: path
     var x, y, comp: cint
-    let data = stbi_load(path.cstring, addr x, addr y, addr comp, 0)
+    let data = stbi_load(fsPath.cstring, addr x, addr y, addr comp, 0)
     if data.isNil:
       raise newException(IOError, "Could not load image: " & path)
     i.initWithBitmap(data, x.int, y.int, comp.int)

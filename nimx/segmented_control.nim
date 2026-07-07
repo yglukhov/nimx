@@ -21,22 +21,18 @@ type SegmentedControl* = ref object of Control
   clickedSegment: int
 
 const scComposition = newComposition """
-uniform vec4 uSelectedRect;
-uniform vec4 uTrackedRect;
-
-float radius = 5.0;
-
-void compose() {
-  vec4 strokeColor = newGrayColor(0.78);
-  float stroke = sdRoundedRect(insetRect(bounds, 1.0), radius - 1.0);
-  float fill = sdRoundedRect(insetRect(bounds, 2.0), radius - 2.0);
+const radius: f32 = 5.0;
+fn compose() {
+  let strokeColor = newGrayColor(0.78);
+  let stroke = sdRoundedRectAt(insetRect(uni.bounds, 1.0), radius - 1.0);
+  let fill = sdRoundedRectAt(insetRect(uni.bounds, 2.0), radius - 2.0);
   drawInitialShape(stroke, strokeColor);
-  drawShape(fill, vec4(1.0, 1, 1, 1));
-  drawShape(sdAnd(sdRect(uTrackedRect), stroke), strokeColor);
-  vec4 selectionColor = gradient(smoothstep(bounds.y, bounds.y + bounds.w, vPos.y),
-    vec4(0.31, 0.60, 0.98, 1.0),
-    vec4(0.09, 0.42, 0.88, 1.0));
-  drawShape(sdAnd(sdRect(uSelectedRect), fill), selectionColor);
+  drawShape(fill, vec4f(1.0, 1.0, 1.0, 1.0));
+  drawShape(sdAnd(sdRectAt(uni.uTrackedRect), stroke), strokeColor);
+  let selectionColor = gradient(smoothstep(uni.bounds.y, uni.bounds.y + uni.bounds.w, vPos.y),
+    vec4f(0.31, 0.60, 0.98, 1.0),
+    vec4f(0.09, 0.42, 0.88, 1.0));
+  drawShape(sdAnd(sdRectAt(uni.uSelectedRect), fill), selectionColor);
 }
 """
 

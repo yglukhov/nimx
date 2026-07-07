@@ -36,13 +36,13 @@ type
     surfaceFormat*: TextureFormat
     surfaceWidth*, surfaceHeight*: int
     configured*: bool
-    frameActive: bool
+    frameActive*: bool
     currentTexture: Texture
     currentView: TextureView
     encoder: CommandEncoder
-    renderPass: RenderPassEncoder
+    renderPass*: RenderPassEncoder
     triPipeline, linePipeline, stripPipeline: RenderPipeline
-    texturedPipeline: RenderPipeline
+    texturedPipeline, sdfTexturedPipeline: RenderPipeline
     textureBindGroupLayout: BindGroupLayout
     sampler: Sampler
 
@@ -101,6 +101,40 @@ fn vs_main(in: VertexInput) -> VertexOutput {
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4f {
   return textureSample(tex, texSampler, in.uv) * in.color;
+}
+"""
+
+const sdfTexturedShader = """
+struct VertexInput {
+  @location(0) position: vec2f,
+  @location(1) uv: vec2f,
+  @location(2) color: vec4f,
+};
+
+struct VertexOutput {
+  @builtin(position) position: vec4f,
+  @location(0) uv: vec2f,
+  @location(1) color: vec4f,
+};
+
+@group(0) @binding(0) var texSampler: sampler;
+@group(0) @binding(1) var tex: texture_2d<f32>;
+
+@vertex
+fn vs_main(in: VertexInput) -> VertexOutput {
+  var out: VertexOutput;
+  out.position = vec4f(in.position, 0.0, 1.0);
+  out.uv = in.uv;
+  out.color = in.color;
+  return out;
+}
+
+@fragment
+fn fs_main(in: VertexOutput) -> @location(0) vec4f {
+  let dist = textureSample(tex, texSampler, in.uv).a;
+  let d = fwidth(dist);
+  let alpha = smoothstep(0.5 - d, 0.5 + d, dist);
+  return vec4f(in.color.rgb, alpha * in.color.a);
 }
 """
 
@@ -242,8 +276,8 @@ proc textureSampler(c: GraphicsContext): Sampler =
     c.sampler = c.device.createSampler(desc)
   c.sampler
 
-proc createTexturedPipeline(c: GraphicsContext): RenderPipeline =
-  let shader = c.device.createShaderModule(texturedShader)
+proc createTexturedPipeline(c: GraphicsContext, shaderCode: string = texturedShader): RenderPipeline =
+  let shader = c.device.createShaderModule(shaderCode)
 
   var attrs: array[3, VertexAttribute]
   attrs[0].shaderLocation = 0
@@ -304,8 +338,13 @@ proc createTexturedPipeline(c: GraphicsContext): RenderPipeline =
 
 proc texturedPipelineFor(c: GraphicsContext): RenderPipeline =
   if c.texturedPipeline.isNil:
-    c.texturedPipeline = c.createTexturedPipeline()
+    c.texturedPipeline = c.createTexturedPipeline(texturedShader)
   c.texturedPipeline
+
+proc sdfTexturedPipelineFor(c: GraphicsContext): RenderPipeline =
+  if c.sdfTexturedPipeline.isNil:
+    c.sdfTexturedPipeline = c.createTexturedPipeline(sdfTexturedShader)
+  c.sdfTexturedPipeline
 
 proc pipelineFor(c: GraphicsContext, topology: PrimitiveTopology): RenderPipeline =
   case topology
@@ -430,11 +469,11 @@ proc toTexturedVertex(c: GraphicsContext, p: Point, uv: Point, color: Color): Te
   TexturedVertex(x: v[0] * iw, y: v[1] * iw, u: uv.x, v: uv.y,
                  r: color.r, g: color.g, b: color.b, a: color.a * c.alpha)
 
-proc drawTexturedVertices(c: GraphicsContext, texture: Texture, data: openarray[TexturedVertex]) =
+proc drawTexturedVertices(c: GraphicsContext, texture: Texture, data: openarray[TexturedVertex], sdf: bool = false) =
   when not defined(wasm):
     if c.isNil or not c.frameActive or data.len == 0 or texture.isNil: return
     let vb = c.makeTextureBuffer(data)
-    c.renderPass.setPipeline(c.texturedPipelineFor())
+    c.renderPass.setPipeline(if sdf: c.sdfTexturedPipelineFor() else: c.texturedPipelineFor())
     c.renderPass.setBindGroup(0, c.bindGroupForTexture(texture))
     c.renderPass.setVertexBuffer(0, vb)
     c.renderPass.draw(data.len.uint32, 1, 0, 0)
@@ -516,7 +555,7 @@ proc drawEllipseInRect*(c: GraphicsContext, r: Rect) =
 
 proc bindVertexData*(c: GraphicsContext, length: int) = discard
 
-proc drawTextureQuad*(c: GraphicsContext, texture: TextureRef, quad: openarray[Coord], color: Color) =
+proc drawTextureQuad*(c: GraphicsContext, texture: TextureRef, quad: openarray[Coord], color: Color, sdf: bool = false) =
   if texture.isNil or quad.len < 16: return
   let p0 = newPoint(quad[0], quad[1])
   let uv0 = newPoint(quad[2], quad[3])
@@ -528,7 +567,7 @@ proc drawTextureQuad*(c: GraphicsContext, texture: TextureRef, quad: openarray[C
   let uv3 = newPoint(quad[14], quad[15])
   let verts = [c.toTexturedVertex(p0, uv0, color), c.toTexturedVertex(p1, uv1, color), c.toTexturedVertex(p2, uv2, color),
                c.toTexturedVertex(p2, uv2, color), c.toTexturedVertex(p3, uv3, color), c.toTexturedVertex(p0, uv0, color)]
-  c.drawTexturedVertices(texture, verts)
+  c.drawTexturedVertices(texture, verts, sdf)
 
 proc drawImage*(c: GraphicsContext, i: Image, toRect: Rect, fromRect: Rect = zeroRect, alpha: ColorComponent = 1.0) =
   if i.isNil or not i.isLoaded: return

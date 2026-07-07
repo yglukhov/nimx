@@ -110,50 +110,42 @@ proc colorHasChanged(cpv: ColorPickerView) =
 # ColorPickerSlider
 
 const cpHComposition = newComposition """
-  uniform float uChosenH;
-
-  vec4 cHQuad() {
-    if (distance(vPos.x, uChosenH * bounds.z) < 1.0)
-      return vec4(0.0, 0.0, 0.0, 1.0);
-    else
-      return vec4(hsv2rgb(vec3(vPos.x / bounds.z, 1.0, 1.0)), 1.0);
+fn cHQuad() -> vec4f {
+  if (distance(vPos.x, uni.uChosenH.x * uni.bounds.z) < 1.0) {
+    return vec4f(0.0, 0.0, 0.0, 1.0);
+  } else {
+    return vec4f(hsv2rgb(vec3f(vPos.x / uni.bounds.z, 1.0, 1.0)), 1.0);
   }
-
-  void compose() {
-    drawShape(sdRect(bounds), cHQuad());
-  }
+}
+fn compose() {
+  drawShape(sdRectAt(uni.bounds), cHQuad());
+}
 """
 
 const cpSComposition = newComposition """
-  uniform float uHcps;
-  uniform float uChosenS;
-
-  vec4 cSQuad() {
-    if (distance(vPos.x, uChosenS * bounds.z) < 1.0)
-      return vec4(0.0, 0.0, 0.0, 1.0);
-    else
-      return vec4(hsv2rgb(vec3(uHcps, vPos.x / bounds.z, 1.0)), 1.0);
+fn cSQuad() -> vec4f {
+  if (distance(vPos.x, uni.uChosenS.x * uni.bounds.z) < 1.0) {
+    return vec4f(0.0, 0.0, 0.0, 1.0);
+  } else {
+    return vec4f(hsv2rgb(vec3f(uni.uHcps.x, vPos.x / uni.bounds.z, 1.0)), 1.0);
   }
-
-  void compose() {
-    drawShape(sdRect(bounds), cSQuad());
-  }
+}
+fn compose() {
+  drawShape(sdRectAt(uni.bounds), cSQuad());
+}
 """
 
 const cpVComposition = newComposition """
-  uniform float uHcpv;
-  uniform float uChosenV;
-
-  vec4 cVQuad() {
-    if (distance(vPos.x, uChosenV * bounds.z) < 1.0)
-      return vec4(0.0, 0.0, 0.0, 1.0);
-    else
-      return vec4(hsv2rgb(vec3(uHcpv, 1.0, vPos.x / bounds.z)), 1.0);
+fn cVQuad() -> vec4f {
+  if (distance(vPos.x, uni.uChosenV.x * uni.bounds.z) < 1.0) {
+    return vec4f(0.0, 0.0, 0.0, 1.0);
+  } else {
+    return vec4f(hsv2rgb(vec3f(uni.uHcpv.x, 1.0, vPos.x / uni.bounds.z)), 1.0);
   }
-
-  void compose() {
-    drawShape(sdRect(bounds), cVQuad());
-  }
+}
+fn compose() {
+  drawShape(sdRectAt(uni.bounds), cVQuad());
+}
 """
 
 method draw(cps: ColorPickerSlider, r: Rect) =
@@ -195,25 +187,20 @@ method onTouchEv(cps: ColorPickerSlider, e: var Event): bool =
 # ColorPickerCircle
 
 const hsvCircleComposition = newComposition """
-  uniform float uHsvValue;
-  uniform float uChosenH;
-
-  vec4 cHsvCircle() {
-    float r = bounds.z / 2.0;
-    vec2 c = vec2(bounds.xy + (bounds.zw / 2.0));
-    float h = (atan(vPos.y - c.y, c.x - vPos.x) / PI + 1.0) / 2.0;
-    float s = distance(vPos, c) / r;
-    float v = uHsvValue;
-
-    float diff = min(min(abs(uChosenH - h), abs(uChosenH + 1.0 - h)), abs(uChosenH - 1.0 - h));
-    float d = fwidth(diff);
-    return vec4(mix(vec3(0), hsv2rgb(vec3(h, s, v)), smoothstep(0.005 - d, 0.005 + d, diff)), 1);
-  }
-
-  void compose() {
-    drawShape(sdEllipseInRect(bounds), cHsvCircle());
-    drawShape(sdEllipseInRect(vec4(bounds.xy + bounds.z / 4.0, bounds.zw / 2.0)), vec4(0));
-  }
+fn cHsvCircle() -> vec4f {
+  let r = uni.bounds.z / 2.0;
+  let c = uni.bounds.xy + (uni.bounds.zw / vec2f(2.0));
+  let h = (atan2(vPos.y - c.y, c.x - vPos.x) / PI + 1.0) / 2.0;
+  let s = distance(vPos, c) / r;
+  let v = uni.uHsvValue.x;
+  let diff = min(min(abs(uni.uChosenH.x - h), abs(uni.uChosenH.x + 1.0 - h)), abs(uni.uChosenH.x - 1.0 - h));
+  let d = fwidth(diff);
+  return vec4f(mix(vec3f(0.0), hsv2rgb(vec3f(h, s, v)), smoothstep(0.005 - d, 0.005 + d, diff)), 1.0);
+}
+fn compose() {
+  drawShape(sdEllipseInRectAt(uni.bounds), cHsvCircle());
+  drawShape(sdEllipseInRectAt(vec4f(uni.bounds.xy + vec2f(uni.bounds.z / 4.0), uni.bounds.zw / vec2f(2.0))), vec4f(0.0));
+}
 """
 
 method draw*(cpc: ColorPickerCircle, r: Rect) =

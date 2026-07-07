@@ -550,95 +550,10 @@ const GRADIENT_ENABLED = (1 shl 0) # OPTION_1
 const STROKE_ENABLED = (1 shl 1) # OPTION_2
 const SOFT_SHADOW_ENABLED = (1 shl 2) # OPTION_3
 
-const gradientAndStrokeComposition = newComposition("""
-attribute vec4 aPosition;
-
-#ifdef OPTION_1
-  uniform float point_y;
-  uniform float size_y;
-  varying float vGradient;
-#endif
-
-uniform mat4 uModelViewProjectionMatrix;
-varying vec2 vTexCoord;
-
-void main() {
-  vTexCoord = aPosition.zw;
-  gl_Position = uModelViewProjectionMatrix * vec4(aPosition.xy, 0, 1);
-
-#ifdef OPTION_1
-  vGradient = abs(aPosition.y - point_y) / size_y;
-#endif
+const gradientAndStrokeComposition = newComposition """
+fn compose() {
 }
-""",
-
 """
-uniform sampler2D texUnit;
-uniform vec4 fillColor;
-
-#ifdef OPTION_1
-  uniform vec4 colorFrom;
-  uniform vec4 colorTo;
-  varying float vGradient;
-#endif
-
-#ifdef OPTION_2
-  uniform float strokeSize;
-#endif
-
-#ifdef OPTION_3
-  uniform float shadowRadius;
-  uniform float shadowSpread;
-#endif
-
-
-varying vec2 vTexCoord;
-
-float thresholdFunc(float glyphScale)
-{
-  float base = 0.5;
-  float baseDev = 0.065;
-  float devScaleMin = 0.15;
-  float devScaleMax = 0.3;
-  return base - ((clamp(glyphScale, devScaleMin, devScaleMax) - devScaleMin) / (devScaleMax - devScaleMin) * -baseDev + baseDev);
-}
-
-float spreadFunc(float glyphScale)
-{
-  return 0.06 / glyphScale;
-}
-
-void compose()
-{
-  float scale = (1.0 / 320.0) / fwidth(vTexCoord.x);
-  scale = abs(scale);
-#ifdef OPTION_3
-  float aBase = thresholdFunc(scale) - shadowRadius;
-#elif defined(OPTION_2)
-  float aBase = thresholdFunc(scale) - strokeSize;
-#else
-  float aBase = thresholdFunc(scale);
-#endif
-  float aRange = spreadFunc(scale);
-  float aMin = max(0.0, aBase - aRange);
-  float aMax = min(aBase + aRange, 1.0);
-
-  float dist = texture2D(texUnit, vTexCoord).a;
-#ifdef OPTION_3
-  float alpha = smoothstep(aMin, aMin + shadowSpread, dist)  / (aMin + shadowSpread);
-  alpha = min(alpha, 1.0);
-#else
-  float alpha = smoothstep(aMin, aMax, dist);
-#endif
-
-#ifdef OPTION_1
-  vec4 color = mix(colorFrom, colorTo, vGradient);
-  gl_FragColor = vec4(color.rgb, alpha * color.a);
-#else
-  gl_FragColor = vec4(fillColor.rgb, alpha * fillColor.a);
-#endif
-}
-""", false, "mediump")
 
 type ForEachLineAttributeCallback = proc(c: GraphicsContext, t: FormattedText, p: var Point, curLine, endIndex: int, str: openarray[char]) {.nimcall, gcsafe.}
 proc forEachLineAttribute(c: GraphicsContext, inRect: Rect, origP: Point, t: FormattedText, cb: ForEachLineAttributeCallback) =
@@ -720,7 +635,6 @@ proc forEachLineAttribute(c: GraphicsContext, inRect: Rect, origP: Point, t: For
         cb(c, t, p, curLine, lastCurAttrIndex, t.mText.toOpenArray(lastAttrStartIndex, lastAttrEndIndex))
 
     curLine.inc
-
 
 proc drawShadow(c: GraphicsContext, inRect: Rect, origP: Point, t: FormattedText) =
   # TODO: Optimize heavily

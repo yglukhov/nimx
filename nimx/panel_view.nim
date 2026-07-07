@@ -40,13 +40,13 @@ method init*(v: PanelView, r: Rect) =
   ))
 
 const gradientComposition = newComposition """
-void compose() {
-  vec4 color = gradient(
-    smoothstep(bounds.y, 27.0, vPos.y),
+fn compose() {
+  let color = gradient(
+    smoothstep(uni.bounds.y, 27.0, vPos.y),
     newGrayColor(0.5),
     newGrayColor(0.1)
   );
-  drawShape(sdRoundedRect(bounds, 6.0), color);
+  drawShape(sdRoundedRectAt(uni.bounds, 6.0), color);
 }
 """
 

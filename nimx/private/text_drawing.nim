@@ -13,7 +13,7 @@ proc drawTextBase*(c: GraphicsContext, font: Font, pt: var Point, text: openarra
     if not texture.isEmpty:
       var col = c.fillColor
       col.a *= c.alpha
-      c.drawTextureQuad(texture, quad, col)
+      c.drawTextureQuad(texture, quad, col, true)
     pt.x += font.horizontalSpacing
 
 proc drawText*(c: GraphicsContext, font: Font, pt: var Point, text: openarray[char]) =

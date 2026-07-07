@@ -42,32 +42,24 @@ proc `selectedIndex=`*(b: PopupButton, index: int) =
   b.setNeedsDisplay()
 
 const pbComposition = newComposition """
-uniform vec4 uFillColorStart;
-uniform vec4 uFillColorEnd;
-
-float radius = 5.0;
-
-void compose() {
-  float stroke = sdRoundedRect(bounds, radius);
-  float fill = sdRoundedRect(insetRect(bounds, 1.0), radius - 1.0);
-  float buttonWidth = 20.0;
-  float textAreaWidth = bounds.z - buttonWidth;
-  vec4 textAreaRect = bounds;
+const radius: f32 = 5.0;
+fn compose() {
+  let stroke = sdRoundedRectAt(uni.bounds, radius);
+  let fill = sdRoundedRectAt(insetRect(uni.bounds, 1.0), radius - 1.0);
+  let buttonWidth = 20.0;
+  let textAreaWidth = uni.bounds.z - buttonWidth;
+  var textAreaRect = uni.bounds;
   textAreaRect.z = textAreaWidth;
-
-  vec4 buttonRect = bounds;
+  var buttonRect = uni.bounds;
   buttonRect.x += textAreaWidth;
   buttonRect.z = buttonWidth;
   drawShape(stroke, newGrayColor(0.78));
-
-  drawShape(sdAnd(fill, sdRect(textAreaRect)), newGrayColor(1.0));
-
-  vec4 buttonColor = gradient(smoothstep(bounds.y, bounds.y + bounds.w, vPos.y),
-    uFillColorStart,
-    uFillColorEnd);
-  drawShape(sdAnd(fill, sdRect(buttonRect)), buttonColor);
-
-  drawShape(sdRegularPolygon(vec2(buttonRect.x + buttonRect.z / 2.0, buttonRect.y + buttonRect.w / 2.0 - 1.0), 4.0, 3, PI/2.0), vec4(1.0));
+  drawShape(sdAnd(fill, sdRectAt(textAreaRect)), newGrayColor(1.0));
+  let buttonColor = gradient(smoothstep(uni.bounds.y, uni.bounds.y + uni.bounds.w, vPos.y),
+    uni.uFillColorStart,
+    uni.uFillColorEnd);
+  drawShape(sdAnd(fill, sdRectAt(buttonRect)), buttonColor);
+  drawShape(sdRegularPolygonAt(vec2f(buttonRect.x + buttonRect.z / 2.0, buttonRect.y + buttonRect.w / 2.0 - 1.0), 4.0, 3, PI/2.0), vec4f(1.0));
 }
 """
 

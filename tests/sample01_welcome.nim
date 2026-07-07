@@ -63,15 +63,15 @@ method init(v: WelcomeView) =
   cc.trackMouseOver(true)
 
 const gradientComposition = newComposition """
-void compose() {
-  vec4 color = gradient(smoothstep(bounds.x, bounds.x + bounds.z, vPos.x),
+fn compose() {
+  let color = gradient9(smoothstep(uni.bounds.x, uni.bounds.x + uni.bounds.z, vPos.x),
     newGrayColor(0.7),
     0.3, newGrayColor(0.5),
     0.5, newGrayColor(0.7),
     0.7, newGrayColor(0.5),
     newGrayColor(0.7)
   );
-  drawShape(sdRect(bounds), color);
+  drawShape(sdRectAt(uni.bounds), color);
 }
 """
 

@@ -118,18 +118,13 @@ proc drawTitle(b: Button, xOffset: Coord) =
     c.drawText(font, pt, b.title)
 
 const regularButtonComposition = newComposition """
-uniform vec4 uStrokeColor;
-uniform vec4 uFillColorStart;
-uniform vec4 uFillColorEnd;
-uniform float uShadowOffset;
-float radius = 5.0;
-
-void compose() {
-  drawInitialShape(sdRoundedRect(insetRect(bounds, 1.0), radius), uStrokeColor);
-  vec4 fc = gradient(smoothstep(bounds.y, bounds.y + bounds.w, vPos.y),
-    uFillColorStart,
-    uFillColorEnd);
-  drawShape(sdRoundedRect(insetRect(bounds, 2.0) + vec4(0.0, uShadowOffset, 0.0, uShadowOffset), radius - 1.0), fc);
+const radius: f32 = 5.0;
+fn compose() {
+  drawInitialShape(sdRoundedRectAt(insetRect(uni.bounds, 1.0), radius), uni.uStrokeColor);
+  let fc = gradient(smoothstep(uni.bounds.y, uni.bounds.y + uni.bounds.w, vPos.y),
+    uni.uFillColorStart,
+    uni.uFillColorEnd);
+  drawShape(sdRoundedRectAt(insetRect(uni.bounds, 2.0) + vec4f(0.0, uni.uShadowOffset.x, 0.0, uni.uShadowOffset.x), radius - 1.0), fc);
 }
 """
 
@@ -147,14 +142,10 @@ proc drawRegularBezel(b: Button) =
       setUniform("uShadowOffset", 0.0'f32)
 
 const checkButtonComposition = newComposition """
-uniform vec4 uStrokeColor;
-uniform vec4 uFillColor;
-
-float radius = 4.0;
-
-void compose() {
-  drawInitialShape(sdRoundedRect(insetRect(bounds, 1.0), radius), uStrokeColor);
-  drawShape(sdRoundedRect(insetRect(bounds, 2.0), radius - 1.0), uFillColor);
+const radius: f32 = 4.0;
+fn compose() {
+  drawInitialShape(sdRoundedRectAt(insetRect(uni.bounds, 1.0), radius), uni.uStrokeColor);
+  drawShape(sdRoundedRectAt(insetRect(uni.bounds, 2.0), radius - 1.0), uni.uFillColor);
 }
 """
 
@@ -190,17 +181,12 @@ proc drawCheckboxStyle(b: Button, r: Rect) =
   b.drawTitle(bezelRect.width + 1)
 
 const radioButtonComposition = newComposition """
-uniform vec4 uStrokeColor;
-uniform vec4 uFillColor;
-uniform float uRadioValue;
-uniform float uStrokeWidth;
-
-void compose() {
-  vec4 outer = vec4(bounds.xy + 1.0, bounds.zw - 2.0);
-  drawInitialShape(sdRoundedRect(outer, bounds.w / 2.0 - 1.0), uStrokeColor);
-  vec4 inner = insetRect(outer, uRadioValue);
-  drawShape(sdEllipseInRect(vec4(inner.x, inner.y + 1.0, inner.zw)), vec4(0.7));
-  drawShape(sdEllipseInRect(inner), vec4(1.0));
+fn compose() {
+  let outer = vec4f(uni.bounds.xy + vec2f(1.0), uni.bounds.zw - vec2f(2.0));
+  drawInitialShape(sdRoundedRectAt(outer, uni.bounds.w / 2.0 - 1.0), uni.uStrokeColor);
+  let inner = insetRect(outer, uni.uRadioValue.x);
+  drawShape(sdEllipseInRectAt(vec4f(inner.x, inner.y + 1.0, inner.zw)), vec4f(0.7));
+  drawShape(sdEllipseInRectAt(inner), vec4f(1.0));
 }
 """
 

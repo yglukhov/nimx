@@ -9,41 +9,31 @@ type Slider* = ref object of Control
   mValue: Coord
 
 const sliderComposition = newComposition """
-uniform float uPosition;
+fn compose() {
+  let lineWidth = 4.0;
+  let knobRadius = min(uni.bounds.w, uni.bounds.z) / 2.0 - 1.0;
+  let strokeColor = newGrayColor(0.78);
 
-void compose() {
-  float lineWidth = 4.0;
-  float knobRadius = min(bounds.w, bounds.z) / 2.0 - 1.0;
-
-  vec4 strokeColor = newGrayColor(0.78);
-
-  if (bounds.z > bounds.w) { // Horizontal
-    float knobPos = clamp(bounds.x + bounds.z * uPosition, knobRadius + 0.5, bounds.x + bounds.z - knobRadius - 0.5);
-
-    float y = bounds.y + (bounds.w - lineWidth) / 2.0;
-
-    vec4 firstPartRect = vec4(bounds.x, y, bounds.x + knobPos, lineWidth);
-    vec4 secondPartRect = vec4(firstPartRect.z, y, bounds.x + bounds.z - knobPos, lineWidth);
-    drawShape(sdRoundedRect(firstPartRect, lineWidth / 2.0), vec4(0.25, 0.60, 0.98, 1.0));
-    drawShape(sdRoundedRect(secondPartRect, lineWidth / 2.0), strokeColor);
-
-    vec2 center = vec2(knobPos, bounds.y + bounds.w / 2.0);
-    drawShape(sdCircle(center, knobRadius), strokeColor);
-    drawShape(sdCircle(center, knobRadius - 1.0), newGrayColor(1.0));
-  }
-  else { // Vertical
-    float knobPos = clamp(bounds.y + bounds.w * uPosition, knobRadius + 0.5, bounds.y + bounds.w - knobRadius - 0.5);
-
-    float x = bounds.x + (bounds.z - lineWidth) / 2.0;
-
-    vec4 firstPartRect = vec4(x, bounds.y, lineWidth, bounds.y + knobPos);
-    vec4 secondPartRect = vec4(x, firstPartRect.w, lineWidth, bounds.y + bounds.w - knobPos);
-    drawShape(sdRoundedRect(firstPartRect, lineWidth / 2.0), vec4(0.25, 0.60, 0.98, 1.0));
-    drawShape(sdRoundedRect(secondPartRect, lineWidth / 2.0), strokeColor);
-
-    vec2 center = vec2(bounds.x + bounds.z / 2.0, knobPos);
-    drawShape(sdCircle(center, knobRadius), strokeColor);
-    drawShape(sdCircle(center, knobRadius - 1.0), newGrayColor(1.0));
+  if (uni.bounds.z > uni.bounds.w) {
+    let knobPos = clamp(uni.bounds.x + uni.bounds.z * uni.uPosition.x, knobRadius + 0.5, uni.bounds.x + uni.bounds.z - knobRadius - 0.5);
+    let y = uni.bounds.y + (uni.bounds.w - lineWidth) / 2.0;
+    let firstPartRect = vec4f(uni.bounds.x, y, uni.bounds.x + knobPos, lineWidth);
+    let secondPartRect = vec4f(firstPartRect.z, y, uni.bounds.x + uni.bounds.z - knobPos, lineWidth);
+    drawShape(sdRoundedRectAt(firstPartRect, lineWidth / 2.0), vec4f(0.25, 0.60, 0.98, 1.0));
+    drawShape(sdRoundedRectAt(secondPartRect, lineWidth / 2.0), strokeColor);
+    let center = vec2f(knobPos, uni.bounds.y + uni.bounds.w / 2.0);
+    drawShape(sdCircleAt(center, knobRadius), strokeColor);
+    drawShape(sdCircleAt(center, knobRadius - 1.0), newGrayColor(1.0));
+  } else {
+    let knobPos = clamp(uni.bounds.y + uni.bounds.w * uni.uPosition.x, knobRadius + 0.5, uni.bounds.y + uni.bounds.w - knobRadius - 0.5);
+    let x = uni.bounds.x + (uni.bounds.z - lineWidth) / 2.0;
+    let firstPartRect = vec4f(x, uni.bounds.y, lineWidth, uni.bounds.y + knobPos);
+    let secondPartRect = vec4f(x, firstPartRect.w, lineWidth, uni.bounds.y + uni.bounds.w - knobPos);
+    drawShape(sdRoundedRectAt(firstPartRect, lineWidth / 2.0), vec4f(0.25, 0.60, 0.98, 1.0));
+    drawShape(sdRoundedRectAt(secondPartRect, lineWidth / 2.0), strokeColor);
+    let center = vec2f(uni.bounds.x + uni.bounds.z / 2.0, knobPos);
+    drawShape(sdCircleAt(center, knobRadius), strokeColor);
+    drawShape(sdCircleAt(center, knobRadius - 1.0), newGrayColor(1.0));
   }
 }
 """
