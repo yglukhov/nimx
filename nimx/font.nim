@@ -265,9 +265,22 @@ proc generateDistanceFieldForGlyph(ch: CharInfo, index: int, uploadToTexture: bo
   let glyphMargin = 8
   let x = ch.bakedChars.charOffComp(c, compTexX).int - glyphMargin
   let y = ch.bakedChars.charOffComp(c, compTexY).int - glyphMargin
-  let w = ch.bakedChars.charOffComp(c, compWidth).cint + glyphMargin * 2
-  let h = ch.bakedChars.charOffComp(c, compHeight).cint + glyphMargin * 2
-  dfCtx.make_distance_map(ch.data.bitmap, x, y, w, h, ch.data.bitmapWidth.int, true)
+  let w = ch.bakedChars.charOffComp(c, compWidth).int + glyphMargin * 2
+  let h = ch.bakedChars.charOffComp(c, compHeight).int + glyphMargin * 2
+  let gpuUpdate = uploadToTexture and not ch.texture.isNil and not currentWgpuDevice.isNil
+  dfCtx.make_distance_map(ch.data.bitmap, x, y, w, h, ch.data.bitmapWidth.int, not gpuUpdate)
+
+  if gpuUpdate and dfCtx.output.len != 0:
+    var dst: TexelCopyTextureInfo
+    dst.texture = ch.texture
+    dst.aspect = taAll
+    dst.origin = Origin3D(x: x.uint32, y: y.uint32, z: 0)
+    var layout: TexelCopyBufferLayout
+    layout.bytesPerRow = w.uint32
+    layout.rowsPerImage = h.uint32
+    currentWgpuDevice.getQueue().writeTexture(dst, addr dfCtx.output[0], dfCtx.output.len, layout,
+      Extent3D(width: w.uint32, height: h.uint32, depthOrArrayLayers: 1))
+
   ch.data.dfDoneForGlyph[index] = true
 
   when dumpDebugBitmaps:
@@ -307,23 +320,16 @@ proc chunkAndCharIndexForRune(f: Font, r: Rune): tuple[ch: CharInfo, index: int]
   result.ch = ch
 
   if ch.data.dfDoneForGlyph.len != 0 and not ch.data.dfDoneForGlyph[result.index]:
-    generateDistanceFieldForGlyph(ch, result.index, false)
+    generateDistanceFieldForGlyph(ch, result.index, not ch.texture.isNil)
 
   if ch.texture.isNil and not currentWgpuDevice.isNil and ch.data.bitmap.len != 0:
     let w = ch.data.bitmapWidth.int
     let h = ch.data.bitmapHeight.int
-    var rgba = newSeq[byte](w * h * 4)
-    for p in 0 ..< w * h:
-      let a = ch.data.bitmap[p]
-      rgba[p * 4 + 0] = 255
-      rgba[p * 4 + 1] = 255
-      rgba[p * 4 + 2] = 255
-      rgba[p * 4 + 3] = a
     var desc: TextureDescriptor
     desc.usage = {tuCopyDst, tuTextureBinding}
     desc.dimension = td2D
     desc.size = Extent3D(width: w.uint32, height: h.uint32, depthOrArrayLayers: 1)
-    desc.format = tfRGBA8Unorm
+    desc.format = tfR8Unorm
     desc.mipLevelCount = 1
     desc.sampleCount = 1
     ch.texture = currentWgpuDevice.createTexture(desc)
@@ -331,9 +337,9 @@ proc chunkAndCharIndexForRune(f: Font, r: Rune): tuple[ch: CharInfo, index: int]
     dst.texture = ch.texture
     dst.aspect = taAll
     var layout: TexelCopyBufferLayout
-    layout.bytesPerRow = (w * 4).uint32
+    layout.bytesPerRow = w.uint32
     layout.rowsPerImage = h.uint32
-    currentWgpuDevice.getQueue().writeTexture(dst, addr rgba[0], rgba.len, layout, desc.size)
+    currentWgpuDevice.getQueue().writeTexture(dst, addr ch.data.bitmap[0], ch.data.bitmap.len, layout, desc.size)
 
 proc getQuadDataForRune*(f: Font, r: Rune, quad: var openarray[Coord], offset: int, texture: var TextureRef, pt: var Point) =
   let (chunk, charIndexInChunk) = f.chunkAndCharIndexForRune(r)

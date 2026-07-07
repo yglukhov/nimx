@@ -131,7 +131,7 @@ fn vs_main(in: VertexInput) -> VertexOutput {
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4f {
-  let dist = textureSample(tex, texSampler, in.uv).a;
+  let dist = textureSample(tex, texSampler, in.uv).r;
   let d = fwidth(dist);
   let alpha = smoothstep(0.5 - d, 0.5 + d, dist);
   return vec4f(in.color.rgb, alpha * in.color.a);
