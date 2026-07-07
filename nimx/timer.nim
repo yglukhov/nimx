@@ -16,6 +16,9 @@ elif not defined(nimxAvoidSDL):
     t == empty
 else:
   type TimerID = bool
+  proc isNil(t: TimerID): bool =
+    t == false
+
 
 type TimerState = enum
   tsInvalid
@@ -161,18 +164,28 @@ elif defined(macosx):
     CFRunLoopTimerInvalidate(t.timer)
 
 elif defined(nimxAvoidSDL):
+  # XXX: Pause/resume is still buggy with asyncdispatch implementation.
+  # To fix this we should really "cancel" the sleepAsync futures.
   import asyncdispatch
-  proc runTimer(t: Timer) {.async.} =
-    while t.state == tsRunning:
+  proc runTimerPeriodic(t: Timer) {.async.} =
+    while true:
       await sleepAsync(t.interval * 1000)
       if t.state == tsRunning:
         t.callback()
-        if not t.isPeriodic:
-          break
+      else:
+        break
+
+  proc runTimerOnce(t: Timer) {.async.} =
+    await sleepAsync(t.interval * 1000)
+    if t.state == tsRunning:
+      t.callback()
 
   proc schedule(t: Timer) =
     t.timer = true
-    asyncCheck runTimer(t)
+    if t.isPeriodic:
+      asyncCheck runTimerPeriodic(t)
+    else:
+      asyncCheck runTimerOnce(t)
 
   proc cancel(t: Timer) {.inline.} = discard
 
@@ -216,11 +229,12 @@ proc clear*(t: Timer) =
     if not t.timer.isNil:
       t.cancel()
       t.timer = default(TimerID)
+      when not defined(js):
+        if t.state == tsRunning:
+          GC_unref(t)
       t.state = tsInvalid
       t.callback = nil
       t.origCallback = nil
-      when not defined(js):
-        GC_unref(t)
 
 proc newTimer*(interval: float, repeat: bool, callback: proc() {.gcsafe.}): Timer =
   assert(not callback.isNil)
