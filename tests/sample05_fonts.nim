@@ -97,8 +97,6 @@ method draw(v: FontsView, r: Rect) =
   let s = v.curFont.sizeOfString(v.caption)
   var origin = s.centerInRect(v.bounds)
 
-  echo s, " ", v.bounds
-
   if v.showBaseline:
     c.fillColor = newGrayColor(0.5)
     c.drawRect(newRect(origin, newSize(s.width, 1)))

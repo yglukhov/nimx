@@ -324,7 +324,7 @@ proc runUntilQuit*() =
       # echo "ioport!"
       asyncdispatch.poll(0)
     else:
-      doAssert(false, "Unexpected result from MsgWaitFromMultipleObjectsEx: " & $r)
+      assert(false, "Unexpected result from MsgWaitFromMultipleObjectsEx: " & $r)
 
     animateAndDraw()
 
