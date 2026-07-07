@@ -39,9 +39,9 @@ proc imageWithResource*(name: string): Image =
 proc imageWithSize*(size: Size): SelfContainedImage =
   result = newSelfContainedImage()
   result.mSize = size
-  result.texWidth = max(1, nextPowerOfTwo(size.width.int)).int16
-  result.texHeight = max(1, nextPowerOfTwo(size.height.int)).int16
-  result.texCoords = [0.Coord, 0, size.width / result.texWidth.Coord, size.height / result.texHeight.Coord]
+  result.texWidth = max(1, size.width.int).int16
+  result.texHeight = max(1, size.height.int).int16
+  result.texCoords = [0.Coord, 0, 1.Coord, 1.Coord]
 
 method isLoaded*(i: Image): bool {.base, gcsafe.} = false
 method isLoaded*(i: SelfContainedImage): bool = true
@@ -75,9 +75,9 @@ method deserialize*(s: Deserializer, v: var Image) {.base, gcsafe.} =
 when not web:
   proc initWithBitmap*(i: SelfContainedImage, data: ptr uint8, x, y, comp: int) =
     i.mSize = newSize(x.Coord, y.Coord)
-    i.texWidth = max(1, nextPowerOfTwo(x)).int16
-    i.texHeight = max(1, nextPowerOfTwo(y)).int16
-    i.texCoords = [0.Coord, 0, x.Coord / i.texWidth.Coord, y.Coord / i.texHeight.Coord]
+    i.texWidth = max(1, x).int16
+    i.texHeight = max(1, y).int16
+    i.texCoords = [0.Coord, 0, 1.Coord, 1.Coord]
     i.pixelWidth = x
     i.pixelHeight = y
     i.pixels = newSeq[byte](x * y * 4)
