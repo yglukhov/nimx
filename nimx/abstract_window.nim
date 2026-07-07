@@ -1,6 +1,6 @@
 
 import view, animation, context, font, composition, image, notification_center,
-  mini_profiler, portable_gl, drag_and_drop
+  mini_profiler, drag_and_drop
 import times, tables
 import kiwi
 export view
@@ -118,11 +118,10 @@ method drawWindow*(w: Window) {.base, gcsafe.} =
 
 method draw*(w: Window, rect: Rect) =
   let c = currentContext()
-  let gl = c.gl
   if w.mActiveBgColor != w.backgroundColor:
-    gl.clearColor(w.backgroundColor.r, w.backgroundColor.g, w.backgroundColor.b, w.backgroundColor.a)
     w.mActiveBgColor = w.backgroundColor
-  gl.clear(gl.COLOR_BUFFER_BIT or gl.STENCIL_BUFFER_BIT or gl.DEPTH_BUFFER_BIT)
+  if not c.isNil:
+    c.clearFrame(w.backgroundColor)
 
 method animationStateChanged*(w: Window, state: bool) {.base.} = discard
 

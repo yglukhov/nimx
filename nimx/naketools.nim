@@ -921,7 +921,7 @@ proc runAutotestsInFirefox*(pathToMainHTML: string, args: StringTableRef = nil) 
   user_pref("dom.max_chrome_script_run_time", 0);
   user_pref("extensions.update.enabled", false);
   user_pref("extensions.update.autoUpdateDefault", false);
-  user_pref("webgl.disable-fail-if-major-performance-caveat", true);
+  user_pref("dom.webgpu.enabled", true);
   """)
   let ffp = startProcess(ffbin, args = ["-profile", "./tempprofile", pathToMainHTML])
   let ok = processOutputFromAutotestStream(ffp.outputStream)

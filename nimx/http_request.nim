@@ -1,7 +1,7 @@
 import async_http_request
 export async_http_request
 
-when not defined(js) and not defined(emscripten) and not defined(wasm):
+when not defined(js) and not defined(emscripten) and not defined(wasm) and not defined(asyncHttpRequestAsyncIO):
   import perform_on_main_thread, marshal, streams
 
   proc storeToSharedBuffer*[T](a: T): pointer =

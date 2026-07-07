@@ -1,10 +1,17 @@
 import sdl2 except Event, Rect, Point
 
 import ../../[ abstract_window, system_logger, view, context, event, app, screen,
-        linkage_details, portable_gl ]
+        linkage_details ]
 import ../../private/sdl_vk_map
-import opengl
 import times, logging
+import wgpu
+import yasync/compat
+
+type
+  WgpuInstance = wgpu.Instance
+  WgpuAdapter = wgpu.Adapter
+  WgpuDevice = wgpu.Device
+  WgpuSurface = wgpu.Surface
 
 export abstract_window
 
@@ -24,32 +31,15 @@ proc initSDLIfNeeded() =
 
     sdlInitialized = true
 
-    if glSetAttribute(SDL_GL_STENCIL_SIZE, 8) != 0:
-      error "could not set stencil size: ", getError()
-    if glSetAttribute(SDL_GL_DEPTH_SIZE, 8) != 0:
-      error "could not set depth size: ", getError()
-
-    when defined(ios) or defined(android):
-      if glSetAttribute(SDL_GL_RED_SIZE, 8) == 0 and
-        glSetAttribute(SDL_GL_GREEN_SIZE, 8) == 0 and
-        glSetAttribute(SDL_GL_BLUE_SIZE, 8) == 0:
-          if glSetAttribute(SDL_GL_ALPHA_SIZE, 8) == 0:
-            info "supported color format RGBA8888"
-          else:
-            info "supported color format RGB888"
-      else: #if RGB888 not support
-        discard glSetAttribute(SDL_GL_RED_SIZE, 5)
-        discard glSetAttribute(SDL_GL_GREEN_SIZE, 6)
-        discard glSetAttribute(SDL_GL_BLUE_SIZE, 5)
-        info "supported color format RGB565"
-
-      discard glSetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES)
-      discard glSetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2)
 
 type SdlWindow* = ref object of Window
   impl: WindowPtr
-  sdlGlContext: GlContextPtr
   renderingContext: GraphicsContext
+  wgpuInstance: WgpuInstance
+  wgpuAdapter: WgpuAdapter
+  wgpuDevice: WgpuDevice
+  wgpuSurface: WgpuSurface
+  wgpuFormat: TextureFormat
   isFullscreen: bool
 
 when defined(ios) or defined(android):
@@ -119,7 +109,7 @@ method animationStateChanged*(w: SdlWindow, state: bool) =
 var defaultWindow {.threadvar.}: SdlWindow
 
 proc flags(w: SdlWindow): cuint=
-  result = SDL_WINDOW_OPENGL or SDL_WINDOW_RESIZABLE or SDL_WINDOW_ALLOW_HIGHDPI or SDL_WINDOW_HIDDEN
+  result = SDL_WINDOW_RESIZABLE or SDL_WINDOW_ALLOW_HIGHDPI or SDL_WINDOW_HIDDEN
   if w.isFullscreen:
     result = result or SDL_WINDOW_FULLSCREEN_DESKTOP
   # else:
@@ -190,6 +180,63 @@ proc updatePixelRatio(w: SdlWindow) {.inline.} =
     w.pixelRatio = w.scaleFactor()
     w.viewportPixelRatio = w.pixelRatio
 
+proc getPreferredFormat(surface: WgpuSurface, adapter: WgpuAdapter): TextureFormat =
+  var caps: SurfaceCapabilities
+  if surface.getCapabilities(adapter, caps) and caps.formatCount > 0:
+    result = caps.formats[0]
+  else:
+    result = tfBGRA8Unorm
+
+proc createWgpuSurface(w: SdlWindow, instance: WgpuInstance): WgpuSurface =
+  when x11Platform:
+    type WMinfoX11 = object
+      version*: SDL_Version
+      subsystem*: SysWMType
+      display*: pointer
+      window*: culong
+
+    var winInfo: WMinfo
+    getVersion(winInfo.version)
+    if w.impl.getWMInfo(winInfo) == True32:
+      if winInfo.subsystem == SysWM_X11:
+        let wi = cast[ptr WMinfoX11](addr winInfo)
+        var x11d: SurfaceSourceXlibWindow
+        x11d.sType = stSurfaceSourceXlibWindow
+        x11d.display = wi.display
+        x11d.window = wi.window.uint64
+        var sd: SurfaceDescriptor
+        sd.nextInChain = addr x11d
+        result = instance.createSurface(sd)
+  else:
+    discard
+
+proc initWgpu(w: SdlWindow) =
+  when not defined(wasm):
+    w.wgpuInstance = createInstance()
+    if w.wgpuInstance.isNil:
+      error "Could not create WebGPU instance"
+      return
+    w.wgpuSurface = w.createWgpuSurface(w.wgpuInstance)
+    if w.wgpuSurface.isNil:
+      error "Could not create WebGPU surface"
+      return
+    var adapterOpts: RequestAdapterOptions
+    adapterOpts.compatibleSurface = w.wgpuSurface
+    w.wgpuAdapter = waitFor w.wgpuInstance.requestAdapter(adapterOpts)
+    if w.wgpuAdapter.isNil:
+      error "Could not create WebGPU adapter"
+      return
+    var deviceOpts: DeviceDescriptor
+    deviceOpts.uncapturedErrorCallbackInfo.callback = proc(d: Device, e: ErrorType, message: StringView, data1, data2: pointer) {.cdecl.} =
+      error "WebGPU error: ", e, ": ", message
+    w.wgpuDevice = waitFor w.wgpuAdapter.requestDevice(deviceOpts)
+    if w.wgpuDevice.isNil:
+      error "Could not create WebGPU device"
+      return
+    w.wgpuFormat = w.wgpuSurface.getPreferredFormat(w.wgpuAdapter)
+    let sz = w.frame.size * w.viewportPixelRatio
+    w.renderingContext.configureSurface(w.wgpuDevice, w.wgpuSurface, w.wgpuFormat, sz.width.int, sz.height.int)
+
 proc initSdlWindow(w: SdlWindow, r: view.Rect) =
   initSDLIfNeeded()
   when defined(ios) or defined(android):
@@ -209,12 +256,8 @@ proc initSdlWindow(w: SdlWindow, r: view.Rect) =
     if not w.isFullscreen: w.setOSWindowPos(r.origin)
     w.setOSWindowSize(r.size)
 
-  discard glSetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 1)
-  w.sdlGlContext = w.impl.glCreateContext()
-  if w.sdlGlContext == nil:
-    error "Could not create context!"
-  discard glMakeCurrent(w.impl, w.sdlGlContext)
   w.renderingContext = newGraphicsContext()
+  w.initWgpu()
 
   mainApplication().addWindow(w)
   discard w.impl.setData("__nimx_wnd", cast[pointer](w))
@@ -252,8 +295,11 @@ method hide*(w: SdlWindow)=
   mainApplication().removeWindow(w)
   w.impl.destroyWindow()
   w.impl = nil
-  w.sdlGlContext = nil
   w.renderingContext = nil
+  w.wgpuDevice = WgpuDevice()
+  w.wgpuSurface = WgpuSurface()
+  w.wgpuAdapter = WgpuAdapter()
+  w.wgpuInstance = WgpuInstance()
 
 newWindow = proc(r: view.Rect): Window =
   result = newSdlWindow(r)
@@ -270,21 +316,18 @@ method title*(w: SdlWindow): string = $w.impl.getTitle()
 
 method draw*(w: SdlWindow, r: Rect) =
   let c = currentContext()
-  let gl = c.gl
   if w.mActiveBgColor != w.backgroundColor:
-    gl.clearColor(w.backgroundColor.r, w.backgroundColor.g, w.backgroundColor.b, w.backgroundColor.a)
     w.mActiveBgColor = w.backgroundColor
-  gl.stencilMask(0xFF) # Android requires setting stencil mask to clear
-  gl.clear(gl.COLOR_BUFFER_BIT or gl.STENCIL_BUFFER_BIT or gl.DEPTH_BUFFER_BIT)
-  gl.stencilMask(0x00)
+  if not c.isNil:
+    c.clearFrame(w.backgroundColor)
 
 method drawWindow(w: SdlWindow) =
-  discard glMakeCurrent(w.impl, w.sdlGlContext)
   let c = w.renderingContext
   let oldContext = setCurrentContext(c)
-  c.withTransform ortho(0, w.frame.width, w.frame.height, 0, -1, 1):
-    procCall w.Window.drawWindow()
-  w.impl.glSwapWindow() # Swap the front and back frame buffers (double buffering)
+  if c.beginFrame(w.backgroundColor):
+    c.withTransform ortho(0, w.frame.width, w.frame.height, 0, -1, 1):
+      procCall w.Window.drawWindow()
+    c.endFrame()
   setCurrentContext(oldContext)
 
 proc windowFromSDLEvent[T](event: T): SdlWindow =
@@ -443,19 +486,17 @@ proc handleEvent(event: ptr sdl2.Event): Bool32 =
   result = True32
 
 method onResize*(w: SdlWindow, newSize: Size) =
-  discard glMakeCurrent(w.impl, w.sdlGlContext)
   w.updatePixelRatio()
   procCall w.Window.onResize(newSize)
 
   let constrainedSize = w.frame.size
   if constrainedSize != newSize:
-    # Here we attempt to prevent window resizing (initiated externally)
-    # On linux this doesn't work reliably, more research needed.
     when not x11Platform and not defined(android) and not defined(ios):
       w.setOSWindowSize(constrainedSize)
 
   let vp = constrainedSize * w.viewportPixelRatio
-  glViewport(0, 0, GLSizei(vp.width), GLsizei(vp.height))
+  if not w.renderingContext.isNil and not w.wgpuDevice.isNil and not w.wgpuSurface.isNil:
+    w.renderingContext.configureSurface(w.wgpuDevice, w.wgpuSurface, w.wgpuFormat, vp.width.int, vp.height.int)
 
 when false:
   # Framerate limiter

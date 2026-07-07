@@ -11,7 +11,7 @@ installDirs = @["nimx", "assets"]
 # Dependencies
 
 requires "sdl2"
-requires "opengl"
+requires "wgpu"
 requires "winim"
 requires "nimsl >= 0.3"
 requires "jnim" # For android target

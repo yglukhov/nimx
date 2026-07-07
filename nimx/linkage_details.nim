@@ -135,7 +135,7 @@ when not defined(emscripten):
         result.add parseStmt("passToCAndL(\"-framework " & n[i].strVal & "\")")
 
   when defined(ios):
-    useFrameworks("OpenGLES", "UIKit", "GameController", "CoreMotion", "Metal", "AVFoundation", "CoreBluetooth")
+    useFrameworks("UIKit", "GameController", "CoreMotion", "Metal", "AVFoundation", "CoreBluetooth")
     when not defined(simulator):
       when hostCPU == "arm":
         {.passC:"-arch armv7".}
@@ -144,7 +144,7 @@ when not defined(emscripten):
         {.passC:"-arch arm64".}
         {.passL:"-arch arm64".}
   elif defined(macosx):
-    useFrameworks("OpenGL", "AppKit", "AudioUnit", "ForceFeedback", "IOKit", "Carbon", "CoreServices", "ApplicationServices", "Metal")
+    useFrameworks("AppKit", "AudioUnit", "ForceFeedback", "IOKit", "Carbon", "CoreServices", "ApplicationServices", "Metal")
 
   when defined(macosx) or defined(ios):
     useFrameworks("AudioToolbox", "CoreAudio", "CoreGraphics", "QuartzCore")

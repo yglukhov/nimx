@@ -1,4 +1,4 @@
-import math
+import std/[math, strutils, macros]
 
 type Coord* = float32
 type ColorComponent* = float32
@@ -71,6 +71,18 @@ proc newColor*(r, g, b: ColorComponent, a: ColorComponent = 1.0): Color =
   (r: r, g: g, b: b, a: a)
 
 template newColorB*(r, g, b: int, a: int = 255): Color = newColor(r / 255, g / 255, b / 255, a / 255)
+
+proc rgb*(s: static[string]): Color {.inline, stackTrace: off.} =
+  # Returns color from string literal of format "RRGGBB" or "RRGGBBAA" in hex.
+  const r = block:
+    if s.len notin [6, 8]:
+      error("Invalid color literal: " & s & ". Must be a hexadecimal value of 6 or 8 digits")
+    let r = parseHexInt(s[0 .. 1])
+    let g = parseHexInt(s[2 .. 3])
+    let b = parseHexInt(s[4 .. 5])
+    let a = if s.len == 8: parseHexInt(s[6 .. 7]) else: 255
+    (ColorComponent(r.float / 255), ColorComponent(g.float / 255), ColorComponent(b.float / 255), ColorComponent(a.float / 255))
+  r
 
 proc newGrayColor*(g: ColorComponent, a: ColorComponent = 1.0): Color = newColor(g, g, g, a)
 
@@ -172,3 +184,5 @@ proc trim*(r, c: Rect): Rect =
     result.x = c.x
   if result.maxY > c.maxY:
     result.height = c.maxY - result.y
+
+  

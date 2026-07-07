@@ -1,7 +1,7 @@
 import std/[strutils, tables, algorithm]
 
 import ../[ view, text_field, matrixes, image, button, color_picker,
-  context, portable_gl, layout, popup_button, font, property_visitor,
+  context, layout, popup_button, font, property_visitor,
   numeric_text_field, system_logger, image_preview, drag_and_drop,
   render_to_image
 ]

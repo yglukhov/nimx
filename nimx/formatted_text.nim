@@ -736,31 +736,7 @@ proc drawShadow(c: GraphicsContext, inRect: Rect, origP: Point, t: FormattedText
     pp.y += t.mAttributes[curAttrIndex].shadowOffset.height * t.shadowMultiplier.height
 
 
-    if t.mAttributes[curAttrIndex].shadowRadius > 0.0 or t.mAttributes[curAttrIndex].shadowSpread > 0.0:
-      var options = SOFT_SHADOW_ENABLED
-      # gradientAndStrokeComposition.options = options
-      let gl = c.gl
-      var cc = gl.getCompiledComposition(gradientAndStrokeComposition, options)
-
-      gl.useProgram(cc.program)
-
-      compositionDrawingDefinitions(cc, c, gl)
-
-      const minShadowSpread = 0.17 # make shadow border smooth and great again
-
-      setUniform("shadowRadius", t.mAttributes[curAttrIndex].shadowRadius / 8.0)
-      setUniform("shadowSpread", t.mAttributes[curAttrIndex].shadowSpread + minShadowSpread)
-      setUniform("fillColor", c.fillColor)
-
-      gl.uniformMatrix4fv(uniformLocation("uModelViewProjectionMatrix"), false, c.transform)
-      setupPosteffectUniforms(cc)
-
-      gl.activeTexture(GLenum(int(gl.TEXTURE0) + cc.iTexIndex))
-      gl.uniform1i(uniformLocation("texUnit"), cc.iTexIndex)
-
-      c.drawTextBase(font, pp, str)
-    else:
-      c.drawText(font, pp, str)
+    c.drawText(font, pp, str)
 
     font.baseline = oldBaseline
     p.x += pp.x - ppp.x
@@ -772,41 +748,13 @@ proc drawStroke(c: GraphicsContext, inRect: Rect, origP: Point, t: FormattedText
     let font = t.mAttributes[curAttrIndex].font
 
     if t.mAttributes[curAttrIndex].strokeSize > 0:
-      var options = STROKE_ENABLED
-      if t.mAttributes[curAttrIndex].isStrokeGradient:
-        options = options or GRADIENT_ENABLED
-
-      # gradientAndStrokeComposition.options = options
-      let gl = c.gl
-      var cc = gl.getCompiledComposition(gradientAndStrokeComposition, options)
-
-      gl.useProgram(cc.program)
-
-      compositionDrawingDefinitions(cc, c, gl)
-
-      setUniform("strokeSize", min(t.mAttributes[curAttrIndex].strokeSize / 15, magicStrokeMaxSizeCoof))
-
-      if t.mAttributes[curAttrIndex].isStrokeGradient:
-        setUniform("point_y", p.y - t.lines[curLine].baseline)
-        setUniform("size_y", t.lines[curLine].height)
-        setUniform("colorFrom", t.mAttributes[curAttrIndex].strokeColor1)
-        setUniform("colorTo", t.mAttributes[curAttrIndex].strokeColor2)
-      else:
-        setUniform("fillColor", t.mAttributes[curAttrIndex].strokeColor1)
-
-      gl.uniformMatrix4fv(uniformLocation("uModelViewProjectionMatrix"), false, c.transform)
-      setupPosteffectUniforms(cc)
-
-      gl.activeTexture(GLenum(int(gl.TEXTURE0) + cc.iTexIndex))
-      gl.uniform1i(uniformLocation("texUnit"), cc.iTexIndex)
-
+      c.fillColor = t.mAttributes[curAttrIndex].strokeColor1
       let oldBaseline = font.baseline
       font.baseline = bAlphabetic
-      c.drawTextBase(font, p, str)
+      c.drawText(font, p, str)
       font.baseline = oldBaseline
     else:
       c.fillColor = newColor(0, 0, 0, 0)
-      # Dirty hack to advance x position. Should be optimized, of course.
       c.drawText(font, p, str)
 
 proc drawText*(c: GraphicsContext, origP: Point, t: FormattedText, inRect: Rect = zeroRect) =
@@ -820,32 +768,11 @@ proc drawText*(c: GraphicsContext, origP: Point, t: FormattedText, inRect: Rect 
     let font = t.mAttributes[curAttrIndex].font
     let oldBaseline = font.baseline
     font.baseline = bAlphabetic
-    if t.mAttributes[curAttrIndex].isTextGradient:
-      let gl = c.gl
-      var cc = gl.getCompiledComposition(gradientAndStrokeComposition, options = GRADIENT_ENABLED)
-
-      gl.useProgram(cc.program)
-
-      compositionDrawingDefinitions(cc, c, gl)
-
-      setUniform("point_y", p.y - t.lines[curLine].baseline)
-      setUniform("size_y", t.lines[curLine].height)
-      setUniform("colorFrom", t.mAttributes[curAttrIndex].textColor)
-      setUniform("colorTo", t.mAttributes[curAttrIndex].textColor2)
-
-      gl.uniformMatrix4fv(uniformLocation("uModelViewProjectionMatrix"), false, c.transform)
-      setupPosteffectUniforms(cc)
-
-      gl.activeTexture(GLenum(int(gl.TEXTURE0) + cc.iTexIndex))
-      gl.uniform1i(uniformLocation("texUnit"), cc.iTexIndex)
-
-      c.drawTextBase(font, p, str)
+    if t.overrideColor.a != 0:
+      c.fillColor = t.overrideColor
     else:
-      if t.overrideColor.a != 0:
-        c.fillColor = t.overrideColor
-      else:
-        c.fillColor = t.mAttributes[curAttrIndex].textColor
-      c.drawText(font, p, str)
+      c.fillColor = t.mAttributes[curAttrIndex].textColor
+    c.drawText(font, p, str)
 
     font.baseline = oldBaseline
 

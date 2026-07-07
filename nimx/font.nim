@@ -1,6 +1,7 @@
 import unicode, streams, logging
 
-import ./[ types, timer, portable_gl ]
+import ./[ types, timer, gpu_types ]
+import wgpu except Color
 import ./private/font/font_data
 
 const pureWasm = defined(wasm) and not defined(emscripten)
@@ -261,24 +262,12 @@ proc generateDistanceFieldForGlyph(ch: CharInfo, index: int, uploadToTexture: bo
   if dfCtx.isNil:
     dfCtx = newDistanceFieldContext()
   let c = charOff(index)
-
   let glyphMargin = 8
-
   let x = ch.bakedChars.charOffComp(c, compTexX).int - glyphMargin
   let y = ch.bakedChars.charOffComp(c, compTexY).int - glyphMargin
   let w = ch.bakedChars.charOffComp(c, compWidth).cint + glyphMargin * 2
   let h = ch.bakedChars.charOffComp(c, compHeight).cint + glyphMargin * 2
-
-  dfCtx.make_distance_map(ch.data.bitmap, x, y, w, h, ch.data.bitmapWidth.int, not uploadToTexture)
-  if uploadToTexture:
-    let gl = sharedGL()
-    gl.bindTexture(gl.TEXTURE_2D, ch.texture)
-    if w mod 4 == 0:
-      gl.texSubImage2D(gl.TEXTURE_2D, 0, GLint(x), GLint(y), GLsizei(w), GLsizei(h), gl.ALPHA, gl.UNSIGNED_BYTE, dfCtx.output)
-    else:
-      gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
-      gl.texSubImage2D(gl.TEXTURE_2D, 0, GLint(x), GLint(y), GLsizei(w), GLsizei(h), gl.ALPHA, gl.UNSIGNED_BYTE, dfCtx.output)
-      gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4)
+  dfCtx.make_distance_map(ch.data.bitmap, x, y, w, h, ch.data.bitmapWidth.int, true)
   ch.data.dfDoneForGlyph[index] = true
 
   when dumpDebugBitmaps:
@@ -317,28 +306,34 @@ proc chunkAndCharIndexForRune(f: Font, r: Rune): tuple[ch: CharInfo, index: int]
 
   result.ch = ch
 
-  let gl = sharedGL()
-  if not gl.isNil:
-    if ch.texture.isEmpty:
-      if not ch.data.dfDoneForGlyph[result.index]:
-        generateDistanceFieldForGlyph(ch, result.index, false)
+  if ch.data.dfDoneForGlyph.len != 0 and not ch.data.dfDoneForGlyph[result.index]:
+    generateDistanceFieldForGlyph(ch, result.index, false)
 
-      chunksToGen.add(ch)
-      if glyphGenerationTimer.isNil:
-        glyphGenerationTimer = setInterval(0.1, generateDistanceFields)
-
-      ch.texture = gl.createTexture()
-      gl.bindTexture(gl.TEXTURE_2D, ch.texture)
-
-      let texWidth = ch.data.bitmapWidth.GLsizei
-      let texHeight = ch.data.bitmapHeight.GLsizei
-      gl.texImage2D(gl.TEXTURE_2D, 0, GLint(gl.ALPHA), texWidth, texHeight, 0, gl.ALPHA, gl.UNSIGNED_BYTE, ch.data.bitmap)
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
-      #gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST)
-      #gl.generateMipmap(gl.TEXTURE_2D)
-    elif ch.data.dfDoneForGlyph.len != 0 and not ch.data.dfDoneForGlyph[result.index]:
-      generateDistanceFieldForGlyph(ch, result.index, true)
+  if ch.texture.isNil and not currentWgpuDevice.isNil and ch.data.bitmap.len != 0:
+    let w = ch.data.bitmapWidth.int
+    let h = ch.data.bitmapHeight.int
+    var rgba = newSeq[byte](w * h * 4)
+    for p in 0 ..< w * h:
+      let a = ch.data.bitmap[p]
+      rgba[p * 4 + 0] = 255
+      rgba[p * 4 + 1] = 255
+      rgba[p * 4 + 2] = 255
+      rgba[p * 4 + 3] = a
+    var desc: TextureDescriptor
+    desc.usage = {tuCopyDst, tuTextureBinding}
+    desc.dimension = td2D
+    desc.size = Extent3D(width: w.uint32, height: h.uint32, depthOrArrayLayers: 1)
+    desc.format = tfRGBA8Unorm
+    desc.mipLevelCount = 1
+    desc.sampleCount = 1
+    ch.texture = currentWgpuDevice.createTexture(desc)
+    var dst: TexelCopyTextureInfo
+    dst.texture = ch.texture
+    dst.aspect = taAll
+    var layout: TexelCopyBufferLayout
+    layout.bytesPerRow = (w * 4).uint32
+    layout.rowsPerImage = h.uint32
+    currentWgpuDevice.getQueue().writeTexture(dst, addr rgba[0], rgba.len, layout, desc.size)
 
 proc getQuadDataForRune*(f: Font, r: Rune, quad: var openarray[Coord], offset: int, texture: var TextureRef, pt: var Point) =
   let (chunk, charIndexInChunk) = f.chunkAndCharIndexForRune(r)
