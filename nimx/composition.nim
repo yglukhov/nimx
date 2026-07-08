@@ -211,6 +211,14 @@ proc createPipeline(ctx: GraphicsContext, shaderCode: string, bgl: BindGroupLayo
   desc.primitive.cullMode = cmNone
   desc.multisample.count = 1
   desc.multisample.mask = uint32.high
+  var depth: DepthStencilState
+  if ctx.depthFormat != tfUndefined:
+    depth.format = ctx.depthFormat
+    depth.depthWriteEnabled = obFalse
+    depth.depthCompare = cfAlways
+    depth.stencilReadMask = uint32.high
+    depth.stencilWriteMask = uint32.high
+    desc.depthStencil = addr depth
   ctx.device.createRenderPipeline(desc)
 
 proc compileComposition*(ctx: GraphicsContext, comp: Composition, cchash: Hash, options: int): CompiledComposition =

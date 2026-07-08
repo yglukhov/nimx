@@ -42,6 +42,9 @@ type
     texturedPipeline, sdfTexturedPipeline: RenderPipeline
     textureBindGroupLayout: BindGroupLayout
     sampler: Sampler
+    depthTexture: Texture
+    depthView*: TextureView
+    depthFormat*: TextureFormat
 
 var gCurrentContext {.threadvar.}: GraphicsContext
 
@@ -165,6 +168,28 @@ template withTransform*(c: GraphicsContext, t: ptr Transform3D, body: typed) =
   body
   c.pTransform = oldTransform
 
+proc ensureDepthTexture*(c: GraphicsContext) =
+  when not defined(wasm):
+    if c.device.isNil or c.surfaceWidth <= 0 or c.surfaceHeight <= 0:
+      return
+    if c.depthFormat == tfUndefined:
+      c.depthFormat = tfDepth32Float
+    if not c.depthTexture.isNil and c.depthTexture.width == c.surfaceWidth.uint32 and c.depthTexture.height == c.surfaceHeight.uint32:
+      return
+
+    c.depthTexture = Texture()
+    c.depthView = TextureView()
+
+    var desc: TextureDescriptor
+    desc.usage = {tuRenderAttachment}
+    desc.dimension = td2D
+    desc.size = Extent3D(width: c.surfaceWidth.uint32, height: c.surfaceHeight.uint32, depthOrArrayLayers: 1)
+    desc.format = c.depthFormat
+    desc.mipLevelCount = 1
+    desc.sampleCount = 1
+    c.depthTexture = c.device.createTexture(desc)
+    c.depthView = c.depthTexture.createView()
+
 proc configureSurface*(c: GraphicsContext, device: Device, surface: Surface, format: TextureFormat, width, height: int) =
   c.device = device
   currentWgpuDevice = device
@@ -184,6 +209,8 @@ proc configureSurface*(c: GraphicsContext, device: Device, surface: Surface, for
       cfg.alphaMode = camAuto
       surface.configure(cfg)
       c.configured = true
+      c.depthFormat = tfDepth32Float
+      c.ensureDepthTexture()
 
 proc resizeSurface*(c: GraphicsContext, width, height: int) =
   if not c.device.isNil and not c.surface.isNil:
@@ -239,6 +266,14 @@ proc createColorPipeline(c: GraphicsContext, topology: PrimitiveTopology): Rende
   desc.primitive.cullMode = cmNone
   desc.multisample.count = 1
   desc.multisample.mask = uint32.high
+  var depth: DepthStencilState
+  if c.depthFormat != tfUndefined:
+    depth.format = c.depthFormat
+    depth.depthWriteEnabled = obFalse
+    depth.depthCompare = cfAlways
+    depth.stencilReadMask = uint32.high
+    depth.stencilWriteMask = uint32.high
+    desc.depthStencil = addr depth
   c.device.createRenderPipeline(desc)
 
 proc createTextureBindGroupLayout(c: GraphicsContext): BindGroupLayout =
@@ -331,6 +366,14 @@ proc createTexturedPipeline(c: GraphicsContext, shaderCode: string = texturedSha
   desc.primitive.cullMode = cmNone
   desc.multisample.count = 1
   desc.multisample.mask = uint32.high
+  var depth: DepthStencilState
+  if c.depthFormat != tfUndefined:
+    depth.format = c.depthFormat
+    depth.depthWriteEnabled = obFalse
+    depth.depthCompare = cfAlways
+    depth.stencilReadMask = uint32.high
+    depth.stencilWriteMask = uint32.high
+    desc.depthStencil = addr depth
   c.device.createRenderPipeline(desc)
 
 proc texturedPipelineFor(c: GraphicsContext): RenderPipeline =
@@ -371,6 +414,7 @@ proc beginFrame*(c: GraphicsContext, clearColor: Color): bool {.discardable.} =
     c.currentTexture = st.texture
     c.currentView = c.currentTexture.createView()
     c.encoder = c.device.createCommandEncoder()
+    c.ensureDepthTexture()
 
     var attachment: RenderPassColorAttachment
     attachment.view = c.currentView
@@ -379,9 +423,21 @@ proc beginFrame*(c: GraphicsContext, clearColor: Color): bool {.discardable.} =
     attachment.storeOp = soStore
     attachment.clearValue = wgpu.Color(r: clearColor.r, g: clearColor.g, b: clearColor.b, a: clearColor.a)
 
+    var depthAttachment: RenderPassDepthStencilAttachment
+    depthAttachment.view = c.depthView
+    depthAttachment.depthLoadOp = loClear
+    depthAttachment.depthStoreOp = soStore
+    depthAttachment.depthClearValue = 1.0'f32
+    depthAttachment.depthReadOnly = 0'u32
+    depthAttachment.stencilLoadOp = loUndefined
+    depthAttachment.stencilStoreOp = soUndefined
+    depthAttachment.stencilReadOnly = 1'u32
+
     var passDesc: RenderPassDescriptor
     passDesc.colorAttachmentCount = 1
     passDesc.colorAttachments = cast[ptr UncheckedArray[RenderPassColorAttachment]](addr attachment)
+    if not c.depthView.isNil:
+      passDesc.depthStencilAttachment = addr depthAttachment
     c.renderPass = c.encoder.beginRenderPass(passDesc)
     c.frameActive = true
     result = true

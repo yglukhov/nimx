@@ -16,12 +16,16 @@ type
     savedFrameActive: bool
     offscreenEncoder: CommandEncoder
     offscreenPass: RenderPassEncoder
+    depthTexture: Texture
+    depthView: TextureView
 
 proc dispose*(r: ImageRenderTarget) =
   r.image = nil
   r.offscreenPass = RenderPassEncoder()
   r.offscreenEncoder = CommandEncoder()
   r.savedRenderPass = RenderPassEncoder()
+  r.depthTexture = Texture()
+  r.depthView = TextureView()
 
 proc newImageRenderTarget*(needsDepthStencil: bool = true): ImageRenderTarget {.inline.} =
   result.new()
@@ -50,6 +54,27 @@ proc setImage*(rt: ImageRenderTarget, i: SelfContainedImage) =
   rt.texHeight = i.texHeight
   i.ensureRenderTargetTexture()
 
+proc ensureDepthTexture(t: ImageRenderTarget, c: GraphicsContext) =
+  if not t.needsDepthStencil or c.depthFormat == tfUndefined:
+    return
+  let w = max(1, t.texWidth.int).uint32
+  let h = max(1, t.texHeight.int).uint32
+  if not t.depthTexture.isNil and t.depthTexture.width == w and t.depthTexture.height == h:
+    return
+
+  t.depthTexture = Texture()
+  t.depthView = TextureView()
+
+  var desc: TextureDescriptor
+  desc.usage = {tuRenderAttachment}
+  desc.dimension = td2D
+  desc.size = Extent3D(width: w, height: h, depthOrArrayLayers: 1)
+  desc.format = c.depthFormat
+  desc.mipLevelCount = 1
+  desc.sampleCount = 1
+  t.depthTexture = c.device.createTexture(desc)
+  t.depthView = t.depthTexture.createView()
+
 proc beginDraw*(t: ImageRenderTarget, state: var RTIContext) =
   let c = currentContext()
   if c.isNil or c.device.isNil or t.image.isNil or t.image.texture.isNil:
@@ -59,6 +84,7 @@ proc beginDraw*(t: ImageRenderTarget, state: var RTIContext) =
 
   let view = t.image.texture.createView()
   t.offscreenEncoder = c.device.createCommandEncoder()
+  t.ensureDepthTexture(c)
 
   var attachment: RenderPassColorAttachment
   attachment.view = view
@@ -67,9 +93,22 @@ proc beginDraw*(t: ImageRenderTarget, state: var RTIContext) =
   attachment.storeOp = soStore
   attachment.clearValue = wgpu.Color(r: 0.0, g: 0.0, b: 0.0, a: 0.0)
 
+  var depthAttachment: RenderPassDepthStencilAttachment
+  if not t.depthView.isNil:
+    depthAttachment.view = t.depthView
+    depthAttachment.depthLoadOp = loClear
+    depthAttachment.depthStoreOp = soStore
+    depthAttachment.depthClearValue = 1.0'f32
+    depthAttachment.depthReadOnly = 0'u32
+    depthAttachment.stencilLoadOp = loUndefined
+    depthAttachment.stencilStoreOp = soUndefined
+    depthAttachment.stencilReadOnly = 1'u32
+
   var passDesc: RenderPassDescriptor
   passDesc.colorAttachmentCount = 1
   passDesc.colorAttachments = cast[ptr UncheckedArray[RenderPassColorAttachment]](addr attachment)
+  if not t.depthView.isNil:
+    passDesc.depthStencilAttachment = addr depthAttachment
   t.offscreenPass = t.offscreenEncoder.beginRenderPass(passDesc)
 
   c.renderPass = t.offscreenPass
