@@ -1,8 +1,5 @@
 import std/[math]
-import types
-import matrixes
-import image
-import gpu_types
+import ./[types, matrixes, image, gpu_types]
 import wgpu except Color
 
 export matrixes
@@ -486,72 +483,47 @@ proc drawVertices(c: GraphicsContext, data: openarray[ColorVertex], topology: Pr
     c.renderPass.setVertexBuffer(0, vb)
     c.renderPass.draw(data.len.uint32, 1, 0, 0)
 
-proc fillPolygon(c: GraphicsContext, points: openarray[Point], color: Color) =
-  if points.len < 3: return
-  var verts = newSeq[ColorVertex]((points.len - 2) * 3)
-  var n = 0
-  for i in 1 ..< points.len - 1:
-    verts[n] = c.toVertex(points[0], color); inc n
-    verts[n] = c.toVertex(points[i], color); inc n
-    verts[n] = c.toVertex(points[i + 1], color); inc n
-  c.drawVertices(verts, ptTriangleList)
+import ./composition
 
-proc fillRect(c: GraphicsContext, r: Rect, color: Color) =
-  if r.width <= 0 or r.height <= 0: return
-  let p0 = newPoint(r.x, r.y)
-  let p1 = newPoint(r.maxX, r.y)
-  let p2 = newPoint(r.maxX, r.maxY)
-  let p3 = newPoint(r.x, r.maxY)
-  let verts = [c.toVertex(p0, color), c.toVertex(p1, color), c.toVertex(p2, color),
-               c.toVertex(p2, color), c.toVertex(p3, color), c.toVertex(p0, color)]
-  c.drawVertices(verts, ptTriangleList)
-
-proc drawRect*(c: GraphicsContext, r: Rect) =
-  if c.fillColor.a > 0: c.fillRect(r, c.fillColor)
-  if c.strokeWidth > 0 and c.strokeColor.a > 0:
-    let w = c.strokeWidth
-    c.fillRect(newRect(r.x, r.y, r.width, w), c.strokeColor)
-    c.fillRect(newRect(r.x, r.maxY - w, r.width, w), c.strokeColor)
-    c.fillRect(newRect(r.x, r.y, w, r.height), c.strokeColor)
-    c.fillRect(newRect(r.maxX - w, r.y, w, r.height), c.strokeColor)
-
-proc roundedPoints(r: Rect, radius: Coord, segmentsPerCorner: int): seq[Point] =
-  let rad = min(radius, min(r.width, r.height) / 2)
-  if rad <= 0:
-    return @[newPoint(r.x, r.y), newPoint(r.maxX, r.y), newPoint(r.maxX, r.maxY), newPoint(r.x, r.maxY)]
-  let centers = [newPoint(r.maxX - rad, r.y + rad), newPoint(r.maxX - rad, r.maxY - rad),
-                 newPoint(r.x + rad, r.maxY - rad), newPoint(r.x + rad, r.y + rad)]
-  let starts = [-PI / 2, 0.0, PI / 2, PI]
-  for ci in 0 ..< 4:
-    for s in 0 .. segmentsPerCorner:
-      let a = starts[ci] + (PI / 2) * (s.float / segmentsPerCorner.float)
-      result.add(newPoint(centers[ci].x + cos(a).Coord * rad, centers[ci].y + sin(a).Coord * rad))
+const roundedRectComposition = newComposition """
+fn compose() {
+  drawInitialShape(sdRoundedRectAt(uni.bounds, uni.uRadius.x), uni.uStrokeColor);
+  drawShape(sdRoundedRectAt(insetRect(uni.bounds, uni.uStrokeWidth.x), uni.uRadius.x - uni.uStrokeWidth.x), uni.uFillColor);
+}
+"""
 
 proc drawRoundedRect*(c: GraphicsContext, r: Rect, radius: Coord) =
-  if c.fillColor.a > 0:
-    c.fillPolygon(r.roundedPoints(radius, 8), c.fillColor)
-  if c.strokeWidth > 0 and c.strokeColor.a > 0:
-    c.fillPolygon(r.roundedPoints(radius, 8), c.strokeColor)
-    let inner = r.inset(c.strokeWidth)
-    if inner.width > 0 and inner.height > 0:
-      c.fillPolygon(inner.roundedPoints(max(0, radius - c.strokeWidth), 8), c.fillColor)
+  roundedRectComposition.draw r:
+    setUniform("uFillColor", c.fillColor)
+    setUniform("uStrokeColor", if c.strokeWidth == 0: c.fillColor else: c.strokeColor)
+    setUniform("uStrokeWidth", c.strokeWidth)
+    setUniform("uRadius", radius)
+
+const rectComposition = newComposition """
+fn compose() {
+  drawInitialShape(sdRectAt(uni.bounds), uni.uStrokeColor);
+  drawShape(sdRectAt(insetRect(uni.bounds, uni.uStrokeWidth.x)), uni.uFillColor);
+}
+"""
+
+proc drawRect*(c: GraphicsContext, r: Rect) =
+  rectComposition.draw r:
+    setUniform("uFillColor", c.fillColor)
+    setUniform("uStrokeColor", if c.strokeWidth == 0: c.fillColor else: c.strokeColor)
+    setUniform("uStrokeWidth", c.strokeWidth)
+
+const ellipseComposition = newComposition """
+fn compose() {
+  drawInitialShape(sdEllipseInRectAt(uni.bounds), uni.uStrokeColor);
+  drawShape(sdEllipseInRectAt(insetRect(uni.bounds, uni.uStrokeWidth.x)), uni.uFillColor);
+}
+"""
 
 proc drawEllipseInRect*(c: GraphicsContext, r: Rect) =
-  let segs = 48
-  proc ellipsePoints(rr: Rect): seq[Point] =
-    let cx = rr.x + rr.width / 2
-    let cy = rr.y + rr.height / 2
-    result.add(newPoint(cx, cy))
-    for i in 0 .. segs:
-      let a = 2 * PI * i.float / segs.float
-      result.add(newPoint(cx + cos(a).Coord * rr.width / 2, cy + sin(a).Coord * rr.height / 2))
-  if c.fillColor.a > 0:
-    c.fillPolygon(r.ellipsePoints(), c.fillColor)
-  if c.strokeWidth > 0 and c.strokeColor.a > 0:
-    c.fillPolygon(r.ellipsePoints(), c.strokeColor)
-    let inner = r.inset(c.strokeWidth)
-    if inner.width > 0 and inner.height > 0 and c.fillColor.a > 0:
-      c.fillPolygon(inner.ellipsePoints(), c.fillColor)
+  ellipseComposition.draw r:
+    setUniform("uFillColor", c.fillColor)
+    setUniform("uStrokeColor", if c.strokeWidth == 0: c.fillColor else: c.strokeColor)
+    setUniform("uStrokeWidth", c.strokeWidth)
 
 proc bindVertexData*(c: GraphicsContext, length: int) = discard
 
@@ -608,17 +580,39 @@ proc drawImage*(c: GraphicsContext, i: Image, toRect: Rect, fromRect: Rect = zer
 proc drawNinePartImage*(c: GraphicsContext, i: Image, toRect: Rect, ml, mt, mr, mb: Coord, fromRect: Rect = zeroRect, alpha: ColorComponent = 1.0) =
   c.drawImage(i, toRect, fromRect, alpha)
 
+const lineComposition = newComposition """
+fn drawLineSdf(p1: vec2f, p2: vec2f) -> f32 {
+  let A = uni.A.xy;
+  let B = uni.B.xy;
+  let va = B - A;
+  let vb = vPos - A;
+  let vc = vPos - B;
+  let tri = vec3f(distance(A, B), distance(vPos, A), distance(vPos, B));
+  let p = (tri.x + tri.y + tri.z) / 2.0;
+  let h = 2.0 * sqrt(p * (p - tri.x) * (p - tri.y) * (p - tri.z)) / tri.x;
+  let angles = acos(vec2f(dot(normalize(-va), normalize(vc)), dot(normalize(va), normalize(vb))));
+  let anglem = vec2f(1.0) - step(vec2f(PI / 2.0), angles);
+  let pixelValue = 1.0 - smoothstep(0.0, uni.uStrokeWidth.x, h);
+  return anglem.x * anglem.y * pixelValue;
+}
+
+fn compose() {
+  outColor = vec4f(uni.uStrokeColor.xyz, uni.uStrokeColor.a * drawLineSdf(uni.A.xy, uni.B.xy));
+}
+"""
+
 proc drawLine*(c: GraphicsContext, pointFrom: Point, pointTo: Point) =
-  let dx = pointTo.x - pointFrom.x
-  let dy = pointTo.y - pointFrom.y
-  let len = sqrt(dx * dx + dy * dy)
-  if len <= 0: return
-  let hw = max(c.strokeWidth, 1) / 2
-  let nx = -dy / len * hw
-  let ny = dx / len * hw
-  let pts = [newPoint(pointFrom.x + nx, pointFrom.y + ny), newPoint(pointTo.x + nx, pointTo.y + ny),
-             newPoint(pointTo.x - nx, pointTo.y - ny), newPoint(pointFrom.x - nx, pointFrom.y - ny)]
-  c.fillPolygon(pts, c.strokeColor)
+  let xfrom = min(pointFrom.x, pointTo.x)
+  let yfrom = min(pointFrom.y, pointTo.y)
+  let xsize = max(pointFrom.x, pointTo.x) - xfrom
+  let ysize = max(pointFrom.y, pointTo.y) - yfrom
+  let r = newRect(xfrom - c.strokeWidth, yfrom - c.strokeWidth, xsize + 2 * c.strokeWidth, ysize + 2 * c.strokeWidth)
+
+  lineComposition.draw r:
+    setUniform("uStrokeWidth", c.strokeWidth)
+    setUniform("uStrokeColor", c.strokeColor)
+    setUniform("A", pointFrom)
+    setUniform("B", pointTo)
 
 proc bezierPoint(p0, p1, p2, p3: Point, t: Coord): Point =
   let it = 1 - t
@@ -632,24 +626,57 @@ proc drawBezier*(c: GraphicsContext, p0, p1, p2, p3: Point) =
     c.drawLine(prev, p)
     prev = p
 
+const arcComposition = newComposition """
+fn compose() {
+  let center = uni.bounds.xy + uni.bounds.zw / vec2f(2.0);
+  let radius = min(uni.bounds.z, uni.bounds.w) / 2.0 - 1.0;
+  let centerDist = distance(vPos, center);
+  let delta = vPos - center;
+  var angle = atan2(delta.y, delta.x);
+  angle += step(angle, 0.0) * PI * 2.0;
+  let angleDist1 = step(step(angle, uni.uStartAngle.x) + step(uni.uEndAngle.x, angle), 0.0);
+  angle += PI * 2.0;
+  let angleDist2 = step(step(angle, uni.uStartAngle.x) + step(uni.uEndAngle.x, angle), 0.0);
+  drawInitialShape((centerDist - radius) / radius, uni.uStrokeColor);
+  drawShape((centerDist - radius + uni.uStrokeWidth.x) / radius, uni.uFillColor);
+  outColor.a *= max(angleDist1, angleDist2);
+}
+"""
+
 proc drawArc*(c: GraphicsContext, center: Point, radius: Coord, fromAngle, toAngle: Coord) =
-  if abs(toAngle - fromAngle) < 0.0001 or radius <= 0: return
-  let segs = max(8, int(abs(toAngle - fromAngle) / (2 * PI) * 64))
-  var prev = newPoint(center.x + cos(fromAngle).Coord * radius, center.y + sin(fromAngle).Coord * radius)
-  for i in 1 .. segs:
-    let a = fromAngle + (toAngle - fromAngle) * i.Coord / segs.Coord
-    let p = newPoint(center.x + cos(a).Coord * radius, center.y + sin(a).Coord * radius)
-    c.drawLine(prev, p)
-    prev = p
+  if abs(fromAngle - toAngle) < 0.0001: return
+  var fromAngle = fromAngle
+  var toAngle = toAngle
+  fromAngle = fromAngle mod (2 * Pi)
+  toAngle = toAngle mod (2 * Pi)
+  if fromAngle < 0: fromAngle += Pi * 2
+  if toAngle < 0: toAngle += Pi * 2
+  if toAngle < fromAngle:
+     toAngle += Pi * 2
+
+  let rad = radius + 1
+  let r = newRect(center.x - rad, center.y - rad, rad * 2, rad * 2)
+  arcComposition.draw r:
+    setUniform("uStrokeWidth", c.strokeWidth)
+    setUniform("uFillColor", c.fillColor)
+    setUniform("uStrokeColor", if c.strokeWidth == 0: c.fillColor else: c.strokeColor)
+    setUniform("uStartAngle", fromAngle)
+    setUniform("uEndAngle", toAngle)
+
+const triangleComposition = newComposition """
+fn compose() {
+  let center = vec2f(uni.bounds.x + uni.bounds.z / 2.0, uni.bounds.y + uni.bounds.w / 2.0 - 1.0);
+  let triangle = sdRegularPolygonAt(center, 4.0, 3, uni.uAngle.x);
+  drawShape(triangle, uni.uColor);
+}
+"""
 
 proc drawTriangle*(c: GraphicsContext, rect: Rect, angleRad: Coord) =
-  let center = newPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)
-  let rad = min(rect.width, rect.height) / 2
-  var pts: array[3, Point]
-  for i in 0 ..< 3:
-    let a = angleRad - PI / 2 + 2 * PI * i.float / 3
-    pts[i] = newPoint(center.x + cos(a).Coord * rad, center.y + sin(a).Coord * rad)
-  c.fillPolygon(pts, c.fillColor)
+  var color = c.fillColor
+  color.a *= c.alpha
+  triangleComposition.draw rect:
+    setUniform("uAngle", angleRad)
+    setUniform("uColor", color)
 
 proc applyClippingRect*(c: GraphicsContext, r: Rect, on: bool) = discard
 

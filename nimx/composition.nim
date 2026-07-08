@@ -8,6 +8,7 @@ export context
 type
   UniformDesc = object
     name: string
+    typ: string
 
   Composition* = object
     definition: string
@@ -77,7 +78,7 @@ fn sdEllipseInRect(pos: vec2f, rect: vec4f) -> f32 {
 fn sdEllipseInRectAt(rect: vec4f) -> f32 { return sdEllipseInRect(vPos, rect); }
 
 fn sdRegularPolygon(st0: vec2f, center: vec2f, radius: f32, n: i32, angle: f32) -> f32 {
-  var st = st0 - center;
+  let st = st0 - center;
   let innerAngle = f32(n - 2) * PI / f32(n);
   let pointAngle = atan2(st.y, st.x) - angle;
   let s = floor(pointAngle / (PI - innerAngle));
@@ -93,10 +94,6 @@ fn sdRegularPolygonAt(center: vec2f, radius: f32, n: i32, angle: f32) -> f32 { r
 
 fn newGrayColor(v: f32) -> vec4f { return vec4f(v, v, v, 1.0); }
 fn newGrayColorA(v: f32, a: f32) -> vec4f { return vec4f(v, v, v, a); }
-fn gradient(pos: f32, startColor: vec4f, endColor: vec4f) -> vec4f { return mix(startColor, endColor, pos); }
-fn gradient5(pos: f32, startColor: vec4f, sN: f32, cN: vec4f, endColor: vec4f) -> vec4f { return mix(gradient(pos / sN, startColor, cN), endColor, smoothstep(sN, 1.0, pos)); }
-fn gradient7(pos: f32, startColor: vec4f, s1: f32, c1: vec4f, sN: f32, cN: vec4f, endColor: vec4f) -> vec4f { return mix(gradient5(pos / sN, startColor, s1 / sN, c1, cN), endColor, smoothstep(sN, 1.0, pos)); }
-fn gradient9(pos: f32, startColor: vec4f, s1: f32, c1: vec4f, s2: f32, c2: vec4f, sN: f32, cN: vec4f, endColor: vec4f) -> vec4f { return mix(gradient7(pos / sN, startColor, s1 / sN, c1, s2 / sN, c2, cN), endColor, smoothstep(sN, 1.0, pos)); }
 
 fn rgb2hsv(c: vec3f) -> vec3f {
   let K = vec4f(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
@@ -113,32 +110,33 @@ fn hsv2rgb(c: vec3f) -> vec3f {
   return c.z * mix(K.xxx, clamp(p - K.xxx, vec3f(0.0), vec3f(1.0)), c.y);
 }
 
+fn gradient(pos: f32, startColor: vec4f, endColor: vec4f) -> vec4f { return mix(startColor, endColor, pos); }
+fn gradient5(pos: f32, startColor: vec4f, sN: f32, cN: vec4f, endColor: vec4f) -> vec4f { return mix(gradient(pos / sN, startColor, cN), endColor, smoothstep(sN, 1.0, pos)); }
+fn gradient7(pos: f32, startColor: vec4f, s1: f32, c1: vec4f, sN: f32, cN: vec4f, endColor: vec4f) -> vec4f { return mix(gradient5(pos / sN, startColor, s1 / sN, c1, cN), endColor, smoothstep(sN, 1.0, pos)); }
+fn gradient9(pos: f32, startColor: vec4f, s1: f32, c1: vec4f, s2: f32, c2: vec4f, sN: f32, cN: vec4f, endColor: vec4f) -> vec4f { return mix(gradient7(pos / sN, startColor, s1 / sN, c1, s2 / sN, c2, cN), endColor, smoothstep(sN, 1.0, pos)); }
+
 fn fillAlpha(dist: f32) -> f32 {
   let d = fwidth(dist);
   return 1.0 - smoothstep(-d, d, dist);
 }
 
-fn drawShape(dist: f32, color: vec4f) {
-  outColor = mix(outColor, color, fillAlpha(dist));
-}
-fn drawInitialShape(dist: f32, color: vec4f) {
-  outColor = color;
-  outColor.a *= fillAlpha(dist);
-}
-fn blendShape(dist: f32, color: vec4f) {
-  outColor = mix(outColor, color, fillAlpha(dist) * color.a);
-}
+fn drawShape(dist: f32, color: vec4f) { outColor = mix(outColor, color, fillAlpha(dist)); }
+fn drawInitialShape(dist: f32, color: vec4f) { outColor = color; outColor.a *= fillAlpha(dist); }
+fn blendShape(dist: f32, color: vec4f) { outColor = mix(outColor, color, fillAlpha(dist) * color.a); }
 """
 
-proc newComposition*(vsDef, fsDef: static[string], requiresPrequel: bool = true, precision: string = "highp"): Composition =
-  result.definition = fsDef
-  result.id = hash(fsDef) !& hash(vsDef) !& hash(requiresPrequel) !& hash(precision)
-
-template newComposition*(definition: static[string], requiresPrequel: bool = true): Composition =
-  newComposition("", definition, requiresPrequel)
-
-template newCompositionWithNimsl*(mainProc: typed): Composition =
-  newComposition(wgslShader(mainProc), false)
+proc replaceWord(s, word, repl: string): string =
+  result = ""
+  var i = 0
+  while i < s.len:
+    if i + word.len <= s.len and s.substr(i, i + word.len - 1) == word and
+       (i == 0 or not (s[i-1].isAlphaNumeric or s[i-1] == '_')) and
+       (i + word.len == s.len or not (s[i+word.len].isAlphaNumeric or s[i+word.len] == '_')):
+      result.add repl
+      i += word.len
+    else:
+      result.add s[i]
+      inc i
 
 proc extractUniforms(src: string): seq[UniformDesc] =
   var seen = initTable[string, bool]()
@@ -151,8 +149,18 @@ proc extractUniforms(src: string): seq[UniformDesc] =
     let name = src[p + 4 ..< j]
     if name notin ["uModelViewProjectionMatrix", "bounds", "uBounds"] and not seen.hasKey(name):
       seen[name] = true
-      result.add(UniformDesc(name: name))
+      result.add UniformDesc(name: name, typ: "vec4f")
     i = j
+
+proc newComposition*(vsDef, fsDef: static[string], requiresPrequel: bool = true, precision: string = "highp"): Composition =
+  result.definition = fsDef
+  result.id = hash(fsDef) !& hash(vsDef) !& hash(requiresPrequel) !& hash(precision)
+
+template newComposition*(definition: static[string], requiresPrequel: bool = true): Composition =
+  newComposition("", definition, requiresPrequel)
+
+template newCompositionWithNimsl*(mainProc: typed): Composition =
+  newComposition(wgslShader(mainProc), false)
 
 proc buildShader(comp: Composition, uniforms: seq[UniformDesc]): string =
   result = "struct Uniforms {\n"
@@ -213,10 +221,10 @@ proc compileComposition*(ctx: GraphicsContext, comp: Composition, cchash: Hash, 
   entries[0].binding = 0
   entries[0].visibility = {ssVertex, ssFragment}
   entries[0].buffer.typ = bbtUniform
-  var bglDesc: BindGroupLayoutDescriptor
-  bglDesc.entryCount = 1
-  bglDesc.entries = cast[ptr UncheckedArray[BindGroupLayoutEntry]](addr entries)
-  result.bindGroupLayout = ctx.device.createBindGroupLayout(bglDesc)
+  var layoutDesc: BindGroupLayoutDescriptor
+  layoutDesc.entryCount = 1
+  layoutDesc.entries = cast[ptr UncheckedArray[BindGroupLayoutEntry]](addr entries)
+  result.bindGroupLayout = ctx.device.createBindGroupLayout(layoutDesc)
   result.pipeline = ctx.createPipeline(buildShader(comp, result.uniforms), result.bindGroupLayout)
   programCache[cchash] = result
 
