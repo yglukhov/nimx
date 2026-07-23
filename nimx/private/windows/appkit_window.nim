@@ -1,20 +1,21 @@
 import ../../[ abstract_window, system_logger, view, context, event, app,
-       linkage_details, portable_gl, screen ]
+       linkage_details ]
 
 import ../macos_vk_map
 
 import darwin/objc/[runtime, nsobject]
 import darwin/foundation/[nsnotification, nsautoreleasepool, nsgeometry, nsbundle, nsprocessinfo]
-import darwin/app_kit/[nsview, nswindow, nsapplication, nsmenu, nsevent, nsopenglview, nsopengl]
+import darwin/app_kit/[nsview, nswindow, nsapplication, nsmenu, nsevent]
 import darwin/core_video/[cvdisplay_link]
+import darwin/quartz_core/[calayer, cametal_layer]
 
-import opengl
-import std/[unicode, times]
+import wgpu
+import yasync/compat
 
 {.passL: "-framework AppKit".}
 
 type
-  NimxView = ptr object of NSOpenGLView
+  NimxView = ptr object of NSView
   NimxWindow = ptr object of NSWindow
   NimxAppDelegate = ptr object of NSObject
 
@@ -34,6 +35,11 @@ type
     nativeView: NimxView
     renderingContext: GraphicsContext
     displayLink: CVDisplayLink
+    wgpuInstance: wgpu.Instance
+    wgpuAdapter: wgpu.Adapter
+    wgpuDevice: wgpu.Device
+    wgpuSurface: wgpu.Surface
+    wgpuFormat: TextureFormat
     textInputActive: bool
 
 const
@@ -138,42 +144,49 @@ proc windowClass(): ObjcClass =
     r = createWindowClass()
   r
 
-proc createPixelFormat(colorBits, depthBits: uint32): NSOpenGLPixelFormat =
-  var pixelAttribs = [
-    NSOpenGLPFADoubleBuffer,
-    NSOpenGLPFAAccelerated,
-    NSOpenGLPFAColorSize,
-    colorBits,
-    NSOpenGLPFADepthSize,
-    depthBits,
-    0
-  ]
-  #  NSOpenGLPixelFormatAttribute pixelAttribs[ 16 ];
-  #  int pixNum = 0;
-  #  NSDictionary *fullScreenMode;
+proc getPreferredFormat(surface: wgpu.Surface, adapter: wgpu.Adapter): TextureFormat =
+  var caps: SurfaceCapabilities
+  if surface.getCapabilities(adapter, caps) and caps.formatCount > 0:
+    result = caps.formats[0]
+  else:
+    result = tfBGRA8Unorm
 
-  #  pixelAttribs[pixNum++] = NSOpenGLPFADoubleBuffer;
-  #  pixelAttribs[pixNum++] = NSOpenGLPFAAccelerated;
-  #  pixelAttribs[pixNum++] = NSOpenGLPFAColorSize;
-  #  pixelAttribs[pixNum++] = colorBits;
-  #  pixelAttribs[pixNum++] = NSOpenGLPFADepthSize;
-  #  pixelAttribs[pixNum++] = depthBits;
-  #  if( runningFullScreen )  // Do this before getting the pixel format
-  #  {
-  #   pixelAttribs[pixNum++] = NSOpenGLPFAFullScreen;
-  #   fullScreenMode = (NSDictionary *) CGDisplayBestModeForParameters(
-  #                      kCGDirectMainDisplay,
-  #                      colorBits, frame.size.width,
-  #                      frame.size.height, NULL );
-  #   CGDisplayCapture( kCGDirectMainDisplay );
-  #   CGDisplayHideCursor( kCGDirectMainDisplay );
-  #   CGDisplaySwitchToMode( kCGDirectMainDisplay,
-  #              (CFDictionaryRef) fullScreenMode );
-  #  }
-  #  pixelAttribs[pixNum] = 0;
-  NSOpenGLPixelFormat.alloc().initWithAttributes(addr pixelAttribs[0])
-  #  return [[NSOpenGLPixelFormat alloc] initWithAttributes:pixelAttribs];
-# }
+proc createMetalLayer(): CAMetalLayer =
+  cast[CAMetalLayer](cast[NSObject](getClass("CAMetalLayer").alloc()).init())
+
+proc createWgpuSurface(w: AppkitWindow, instance: wgpu.Instance): wgpu.Surface =
+  var metalDesc: SurfaceSourceMetalLayer
+  metalDesc.sType = stSurfaceSourceMetalLayer
+  metalDesc.layer = cast[pointer](w.nativeView.layer)
+  var desc: SurfaceDescriptor
+  desc.nextInChain = addr metalDesc
+  result = instance.createSurface(desc)
+
+proc initWgpu(w: AppkitWindow) =
+  w.wgpuInstance = createInstance()
+  if w.wgpuInstance.isNil:
+    logi "Could not create WebGPU instance"
+    return
+  w.wgpuSurface = w.createWgpuSurface(w.wgpuInstance)
+  if w.wgpuSurface.isNil:
+    logi "Could not create WebGPU Metal surface"
+    return
+  var adapterOpts: RequestAdapterOptions
+  adapterOpts.compatibleSurface = w.wgpuSurface
+  w.wgpuAdapter = waitFor w.wgpuInstance.requestAdapter(adapterOpts)
+  if w.wgpuAdapter.isNil:
+    logi "Could not create WebGPU adapter"
+    return
+  var deviceOpts: DeviceDescriptor
+  deviceOpts.uncapturedErrorCallbackInfo.callback = proc(d: wgpu.Device, e: ErrorType, message: StringView, data1, data2: pointer) {.cdecl.} =
+    logi "WebGPU error: ", e, ": ", message
+  w.wgpuDevice = waitFor w.wgpuAdapter.requestDevice(deviceOpts)
+  if w.wgpuDevice.isNil:
+    logi "Could not create WebGPU device"
+    return
+  w.wgpuFormat = w.wgpuSurface.getPreferredFormat(w.wgpuAdapter)
+  let sz = w.frame.size * w.viewportPixelRatio
+  w.renderingContext.configureSurface(w.wgpuDevice, w.wgpuSurface, w.wgpuFormat, sz.width.int, sz.height.int)
 
 when defined(ios):
   method fullscreen*(w: AppkitWindow): bool = true
@@ -190,6 +203,10 @@ proc onDisplayLink(displayLink: CVDisplayLink, inNow, inOutputTime: ptr CVTimeSt
                    flagsOut: var CVOptionFlags, userInfo: pointer) {.cdecl, stackTrace: off.} =
   let v = cast[NSView](userInfo)
   v.performSelectorOnMainThread(sel_registerName("onDisplayLinkMainThread:"), nil, false)
+
+proc updatePixelRatio(w: AppkitWindow) {.inline.} =
+  w.pixelRatio = 1
+  w.viewportPixelRatio = w.nativeWindow.scaleFactor
 
 proc initCommon(w: AppkitWindow, r: view.Rect) =
   procCall init(w.Window)
@@ -210,27 +227,31 @@ proc initCommon(w: AppkitWindow, r: view.Rect) =
   let winExtra = cast[ptr NimxWindowExtra](cast[uint](win) + winClass.getInstanceSize().uint)
   winExtra.w = w
 
-  let pixelFormat = createPixelFormat(16, 16)
-  let glView = cast[NimxView](
-    cast[NSOpenGLView](
-      createInstance(viewClass, sizeof(NimxViewExtra).csize_t)).initWithFrame(NSRect(), pixelFormat))
+  let metalView = cast[NimxView](
+    cast[NSView](
+      createInstance(viewClass, sizeof(NimxViewExtra).csize_t)).initWithFrame(NSMakeRect(0, 0, r.width, r.height)))
 
-  glView.openGLContext().makeCurrentContext()
-
-  let viewExtra = cast[ptr NimxViewExtra](cast[uint](glView) + viewClass.getInstanceSize().uint)
+  let viewExtra = cast[ptr NimxViewExtra](cast[uint](metalView) + viewClass.getInstanceSize().uint)
   viewExtra.w = w
 
-  glView.setWantsBestResolutionOpenGLSurface(true)
-  win.setContentView(glView)
+  metalView.setAutoresizingMask(NSAutoresizingMaskOptions(NSViewWidthSizable.ord or NSViewHeightSizable.ord))
+  metalView.setWantsLayer(true)
+  let metalLayer = createMetalLayer()
+  metalLayer.contentsScale = win.scaleFactor
+  metalView.setLayer(metalLayer)
+  win.setContentView(metalView)
 
   w.nativeWindow = win
-  w.nativeView = glView
+  w.nativeView = metalView
+  w.updatePixelRatio()
 
   # The context has to be inited before makeKeyAndOrderFront.
   w.renderingContext = newGraphicsContext()
+  w.onResize(r.size)
+  w.initWgpu()
 
   discard CVDisplayLinkCreateWithActiveCGDisplays(addr w.displayLink)
-  discard w.displayLink.setOutputCallback(onDisplayLink, cast[pointer](glView))
+  discard w.displayLink.setOutputCallback(onDisplayLink, cast[pointer](metalView))
   discard w.displayLink.start()
 
   win.makeKeyAndOrderFront(nil)
@@ -248,7 +269,7 @@ proc newFullscreenAppkitWindow(): AppkitWindow =
 
 proc newAppkitWindow(r: view.Rect): AppkitWindow =
   result.new()
-  result.init()
+  result.initCommon(r)
 
 newWindow = proc(r: view.Rect): Window =
   result = newAppkitWindow(r)
@@ -258,13 +279,11 @@ newFullscreenWindow = proc(): Window =
 
 method drawWindow(w: AppkitWindow) =
   let c = w.renderingContext
-  c.gl.clear(c.gl.COLOR_BUFFER_BIT or c.gl.STENCIL_BUFFER_BIT or c.gl.DEPTH_BUFFER_BIT)
   let oldContext = setCurrentContext(c)
-
-  c.withTransform ortho(0, w.frame.width, w.frame.height, 0, -1, 1):
-    procCall w.Window.drawWindow()
-  let nv = w.nativeView
-  nv.openGLContext().flushBuffer()
+  if c.beginFrame(w.backgroundColor):
+    c.withTransform ortho(0, w.frame.width, w.frame.height, 0, -1, 1):
+      procCall w.Window.drawWindow()
+    c.endFrame()
   setCurrentContext(oldContext)
 
 method markNeedsDisplay*(w: AppkitWindow) =
@@ -409,9 +428,13 @@ proc handleEvent(event: ptr sdl2.Event): Bool32 =
   result = True32
 ]#
 method onResize*(w: AppkitWindow, newSize: Size) =
-  let sf = screenScaleFactor()
-  glViewport(0, 0, GLSizei(newSize.width * sf), GLsizei(newSize.height * sf))
+  w.updatePixelRatio()
+  if not w.nativeView.isNil and not w.nativeView.layer.isNil:
+    w.nativeView.layer.contentsScale = w.viewportPixelRatio
   procCall w.Window.onResize(newSize)
+  let vp = w.frame.size * w.viewportPixelRatio
+  if not w.renderingContext.isNil and not w.wgpuDevice.isNil and not w.wgpuSurface.isNil:
+    w.renderingContext.configureSurface(w.wgpuDevice, w.wgpuSurface, w.wgpuFormat, vp.width.int, vp.height.int)
 #[
 # Framerate limiter
 let MAXFRAMERATE: uint32 = 20 # milli seconds
@@ -470,6 +493,7 @@ method stopTextInput*(w: AppkitWindow) =
 proc runUntilQuit(cb: proc()) =
   let pool = NSAutoreleasePool.alloc().init()
   let app = NSApplication.sharedApplication()
+  discard app.setActivationPolicy(NSApplicationActivationPolicyRegular)
 
   var delegateClass = getClass(AppDelegateClass)
   if delegateClass == nil:
@@ -570,18 +594,27 @@ proc drawRect(self: NimxView, s: SEL, r: NSRect) =
   mainApplication().drawWindows()
   # drawWindow(getNimxWindow(self))
 
-proc reshape(self: NimxView, sel: SEL) =
-  var sup = ObjcSuper(receiver: self, superClass: getSuperclass(viewClass()))
-  let superImp = cast[proc(sup: var ObjcSuper, c: SEL) {.cdecl.}](objc_msgSendSuper)
-  superImp(sup, sel)
-
+proc resizeNimxView(self: NimxView) =
   let w = getNimxWindow(self)
   if w != nil:
     let s = self.bounds
     w.onResize(newSize(s.size.width, s.size.height))
 
+proc reshape(self: NimxView, sel: SEL) =
+  var sup = ObjcSuper(receiver: self, superClass: getSuperclass(viewClass()))
+  let superImp = cast[proc(sup: var ObjcSuper, c: SEL) {.cdecl.}](objc_msgSendSuper)
+  superImp(sup, sel)
+  self.resizeNimxView()
+
+proc setFrameSize(self: NimxView, sel: SEL, size: NSSize) =
+  var sup = ObjcSuper(receiver: self, superClass: getSuperclass(viewClass()))
+  let superImp = cast[proc(sup: var ObjcSuper, c: SEL, size: NSSize) {.cdecl.}](objc_msgSendSuper)
+  superImp(sup, sel, size)
+  self.resizeNimxView()
+
 proc onDisplayLinkMainThread(self: NimxView, s: SEL, r: NSObject) =
-  self.setNeedsDisplay(true)
+  mainApplication().runAnimations()
+  mainApplication().drawWindows()
 
 proc handleEvent(self: NimxView, cmd: SEL, e: NSEvent) =
   let w = self.getNimxWindow()
@@ -592,11 +625,12 @@ proc handleEvent(self: NimxView, cmd: SEL, e: NSEvent) =
     superImp(s, cmd, e)
 
 proc createViewClass(): ObjcClass =
-  result = allocateClassPair(getClass("NSOpenGLView"), "NimxView", 0)
+  result = allocateClassPair(getClass("NSView"), "NimxView", 0)
 
   discard addMethod(result, sel_registerName("acceptsFirstResponder"), acceptsFirstResponder)
   discard addMethod(result, sel_registerName("drawRect:"), drawRect)
   discard addMethod(result, sel_registerName("reshape"), reshape)
+  discard addMethod(result, sel_registerName("setFrameSize:"), setFrameSize)
   discard addMethod(result, sel_registerName("onDisplayLinkMainThread:"), onDisplayLinkMainThread)
 
   template ev(e: cstring) =
